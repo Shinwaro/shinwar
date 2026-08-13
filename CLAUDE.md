@@ -131,6 +131,7 @@ vendor the file into its own folder and justify it.
 index.html         the index — masthead, filter chips, card grid
 experiments.js     THE MANIFEST — the only file the index reads
 404.html           not-found page (absolute paths; server-only)
+_redirects         www.shinwar.se → shinwar.se, 301. Cloudflare reads this; it is never served.
 assets/
   shell.css        tokens (light+dark), card grid, chips, .xbar, .stage, .btn, .tag
   index.js         chip building, card rendering, hash filter state, empty states
