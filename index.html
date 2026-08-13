@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>shinwar — a lab</title>
+<meta name="description" content="A lab. Small interactive things, built for fun.">
+<meta name="color-scheme" content="light dark">
+<link rel="stylesheet" href="assets/shell.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>&#9678;</text></svg>">
+</head>
+<body>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <h1>shinwar.se</h1>
+    <p>A lab. Small things I build for fun — games, quizzes, trainers, and toys. Nothing is saved, nothing signs you up. Refresh and it's gone.</p>
+  </header>
+
+  <main>
+    <h2 class="visually-hidden">Experiments</h2>
+
+    <div class="filters" id="filters" role="group" aria-label="Filter by category"></div>
+
+    <div class="grid" id="grid"></div>
+
+    <noscript>
+      <div class="empty">
+        <strong>This one needs JavaScript.</strong>
+        The index builds itself in the browser. Everything here is a small interactive toy, so
+        there isn't much to show without it.
+      </div>
+    </noscript>
+  </main>
+
+  <footer class="footer">
+    Built by hand. No accounts, no tracking, no saved scores.
+  </footer>
+
+</div>
+
+<script src="experiments.js"></script>
+<script src="assets/index.js"></script>
+</body>
+</html>

@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Click Counter — shinwar</title>
+<meta name="description" content="Counts your clicks. That is the entire experiment.">
+<meta name="color-scheme" content="light dark">
+<link rel="stylesheet" href="../../assets/shell.css">
+<style>
+  /* Experiment-local styles live here, in the experiment. Never in shell.css. */
+  .count {
+    font-size: clamp(4rem, 22vw, 8rem);
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: -0.04em;
+    font-variant-numeric: tabular-nums;
+  }
+  .bump {
+    width: min(15rem, 70vw);
+    aspect-ratio: 1;
+    border: 1px solid var(--line);
+    border-radius: 50%;
+    background: var(--surface);
+    font-size: 1.05rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.08s, border-color 0.15s;
+  }
+  .bump:hover { border-color: var(--muted); }
+  .bump:active { transform: scale(0.96); }
+  .hint { color: var(--muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<header class="xbar">
+  <a class="xbar-back" href="../../index.html">←&nbsp;<span>shinwar</span></a>
+  <h1 class="xbar-title">Click Counter</h1>
+  <span class="tag tag-toy">Toy</span>
+</header>
+
+<main class="stage no-select">
+  <p class="count" id="count" aria-live="polite" aria-atomic="true">0</p>
+
+  <button class="bump" id="bump" type="button">Click me</button>
+
+  <p class="hint">Tap, click, or press Space. Nothing is saved — refresh and it's gone.</p>
+
+  <button class="btn" id="reset" type="button">Reset</button>
+</main>
+
+<script>
+(function () {
+  "use strict";
+
+  var n = 0;
+  var out = document.getElementById("count");
+
+  function draw() { out.textContent = String(n); }
+
+  document.getElementById("bump").addEventListener("click", function () {
+    n++;
+    draw();
+  });
+
+  document.getElementById("reset").addEventListener("click", function () {
+    n = 0;
+    draw();
+  });
+})();
+</script>
+</body>
+</html>
