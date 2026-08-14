@@ -4,7 +4,9 @@ A personal experiment lab. The homepage is an index of small, self-contained int
 The site's growth *is* the site.
 
 **No build step. No framework. No dependencies. No toolchain.** Plain HTML, CSS, and JS.
-There is no Node installed on this machine and none is wanted.
+Node and Python exist on this machine for dev-time tooling only. Nothing shipped to the site may
+depend on them — no bundler, no compile step, no npm packages, no generated files. `index.html`
+must always open by double-clicking it.
 
 ---
 
@@ -131,13 +133,22 @@ vendor the file into its own folder and justify it.
 index.html         the index — masthead, filter chips, card grid
 experiments.js     THE MANIFEST — the only file the index reads
 404.html           not-found page (absolute paths; server-only)
-_redirects         www.shinwar.se → shinwar.se, 301. Cloudflare reads this; it is never served.
+_redirects         INERT — see below. Kept only so the intent is on record.
 assets/
   shell.css        tokens (light+dark), card grid, chips, .xbar, .stage, .btn, .tag
   index.js         chip building, card rendering, hash filter state, empty states
 x/<slug>/
   index.html       one experiment, fully self-contained
 ```
+
+**`_redirects` does nothing. Don't add rules to it.** It contains
+`https://www.shinwar.se/* https://shinwar.se/:splat 301`, but Cloudflare Pages matches `_redirects`
+rules on the **path only** — a rule whose source starts with `https://` is silently ignored. Verified
+against the live edge: `www` returns 200 with a full copy of the site, not a 301. So the site is
+currently reachable at two addresses with identical content and no canonical one.
+
+The fix is a Cloudflare **Redirect Rule** (dash → the `shinwar.se` zone → Rules → Redirect Rules),
+not a file in this repo. Until that exists, assume no www→apex redirect.
 
 ### Index behaviour worth knowing
 
