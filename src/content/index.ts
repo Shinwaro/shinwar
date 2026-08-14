@@ -11,7 +11,18 @@ import { EVENTS } from './events/index.ts';
 import { MODULES } from './modules/index.ts';
 import { ENVIRONMENTS } from './environments.ts';
 import { MASTERIES } from './masteries.ts';
-import { cards, clearAllContent, enemies, environments, events, masteries, modules, threads } from './registry.ts';
+import { STATUSES } from './statuses.ts';
+import {
+  cards,
+  clearAllContent,
+  enemies,
+  environments,
+  events,
+  masteries,
+  modules,
+  statuses,
+  threads,
+} from './registry.ts';
 import type { ThreadDef } from '../engine/types.ts';
 
 /** Threads arrive at M4 with the events that set them. */
@@ -21,6 +32,8 @@ let loaded = false;
 
 export function loadContent(): void {
   if (loaded) return;
+  // Statuses first: card and enemy validation resolves status ids against them.
+  statuses.register(STATUSES);
   cards.register(CARDS);
   enemies.register(ENEMIES);
   modules.register(MODULES);

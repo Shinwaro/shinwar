@@ -19,9 +19,10 @@ import type {
   EventDef,
   MasteryDef,
   ModuleDef,
+  StatusDef,
   ThreadDef,
 } from '../engine/types.ts';
-import { THREADS } from './balance.ts';
+import { SCOPE, THREADS } from './balance.ts';
 
 interface Table<T extends { readonly id: string }> {
   register(defs: readonly T[]): void;
@@ -73,10 +74,11 @@ export const events = createTable<EventDef>('event');
 export const environments = createTable<EnvironmentDef>('environment');
 export const masteries = createTable<MasteryDef>('mastery');
 export const threads = createTable<ThreadDef>('thread');
+export const statuses = createTable<StatusDef>('status');
 
 /** Tests only. The game registers once at import and never clears. */
 export function clearAllContent(): void {
-  for (const table of [cards, enemies, modules, events, environments, masteries, threads]) {
+  for (const table of [cards, enemies, modules, events, environments, masteries, threads, statuses]) {
     table.clear();
   }
 }
@@ -166,25 +168,88 @@ function validateThreads(issues: ValidationIssue[]): void {
   }
 }
 
-function validateReferences(issues: ValidationIssue[]): void {
-  // Dangling id check. Cards can name other cards via `addCardToHand`; walking
-  // the effect tree catches those. As the op vocabulary grows this walk grows
-  // with it — every reference a card can hold gets checked here or nowhere.
-  for (const card of cards.all()) {
-    const walk = (ops: readonly EffectOp[]): void => {
-      for (const op of ops) {
-        if (op.op === 'addCardToHand' && !cards.has(op.cardId)) {
-          issues.push({ where: `card '${card.id}'`, problem: `references unknown card '${op.cardId}'` });
-        }
-        if (op.op === 'conditional') {
-          walk(op.then);
-          if (op.else !== undefined) walk(op.else);
-        }
-        if (op.op === 'scaleWith') walk(op.then);
+/**
+ * Walk an effect tree and report every id it names that does not resolve.
+ * As the op vocabulary grows this walk grows with it — every reference an
+ * effect can hold gets checked here or nowhere.
+ */
+function walkReferences(where: string, ops: readonly EffectOp[], issues: ValidationIssue[]): void {
+  for (const op of ops) {
+    if (op.op === 'addCardToHand' && !cards.has(op.cardId)) {
+      issues.push({ where, problem: `references unknown card '${op.cardId}'` });
+    }
+    if (op.op === 'applyStatus' && !statuses.has(op.status)) {
+      issues.push({ where, problem: `references unknown status '${op.status}'` });
+    }
+    if (op.op === 'conditional') {
+      if (op.when.kind === 'targetHasStatus' && !statuses.has(op.when.status)) {
+        issues.push({ where, problem: `references unknown status '${op.when.status}'` });
       }
-    };
-    walk(card.effects);
-    if (card.stanceRider !== undefined) walk(card.stanceRider.effects);
+      walkReferences(where, op.then, issues);
+      if (op.else !== undefined) walkReferences(where, op.else, issues);
+    }
+    if (op.op === 'scaleWith') walkReferences(where, op.then, issues);
+  }
+}
+
+function validateReferences(issues: ValidationIssue[]): void {
+  for (const card of cards.all()) {
+    const where = `card '${card.id}'`;
+    walkReferences(where, card.effects, issues);
+    if (card.stanceRider !== undefined) walkReferences(where, card.stanceRider.effects, issues);
+  }
+
+  for (const enemy of enemies.all()) {
+    for (const move of enemy.moves) {
+      walkReferences(`enemy '${enemy.id}' move '${move.id}'`, move.effects, issues);
+    }
+  }
+}
+
+function validateEnemies(issues: ValidationIssue[]): void {
+  for (const enemy of enemies.all()) {
+    const where = `enemy '${enemy.id}'`;
+    const moveIds = new Set(enemy.moves.map((move) => move.id));
+
+    if (enemy.moves.length === 0) issues.push({ where, problem: 'no moves' });
+    if (enemy.maxHp <= 0) issues.push({ where, problem: `maxHp ${enemy.maxHp}` });
+
+    // An enemy whose script names a move it does not have would throw mid-fight,
+    // which is the worst possible time to find out.
+    const named =
+      enemy.script.kind === 'sequence'
+        ? enemy.script.moves
+        : enemy.script.entries.map((entry) => entry.move);
+
+    if (named.length === 0) issues.push({ where, problem: 'script names no moves' });
+    for (const id of named) {
+      if (!moveIds.has(id)) issues.push({ where, problem: `script names unknown move '${id}'` });
+    }
+
+    if (enemy.script.kind === 'weighted' && enemy.script.maxRepeats < 1) {
+      issues.push({ where, problem: 'maxRepeats must be at least 1' });
+    }
+
+    // Every move must telegraph something. A blank intent is a turn the player
+    // cannot plan around, and unpreviewable damage is the definition of unfair.
+    for (const move of enemy.moves) {
+      if (move.intent.length === 0) {
+        issues.push({ where: `${where} move '${move.id}'`, problem: 'telegraphs nothing' });
+      }
+    }
+  }
+}
+
+function validateKeywordBudget(issues: ValidationIssue[]): void {
+  // Depth comes from stance and heat recontextualising a small vocabulary, not
+  // from more nouns. Statuses are the part of the keyword count that grows
+  // without anyone noticing, so it is counted.
+  const count = statuses.all().length;
+  if (count > SCOPE.keywordCap) {
+    issues.push({
+      where: 'keyword budget',
+      problem: `${count} statuses against a cap of ${SCOPE.keywordCap} keywords`,
+    });
   }
 }
 
@@ -195,9 +260,11 @@ function validateReferences(issues: ValidationIssue[]): void {
 export function validateContent(): readonly ValidationIssue[] {
   const issues: ValidationIssue[] = [];
   validateCards(issues);
+  validateEnemies(issues);
   validateEvents(issues);
   validateThreads(issues);
   validateReferences(issues);
+  validateKeywordBudget(issues);
   return issues;
 }
 
@@ -210,5 +277,6 @@ export function contentCounts(): Readonly<Record<string, number>> {
     environments: environments.all().length,
     masteries: masteries.all().length,
     threads: threads.all().length,
+    statuses: statuses.all().length,
   };
 }

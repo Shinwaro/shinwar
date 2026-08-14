@@ -7,9 +7,12 @@
  * the most common cause of a game feeling unfair. Flavor text is separate and
  * hand-written.
  *
- * Empty until M1, which brings the 12 starting cards.
+ * Four cards at M1. The pool scales to ~85 at M6.
  */
 
 import type { CardDef } from '../../engine/types.ts';
+import { BASIC_CARDS } from './basic.ts';
 
-export const CARDS: readonly CardDef[] = [];
+export const CARDS: readonly CardDef[] = [...BASIC_CARDS];
+
+export { STARTING_DECK } from './basic.ts';

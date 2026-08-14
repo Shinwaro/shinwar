@@ -1,10 +1,12 @@
-/* The enemy roster. Each enemy is a definition plus a small AI script.
- * Intents are committed at telegraph time and never re-roll — that lives in
- * `engine/combat/intents.ts`, not here.
+/* The enemy roster. Each enemy is a definition plus a small AI script, both
+ * data — the script kinds live in `engine/combat/ai.ts` and nothing here is
+ * a function.
  *
- * Empty until M1, which brings 3 Act 1 enemies with real AI.
+ * Intents commit at telegraph time and never re-roll; that is enforced in
+ * `engine/combat/intents.ts`, not per-enemy.
  */
 
 import type { EnemyDef } from '../../engine/types.ts';
+import { ACT1_ENEMIES } from './act1.ts';
 
-export const ENEMIES: readonly EnemyDef[] = [];
+export const ENEMIES: readonly EnemyDef[] = [...ACT1_ENEMIES];

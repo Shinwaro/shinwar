@@ -8,7 +8,8 @@ import type { GameState, Phase } from '../engine/types.ts';
 import type { Store } from './store.ts';
 import { createSpaceScene } from './space.ts';
 import { renderTitle } from './screens/title.ts';
-import { renderRunDump } from './screens/rundump.ts';
+import { renderCombat } from './screens/combat.ts';
+import { renderGameOver } from './screens/gameover.ts';
 import { el } from './dom.ts';
 
 function renderScreen(store: Store, state: GameState): HTMLElement {
@@ -16,8 +17,9 @@ function renderScreen(store: Store, state: GameState): HTMLElement {
     case 'title':
       return renderTitle(store);
     case 'run':
+      return renderCombat(store);
     case 'over':
-      return renderRunDump(store);
+      return renderGameOver(store);
     default: {
       const unreachable: never = state.phase;
       return unreachable;
@@ -37,10 +39,15 @@ export function mountApp(root: HTMLElement, store: Store): void {
   const scene = createSpaceScene(sky);
 
   let mountedPhase: Phase | null = null;
+  let mounted: HTMLElement | null = null;
 
   function render(state: GameState): void {
     const phase = state.phase;
     if (phase === mountedPhase) return;
+
+    // Let the outgoing screen drop anything it bound outside its own subtree —
+    // the combat screen owns a window-level keydown listener.
+    mounted?.dispatchEvent(new CustomEvent('shinwar:unmount'));
 
     const screen = renderScreen(store, state);
     screen.tabIndex = -1;
@@ -58,6 +65,7 @@ export function mountApp(root: HTMLElement, store: Store): void {
     if (mountedPhase !== null) screen.focus({ preventScroll: true });
 
     mountedPhase = phase;
+    mounted = screen;
   }
 
   render(store.getState());

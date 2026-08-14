@@ -4,9 +4,11 @@
  * Every function returns a new object; nothing here mutates its argument.
  */
 
-import type { GameState, LogEntry, RunState, TitleState } from './types.ts';
+import type { CombatState, GameState, LogEntry, RunState, TitleState } from './types.ts';
 import { createRng } from './rng.ts';
+import { buildDeck } from './combat/instances.ts';
 import { PLAYER, SHIP } from '../content/balance.ts';
+import { STARTING_DECK } from '../content/cards/index.ts';
 
 /** Bumped when the shape of `GameState` changes, so a pasted dump identifies itself. */
 export const SCHEMA_VERSION = 1;
@@ -45,6 +47,7 @@ export function createInitialState(seed: string, depth = 0): GameState {
  * M1 and the default modules with the ship at M3.
  */
 export function createRunState(seed: string, depth: number): RunState {
+  const built = buildDeck(0, STARTING_DECK);
   return {
     seed,
     depth,
@@ -54,7 +57,7 @@ export function createRunState(seed: string, depth: number): RunState {
     pilot: {
       hull: PLAYER.maxHull,
       maxHull: PLAYER.maxHull,
-      deck: [],
+      deck: built.deck,
       masteries: [],
     },
     ship: {
@@ -64,6 +67,7 @@ export function createRunState(seed: string, depth: number): RunState {
     threads: [],
     combat: null,
     outcome: null,
+    uidCounter: built.uidCounter,
   };
 }
 
@@ -110,4 +114,28 @@ export function withRun(state: GameState, update: (run: RunState) => RunState): 
 
 export function isRunActive(state: GameState): boolean {
   return state.phase === 'run' && state.run !== null && state.run.outcome === null;
+}
+
+/* ---------- combat helpers ----------
+   Same argument as above, one level deeper. Everything under `combat/` reaches
+   through these rather than re-deriving the null checks. */
+
+export function activeCombat(state: GameState): CombatState | null {
+  return state.run?.combat ?? null;
+}
+
+export function requireCombat(state: GameState): CombatState {
+  const combat = state.run?.combat;
+  if (combat === undefined || combat === null) {
+    throw new Error('engine: expected a combat in progress, found none');
+  }
+  return combat;
+}
+
+export function withCombat(
+  state: GameState,
+  update: (combat: CombatState) => CombatState,
+): GameState {
+  const combat = requireCombat(state);
+  return withRun(state, (run) => ({ ...run, combat: update(combat) }));
 }

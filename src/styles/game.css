@@ -1,4 +1,4 @@
-/* Screen-specific rules. At M0 that is the title screen and the state dump. */
+/* Screen-specific rules: the title, the combat stage, and the run-over screen. */
 
 /* ---------- title ---------- */
 
@@ -135,79 +135,635 @@
   letter-spacing: 0.02em;
 }
 
-/* ---------- run state dump ---------- */
+/* ---------- combat ----------
+   Desktop-first. The layout shows everything at once because an hour-long run
+   with no saves means the player is planning, not skimming. Mobile keeps every
+   piece and scrolls rather than shrinking anything below legibility. */
 
-.rundump-inner {
+.combat.screen {
+  padding-block: 1rem max(1rem, env(safe-area-inset-bottom));
+}
+
+.combat-inner {
   width: 100%;
-  max-width: var(--wrap);
+  max-width: 68rem;
   margin: 0 auto;
   display: grid;
-  gap: 1.25rem;
+  gap: 0.85rem;
 }
 
-.screen-title {
-  font-size: 1.25rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
+.combat-inner > * {
+  min-width: 0;
 }
 
-.run-note {
-  max-width: 44rem;
-  color: var(--muted);
-  font-size: 0.9rem;
-  text-wrap: pretty;
-}
+/* -- top bar -- */
 
-.run-note--over {
-  color: var(--accent);
-}
-
-.facts {
+.combat-bar {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(14rem, 100%), 1fr));
+  grid-template-columns: minmax(11rem, 1.6fr) repeat(3, minmax(6rem, 1fr));
   gap: 0.75rem;
-}
-
-.fact {
-  display: grid;
-  gap: 0.15rem;
-  padding: 0.7rem 0.85rem;
+  padding: 0.7rem 0.9rem;
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   background: var(--surface-solid);
 }
 
-.fact-label {
-  font-size: 0.68rem;
+.stat {
+  display: grid;
+  gap: 0.15rem;
+  align-content: start;
+}
+
+.stat-label {
+  font-size: 0.62rem;
   font-weight: 600;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--muted);
 }
 
-.fact-value {
-  font-family: var(--mono);
-  font-size: 0.9rem;
-  overflow-wrap: anywhere;
+.stat-value {
+  font-size: 0.95rem;
+  font-variant-numeric: tabular-nums;
 }
 
-.dump {
-  margin: 0;
-  max-height: 55dvh;
-  overflow: auto;
-  padding: 1rem;
+.stat-value--mono {
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+}
+
+.bar {
+  height: 0.4rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+}
+
+.bar-fill {
+  display: block;
+  height: 100%;
+  background: var(--good);
+}
+
+.bar--hp .bar-fill {
+  background: var(--danger);
+}
+
+/* -- enemies -- */
+
+.enemy-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(15rem, 100%), 1fr));
+  gap: 0.75rem;
+}
+
+.enemy {
+  display: grid;
+  gap: 0.4rem;
+  align-content: start;
+  padding: 0.85rem;
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   background: var(--surface-solid);
-  color: var(--muted);
-  font-family: var(--mono);
-  font-size: 0.8rem;
-  line-height: 1.5;
-  tab-size: 2;
+  color: inherit;
+  text-align: left;
+  cursor: default;
+  transition:
+    border-color 0.15s,
+    transform 0.1s;
 }
 
-.run-controls {
+.enemy.is-targetable {
+  cursor: pointer;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent);
+}
+
+.enemy.is-targetable:hover {
+  transform: translateY(-2px);
+}
+
+.enemy.is-focused {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.enemy.is-dead {
+  opacity: 0.35;
+}
+
+.enemy-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  align-items: baseline;
+}
+
+.enemy-name {
+  font-weight: 600;
+}
+
+.enemy-hp {
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+.pips {
   display: flex;
   flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.pip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.1rem 0.45rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.pip--debuff {
+  border-color: color-mix(in srgb, var(--danger) 50%, var(--line));
+  color: var(--danger);
+}
+
+.pip--buff {
+  border-color: color-mix(in srgb, var(--good) 50%, var(--line));
+  color: var(--good);
+}
+
+.pip--block {
+  justify-self: start;
+  border-color: color-mix(in srgb, var(--guard) 50%, var(--line));
+  color: var(--guard);
+}
+
+/* The intent is the most important thing on an enemy. It gets the size. */
+.intent {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  font-family: var(--mono);
+  font-size: 1.05rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.intent--attack {
+  color: var(--iai);
+}
+
+.intent--other {
+  color: var(--guard);
+}
+
+.intent-icon {
+  font-size: 0.95rem;
+}
+
+.prediction {
+  justify-self: start;
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--danger) 22%, transparent);
+  border: 1px solid color-mix(in srgb, var(--danger) 55%, transparent);
+  font-family: var(--mono);
+  font-size: 0.95rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.prediction.is-lethal {
+  background: color-mix(in srgb, var(--good) 22%, transparent);
+  border-color: color-mix(in srgb, var(--good) 60%, transparent);
+}
+
+.prediction-kill {
+  margin-left: 0.4rem;
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+  color: var(--good);
+}
+
+.threat {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+/* -- stance, heat, resources -- */
+
+.player-panel {
+  display: grid;
+  gap: 0.7rem;
+  padding: 0.85rem 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-solid);
+}
+
+.stance-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
   gap: 0.75rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.stance-name {
+  font-family: var(--mono);
+  font-size: 1.05rem;
+  letter-spacing: 0.1em;
+}
+
+.stance-strip[data-stance='iai'] .stance-name {
+  color: var(--iai);
+}
+.stance-strip[data-stance='guard'] .stance-name {
+  color: var(--guard);
+}
+.stance-strip[data-stance='flow'] .stance-name {
+  color: var(--flow);
+}
+
+.stance-text {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.heat-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.heat-label {
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: var(--muted);
+}
+
+.heat-ticks {
+  display: flex;
+  gap: 0.18rem;
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.heat-tick {
+  flex: 1 1 0;
+  height: 0.65rem;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.heat-tick.is-filled {
+  background: var(--heat-warm);
+}
+.heat-tick.is-danger {
+  background: rgba(201, 69, 63, 0.22);
+}
+.heat-tick.is-danger.is-filled {
+  background: var(--heat-danger);
+}
+
+.heat-value {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.heat-consequence {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.heat.is-overheating .heat-consequence {
+  color: var(--heat-danger);
+  font-weight: 600;
+}
+
+.resources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+}
+
+.resource {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+}
+
+.resource-label {
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.resource-value {
+  font-family: var(--mono);
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.energy-pips {
+  display: inline-flex;
+  gap: 0.25rem;
+}
+
+.energy-pip {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 50%;
+  border: 1px solid var(--line-strong);
+}
+
+.energy-pip.is-full {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+/* -- hand -- */
+
+.hand {
+  display: flex;
+  gap: 0.6rem;
+  overflow-x: auto;
+  padding-bottom: 0.3rem;
+  scroll-snap-type: x proximity;
+}
+
+.card {
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+  display: grid;
+  gap: 0.35rem;
+  align-content: start;
+  width: 12.5rem;
+  min-height: 11rem;
+  padding: 0.7rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-solid);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform 0.12s,
+    border-color 0.12s,
+    box-shadow 0.12s;
+}
+
+.card:hover {
+  border-color: var(--line-strong);
+  transform: translateY(-3px);
+}
+
+/* The lift is what "picked up" means. It has to read at a glance. */
+.card.is-selected {
+  border-color: var(--accent);
+  transform: translateY(-10px);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.55);
+}
+
+.card.is-unplayable {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.card.is-unplayable:hover {
+  transform: none;
+}
+
+.card-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.card-cost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #14100c;
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.card-name {
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+.card-text {
+  font-size: 0.82rem;
+  line-height: 1.4;
+  text-wrap: pretty;
+}
+
+/* The rider is always visible and always labelled. Greyed is not hidden — a
+   player who cannot see which half of a card is live cannot plan. */
+.card-rider {
+  padding: 0.35rem 0.45rem;
+  border-radius: 4px;
+  border-left: 2px solid var(--line);
+  font-size: 0.8rem;
+  line-height: 1.35;
+  text-wrap: pretty;
+}
+
+.card-rider.is-dormant {
+  color: var(--muted);
+  opacity: 0.6;
+}
+
+.card-rider.is-live[data-stance='iai'] {
+  border-left-color: var(--iai);
+  background: color-mix(in srgb, var(--iai) 12%, transparent);
+}
+
+.card-rider.is-live[data-stance='guard'] {
+  border-left-color: var(--guard);
+  background: color-mix(in srgb, var(--guard) 12%, transparent);
+}
+
+.card-rider.is-live[data-stance='flow'] {
+  border-left-color: var(--flow);
+  background: color-mix(in srgb, var(--flow) 12%, transparent);
+}
+
+.card-rider-label {
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.card-flavor {
+  margin-top: auto;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-style: italic;
+  line-height: 1.35;
+}
+
+.hand-prompt {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+/* -- tray -- */
+
+.tray {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.piles {
+  display: flex;
+  gap: 1rem;
+}
+
+.pile {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.pile-count {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+.tray-actions {
+  display: flex;
+  gap: 0.6rem;
+}
+
+/* -- log -- */
+
+.log-list {
+  max-height: 13rem;
+  overflow-y: auto;
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-solid);
+}
+
+.log-line {
+  display: grid;
+  grid-template-columns: 2.2rem 1fr;
+  gap: 0.5rem;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
+.log-turn {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  color: rgba(242, 240, 236, 0.4);
+  text-align: right;
+}
+
+.log-line--damage .log-text {
+  color: var(--ink);
+}
+.log-line--heat .log-text {
+  color: var(--heat-warm);
+}
+.log-line--stance .log-text {
+  color: var(--accent);
+}
+.log-line--combat .log-text {
+  color: var(--ink);
+}
+
+/* ---------- run over ---------- */
+
+.over-inner {
+  width: 100%;
+  max-width: 40rem;
+  margin: 0 auto;
+  display: grid;
+  gap: 1rem;
+}
+
+.over-title {
+  font-size: clamp(1.6rem, 5vw, 2.4rem);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.over-title--won {
+  color: var(--good);
+}
+.over-title--died {
+  color: var(--danger);
+}
+.over-title--abandoned {
+  color: var(--muted);
+}
+
+.over-account,
+.over-roster {
+  color: var(--muted);
+  text-wrap: pretty;
+}
+
+.over-seed {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.6rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.over-seed-value {
+  font-family: var(--mono);
+  font-size: 1.05rem;
+  letter-spacing: 0.12em;
+}
+
+.over-note {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.over-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+/* ---------- narrow ---------- */
+
+@media (max-width: 56rem) {
+  .combat-bar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .card {
+    width: 11.5rem;
+  }
 }

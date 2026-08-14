@@ -14,6 +14,13 @@ export type Action =
   | { readonly kind: 'setSeed'; readonly seed: string }
   | { readonly kind: 'setDepth'; readonly depth: number }
   | { readonly kind: 'beginRun' }
+  /* -- combat --
+     Card selection is deliberately absent. Selecting a card is a UI state, not
+     a decision — it changes nothing about the world and undoing it costs
+     nothing. Logging it would bloat the replay with noise and make the log
+     stop being a record of what the player actually chose to do. */
+  | { readonly kind: 'playCard'; readonly cardUid: string; readonly targetUid: string | null }
+  | { readonly kind: 'endTurn' }
   /* -- run -- */
   | { readonly kind: 'abandonRun' }
   | { readonly kind: 'returnToTitle' };

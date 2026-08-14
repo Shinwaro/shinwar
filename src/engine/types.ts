@@ -132,12 +132,61 @@ export interface EnvironmentDef {
   readonly text: string;
 }
 
+/* An enemy's AI is data, not code: a set of named moves plus a script that
+   picks between them. That keeps "adding an enemy is one file edit" true, and
+   it keeps the choice reproducible from the seed. */
+
+export interface EnemyMove {
+  readonly id: string;
+  /** Shown on the intent when the move is not a plain attack. */
+  readonly label: string;
+  /** What the intent renders. Attack amounts are recomputed at display time so
+      the telegraphed number is exactly what will land. */
+  readonly intent: readonly IntentTemplate[];
+  /** Targets are relative to the actor: from an enemy, `enemy` means you. */
+  readonly effects: readonly EffectOp[];
+}
+
+export type EnemyScript =
+  /** Cycles the listed moves forever. A state machine with one axis. */
+  | { readonly kind: 'sequence'; readonly moves: readonly string[] }
+  /** Weighted roll on the `combat` stream, with a cap on consecutive repeats. */
+  | {
+      readonly kind: 'weighted';
+      readonly entries: readonly { readonly move: string; readonly weight: number }[];
+      readonly maxRepeats: number;
+    };
+
 export interface EnemyDef {
   readonly id: EnemyId;
   readonly name: string;
   readonly maxHp: number;
   readonly act: 1 | 2 | 3;
   readonly tier: 'normal' | 'elite' | 'boss';
+  readonly moves: readonly EnemyMove[];
+  readonly script: EnemyScript;
+  readonly flavor?: string;
+}
+
+/* ---------- statuses ----------
+   A status is data: a name, how it decays, and which damage-pipeline step it
+   feeds. Nothing about Vulnerable or Weak is special-cased in the pipeline —
+   they are rows in a table, which is what keeps the keyword count honest. */
+
+export interface StatusDef {
+  readonly id: StatusId;
+  readonly name: string;
+  /** Plain words, shown on hover and in the log. */
+  readonly text: string;
+  readonly kind: 'buff' | 'debuff';
+  /** `turn`: one stack falls off at the end of the holder's turn. */
+  readonly decay: 'turn' | 'never';
+  /** Flat damage added per stack, on attacks the holder makes. Strength-likes. */
+  readonly damageDealtFlat?: number;
+  /** Multiplier on damage the holder deals. Weak is 0.75. */
+  readonly damageDealtMult?: number;
+  /** Multiplier on damage the holder takes. Vulnerable is 1.5. */
+  readonly damageTakenMult?: number;
 }
 
 export interface EventOption {
@@ -209,12 +258,26 @@ export interface StatusStack {
   readonly stacks: number;
 }
 
-export interface IntentHit {
-  readonly kind: 'attack' | 'block' | 'buff' | 'debuff' | 'unknown';
-  /** Exact. Rendered as `3 x 5` when `times > 1`. Never re-rolled after telegraph. */
+/** What a move declares. The amount is filled in at display time for attacks. */
+export interface IntentTemplate {
+  readonly kind: 'attack' | 'block' | 'buff' | 'debuff';
   readonly amount: number;
   readonly times: number;
   readonly label: string;
+}
+
+/** What the player sees. Exact, and rendered as `3 x 5` when `times > 1`. */
+export interface IntentHit extends IntentTemplate {
+  /** For attacks: the number that will actually land, before Block absorbs it. */
+  readonly amount: number;
+}
+
+export interface EnemyAiState {
+  /** Cursor into a `sequence` script. */
+  readonly moveIndex: number;
+  readonly lastMoveId: string | null;
+  /** Consecutive plays of `lastMoveId`, so a `weighted` script can cap repeats. */
+  readonly repeats: number;
 }
 
 export interface EnemyState {
@@ -225,10 +288,14 @@ export interface EnemyState {
   readonly maxHp: number;
   readonly block: number;
   readonly statuses: readonly StatusStack[];
-  /** Committed at telegraph time. Does not re-roll after the player acts. */
-  readonly intent: readonly IntentHit[];
-  /** Per-enemy AI cursor. The shape is the enemy script's business. */
-  readonly ai: { readonly [key: string]: JsonValue };
+  /**
+   * The move committed at telegraph time. It does NOT re-roll after the player
+   * acts — that is a correctness requirement, not a nicety. The numbers shown
+   * for it are recomputed on every render so the telegraph cannot drift from
+   * what will land; the *choice* is what is frozen here.
+   */
+  readonly intentMoveId: string | null;
+  readonly ai: EnemyAiState;
 }
 
 export interface CardInstance {
@@ -256,7 +323,14 @@ export interface CombatState {
   readonly enemies: readonly EnemyState[];
   readonly cardsPlayedThisTurn: number;
   readonly blockGainedThisTurn: number;
+  /**
+   * Damage instances the player has dealt this turn, not cards played. The IAI
+   * passive fires on instance 0 only, so a card whose rider adds a second hit
+   * gets the bonus once — 6 base + 4 rider + 4 stance = 14, per DESIGN.md §1.
+   */
   readonly attacksThisTurn: number;
+  /** Energy lost next turn, from a critical overheat. */
+  readonly energyPenaltyNextTurn: number;
   readonly outcome: 'ongoing' | 'won' | 'lost';
 }
 
@@ -301,6 +375,8 @@ export interface RunState {
   readonly threads: readonly ThreadState[];
   readonly combat: CombatState | null;
   readonly outcome: RunOutcome | null;
+  /** Monotonic source of instance uids. See `combat/instances.ts`. */
+  readonly uidCounter: number;
 }
 
 /* ---------- rng ---------- */

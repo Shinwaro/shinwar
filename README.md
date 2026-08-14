@@ -42,8 +42,12 @@ technical contract and milestone order. `NOTES.md` records decisions taken along
 
 ## Status
 
-**M0 complete.** The toolchain, the seeded RNG with named streams, the hook bus, the state and
-reducer, the content registry with validation, the guard and determinism tests, and a title screen
-with a seed field and a Depth selector that starts a run and dumps state as JSON.
+**M1 complete — one playable fight.** Stance and Heat, energy/draw/block, the damage pipeline with
+previews, the two-step selection model, telegraphed enemy intents, the 12-card starting deck, three
+Act 1 enemies with real AI, the combat log, and win/lose.
 
-M1 is the combat vertical slice, and it is the milestone that decides whether the game is good.
+M0 before it laid the ground: toolchain, the seeded RNG with named streams, the hook bus, the pure
+reducer, the content registry with validation, and the title screen.
+
+Next is M2 — the run loop: Act 1 mapgen, node types, rewards, the Safe Planet menu, Alloy, the
+pause screen, replay-from-log, and the `beforeunload` guard.

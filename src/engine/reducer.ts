@@ -9,12 +9,34 @@
 import type { Action, ActionLog } from './actions.ts';
 import type { GameState } from './types.ts';
 import { appendLog, createInitialState, createRunState } from './state.ts';
-import { normalizeSeed } from './rng.ts';
+import { normalizeSeed, pick } from './rng.ts';
+import { concludeCombat, endPlayerTurn, playCard, startCombat } from './combat/combat.ts';
+import { encountersFor } from '../content/encounters.ts';
+import { CLEAR_SPACE_ID } from '../content/environments.ts';
 import { MAX_DEPTH } from '../content/balance.ts';
 
 export function clampDepth(depth: number): number {
   if (!Number.isFinite(depth)) return 0;
   return Math.max(0, Math.min(MAX_DEPTH, Math.trunc(depth)));
+}
+
+/**
+ * Open the run's first fight.
+ *
+ * At M1 there is no map, so the run is one encounter drawn from the Act 1
+ * normal pool on the `map` stream — the same stream mapgen will use at M2, so
+ * a seed keeps meaning roughly the same thing across the change. Act 1 node 1
+ * is always a normal combat in Clear Space, and this is that node.
+ */
+function openFirstCombat(state: GameState): GameState {
+  const run = state.run;
+  if (run === null) return state;
+
+  const pool = encountersFor(1, 'normal');
+  const rolled = pick(run.rng, 'map', pool);
+  const withRoll: GameState = { ...state, run: { ...run, rng: rolled.rng } };
+
+  return startCombat(withRoll, rolled.value.id, CLEAR_SPACE_ID);
 }
 
 export function applyAction(state: GameState, action: Action): GameState {
@@ -40,12 +62,23 @@ export function applyAction(state: GameState, action: Action): GameState {
         run: createRunState(seed, depth),
         log: [],
       };
-      return appendLog(started, {
+      const announced = appendLog(started, {
         source: 'system',
         kind: 'run',
         text: `Run started. Seed ${seed}, Depth ${depth}.`,
         detail: { seed, depth },
       });
+      return openFirstCombat(announced);
+    }
+
+    case 'playCard': {
+      if (state.run?.combat?.outcome !== 'ongoing') return state;
+      return concludeCombat(playCard(state, action.cardUid, action.targetUid));
+    }
+
+    case 'endTurn': {
+      if (state.run?.combat?.outcome !== 'ongoing') return state;
+      return concludeCombat(endPlayerTurn(state));
     }
 
     case 'abandonRun': {

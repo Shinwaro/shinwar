@@ -126,3 +126,110 @@ Two separate causes, both worth remembering because they will recur:
 2. An `<input>` carries an intrinsic width from its `size` attribute, and on a flex row that width
    contributes to the container's min-content size **even with `min-width: 0`**. `flex: 1 1 0`
    instead of `1 1 auto` fixes it.
+
+---
+
+## M1 — combat vertical slice
+
+### The preview is a dry run of the real thing
+
+`previewCard` calls `playCard` on the current state and diffs the result. Because state is
+immutable, "playing" it costs nothing and throws nothing away.
+
+This is the single most important decision in the milestone. The prompt requires that preview and
+resolution call the identical damage function; a dry run goes further — there is no second walk of
+the effect ops at all, so a preview cannot drift even if someone adds a modifier to one path and
+forgets the other. `previewDamage` is also a literal alias of `computeDamage` rather than a wrapper,
+for the same reason.
+
+The cost is that the combat screen runs one dry run per living enemy per render. That is two or
+three pure function calls over a small object; it is not worth optimising, and if it ever is, the
+answer is to memoise the call, never to hand-roll a second calculation.
+
+### `attacksThisTurn` counts damage instances, not cards
+
+DESIGN.md §1 requires Iai Slash in IAI to total 14: 6 base + 4 rider + 4 stance passive. The rider
+is a second `damage` op on the same card, so a naive "first attack card each turn" rule gives it the
++4 twice and lands on 18.
+
+So the counter increments per damage instance and the IAI bonus fires only on instance 0. FLOW's −2
+penalty applies to every instance, deliberately — a 3× multi-hit in FLOW loses 6, which is the price
+of the extra draw. There is a test for both.
+
+### Enemy AI is data
+
+Two script kinds cover every Act 1 enemy: `sequence` cycles a list, `weighted` rolls on the `combat`
+stream with a cap on consecutive repeats. Nobody writes a function to add an enemy. The repeat cap
+matters for feel as much as balance — three identical turns in a row reads as a broken enemy rather
+than as variance.
+
+### Targets are relative to the actor
+
+From the player, `enemy` means an enemy; from an enemy, `enemy` means you, and `self` means that
+enemy. One rule, no special cases, and enemy moves reuse the whole effect vocabulary for free —
+the Lathe Drone's Plate is the same `block` op as your Solar Parry.
+
+### Intents: the choice is frozen, the number is not
+
+`intentMoveId` is committed at telegraph time and nothing on the player's turn re-rolls it. But the
+numbers shown for that move are recomputed on every read, through the damage pipeline. So making
+yourself Vulnerable after seeing a telegraphed 7 updates it to 10 rather than quietly lying.
+
+Freezing the number instead of the choice is the easy mistake here, and it is the one that produces
+"it said 7". There are tests for both halves.
+
+### Stance passive resolves before the overheat check
+
+At Heat 7 in IAI you are safe until end of turn, when the stance's +1 puts you at 8 and the check
+fires. Ordering it the other way would make IAI strictly better than it reads. It is the bargain the
+stance offers, so it happens where the player can see it coming.
+
+### Solar Parry's GUARD rider changed
+
+DESIGN.md §1 specs it as "when you are attacked this turn, deal 4 back". That needs a riposte/thorns
+keyword plus a hook handler. **Ask before adding a keyword**, so it is not in — the rider is
+`Gain 3 Block. Apply 1 Weak.` instead, which keeps the counter-punch identity using keywords that
+already exist. Raise it if the thorns version is wanted; the hook bus already supports it.
+
+Statuses at M1: Vulnerable, Weak, Strength. With Block, Heat, Focus, Exhaust and Innate that is
+eight keywords against a cap of fourteen, and the content validator now counts them.
+
+### Card selection is not an action
+
+`Action` has `playCard` and `endTurn` and no `selectCard`. Selecting a card changes nothing about
+the world and undoing it costs nothing, so logging it would bloat every replay with noise and stop
+the action log being a record of what the player actually decided. Selection lives in the combat
+screen's local state.
+
+### Instance uids come from a counter, not the RNG
+
+`RunState.uidCounter`. Burning a die roll to name a card would couple the streams to how many cards
+happen to exist, which is exactly the kind of coupling the named streams exist to prevent.
+
+### Files beyond the layout in CLAUDE.md
+
+`combat/piles.ts` (draw/discard/exhaust movement, so the reshuffle rule lives in one place),
+`combat/instances.ts` (uid minting and deck building — it holds `buildDeck` so `state.ts` can build
+a starting deck without importing the combat loop, which would be an initialisation cycle),
+`combat/preview.ts`, and `combat/describe.ts`. `ui/components/` gained `card.ts`, `enemy.ts`,
+`gauges.ts` and `log.ts`.
+
+### Deferred from M1, deliberately
+
+- **The pause screen and `P`.** M2, with the rest of the run loop. Every other key in the prompt's
+  §9 list is bound.
+- **Rewards, map, Alloy.** M2. A win ends the run, and the game-over screen says so rather than
+  pretending there is more.
+- **`anim.ts` and `a11y.ts`.** Nothing yet needs them; `prefers-reduced-motion` is handled in CSS
+  and the live regions are declared where they belong.
+- **Only four distinct cards.** DESIGN.md §8 specifies the starting deck exactly: 5 Iai Slash,
+  4 Solar Parry, 2 Vector Step, 1 Sever. The deck is meant to be mediocre, and judging whether
+  stance and heat carry the game is easier with four cards than with forty. The pool scales at M6.
+
+### A false alarm worth recording
+
+On mobile, `document.documentElement.scrollWidth` reads ~900 against a 375 viewport during combat.
+Nothing is actually overflowing: the hand is a horizontal scroll-snap row, and Chrome folds a
+scroller's extent into the root's reported `scrollWidth`. `window.scrollTo(600, 0)` leaves `scrollX`
+at 0, and no unclipped element exceeds the viewport. Check whether the page actually scrolls before
+chasing this one again.
