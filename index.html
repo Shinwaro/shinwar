@@ -5,18 +5,21 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>shinwar — a lab</title>
 <meta name="description" content="A lab. Small interactive things, built for fun.">
-<meta name="color-scheme" content="light dark">
+<!-- the index is always dark: it is a scene, not a themed surface -->
+<meta name="color-scheme" content="dark">
 <link rel="stylesheet" href="assets/shell.css">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>&#9678;</text></svg>">
 </head>
-<body>
+<body class="space">
 
-<header class="hero">
-  <canvas class="hero-sky" id="hero-sky" aria-hidden="true"></canvas>
-  <div class="hero-key" aria-hidden="true"></div>
-  <div class="hero-vignette" aria-hidden="true"></div>
+<!-- the scene sits behind the entire page, fixed, so the content drifts over it -->
+<canvas class="sky" id="sky" aria-hidden="true"></canvas>
+<div class="sky-key" aria-hidden="true"></div>
+<div class="sky-vignette" aria-hidden="true"></div>
 
-  <div class="hero-inner">
+<div class="wrap">
+
+  <header class="hero">
     <h1 class="wordmark">
       <span class="visually-hidden">shinwar.se</span>
       <!-- Hand-plotted letterforms on a 100-unit cap height, 18-unit stem.
@@ -49,10 +52,7 @@
 
     <p class="hero-tag">A lab. Small things I build for fun — games, quizzes, trainers, and toys.
     Nothing is saved, nothing signs you up. Refresh and it's gone.</p>
-  </div>
-</header>
-
-<div class="wrap">
+  </header>
 
   <main>
     <h2 class="visually-hidden">Experiments</h2>
@@ -76,7 +76,7 @@
 
 </div>
 
-<script src="assets/hero.js"></script>
+<script src="assets/space.js"></script>
 <script src="experiments.js"></script>
 <script src="assets/index.js"></script>
 </body>

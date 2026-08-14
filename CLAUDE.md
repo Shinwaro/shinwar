@@ -130,42 +130,57 @@ vendor the file into its own folder and justify it.
 ## Files
 
 ```
-index.html         the index — hero, filter chips, card grid
+index.html         the index — the space scene, hero, filter chips, card grid
 experiments.js     THE MANIFEST — the only file the index reads
 404.html           not-found page (absolute paths; server-only)
 _redirects         INERT — see below. Kept only so the intent is on record.
 assets/
-  shell.css        tokens (light+dark), hero, card grid, chips, .xbar, .stage, .btn, .tag
+  shell.css        tokens (light+dark), .space scene, hero, card grid, chips,
+                   .xbar, .stage, .btn, .tag
   index.js         chip building, card rendering, hash filter state, empty states
-  hero.js          index-only: asteroid + debris canvas behind the wordmark
+  space.js         index-only: the asteroid + debris canvas behind the page
 x/<slug>/
   index.html       one experiment, fully self-contained
 ```
 
-### The hero
+### The index is a scene
+
+The whole index sits on a fixed, full-viewport canvas — asteroid, debris, key light, vignette —
+with the content drifting over it. `body` carries `class="space"`, and the index is **dark in both
+colour schemes on purpose**: it is a lit object in space, not a themed surface, so it declares
+`<meta name="color-scheme" content="dark">` and does not follow the light/dark tokens.
+
+**`.space` works by re-pointing the tokens, not by restyling components.** It overrides `--bg`,
+`--surface`, `--ink`, `--muted`, `--line`, `--accent` and the four `--cat-*` values on `body.space`;
+the card grid, chips, tags, empty states and footer inherit the new palette with their own rules
+untouched. Add a new component and it lands in the scene for free — so keep styling components
+against the tokens, never against hard-coded colours.
+
+Experiments load `shell.css` but never `.space`, so they still get the calm light/dark tokens.
+That difference between the index and an experiment page is deliberate.
 
 The SHIN/WAR wordmark is **inline SVG in `index.html`**, hand-plotted on a 100-unit cap height
 with an 18-unit stem. It is not a font and must not become one — the N and W overlap at exact
 coordinates, and any real typeface would render that join differently on every device. WAR is
 painted before SHIN so the N reads over the W where they cross.
 
-The hero is **dark in both colour schemes on purpose**. It is a lit object in space, not a themed
-surface, so it does not follow the light/dark tokens. Everything below it goes back to the calm
-tokens — that contrast is the design, not an oversight. `.hero*` rules are the one loud thing in
-`shell.css`; experiments never load them.
-
-`hero.js` seeds its rock from a fixed constant so it is the same asteroid on every visit, and it
-stops its animation loop entirely when the hero scrolls out of view or the tab is hidden. Honour
-both when touching it — a permanently running canvas on the index would break "keep it fast".
+`space.js` seeds its rock from a fixed constant so it is the same asteroid on every visit, its
+canvas is fixed to the viewport rather than sized to the document (scrolling then costs nothing),
+and it stops the loop when the tab is hidden or `prefers-reduced-motion` is set. Honour all three
+when touching it — a permanently running canvas would break "keep it fast".
 
 **`_redirects` does nothing. Don't add rules to it.** It contains
 `https://www.shinwar.se/* https://shinwar.se/:splat 301`, but Cloudflare Pages matches `_redirects`
-rules on the **path only** — a rule whose source starts with `https://` is silently ignored. Verified
-against the live edge: `www` returns 200 with a full copy of the site, not a 301. So the site is
-currently reachable at two addresses with identical content and no canonical one.
+rules on the **path only** — a rule whose source starts with `https://` is silently ignored. The file
+is kept only so the original intent is on record; it has never once fired.
 
-The fix is a Cloudflare **Redirect Rule** (dash → the `shinwar.se` zone → Rules → Redirect Rules),
-not a file in this repo. Until that exists, assume no www→apex redirect.
+**www → apex is handled by a Cloudflare Redirect Rule instead** (dash → `shinwar.se` → Rules →
+Redirect Rules, named "www to apex"). Wildcard `https://www.*` → `https://${1}`, 301, preserve query
+string. The `${1}` capture is the important part: it keeps the path, so `www.shinwar.se/x/deep-run/`
+lands on the experiment rather than the homepage. Verified live — deep paths and query strings both
+survive, in one hop, and the apex is untouched.
+
+So: redirects for this site live in the Cloudflare dashboard, not in the repo.
 
 ### Index behaviour worth knowing
 

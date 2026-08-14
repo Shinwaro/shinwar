@@ -102,46 +102,53 @@ button {
   white-space: nowrap;
 }
 
-/* ---------- index: hero ----------
-   The hero is the one loud thing on the site, and it is deliberately dark in BOTH
-   colour schemes — it is a lit object in space, not a themed surface. Everything
-   below it goes back to the calm tokens. Index-only; experiments never see it. */
+/* ---------- index: the space scene ----------
+   The index is a scene, not a themed surface, so it stays dark in both colour
+   schemes. Rather than restyling every component for the dark ground, `.space`
+   RE-POINTS THE TOKENS — the card grid, chips, tags, empty states and footer
+   below all inherit the new palette with their own rules untouched. Add a
+   component and it lands in the scene for free.
+   Index-only. Experiments load shell.css but never this class. */
 
-.hero {
-  position: relative;
-  isolation: isolate;
-  overflow: hidden;
-  min-height: min(72vh, 34rem);
-  display: grid;
-  align-items: center;
-  background: #050507;
-  color: #f6f4f0;
-  padding-block: clamp(3rem, 10vw, 5rem);
-  padding-inline: max(1.25rem, env(safe-area-inset-left), env(safe-area-inset-right));
+body.space {
+  --bg:      #050507;
+  /* alphas here are set by contrast, not taste: the card sits over the lit face of
+     the asteroid, and anything more transparent drops blurb text under 4.5:1 */
+  --surface: rgba(18,19,24,.72);
+  --ink:     #f2f0ec;
+  --muted:   rgba(242,240,236,.70);
+  --line:    rgba(255,255,255,.14);
+  --accent:  #e8a87c;
+
+  --cat-arcade:  #fb923c;
+  --cat-quiz:    #a78bfa;
+  --cat-trainer: #5eead4;
+  --cat-toy:     #fcd34d;
+
+  background: var(--bg);
+  color: var(--ink);
 }
 
-.hero-sky { position: absolute; inset: 0; z-index: -3; display: block; width: 100%; height: 100%; }
+/* fixed, so the page drifts over the scene instead of dragging it along */
+.sky { position: fixed; inset: 0; z-index: -3; display: block; width: 100%; height: 100%; }
 
 /* hard key light from upper-left, warm bounce from lower-right */
-.hero-key {
-  position: absolute; inset: 0; z-index: -2; pointer-events: none;
+.sky-key {
+  position: fixed; inset: 0; z-index: -2; pointer-events: none;
   background:
-    radial-gradient(42% 38% at 18% 12%, rgba(198,214,255,.40), transparent 68%),
-    radial-gradient(70% 55% at 26% 20%, rgba(120,150,210,.18), transparent 72%),
-    radial-gradient(60% 50% at 82% 88%, rgba(190,90,60,.15), transparent 70%);
+    radial-gradient(40% 34% at 16% 10%, rgba(198,214,255,.40), transparent 68%),
+    radial-gradient(68% 52% at 24% 18%, rgba(120,150,210,.16), transparent 72%),
+    radial-gradient(60% 50% at 84% 86%, rgba(190,90,60,.14), transparent 70%);
 }
 
-.hero-vignette {
-  position: absolute; inset: 0; z-index: -1; pointer-events: none;
-  background: radial-gradient(74% 64% at 48% 46%, transparent 34%, rgba(0,0,0,.88) 100%);
+.sky-vignette {
+  position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background: radial-gradient(80% 68% at 44% 36%, transparent 28%, rgba(5,5,7,.9) 100%);
 }
 
-.hero-inner {
-  position: relative;
-  width: 100%;
-  max-width: var(--wrap);
-  margin: 0 auto;
-}
+/* ---------- index: hero ---------- */
+
+.hero { padding-block: clamp(3.5rem, 12vw, 6rem) clamp(1.5rem, 5vw, 2.5rem); }
 
 .wordmark { margin: 0; }
 
@@ -149,20 +156,47 @@ button {
   display: block;
   width: 100%;
   height: auto;
-  fill: #f6f4f0;
+  fill: var(--ink);
   filter: drop-shadow(0 3px 26px rgba(0,0,0,.85));
 }
 
+/* the tagline is the one piece of body text with no card behind it — it sits
+   straight on the rock, so it runs brighter than --muted and carries a shadow.
+   At --muted it measured ~3:1 over the asteroid's lit face. */
 .hero-tag {
-  margin-top: clamp(1rem, 3vw, 1.6rem);
+  margin-top: clamp(1rem, 3vw, 1.5rem);
   max-width: 34rem;
-  color: rgba(246,244,240,.72);
+  color: rgba(242,240,236,.94);
   font-size: 0.95rem;
+  text-shadow: 0 1px 14px rgba(0,0,0,.8);
   text-wrap: pretty;
 }
 
-/* the handoff: content below the hero needs the breathing room the masthead used to give it */
-.wrap main { padding-block-start: clamp(2.5rem, 7vw, 3.5rem); }
+.wrap main { padding-block-start: clamp(1.5rem, 5vw, 2.25rem); }
+
+/* ---------- index: glass ----------
+   Cards and chips float in the scene rather than sitting on a panel: enough
+   blur behind them to keep text legible over the asteroid, not so much that
+   they stop feeling transparent. */
+
+body.space .card,
+body.space .chip {
+  backdrop-filter: blur(10px) saturate(115%);
+  -webkit-backdrop-filter: blur(10px) saturate(115%);
+}
+
+body.space .card {
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 10px 30px rgba(0,0,0,.45);
+}
+
+body.space .card:hover {
+  border-color: rgba(255,255,255,.34);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.09), 0 16px 40px rgba(0,0,0,.55);
+}
+
+body.space .chip { background: rgba(18,19,24,.45); }
+
+body.space .empty { border-top-color: var(--line); }
 
 /* ---------- index: filter chips ---------- */
 

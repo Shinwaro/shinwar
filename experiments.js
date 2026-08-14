@@ -13,6 +13,13 @@
 
 window.EXPERIMENTS = [
   {
+    slug: "deep-run",
+    title: "Deep Run",
+    blurb: "Pick a class, fight three things in the dark, die anyway.",
+    category: "arcade",
+    added: "2026-08-14",
+  },
+  {
     slug: "click-counter",
     title: "Click Counter",
     blurb: "Counts your clicks. That is the entire experiment.",
