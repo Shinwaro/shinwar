@@ -92,7 +92,7 @@ export function makeFight(options: FightOptions = {}): GameState {
     run: {
       ...run,
       uidCounter: counter,
-      pilot: { ...run.pilot, hull: options.hull ?? run.pilot.maxHull },
+      pilot: { ...run.pilot, health: options.hull ?? run.pilot.maxHealth },
       combat,
     },
   };
@@ -105,7 +105,7 @@ export function combatOf(state: GameState): CombatState {
 }
 
 export function hullOf(state: GameState): number {
-  return state.run?.pilot.hull ?? 0;
+  return state.run?.pilot.health ?? 0;
 }
 
 export function firstEnemy(state: GameState): EnemyState {

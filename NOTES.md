@@ -260,6 +260,27 @@ behind it.
 **Log lines name things, never ids.** `weak +1 on e12` became `Weak +1 on Lathe Drone`. `combatantName`
 is exported from `damage.ts` for it. The log is read by a person.
 
+### Two kinds of combat, and the health split
+
+Robin's design call, recorded in full in `SHIP.md`. The short version: personal combat (on a
+celestial body) is the deckbuilder we have; ship combat (in space) is a **different system
+entirely** — a spatial module grid with a conversion network, no cards and no hand. `SHIP.md`
+supersedes `DESIGN.md` §2's Power-budget ship path.
+
+Done now, because both were settled and neither depends on the open questions:
+
+- **Health split in two.** `pilot.health` is the ronin; `ship.hull` is the cutter. Personal combat
+  damages the ronin, which means the fight that exists today was reporting the wrong pool — the top
+  bar said HULL and was taking the ronin's damage off it. It says HEALTH now.
+- **`hullBelowPct` kept its name.** It is part of the effect-op vocabulary from `PROMPT.md` §6 and
+  renaming an op is a vocabulary change, so it stays and reads against whichever pool the current
+  fight threatens. Worth revisiting if ship combat ever gets its own conditions.
+- The ship's 70 hull is a placeholder. It has never been played and the real number waits on the grid.
+
+Not done: anything grid-shaped. Seven open questions in `SHIP.md` block it, and the biggest is
+scope — a second combat system roughly doubles what is left to build, and the milestone order in
+`PROMPT.md` has not been renegotiated to fit it.
+
 ### A false alarm worth recording
 
 On mobile, `document.documentElement.scrollWidth` reads ~900 against a 375 viewport during combat.

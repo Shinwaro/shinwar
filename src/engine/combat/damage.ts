@@ -252,7 +252,7 @@ export function applyDamage(state: GameState, input: DamageInput, source: string
   if (input.target.kind === 'player') {
     next = withRun(next, (run) => ({
       ...run,
-      pilot: { ...run.pilot, hull: Math.max(0, run.pilot.hull - breakdown.toHull) },
+      pilot: { ...run.pilot, health: Math.max(0, run.pilot.health - breakdown.toHull) },
     }));
   }
 
@@ -298,7 +298,7 @@ export function applyDirectDamage(
     target.kind === 'player'
       ? withRun(state, (run) => ({
           ...run,
-          pilot: { ...run.pilot, hull: Math.max(0, run.pilot.hull - dealt) },
+          pilot: { ...run.pilot, health: Math.max(0, run.pilot.health - dealt) },
         }))
       : withCombat(state, (combat) => ({
           ...combat,
@@ -324,8 +324,8 @@ export function applyDirectDamage(
 export function healPlayer(state: GameState, amount: number, source: string): GameState {
   const run = state.run;
   if (run === null || amount <= 0) return state;
-  const healed = Math.min(run.pilot.maxHull, run.pilot.hull + Math.floor(amount));
-  if (healed === run.pilot.hull) return state;
+  const healed = Math.min(run.pilot.maxHealth, run.pilot.health + Math.floor(amount));
+  if (healed === run.pilot.health) return state;
   return appendLog(
     withRun(state, (current) => ({ ...current, pilot: { ...current.pilot, hull: healed } })),
     { source, kind: 'combat', text: `Hull repaired to ${healed}.`, detail: { hull: healed } },
@@ -348,10 +348,10 @@ export function combatantName(state: GameState, who: Combatant): string {
 
 function checkDeath(state: GameState, target: Combatant, source: string): GameState {
   if (target.kind === 'player') {
-    if ((state.run?.pilot.hull ?? 1) > 0) return state;
+    if ((state.run?.pilot.health ?? 1) > 0) return state;
     const dead = withCombat(state, (combat) => ({ ...combat, outcome: 'lost' as const }));
     return fireHook(
-      appendLog(dead, { source, kind: 'combat', text: 'Hull breached.', detail: null }),
+      appendLog(dead, { source, kind: 'combat', text: 'You are cut down.', detail: null }),
       'onPlayerDeath',
       { source },
     );

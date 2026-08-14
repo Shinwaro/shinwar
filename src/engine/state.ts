@@ -55,12 +55,14 @@ export function createRunState(seed: string, depth: number): RunState {
     act: 1,
     alloy: PLAYER.startingAlloy,
     pilot: {
-      hull: PLAYER.maxHull,
-      maxHull: PLAYER.maxHull,
+      health: PLAYER.maxHealth,
+      maxHealth: PLAYER.maxHealth,
       deck: built.deck,
       masteries: [],
     },
     ship: {
+      hull: SHIP.startingHull,
+      maxHull: SHIP.startingHull,
       powerCapacity: SHIP.startingPowerCapacity,
       installed: [],
     },

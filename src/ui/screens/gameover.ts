@@ -23,14 +23,14 @@ export function renderGameOver(store: Store): HTMLElement {
   const seed = currentSeed(state);
 
   const headline =
-    outcome === 'won' ? 'Contact cleared.' : outcome === 'died' ? 'Hull breached.' : 'Run abandoned.';
+    outcome === 'won' ? 'Contact cleared.' : outcome === 'died' ? 'You fall.' : 'Run abandoned.';
 
   const account =
     combat === null
       ? 'The run ended before contact.'
       : [
           `${combat.turn} turn${combat.turn === 1 ? '' : 's'}.`,
-          `Hull ${run?.pilot.hull ?? 0} of ${run?.pilot.maxHull ?? 0}.`,
+          `Health ${run?.pilot.health ?? 0} of ${run?.pilot.maxHealth ?? 0}.`,
           `Heat ended at ${combat.heat}.`,
           combat.exhaust.length > 0 ? `${combat.exhaust.length} card(s) burned away.` : null,
         ]

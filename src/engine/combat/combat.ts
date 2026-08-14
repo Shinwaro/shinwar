@@ -334,7 +334,7 @@ export function checkOutcome(state: GameState): GameState {
   const combat = state.run?.combat ?? null;
   if (combat === null || combat.outcome !== 'ongoing') return state;
 
-  if ((state.run?.pilot.hull ?? 0) <= 0) {
+  if ((state.run?.pilot.health ?? 0) <= 0) {
     return withCombat(state, (current) => ({ ...current, outcome: 'lost' as const }));
   }
   if (livingEnemies(combat).length === 0) {

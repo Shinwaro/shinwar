@@ -342,6 +342,9 @@ export interface InstalledModule {
 }
 
 export interface ShipState {
+  /** The cutter's own health. Spent in space combat, repaired with Alloy. */
+  readonly hull: number;
+  readonly maxHull: number;
   /** Power supplied by the reactor plus any capacity bought. */
   readonly powerCapacity: number;
   readonly installed: readonly InstalledModule[];
@@ -354,9 +357,14 @@ export interface ThreadState {
   readonly resolved: boolean;
 }
 
+/**
+ * The ronin themself. Separate from the ship on purpose: Alloy repairs the
+ * cutter but not a body, so the two attrition tracks price differently and a
+ * surface fight costs something a space fight cannot.
+ */
 export interface PilotState {
-  readonly hull: number;
-  readonly maxHull: number;
+  readonly health: number;
+  readonly maxHealth: number;
   readonly deck: readonly CardInstance[];
   readonly masteries: readonly MasteryId[];
 }

@@ -47,9 +47,16 @@ export function shouldGuardUnload(state: GameState): boolean {
   return activeRun(state) !== null;
 }
 
+/** The ronin's own health, spent in combat on foot. */
+export function healthFraction(run: RunState): number {
+  if (run.pilot.maxHealth <= 0) return 0;
+  return Math.max(0, Math.min(1, run.pilot.health / run.pilot.maxHealth));
+}
+
+/** The cutter's hull, spent in space combat. Repairable with Alloy; a body is not. */
 export function hullFraction(run: RunState): number {
-  if (run.pilot.maxHull <= 0) return 0;
-  return Math.max(0, Math.min(1, run.pilot.hull / run.pilot.maxHull));
+  if (run.ship.maxHull <= 0) return 0;
+  return Math.max(0, Math.min(1, run.ship.hull / run.ship.maxHull));
 }
 
 /* ---------- ship power ----------

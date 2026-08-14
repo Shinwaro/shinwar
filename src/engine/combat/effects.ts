@@ -129,7 +129,7 @@ export function testCondition(state: GameState, context: EffectContext, when: Co
     case 'cardsPlayedThisTurnAtLeast':
       return combat.cardsPlayedThisTurn >= when.value;
     case 'hullBelowPct':
-      return run.pilot.hull / Math.max(1, run.pilot.maxHull) < when.value / 100;
+      return run.pilot.health / Math.max(1, run.pilot.maxHealth) < when.value / 100;
     default: {
       const unreachable: never = when;
       return unreachable;

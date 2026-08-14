@@ -10,8 +10,10 @@ import type { Archetype, Rarity, SlotId, StanceId } from '../engine/types.ts';
 
 /* ---------- the player ---------- */
 
+/* The ronin. These are the numbers for combat on foot — the deckbuilder. */
 export const PLAYER = {
-  maxHull: 70,
+  /** DESIGN.md §8's 70 now belongs to the body, not the cutter. */
+  maxHealth: 70,
   energyPerTurn: 3,
   drawPerTurn: 5,
   startingDeckSize: 12,
@@ -115,6 +117,12 @@ export const FOCUS_DAMAGE_PER_STACK = 2;
    and turns "I found a great module" into a real decision. */
 
 export const SHIP = {
+  /**
+   * The cutter's own pool, spent in space combat. Placeholder: it has never
+   * been played, and the real number waits on the grid system. Repairable with
+   * Alloy, unlike the ronin.
+   */
+  startingHull: 70,
   startingPowerCapacity: 8,
   /** A finished run should land here — enough that you had to choose. */
   targetEndPowerCapacity: { min: 12, max: 16 },

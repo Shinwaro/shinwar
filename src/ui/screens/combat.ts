@@ -23,7 +23,7 @@ import { canPlay, definitionOf, needsTarget } from '../../engine/combat/combat.t
 import { previewCard } from '../../engine/combat/preview.ts';
 import { incomingDamage } from '../../engine/combat/intents.ts';
 import { livingEnemies } from '../../engine/combat/damage.ts';
-import { currentSeed, hullFraction } from '../../engine/queries.ts';
+import { currentSeed, healthFraction } from '../../engine/queries.ts';
 import { environments } from '../../content/registry.ts';
 import { button, el } from '../dom.ts';
 import { renderCard } from '../components/card.ts';
@@ -119,8 +119,10 @@ function build(store: Store, state: GameState, selection: Selection, rerender: (
   const topBar = el('header', { class: 'combat-bar' }, [
     el('div', { class: 'stat stat--hull' }, [
       el('div', { class: 'hull-head' }, [
-        el('span', { class: 'stat-label' }, ['HULL']),
-        el('span', { class: 'stat-value' }, [`${run.pilot.hull}/${run.pilot.maxHull}`]),
+        // This is combat on foot, so it is the ronin's own health at stake —
+        // not the cutter's hull, which only space combat can touch.
+        el('span', { class: 'stat-label' }, ['HEALTH']),
+        el('span', { class: 'stat-value' }, [`${run.pilot.health}/${run.pilot.maxHealth}`]),
         // Block belongs beside the hull it is protecting, not in a resource
         // list further down. It is the number you check before ending a turn.
         el(
@@ -134,7 +136,7 @@ function build(store: Store, state: GameState, selection: Selection, rerender: (
         ),
       ]),
       el('div', { class: 'bar bar--hull' }, [
-        el('span', { class: 'bar-fill', style: `width:${hullFraction(run) * 100}%` }),
+        el('span', { class: 'bar-fill', style: `width:${healthFraction(run) * 100}%` }),
       ]),
     ]),
     el('div', { class: 'stat' }, [
