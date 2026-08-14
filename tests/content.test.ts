@@ -130,6 +130,34 @@ describe('card validation', () => {
     expect(problems).toContain("references unknown card 'phantom'");
   });
 
+  it('rejects a rider on a stance that is not in rotation', () => {
+    cards.register([
+      card('dormant', { stanceRider: { stance: 'flow', effects: [{ op: 'block', amount: 3 }] } }),
+    ]);
+    expect(validateContent()).toContainEqual({
+      where: "card 'dormant'",
+      problem: "rider needs stance 'flow', which is not in rotation",
+    });
+  });
+
+  it('rejects a card that sets or tests a retired stance', () => {
+    cards.register([
+      card('setter', { effects: [{ op: 'setStance', stance: 'flow' }] }),
+      card('tester', {
+        effects: [
+          {
+            op: 'conditional',
+            when: { kind: 'stanceIs', stance: 'flow' },
+            then: [{ op: 'block', amount: 4 }],
+          },
+        ],
+      }),
+    ]);
+    const problems = validateContent().map((issue) => issue.problem);
+    expect(problems).toContain("sets stance 'flow', which is not in rotation");
+    expect(problems).toContain("tests for stance 'flow', which is not in rotation");
+  });
+
   it('accepts a reference that resolves', () => {
     cards.register([card('wound'), card('summoner', { effects: [{ op: 'addCardToHand', cardId: 'wound' }] })]);
     expect(validateContent()).toEqual([]);

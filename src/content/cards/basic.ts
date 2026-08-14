@@ -82,7 +82,9 @@ export const BASIC_CARDS: readonly CardDef[] = [
     name: 'Vector Step',
     type: 'skill',
     rarity: 'basic',
-    archetype: 'flow',
+    // Neutral while FLOW is dormant: it is the transition card for whatever
+    // stances happen to be in rotation, not a card for one of them.
+    archetype: 'neutral',
     cost: 0,
     effects: [
       { op: 'cycleStance', direction: 1 },

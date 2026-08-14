@@ -226,6 +226,40 @@ a starting deck without importing the combat loop, which would be an initialisat
   4 Solar Parry, 2 Vector Step, 1 Sever. The deck is meant to be mediocre, and judging whether
   stance and heat carry the game is easier with four cards than with forty. The pool scales at M6.
 
+### M1 revisions after the first playtest
+
+**FLOW is dormant, not deleted.** Robin's call: with a 12-card deck and no engine to feed, a third
+stance was bookkeeping rather than decision. `ACTIVE_STANCES` in `balance.ts` is the whole switch —
+`cycleStance` walks that array, and a new content validator rejects any card whose rider, `setStance`
+or `stanceIs` names a stance not in it, so FLOW content cannot creep back in unnoticed. FLOW's rules
+stay in the `STANCES` table and there is a test asserting its extra draw still works if forced, so
+the day it returns it returns intact. DESIGN.md §1 specs three stances; this deliberately disagrees.
+
+Vector Step's archetype moved from `flow` to `neutral` — it is the transition card for whatever
+stances are in rotation, not a card for one of them.
+
+**Draws are narrated.** The mechanic was correct all along — hand held at 5, the 12 cards stayed
+conserved, the reshuffle fired — but nothing in the log said so, and an invisible mechanic reads as
+a broken one. Turn-start draws report a count (`Drew 5 cards.`); a draw the player spent a card on
+names them (`Drew Sever.`), because that is what they paid for. The reshuffle announces itself too.
+
+The general lesson, worth applying to everything after this: **a state change with no log line is
+indistinguishable from a state change that did not happen.** The rule was already written down for
+damage; it applies to every mechanic the player is meant to notice.
+
+**Block moved next to the hull bar.** It is the number you check before ending a turn, so it belongs
+beside the thing it is protecting rather than in a resource list further down. It stays visible at
+zero, dimmed — "I have no Block" is as important to read as "I have 9". Removed from `.resources` so
+there is only one Block number on screen.
+
+**`needsTarget` is stance-aware.** Solar Parry's GUARD rider applies Weak to an enemy, which made a
+pure defensive card demand a target even in IAI where that rider is dormant. It now only counts the
+rider when the rider is live. Aiming a card that does nothing to anyone is friction with no decision
+behind it.
+
+**Log lines name things, never ids.** `weak +1 on e12` became `Weak +1 on Lathe Drone`. `combatantName`
+is exported from `damage.ts` for it. The log is read by a person.
+
 ### A false alarm worth recording
 
 On mobile, `document.documentElement.scrollWidth` reads ~900 against a 375 viewport during combat.

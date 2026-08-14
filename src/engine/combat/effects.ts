@@ -15,13 +15,21 @@ import type { Condition, EffectOp, GameState, ScaleSource, Target } from '../typ
 import { appendLog, requireCombat, requireRun, withCombat, withRun } from '../state.ts';
 import { fireHook } from '../hooks.ts';
 import { pick } from '../rng.ts';
-import { cards as cardTable } from '../../content/registry.ts';
+import { cards as cardTable, statuses as statusTable } from '../../content/registry.ts';
 import type { Combatant } from './damage.ts';
-import { PLAYER, applyDamage, enemyTarget, healPlayer, livingEnemies, sameCombatant } from './damage.ts';
+import {
+  PLAYER,
+  applyDamage,
+  combatantName,
+  enemyTarget,
+  healPlayer,
+  livingEnemies,
+  sameCombatant,
+} from './damage.ts';
 import { gainHeat, ventHeat } from './heat.ts';
 import { addStacks, stacksOf } from './keywords.ts';
 import { setStance, cycleStance } from './stance.ts';
-import { draw, moveToExhaust, randomFromHand } from './piles.ts';
+import { draw, moveToExhaust, narrateDraw, randomFromHand } from './piles.ts';
 import { mintCard } from './instances.ts';
 
 export interface EffectContext {
@@ -242,7 +250,9 @@ function applyOp(state: GameState, op: EffectOp, context: EffectContext): Effect
         next = appendLog(next, {
           source: context.source,
           kind: 'status',
-          text: `${op.status} ${op.stacks >= 0 ? '+' : ''}${op.stacks} on ${target.kind === 'player' ? 'you' : target.uid}.`,
+          text: `${statusTable.find(op.status)?.name ?? op.status} ${op.stacks >= 0 ? '+' : ''}${op.stacks} on ${
+            target.kind === 'player' ? 'you' : combatantName(next, target)
+          }.`,
           detail: { status: op.status, stacks: op.stacks },
         });
       }
@@ -279,11 +289,9 @@ function applyOp(state: GameState, op: EffectOp, context: EffectContext): Effect
       const run = requireRun(state);
       if (run.combat === null) return keep(state);
       const result = draw(run.combat, run.rng, op.amount);
-      let next = withRun(state, (current) => ({ ...current, rng: result.rng, combat: result.combat }));
-      for (const card of result.moved) {
-        next = fireHook(next, 'onCardDrawn', { cardUid: card.uid, cardId: card.defId });
-      }
-      return keep(next);
+      const next = withRun(state, (current) => ({ ...current, rng: result.rng, combat: result.combat }));
+      // Named, not counted: the player spent a card on this draw.
+      return keep(narrateDraw(next, result, context.source, true));
     }
 
     case 'discard': {

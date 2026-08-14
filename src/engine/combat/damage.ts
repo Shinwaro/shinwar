@@ -337,7 +337,8 @@ function takes(who: Combatant): string {
   return who.kind === 'player' ? 'take' : 'takes';
 }
 
-function combatantName(state: GameState, who: Combatant): string {
+/** The readable name of a combatant. Never a uid — the log is read by a person. */
+export function combatantName(state: GameState, who: Combatant): string {
   if (who.kind === 'player') return 'You';
   const combat = state.run?.combat;
   const enemy = combat?.enemies.find((entry) => entry.uid === who.uid);

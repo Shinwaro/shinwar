@@ -88,6 +88,21 @@ export const STANCES: { readonly [K in StanceId]: StanceRules } = {
   },
 } as const;
 
+/**
+ * The stances actually in rotation.
+ *
+ * FLOW is defined above but dormant: with a 12-card starting deck and no
+ * engine to feed, a third stance is more bookkeeping than decision. Two stances
+ * make the transition itself the interesting choice — the axis still
+ * recontextualises the hand, with half the surface area to learn.
+ *
+ * DESIGN.md §1 specs three. Putting FLOW back is this list, and the cards that
+ * want a FLOW rider. Nothing else knows the difference: `cycleStance` walks
+ * this array, and the content validator rejects any card that names a stance
+ * not in it, so dormant content cannot creep back in unnoticed.
+ */
+export const ACTIVE_STANCES: readonly StanceId[] = ['iai', 'guard'];
+
 export const STARTING_STANCE: StanceId = 'guard';
 
 /* ---------- focus ----------

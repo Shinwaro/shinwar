@@ -6,14 +6,19 @@
  * and drawing continues.
  */
 
-import type { CardInstance, CombatState, RngState } from '../types.ts';
+import type { CardInstance, CombatState, GameState, RngState } from '../types.ts';
 import { shuffle } from '../rng.ts';
+import { appendLog } from '../state.ts';
+import { fireHook } from '../hooks.ts';
+import { cards as cardTable } from '../../content/registry.ts';
 
 export interface PileResult {
   readonly combat: CombatState;
   readonly rng: RngState;
   /** What actually moved, for the log and for `onCardDrawn`. */
   readonly moved: readonly CardInstance[];
+  /** Whether the discard had to be shuffled back. The player should be told. */
+  readonly reshuffled: boolean;
 }
 
 /**
@@ -27,14 +32,16 @@ export function draw(combat: CombatState, rng: RngState, count: number): PileRes
   const hand = combat.hand.slice();
   const moved: CardInstance[] = [];
   let currentRng = rng;
+  let reshuffled = false;
 
   for (let i = 0; i < count; i++) {
     if (drawPile.length === 0) {
       if (discard.length === 0) break;
-      const reshuffled = shuffle(currentRng, 'combat', discard);
-      drawPile = reshuffled.value;
-      currentRng = reshuffled.rng;
+      const rolled = shuffle(currentRng, 'combat', discard);
+      drawPile = rolled.value;
+      currentRng = rolled.rng;
       discard = [];
+      reshuffled = true;
     }
     const card = drawPile.shift();
     if (card === undefined) break;
@@ -46,7 +53,52 @@ export function draw(combat: CombatState, rng: RngState, count: number): PileRes
     combat: { ...combat, draw: drawPile, discard, hand },
     rng: currentRng,
     moved,
+    reshuffled,
   };
+}
+
+/**
+ * Narrate a draw and fire `onCardDrawn` for each card.
+ *
+ * A draw that leaves no trace in the log is indistinguishable from a draw that
+ * never happened — which is exactly how a working mechanic reads as broken.
+ * Turn-start draws report a count; a draw the player spent a card on names the
+ * cards, because that is the thing they paid for and want to see land.
+ */
+export function narrateDraw(
+  state: GameState,
+  result: PileResult,
+  source: string,
+  nameCards: boolean,
+): GameState {
+  let next = state;
+
+  if (result.reshuffled) {
+    next = appendLog(next, {
+      source: 'system',
+      kind: 'card',
+      text: 'Discard shuffled back into the deck.',
+      detail: null,
+    });
+  }
+
+  if (result.moved.length > 0) {
+    const names = result.moved.map((card) => cardTable.find(card.defId)?.name ?? card.defId);
+    next = appendLog(next, {
+      source,
+      kind: 'card',
+      text: nameCards
+        ? `Drew ${names.join(', ')}.`
+        : `Drew ${result.moved.length} card${result.moved.length === 1 ? '' : 's'}.`,
+      detail: { count: result.moved.length },
+    });
+  }
+
+  for (const card of result.moved) {
+    next = fireHook(next, 'onCardDrawn', { cardUid: card.uid, cardId: card.defId });
+  }
+
+  return next;
 }
 
 export function discardHand(combat: CombatState): CombatState {

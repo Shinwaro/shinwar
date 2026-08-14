@@ -193,6 +193,43 @@
   letter-spacing: 0.08em;
 }
 
+.hull-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+/* Block sits on the hull row because it is the thing standing in front of the
+   hull. When it is up it reads as armour; at zero it stays visible but recedes,
+   so "I have no Block" is as legible as "I have 9". */
+.shield {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  margin-left: auto;
+  padding: 0.05rem 0.45rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.shield.is-up {
+  border-color: color-mix(in srgb, var(--guard) 60%, transparent);
+  background: color-mix(in srgb, var(--guard) 20%, transparent);
+  color: var(--guard);
+}
+
+.shield.is-down {
+  color: var(--muted);
+  opacity: 0.55;
+}
+
+.shield-icon {
+  font-size: 0.8rem;
+}
+
 .bar {
   height: 0.4rem;
   border-radius: 999px;

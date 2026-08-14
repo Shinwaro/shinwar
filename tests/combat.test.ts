@@ -18,8 +18,9 @@ import {
 } from '../src/engine/combat/combat.ts';
 import { definitionOf } from '../src/engine/combat/combat.ts';
 import { intentOf, telegraphAll } from '../src/engine/combat/intents.ts';
+import { nextStance } from '../src/engine/combat/stance.ts';
 import { overheatDamageAt } from '../src/engine/combat/heat.ts';
-import { HEAT, PLAYER, STANCES } from '../src/content/balance.ts';
+import { ACTIVE_STANCES, HEAT, PLAYER, STANCES } from '../src/content/balance.ts';
 import { IAI_SLASH, SEVER, SOLAR_PARRY, VECTOR_STEP } from '../src/content/cards/basic.ts';
 import { VULNERABLE } from '../src/content/statuses.ts';
 import { combatOf, firstEnemy, handCard, hullOf, makeFight } from './helpers.ts';
@@ -109,9 +110,9 @@ describe('intents', () => {
 });
 
 describe('the turn cycle', () => {
-  it('refills energy, drops block, and draws for the stance', () => {
+  it('refills energy, drops block, and draws the stance’s hand', () => {
     const state = makeFight({
-      stance: 'flow',
+      stance: 'iai',
       block: 9,
       energy: 0,
       drawPile: [IAI_SLASH, IAI_SLASH, IAI_SLASH, IAI_SLASH, IAI_SLASH, IAI_SLASH, IAI_SLASH],
@@ -120,7 +121,18 @@ describe('the turn cycle', () => {
     const combat = combatOf(next);
     expect(combat.energy).toBe(PLAYER.energyPerTurn);
     expect(combat.block).toBe(0);
-    expect(combat.hand.length).toBe(PLAYER.drawPerTurn + 1);
+    expect(combat.hand.length).toBe(PLAYER.drawPerTurn + STANCES.iai.extraDraw);
+  });
+
+  it('still honours a stance’s extra draw if one is in rotation', () => {
+    // FLOW is dormant, but its rules are intact — this is what would have to
+    // keep working the day it comes back.
+    const state = makeFight({
+      stance: 'flow',
+      energy: 0,
+      drawPile: [IAI_SLASH, IAI_SLASH, IAI_SLASH, IAI_SLASH, IAI_SLASH, IAI_SLASH, IAI_SLASH],
+    });
+    expect(combatOf(startPlayerTurn(state)).hand.length).toBe(PLAYER.drawPerTurn + 1);
   });
 
   it('lets GUARD keep 3 Block across the turn boundary', () => {
@@ -146,17 +158,80 @@ describe('the turn cycle', () => {
   });
 });
 
+describe('drawing', () => {
+  it('keeps the hand at five and never loses a card', () => {
+    let state = applyActions(createInitialState('DRAW-TRACE'), [{ kind: 'beginRun' }]);
+    for (let turn = 0; turn < 6; turn++) {
+      const combat = combatOf(state);
+      if (combat.outcome !== 'ongoing') break;
+      const total = combat.hand.length + combat.draw.length + combat.discard.length + combat.exhaust.length;
+      expect(total, `turn ${combat.turn} lost or duplicated a card`).toBe(PLAYER.startingDeckSize);
+      expect(combat.hand.length).toBe(PLAYER.drawPerTurn + STANCES[combat.stance].extraDraw);
+      state = applyActions(state, [{ kind: 'endTurn' }]);
+      if (state.phase !== 'run') break;
+    }
+  });
+
+  it('says so in the log — a silent draw reads as a broken one', () => {
+    const state = applyActions(createInitialState('DRAW-LOG'), [{ kind: 'beginRun' }]);
+    expect(state.log.some((entry) => /^Drew \d+ cards?\./.test(entry.text))).toBe(true);
+  });
+
+  it('names the cards when a card was spent to draw them', () => {
+    const state = makeFight({ stance: 'iai', hand: [VECTOR_STEP], drawPile: [SEVER] });
+    const after = playCard(state, handCard(state, 0).uid, null);
+    expect(after.log.some((entry) => entry.text === 'Drew Sever.')).toBe(true);
+  });
+
+  it('announces the reshuffle', () => {
+    const state = makeFight({ hand: [IAI_SLASH, SOLAR_PARRY], drawPile: [] });
+    const after = endPlayerTurn(state);
+    expect(after.log.some((entry) => entry.text.includes('shuffled back into the deck'))).toBe(true);
+  });
+});
+
 describe('stance', () => {
-  it('cycles forward on Vector Step and draws', () => {
+  it('toggles between the two stances in rotation', () => {
+    const iai = makeFight({ stance: 'iai', hand: [VECTOR_STEP], drawPile: [IAI_SLASH] });
+    const toGuard = playCard(iai, handCard(iai, 0).uid, null);
+    expect(combatOf(toGuard).stance).toBe('guard');
+
+    const guard = makeFight({ stance: 'guard', hand: [VECTOR_STEP], drawPile: [IAI_SLASH] });
+    expect(combatOf(playCard(guard, handCard(guard, 0).uid, null)).stance).toBe('iai');
+  });
+
+  it('never cycles into a dormant stance', () => {
+    for (const from of ACTIVE_STANCES) {
+      for (const direction of [1, -1] as const) {
+        expect(ACTIVE_STANCES).toContain(nextStance(from, direction));
+      }
+    }
+    expect(ACTIVE_STANCES).not.toContain('flow');
+  });
+
+  it('steps a retired stance back into rotation rather than sticking', () => {
+    expect(ACTIVE_STANCES).toContain(nextStance('flow', 1));
+  });
+
+  it('draws when Vector Step changes stance', () => {
     const state = makeFight({ stance: 'iai', hand: [VECTOR_STEP], drawPile: [IAI_SLASH] });
     const after = playCard(state, handCard(state, 0).uid, null);
-    expect(combatOf(after).stance).toBe('guard');
     expect(combatOf(after).hand.some((card) => card.defId === IAI_SLASH)).toBe(true);
+    expect(combatOf(after).hand.length).toBe(1);
   });
 
   it('needs no target for a card that aims at nothing', () => {
-    expect(needsTarget(definitionOf({ uid: 'x', defId: VECTOR_STEP, upgraded: false }))).toBe(false);
-    expect(needsTarget(definitionOf({ uid: 'x', defId: IAI_SLASH, upgraded: false }))).toBe(true);
+    const def = (id: string) => definitionOf({ uid: 'x', defId: id, upgraded: false });
+    expect(needsTarget(def(VECTOR_STEP), 'guard')).toBe(false);
+    expect(needsTarget(def(IAI_SLASH), 'guard')).toBe(true);
+  });
+
+  it('only asks a defensive card to be aimed when its rider is live', () => {
+    // Solar Parry is pure Block in IAI; only the GUARD rider reaches for an
+    // enemy. Aiming it in IAI would be friction with no decision behind it.
+    const parry = definitionOf({ uid: 'x', defId: SOLAR_PARRY, upgraded: false });
+    expect(needsTarget(parry, 'iai')).toBe(false);
+    expect(needsTarget(parry, 'guard')).toBe(true);
   });
 
   it('cooks you in IAI at the end of the turn', () => {

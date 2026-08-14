@@ -93,7 +93,7 @@ export function bindCombatKeys(bindings: CombatKeyBindings): () => void {
       event.preventDefault();
 
       const def = definitionOf(card);
-      if (!needsTarget(def)) {
+      if (!needsTarget(def, combat.stance)) {
         bindings.play(card.uid, null);
         return;
       }

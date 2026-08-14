@@ -22,7 +22,7 @@ import type {
   StatusDef,
   ThreadDef,
 } from '../engine/types.ts';
-import { SCOPE, THREADS } from './balance.ts';
+import { ACTIVE_STANCES, SCOPE, THREADS } from './balance.ts';
 
 interface Table<T extends { readonly id: string }> {
   register(defs: readonly T[]): void;
@@ -240,6 +240,38 @@ function validateEnemies(issues: ValidationIssue[]): void {
   }
 }
 
+function validateStances(issues: ValidationIssue[]): void {
+  // A card whose rider names a retired stance is a card with a dead half — it
+  // would render greyed forever and never fire. Catch it at load, not in play.
+  const active = new Set(ACTIVE_STANCES);
+
+  for (const card of cards.all()) {
+    const where = `card '${card.id}'`;
+    const rider = card.stanceRider;
+    if (rider !== undefined && !active.has(rider.stance)) {
+      issues.push({ where, problem: `rider needs stance '${rider.stance}', which is not in rotation` });
+    }
+
+    const walk = (ops: readonly EffectOp[]): void => {
+      for (const op of ops) {
+        if (op.op === 'setStance' && !active.has(op.stance)) {
+          issues.push({ where, problem: `sets stance '${op.stance}', which is not in rotation` });
+        }
+        if (op.op === 'conditional') {
+          if (op.when.kind === 'stanceIs' && !active.has(op.when.stance)) {
+            issues.push({ where, problem: `tests for stance '${op.when.stance}', which is not in rotation` });
+          }
+          walk(op.then);
+          if (op.else !== undefined) walk(op.else);
+        }
+        if (op.op === 'scaleWith') walk(op.then);
+      }
+    };
+    walk(card.effects);
+    if (rider !== undefined) walk(rider.effects);
+  }
+}
+
 function validateKeywordBudget(issues: ValidationIssue[]): void {
   // Depth comes from stance and heat recontextualising a small vocabulary, not
   // from more nouns. Statuses are the part of the keyword count that grows
@@ -260,6 +292,7 @@ function validateKeywordBudget(issues: ValidationIssue[]): void {
 export function validateContent(): readonly ValidationIssue[] {
   const issues: ValidationIssue[] = [];
   validateCards(issues);
+  validateStances(issues);
   validateEnemies(issues);
   validateEvents(issues);
   validateThreads(issues);

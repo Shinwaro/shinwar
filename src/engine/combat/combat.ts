@@ -18,7 +18,7 @@ import { applyEffects, createContext, retireCard } from './effects.ts';
 import { gainHeat, resolveOverheat, ventHeat } from './heat.ts';
 import { decayStatuses } from './keywords.ts';
 import { mintEnemy } from './instances.ts';
-import { discardHand, draw, findInHand, moveToDiscard } from './piles.ts';
+import { discardHand, draw, findInHand, moveToDiscard, narrateDraw } from './piles.ts';
 import { telegraphAll } from './intents.ts';
 
 /* ---------- setup ---------- */
@@ -145,11 +145,8 @@ function drawForTurn(state: GameState): GameState {
   if (run.combat === null) return state;
 
   const result = draw(run.combat, run.rng, count);
-  let next = withRun(state, (current) => ({ ...current, rng: result.rng, combat: result.combat }));
-  for (const card of result.moved) {
-    next = fireHook(next, 'onCardDrawn', { cardUid: card.uid, cardId: card.defId });
-  }
-  return next;
+  const next = withRun(state, (current) => ({ ...current, rng: result.rng, combat: result.combat }));
+  return narrateDraw(next, result, 'system', false);
 }
 
 /* ---------- playing a card ---------- */
@@ -173,10 +170,18 @@ export function canPlay(state: GameState, cardUid: string): PlayCheck {
   return { ok: true, reason: null };
 }
 
-/** Does this card need the player to pick an enemy before it can resolve? */
-export function needsTarget(def: CardDef): boolean {
+/**
+ * Does this card need the player to pick an enemy before it can resolve?
+ *
+ * Stance-aware on purpose. Solar Parry is pure Block in IAI and only reaches
+ * for an enemy under its GUARD rider — asking a defensive card to be aimed in
+ * the stance where it does nothing to anyone is friction with no decision
+ * behind it. Pass the stance the card would resolve in.
+ */
+export function needsTarget(def: CardDef, stance: StanceId): boolean {
   const wants = (op: { readonly op: string; readonly target?: string }): boolean =>
     op.target === 'enemy' || op.target === 'chosenEnemy';
+
   const walk = (ops: readonly CardDef['effects'][number][]): boolean =>
     ops.some((op) => {
       if (wants(op)) return true;
@@ -184,7 +189,12 @@ export function needsTarget(def: CardDef): boolean {
       if (op.op === 'scaleWith') return walk(op.then);
       return false;
     });
-  return walk(def.effects) || walk(def.stanceRider?.effects ?? []);
+
+  if (walk(def.effects)) return true;
+
+  const rider = def.stanceRider;
+  if (rider === undefined || rider.stance !== stance) return false;
+  return walk(rider.effects);
 }
 
 export function playCard(state: GameState, cardUid: string, targetUid: string | null): GameState {

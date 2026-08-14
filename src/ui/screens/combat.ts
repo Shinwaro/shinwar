@@ -110,15 +110,29 @@ function build(store: Store, state: GameState, selection: Selection, rerender: (
   const selectedDef = selection.cardUid === null
     ? null
     : (combat.hand.find((card) => card.uid === selection.cardUid) ?? null);
-  const wantsTarget = selectedDef === null ? false : needsTarget(definitionOf(selectedDef));
+  const wantsTarget =
+    selectedDef === null ? false : needsTarget(definitionOf(selectedDef), combat.stance);
 
   /* ---- top bar ---- */
 
   const environment = environments.find(combat.environmentId);
   const topBar = el('header', { class: 'combat-bar' }, [
     el('div', { class: 'stat stat--hull' }, [
-      el('span', { class: 'stat-label' }, ['HULL']),
-      el('span', { class: 'stat-value' }, [`${run.pilot.hull}/${run.pilot.maxHull}`]),
+      el('div', { class: 'hull-head' }, [
+        el('span', { class: 'stat-label' }, ['HULL']),
+        el('span', { class: 'stat-value' }, [`${run.pilot.hull}/${run.pilot.maxHull}`]),
+        // Block belongs beside the hull it is protecting, not in a resource
+        // list further down. It is the number you check before ending a turn.
+        el(
+          'span',
+          {
+            class: `shield ${combat.block > 0 ? 'is-up' : 'is-down'}`,
+            'aria-label': `${combat.block} Block`,
+            title: 'Block absorbs damage before it reaches your hull.',
+          },
+          [el('span', { class: 'shield-icon', 'aria-hidden': 'true' }, ['⛨']), String(combat.block)],
+        ),
+      ]),
       el('div', { class: 'bar bar--hull' }, [
         el('span', { class: 'bar-fill', style: `width:${hullFraction(run) * 100}%` }),
       ]),
@@ -199,7 +213,7 @@ function build(store: Store, state: GameState, selection: Selection, rerender: (
             return;
           }
           const def = definitionOf(card);
-          if (!needsTarget(def)) {
+          if (!needsTarget(def, combat.stance)) {
             // Nothing to aim at — playing it immediately is the whole
             // interaction, and making the player click twice for a Block card
             // would be ceremony.

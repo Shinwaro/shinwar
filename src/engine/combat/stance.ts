@@ -10,20 +10,31 @@
  */
 
 import type { GameState, StanceId } from '../types.ts';
-import { STANCE_ORDER } from '../types.ts';
 import { appendLog, requireCombat, withCombat } from '../state.ts';
 import { fireHook } from '../hooks.ts';
-import { STANCES } from '../../content/balance.ts';
+import { ACTIVE_STANCES, STANCES } from '../../content/balance.ts';
 
 export function currentStance(state: GameState): StanceId {
   return requireCombat(state).stance;
 }
 
+/**
+ * The next stance in rotation. Walks `ACTIVE_STANCES`, so a dormant stance is
+ * never cycled into. With two active it is a toggle and direction is moot,
+ * which is fine — the cards that name a direction still read correctly when a
+ * third stance comes back.
+ */
 export function nextStance(from: StanceId, direction: 1 | -1): StanceId {
-  const index = STANCE_ORDER.indexOf(from);
-  const length = STANCE_ORDER.length;
-  const moved = ((index + direction) % length + length) % length;
-  return STANCE_ORDER[moved] ?? from;
+  const order = ACTIVE_STANCES;
+  const length = order.length;
+  if (length === 0) return from;
+
+  const index = order.indexOf(from);
+  // Currently in a stance that has been retired: step back into rotation.
+  if (index === -1) return order[0] ?? from;
+
+  const moved = (((index + direction) % length) + length) % length;
+  return order[moved] ?? from;
 }
 
 /** Set the stance. A no-op when already there — it must not cost a hook firing. */

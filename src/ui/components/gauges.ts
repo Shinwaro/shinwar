@@ -59,11 +59,9 @@ export function renderResources(state: GameState): HTMLElement {
     el('span', { class: `energy-pip${index < combat.energy ? ' is-full' : ''}`, 'aria-hidden': 'true' }),
   );
 
+  // Block is not here: it lives beside the hull bar, next to the thing it
+  // protects. Repeating it would be two numbers to keep in sync on screen.
   return el('div', { class: 'resources' }, [
-    el('span', { class: 'resource' }, [
-      el('span', { class: 'resource-label' }, ['Block']),
-      el('span', { class: 'resource-value' }, [String(combat.block)]),
-    ]),
     el('span', { class: 'resource' }, [
       el('span', { class: 'resource-label' }, ['Focus']),
       el('span', { class: 'resource-value' }, [String(combat.focus)]),
