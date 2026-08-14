@@ -207,3 +207,37 @@ There is no build command and no output directory to configure — the repo root
 ```bash
 git add -A && git commit -m "add reaction-time experiment" && git push
 ```
+
+If a change does not appear, suspect the browser or the Cloudflare edge cache before suspecting
+the build. Both have masqueraded as "the deploy failed" here. A cache-busting query string
+(`?x=1`) settles it in one request.
+
+---
+
+## Where it is hosted
+
+Nothing below lives in this repo. It is recorded here because it is otherwise invisible from the
+code, and rediscovering it costs an afternoon.
+
+| | |
+|---|---|
+| Host | Cloudflare Pages, project **`shinwar`** |
+| Source | GitHub `Shinwaro/shinwar`, branch `main` |
+| Build | none — no command, no output directory |
+| Always-on URL | `shinwar.pages.dev` (works independently of the domain; useful when DNS is in doubt) |
+| Registrar | Loopia |
+| Nameservers | `elmo.ns.cloudflare.com`, `gail.ns.cloudflare.com` |
+| DNSSEC | **Off at Loopia, deliberately** |
+
+**The DNS records are managed by Pages, not by hand.** The zone holds exactly two records — the
+apex and `www`, both proxied CNAMEs to `shinwar.pages.dev` — and the Pages custom-domain flow
+wrote both. Do not add a second record for either name. Cloudflare will occasionally warn that
+`www` "may not be proxied" when adding a rule; that warning is wrong, and accepting its offer to
+create a proxied record would put a conflicting record alongside the one Pages manages.
+
+**Leave DNSSEC off unless you mean it.** Migrating the nameservers to Cloudflare required removing
+the DS record at the `.se` registry *first*. Moving them while it is still published makes every
+validating resolver return SERVFAIL, which looks exactly like the domain ceasing to exist. If you
+ever re-enable it, do it at Cloudflare, and only when nothing else is in flight.
+
+**Redirects are dashboard rules, not files.** See the `_redirects` note above.
