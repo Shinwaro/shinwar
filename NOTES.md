@@ -277,9 +277,28 @@ Done now, because both were settled and neither depends on the open questions:
   fight threatens. Worth revisiting if ship combat ever gets its own conditions.
 - The ship's 70 hull is a placeholder. It has never been played and the real number waits on the grid.
 
-Not done: anything grid-shaped. Seven open questions in `SHIP.md` block it, and the biggest is
+Not done: anything grid-shaped. The remaining open questions live in `SHIP.md`, and the biggest is
 scope — a second combat system roughly doubles what is left to build, and the milestone order in
 `PROMPT.md` has not been renegotiated to fit it.
+
+Since decided, and written into `SHIP.md`:
+
+- **Ship fights autoresolve, with one high-leverage decision per turn.** Not a second card game.
+  The rule that carries it: **modules grant verbs, not just numbers** — your intervention list is a
+  function of what is installed, so the build decides which decisions you are even allowed to make.
+- **You cannot die in space; you die on the ground.** Losing a space battle always crashes you and
+  never kills you. No roll — the uncertainty is in what it costs, never in whether you live.
+- **The crash is a hard punish on four axes:** the ship is broken and cannot fly until repaired,
+  the ronin arrives injured, the crash site is a pocket of surface nodes rolling encounters from the
+  act's *elite* band, and the repair costs Alloy while the Wavefront keeps advancing.
+- **The crash pocket is capped at 2–3 nodes with a visible exit.** That cap is a rule, not a tuning
+  number: with no saves and a 45–70 minute budget, an unbounded run-within-a-run is the likeliest way
+  this mechanic wrecks the pacing.
+
+Rejected along the way, with reasons, so they do not come back by accident: a Space Invaders style
+ship fight (breaks determinism, so it costs the seed, the simulator and the bug-report format — and
+losing 50 minutes to a reflex slip is a worse feeling than losing to a bad route), and a random
+survival roll on crashing (output randomness delivered as a verdict after the plan already failed).
 
 ### A false alarm worth recording
 
