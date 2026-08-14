@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Reaction Time — shinwar</title>
+<meta name="description" content="Tap the circle the instant it turns green.">
+<meta name="color-scheme" content="light dark">
+<link rel="stylesheet" href="../../assets/shell.css">
+<style>
+  /* experiment-local CSS. never in shell.css. */
+
+  .pad {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: .5rem;
+    width: min(22rem, 78vw);
+    aspect-ratio: 1;
+    padding: 1.5rem;
+    border: 1px solid var(--line);
+    border-radius: 50%;
+    background: var(--surface);
+    color: var(--ink);
+    cursor: pointer;
+    transition: background-color .06s linear, border-color .06s linear, transform .08s;
+  }
+  .pad:active { transform: scale(.985); }
+
+  /* the two states that matter are read at a glance and never rely on colour
+     alone — the word in the middle says the same thing the colour does */
+  .pad[data-state="waiting"] {
+    background: #7f1d1d; border-color: #7f1d1d; color: #fee2e2;
+  }
+  .pad[data-state="ready"] {
+    background: #15803d; border-color: #15803d; color: #f0fdf4;
+  }
+  .pad[data-state="soon"] {
+    background: #a16207; border-color: #a16207; color: #fefce8;
+  }
+  @media (prefers-color-scheme: dark) {
+    .pad[data-state="waiting"] { background: #991b1b; border-color: #991b1b; }
+    .pad[data-state="ready"]   { background: #16a34a; border-color: #16a34a; }
+    .pad[data-state="soon"]    { background: #b45309; border-color: #b45309; }
+  }
+
+  .big {
+    font-size: clamp(2.2rem, 12vw, 3.6rem);
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: -.03em;
+    font-variant-numeric: tabular-nums;
+  }
+  .lede { font-size: 1rem; font-weight: 600; letter-spacing: -.01em; }
+  .sub  { font-size: .85rem; opacity: .8; max-width: 15rem; text-wrap: pretty; }
+
+  .stats {
+    display: flex; flex-wrap: wrap; justify-content: center; gap: 1.4rem;
+    font-variant-numeric: tabular-nums;
+  }
+  .stat { display: flex; flex-direction: column; align-items: center; gap: .1rem; }
+  .stat b { font-size: 1.15rem; font-weight: 600; }
+  .stat span { font-size: .7rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+
+  .runs { display: flex; flex-wrap: wrap; justify-content: center; gap: .35rem; max-width: 24rem; }
+  .run {
+    font-size: .75rem; font-variant-numeric: tabular-nums;
+    padding: .18rem .5rem; border: 1px solid var(--line); border-radius: 999px; color: var(--muted);
+  }
+  .run.best { border-color: currentColor; color: #15803d; font-weight: 600; }
+  @media (prefers-color-scheme: dark) { .run.best { color: #4ade80; } }
+
+  .hint { color: var(--muted); font-size: .85rem; max-width: 24rem; text-wrap: pretty; }
+</style>
+</head>
+<body>
+
+<header class="xbar">
+  <a class="xbar-back" href="../../index.html">←&nbsp;<span>shinwar</span></a>
+  <h1 class="xbar-title">Reaction Time</h1>
+  <span class="tag tag-arcade">Arcade</span>
+</header>
+
+<main class="stage no-select">
+
+  <button class="pad" id="pad" type="button" data-state="idle">
+    <span class="lede" id="padLede">Tap to start</span>
+    <span class="big" id="padBig" hidden></span>
+    <span class="sub" id="padSub">Then wait for green.</span>
+  </button>
+
+  <p class="visually-hidden" id="live" role="status" aria-live="polite"></p>
+
+  <div class="stats" id="stats" hidden>
+    <span class="stat"><b id="statBest">—</b><span>best</span></span>
+    <span class="stat"><b id="statLast">—</b><span>last</span></span>
+    <span class="stat"><b id="statAvg">—</b><span>average</span></span>
+  </div>
+
+  <div class="runs" id="runs"></div>
+
+  <p class="hint">Tap, click, or press Space. Nothing is saved — refresh and it's gone.</p>
+
+  <button class="btn" id="reset" type="button" hidden>Clear attempts</button>
+
+</main>
+
+<script>
+(function () {
+  "use strict";
+
+  var pad   = document.getElementById("pad");
+  var lede  = document.getElementById("padLede");
+  var big   = document.getElementById("padBig");
+  var sub   = document.getElementById("padSub");
+  var live  = document.getElementById("live");
+  var stats = document.getElementById("stats");
+  var runsBox = document.getElementById("runs");
+  var resetBtn = document.getElementById("reset");
+
+  /* "idle" -> "waiting" -> "ready" -> "result" | "soon" */
+  var state = "idle";
+  var timer = null;
+  var greenAt = 0;
+  var runs = [];          /* in memory only; a refresh is meant to wipe it */
+
+  function setPad(s, headline, detail, number) {
+    state = s;
+    pad.dataset.state = s;
+    lede.textContent = headline;
+    sub.textContent = detail;
+    if (number == null) {
+      big.hidden = true;
+      big.textContent = "";
+    } else {
+      big.hidden = false;
+      big.textContent = number;
+    }
+  }
+
+  function announce(t) { live.textContent = t; }
+
+  function arm() {
+    setPad("waiting", "Wait for green", "Do not click yet.");
+    announce("Waiting. Do not click yet.");
+    /* 1.2–3.8s: long enough that you cannot learn the rhythm */
+    timer = setTimeout(go, 1200 + Math.random() * 2600);
+  }
+
+  function go() {
+    timer = null;
+    greenAt = performance.now();
+    setPad("ready", "Now", "Click!");
+    announce("Green. Click now.");
+  }
+
+  function react() {
+    var ms = Math.round(performance.now() - greenAt);
+    runs.push(ms);
+    setPad("result", "", "Tap to go again.", ms + " ms");
+    announce(ms + " milliseconds. Tap to go again.");
+    draw();
+  }
+
+  function tooSoon() {
+    if (timer) { clearTimeout(timer); timer = null; }
+    setPad("soon", "Too soon", "You clicked before it turned green. Tap to retry.");
+    announce("Too soon. You clicked before green.");
+  }
+
+  /* one entry point for mouse, touch and keyboard */
+  function poke() {
+    if (state === "idle" || state === "result" || state === "soon") { arm(); return; }
+    if (state === "waiting") { tooSoon(); return; }
+    if (state === "ready") { react(); }
+  }
+
+  function draw() {
+    if (!runs.length) {
+      stats.hidden = true;
+      resetBtn.hidden = true;
+      runsBox.textContent = "";
+      return;
+    }
+    stats.hidden = false;
+    resetBtn.hidden = false;
+
+    var best = Math.min.apply(null, runs);
+    var last = runs[runs.length - 1];
+    var recent = runs.slice(-5);
+    var avg = Math.round(recent.reduce(function (a, b) { return a + b; }, 0) / recent.length);
+
+    document.getElementById("statBest").textContent = best + " ms";
+    document.getElementById("statLast").textContent = last + " ms";
+    document.getElementById("statAvg").textContent = avg + " ms";
+
+    runsBox.textContent = "";
+    runs.slice(-10).forEach(function (n) {
+      var s = document.createElement("span");
+      s.className = "run" + (n === best ? " best" : "");
+      s.textContent = n;
+      runsBox.appendChild(s);
+    });
+  }
+
+  pad.addEventListener("click", poke);
+
+  /* preventDefault so the synthetic click does not fire this twice */
+  pad.addEventListener("touchstart", function (e) {
+    e.preventDefault();
+    poke();
+  }, { passive: false });
+
+  /* Space and Enter anywhere. preventDefault also stops the focused button
+     from firing its own click on top of this. */
+  document.addEventListener("keydown", function (e) {
+    if (e.repeat) return;
+    if (e.key === " " || e.key === "Enter" || e.key === "Spacebar") {
+      if (document.activeElement === resetBtn) return;
+      e.preventDefault();
+      poke();
+    }
+  });
+
+  resetBtn.addEventListener("click", function (e) {
+    e.stopPropagation();
+    runs = [];
+    draw();
+    announce("Attempts cleared.");
+    pad.focus();
+  });
+
+  draw();
+})();
+</script>
+</body>
+</html>

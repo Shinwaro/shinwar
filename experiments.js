@@ -20,10 +20,10 @@ window.EXPERIMENTS = [
     added: "2026-08-14",
   },
   {
-    slug: "click-counter",
-    title: "Click Counter",
-    blurb: "Counts your clicks. That is the entire experiment.",
-    category: "toy",
+    slug: "reaction-time",
+    title: "Reaction Time",
+    blurb: "Tap the circle the instant it turns green.",
+    category: "arcade",
     added: "2026-08-13",
   },
 ];
