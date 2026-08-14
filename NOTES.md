@@ -129,6 +129,27 @@ Two separate causes, both worth remembering because they will recur:
 
 ---
 
+## The animation plan
+
+Agreed: **nothing before M2, a small pass right after M2, the real work at M7.**
+
+The small pass is three things and no more — damage numbers rising off the target, HP bars draining
+rather than snapping, and a beat between a card leaving the hand and its effect landing. That is
+enough to make a state change *readable as a sequence*, which is legibility rather than polish: you
+should be able to see the Focus fire before the stance bonus. Screen shake, weapon effects and hit
+sparks all wait for M7.
+
+Two constraints on whatever gets built:
+
+- **The engine stays instant.** State transitions are synchronous and pure; only the *rendering* is
+  timed. Animation must never gate a state change or the simulator and the tests diverge from the
+  game.
+- **The combat log is the event stream.** Every state change already appends a log entry in order,
+  so the animation layer consumes entries added since the last render and plays them out. It cannot
+  desync from what actually happened, and it needs no event system of its own. A few entries will
+  want richer `detail` fields; the shape is already right. This is also what makes
+  `prefers-reduced-motion` free — skip the timeline, jump to the end state.
+
 ## M1 — combat vertical slice
 
 ### The preview is a dry run of the real thing
@@ -294,6 +315,11 @@ Since decided, and written into `SHIP.md`:
 - **The crash pocket is capped at 2–3 nodes with a visible exit.** That cap is a rule, not a tuning
   number: with no saves and a 45–70 minute budget, an unbounded run-within-a-run is the likeliest way
   this mechanic wrecks the pacing.
+
+Leaning, recorded so the grid is not built in a way that forecloses either: the grid is
+**rearrangeable under fire** (repositioning becomes one of the intervention verbs, and it needs a
+cost or it is free optimisation), and modules **gain synergies from adjacency** — as a bonus for
+touching, never a requirement to function, so a badly packed ship is weaker and never broken.
 
 Rejected along the way, with reasons, so they do not come back by accident: a Space Invaders style
 ship fight (breaks determinism, so it costs the seed, the simulator and the bug-report format — and

@@ -167,14 +167,23 @@ choice rather than a wall.
 
 Fewer than there were. These still block implementation.
 
-1. **Does the grid change mid-combat, or only between fights?** Rearranging under fire is a richer
-   puzzle and a much bigger UI. Locking it between fights makes ship combat about preparation, which
-   fits autoresolve better. *Leaning: locked during a fight.*
+1. **Does the grid change mid-combat, or only between fights?**
+   *Leaning: **rearrangeable under fire**.* That makes the grid a live puzzle rather than a loadout
+   screen, and it pairs with autoresolve — repositioning becomes one of the high-leverage verbs
+   worth spending a turn's intervention on. It is the bigger UI by some distance, and it needs a
+   cost (a move probably costs the turn's intervention, or Energy) or it is free optimisation.
 
-2. **Adjacency.** Does the Thermal Converter need to *touch* the Plasma Cannon's feed, or is the
-   grid pure packing? Adjacency makes it a real puzzle and is also the fastest way to make a grid
-   frustrating. *Leaning: no adjacency at first — packing plus knocked-out tiles is already two
-   spatial concerns, and adjacency can be added later without breaking saved builds (there are none).*
+2. **Adjacency, with synergies.**
+   *Leaning: **yes**.* Modules that touch feed each other — the Thermal Converter wants to sit
+   against the Plasma Cannon's feed, and placing it there is the reward. Combined with (1) this is
+   the whole game of the grid: what you own, where it sits, and what you shuffle when a hit knocks
+   out a tile.
+   The known risk is frustration — adjacency puzzles turn punishing fast when the pieces are big and
+   the board is small. Mitigations to design in from the start: keep footprints small, keep the
+   board generous, and make adjacency a **bonus for touching** rather than a **requirement to
+   function**, so a badly packed ship is weaker and never broken.
+
+   *Not to be coded yet — recorded so the grid is not built in a way that forecloses either.*
 
 3. **Ship Energy.** Per-turn like the card game's 3, or accumulated across turns? The Thermal
    Converter implies it is spendable and scarce. Accumulation makes long fights snowball, which
