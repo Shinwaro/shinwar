@@ -11,12 +11,48 @@
 </head>
 <body>
 
-<div class="wrap">
+<header class="hero">
+  <canvas class="hero-sky" id="hero-sky" aria-hidden="true"></canvas>
+  <div class="hero-key" aria-hidden="true"></div>
+  <div class="hero-vignette" aria-hidden="true"></div>
 
-  <header class="masthead">
-    <h1>shinwar.se</h1>
-    <p>A lab. Small things I build for fun — games, quizzes, trainers, and toys. Nothing is saved, nothing signs you up. Refresh and it's gone.</p>
-  </header>
+  <div class="hero-inner">
+    <h1 class="wordmark">
+      <span class="visually-hidden">shinwar.se</span>
+      <!-- Hand-plotted letterforms on a 100-unit cap height, 18-unit stem.
+           No web font: the N/W overlap has to land identically on every device,
+           and a font would render it differently on each. -->
+      <svg viewBox="-12 -12 483 192" fill-rule="evenodd" aria-hidden="true" focusable="false">
+        <!-- WAR paints first so the N reads over the W where they cross -->
+        <g transform="translate(177,68)" fill="#8c1b1b">
+          <path d="M0 0 L18 0 L50 100 L32 100 Z"/>
+          <path d="M32 100 L50 100 L82 0 L64 0 Z"/>
+          <path d="M64 0 L82 0 L114 100 L96 100 Z"/>
+          <path d="M96 100 L114 100 L146 0 L128 0 Z"/>
+          <path transform="translate(150,0)"
+                d="M24 0 L40 0 L64 100 L46 100 L42 80 L22 80 L18 100 L0 100 Z
+                   M27 62 L37 62 L32 30 Z"/>
+          <path transform="translate(224,0)"
+                d="M0 0 L40 0 L54 12 L54 42 L44 54 L58 100 L38 100 L28 58 L18 58 L18 100 L0 100 Z
+                   M18 16 L18 40 L36 40 L36 16 Z"/>
+        </g>
+        <g class="wordmark-shin">
+          <path d="M0 0 L52 0 L52 18 L18 18 L18 41 L52 41 L52 100 L0 100 L0 82 L34 82 L34 59 L0 59 Z"/>
+          <path transform="translate(62,0)"
+                d="M0 0 L18 0 L18 41 L36 41 L36 0 L54 0 L54 100 L36 100 L36 59 L18 59 L18 100 L0 100 Z"/>
+          <path transform="translate(126,0)" d="M0 0 L18 0 L18 100 L0 100 Z"/>
+          <path transform="translate(154,0)"
+                d="M0 0 L18 0 L64 66 L64 0 L82 0 L82 100 L64 100 L18 34 L18 100 L0 100 Z"/>
+        </g>
+      </svg>
+    </h1>
+
+    <p class="hero-tag">A lab. Small things I build for fun — games, quizzes, trainers, and toys.
+    Nothing is saved, nothing signs you up. Refresh and it's gone.</p>
+  </div>
+</header>
+
+<div class="wrap">
 
   <main>
     <h2 class="visually-hidden">Experiments</h2>
@@ -40,6 +76,7 @@
 
 </div>
 
+<script src="assets/hero.js"></script>
 <script src="experiments.js"></script>
 <script src="assets/index.js"></script>
 </body>

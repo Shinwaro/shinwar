@@ -130,16 +130,33 @@ vendor the file into its own folder and justify it.
 ## Files
 
 ```
-index.html         the index — masthead, filter chips, card grid
+index.html         the index — hero, filter chips, card grid
 experiments.js     THE MANIFEST — the only file the index reads
 404.html           not-found page (absolute paths; server-only)
 _redirects         INERT — see below. Kept only so the intent is on record.
 assets/
-  shell.css        tokens (light+dark), card grid, chips, .xbar, .stage, .btn, .tag
+  shell.css        tokens (light+dark), hero, card grid, chips, .xbar, .stage, .btn, .tag
   index.js         chip building, card rendering, hash filter state, empty states
+  hero.js          index-only: asteroid + debris canvas behind the wordmark
 x/<slug>/
   index.html       one experiment, fully self-contained
 ```
+
+### The hero
+
+The SHIN/WAR wordmark is **inline SVG in `index.html`**, hand-plotted on a 100-unit cap height
+with an 18-unit stem. It is not a font and must not become one — the N and W overlap at exact
+coordinates, and any real typeface would render that join differently on every device. WAR is
+painted before SHIN so the N reads over the W where they cross.
+
+The hero is **dark in both colour schemes on purpose**. It is a lit object in space, not a themed
+surface, so it does not follow the light/dark tokens. Everything below it goes back to the calm
+tokens — that contrast is the design, not an oversight. `.hero*` rules are the one loud thing in
+`shell.css`; experiments never load them.
+
+`hero.js` seeds its rock from a fixed constant so it is the same asteroid on every visit, and it
+stops its animation loop entirely when the hero scrolls out of view or the tab is hidden. Honour
+both when touching it — a permanently running canvas on the index would break "keep it fast".
 
 **`_redirects` does nothing. Don't add rules to it.** It contains
 `https://www.shinwar.se/* https://shinwar.se/:splat 301`, but Cloudflare Pages matches `_redirects`
