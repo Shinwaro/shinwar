@@ -1,0 +1,42 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "moduleDetection": "force",
+
+    /* Relative imports carry their .ts extension. Vite, Vitest and Node's own
+       type stripping all resolve that identically, which is what lets
+       `npm run sim` run the engine under bare `node` with no extra dependency. */
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+
+    /* No TS syntax that survives to runtime (no enums, no parameter
+       properties, no namespaces) — required by Node's type stripping, and a
+       good constraint regardless. */
+    "erasableSyntaxOnly": true,
+
+    "noEmit": true,
+    "skipLibCheck": true,
+
+    /* The three the build prompt names, plus friends. Turning any of these off
+       is a design smell — say so instead. */
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitReturns": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "forceConsistentCasingInFileNames": true,
+
+    /* `node` is here for the guard tests (which grep the tree with `node:fs`)
+       and for `sim/`. Types only — nothing from it reaches the bundle. */
+    "types": ["vite/client", "node"]
+  },
+  "include": ["src", "tests", "sim", "vite.config.ts"]
+}

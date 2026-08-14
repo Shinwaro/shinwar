@@ -1,243 +1,241 @@
-# shinwar.se — conventions
+# SHINWAR — conventions
 
-A personal experiment lab. The homepage is an index of small, self-contained interactive things.
-The site's growth *is* the site.
+A space-themed roguelike deckbuilder. You play a ronin of a dead orbital sect, flying a salvaged
+cutter through a collapsing star frontier. Card combat with a stance layer, a branching star map,
+and two progression paths — the pilot and the ship.
 
-**No build step. No framework. No dependencies. No toolchain.** Plain HTML, CSS, and JS.
-Node and Python exist on this machine for dev-time tooling only. Nothing shipped to the site may
-depend on them — no bundler, no compile step, no npm packages, no generated files. `index.html`
-must always open by double-clicking it.
-
----
-
-## Adding an experiment — the whole checklist
-
-This is the core workflow. It should take one prompt and touch exactly two places.
-
-1. **Create `x/<slug>/index.html`** — one self-contained page. Copy the skeleton below.
-2. **Add one entry to `experiments.js`** — put it at the **top** of the array.
-
-That's it. The index picks it up automatically. Nothing else to register, import, or rebuild.
-
-### The entry
-
-```js
-{
-  slug: "reaction-time",           // MUST equal the folder name under x/
-  title: "Reaction Time",
-  blurb: "Tap the circle the instant it changes color.",
-  category: "arcade",              // arcade | quiz | trainer | toy
-  added: "2026-08-14",             // YYYY-MM-DD — sorts the index, newest first
-},
-```
-
-Categories are a **fixed set of four**. Don't invent a fifth without also updating `CATEGORIES` in
-`assets/index.js` and adding a `--cat-*` colour plus a `.tag-*` rule in `assets/shell.css`.
-
-| id | label | what it means |
-|---|---|---|
-| `arcade` | Arcade | quick reflex or score games, fun in under 60 seconds |
-| `quiz` | Quizzes | pick-a-topic question sets |
-| `trainer` | Trainers | drill-style practice (typing, shortcuts, alphabets, memorisation) |
-| `toy` | Toys | utilities, generators, visualisations, gadgets, silly one-offs |
-
-Blurb: one line, under ~70 characters, plain and honest. Dumb experiments get dumb blurbs — that's
-correct. A half-finished idea should never feel out of place here.
-
-### The skeleton
-
-```html
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Reaction Time — shinwar</title>
-<meta name="description" content="Tap the circle the instant it changes color.">
-<meta name="color-scheme" content="light dark">
-<link rel="stylesheet" href="../../assets/shell.css">
-<style>
-  /* experiment-local CSS goes HERE, never in shell.css */
-</style>
-</head>
-<body>
-
-<header class="xbar">
-  <a class="xbar-back" href="../../index.html">←&nbsp;<span>shinwar</span></a>
-  <h1 class="xbar-title">Reaction Time</h1>
-  <span class="tag tag-arcade">Arcade</span>
-</header>
-
-<main class="stage no-select">
-  <!-- the experiment. be as loud as you like in here. -->
-</main>
-
-<script>
-(function () {
-  "use strict";
-  // …
-})();
-</script>
-</body>
-</html>
-```
-
-The tag class and label must match the category (`tag-arcade`/Arcade, `tag-quiz`/Quizzes,
-`tag-trainer`/Trainers, `tag-toy`/Toys).
+**The repo is the game.** shinwar.se serves nothing else. `DESIGN.md` holds the design rationale;
+read it before changing anything mechanical.
 
 ---
 
-## Gotchas — read these, they bite every time
+## Stack
 
-**Paths are relative, deliberately.** `../../assets/shell.css`, not `/assets/shell.css`. This is what
-lets `index.html` work by double-clicking it, with no local server. Absolute paths break local
-preview. The single exception is `404.html`, which uses absolute paths because the server can serve
-it from any depth — so 404.html alone does not preview correctly from `file://`.
+TypeScript (strict), Vite, Vitest. No UI framework — no React, no Vue, no Svelte. Rendering is
+plain DOM plus CSS, with `<canvas>` for the starfield and combat effects only.
 
-**The manifest is `.js`, not `.json`, on purpose.** `fetch()` is blocked on `file://`; a `<script>`
-tag isn't. Don't "improve" this into a JSON file — it breaks local preview entirely.
+**Dependencies stay near zero.** Vite, TypeScript, Vitest. Nothing else without a deliberate
+decision recorded in `NOTES.md`. No CSS framework, no animation library, no state library, no CDN,
+no web fonts. If something genuinely needs a dependency, vendor it and justify it.
 
-**Never persist anything.** No `localStorage`, no `sessionStorage`, no cookies, no analytics, no
-high scores, no server calls. Refresh and it's gone. This is a deliberate product decision, not an
-oversight — do not add persistence to be helpful. Robin will ask if he ever wants it.
-(URL hash for filter state is fine — that's a URL, not storage.)
+```bash
+npm run dev        # vite dev server
+npm run build      # -> dist/
+npm run preview    # serve dist/ locally
+npm test           # vitest
+npm run typecheck  # tsc --noEmit
+npm run sim -- --runs 5000 --depth 0
+```
 
-**Phone and desktop are equally first-class.** Every experiment must be genuinely playable with
-touch *and* keyboard/mouse. Design for the phone at the same time as the desktop, not after. If an
-idea doesn't survive the translation to touch, say so before building it.
+---
 
-`shell.css` already handles the usual mobile disasters globally — `touch-action: manipulation`
-(no tap delay / double-tap zoom), `overscroll-behavior: none` (no pull-to-refresh mid-game), safe
-area insets. You still need to:
+## The rules that don't bend
 
-- put `no-select` on anything tapped repeatedly, so long-press doesn't select text
-- keep touch targets ≥ 44px
-- use `.stage` for the play area — it fills the viewport below the bar using `dvh`, which survives
-  mobile browser chrome sliding in and out
-- call `e.preventDefault()` on `touchstart` handlers if you also bind `click`, or it fires twice
+**No persistence. None.** No `localStorage`, no `sessionStorage`, no cookies, no IndexedDB, no
+analytics, no network calls, no accounts, no scores. Close the tab and the run is gone. This is a
+deliberate product decision — do not add saves to be helpful, and do not add "just a settings
+cache." A run is about an hour and it is meant to be a single sitting.
+
+There is a `beforeunload` guard during an active run and a visible, copyable seed. That is the
+whole mitigation and it is enough.
+
+**`src/engine/` is pure.** No DOM, no `window`, no `document`, no `Date.now()`, no `Math.random()`
+— ever. A grep for `Math.random` under `src/engine/` must return nothing. This is enforced by a
+test; if you find yourself wanting to disable that test, the design is wrong, not the test.
+
+**All randomness flows through one seeded PRNG held in game state**, split into named independent
+streams — `map`, `combat`, `rewards`, `events`, `shop`. Named streams mean adding a die roll to
+combat can never change which maps generate for a given seed. Never call the raw generator directly.
+
+**State transitions are pure and immutable.** `applyAction(state, action) => newState`. `GameState`
+must stay JSON-serializable: no classes, no `Map`, no `Set`, no stored functions. Everything
+downstream — replay, tests, the simulator — depends on this.
+
+**One damage pipeline.** `previewDamage()` and actual resolution call the identical function.
+A preview that can disagree with the result is the fastest way to make the game feel unfair. It
+must be structurally impossible, not merely avoided.
+
+**The UI never computes game logic.** It reads state, renders it, dispatches actions. If it needs a
+number, it calls an engine query — the same one the resolver uses.
+
+**Content is data, not code.** Adding a card means editing one file under `src/content/` and
+nothing else. If adding content requires touching the engine, the effect-op vocabulary is missing
+something — extend that instead.
+
+---
+
+## Layout
+
+```
+src/
+  engine/            PURE. No DOM. No Math.random.
+    rng.ts state.ts actions.ts reducer.ts queries.ts hooks.ts types.ts
+    combat/    combat stance heat effects damage keywords intents ai
+    map/       mapgen environments route
+    ship/      ship power modules
+    run/       rewards economy threads difficulty
+  content/           PURE DATA + registry validation
+    cards/ enemies/ modules/ events/
+    encounters.ts environments.ts masteries.ts balance.ts
+  ui/                DOM only
+    store.ts app.ts screens/ components/ input.ts anim.ts a11y.ts
+    space.ts         the asteroid scene (title + menu backgrounds)
+  styles/
+    tokens.css shell.css game.css
+sim/                 headless bot + balance runner
+tests/
+```
+
+`index.html` at the root is the single entry point. The game is a one-page app; there are no other
+HTML files.
+
+---
+
+## Adding content
+
+The whole point of the architecture. Each of these is one file edit.
+
+**A card** — add a `CardDef` to the right file under `src/content/cards/`. Rules text is
+**generated** from the effect ops by `describeCard()`; do not hand-write it. Hand-written text
+drifts from behaviour the moment you tune a number, and drifted text is the most common cause of a
+game feeling unfair. Flavor text is separate and hand-written.
+
+**A ship module, an enemy, an event, an environment** — same pattern, own file, plus a hook handler
+if it needs ongoing behaviour.
+
+Everything extensible hangs off the **hook bus** (`src/engine/hooks.ts`). A module is data plus a
+handler. So is a mastery, a status, an environment. Handlers are pure `(state, payload) => state`,
+sorted by explicit `priority` then a stable key — **never** by insertion order or object identity,
+or determinism breaks in ways that take a day to find.
+
+`CONTENT.md` has the step-by-step. `BALANCE.md` has every tuning number and why it is what it is.
+
+**Ask before** adding an effect op, a keyword, or a fourth combat resource. Those three are where
+complexity gets in. Check whether `conditional` + `scaleWith` already expresses it.
+
+---
+
+## Gotchas — these bite every time
+
+**Seeded determinism is a feature, not a nicety.** `seed + action log` reproduces any run exactly.
+It's the regression harness, it's how the simulator works, and it's the bug report format — if
+something goes wrong, the seed and the log are the whole repro. Anything that breaks reproducibility
+is a P1.
+
+**Enemy intents are committed at telegraph time.** They do not re-roll after the player acts. This
+is a correctness requirement. A player who plans around a telegraphed `14` and takes `21` will
+never trust the game again.
+
+**Keep the keyword count down.** Target ≤14 at 1.0. Depth comes from stance and heat
+recontextualising a small vocabulary, not from more nouns.
+
+**Desktop-first, mobile playable.** An hour-long run with no saves is a desktop session. Build the
+real UI for the desktop; keep mobile functional but don't let it constrain how much information the
+desktop layout shows. Interaction is **tap/click to select a card, tap/click a target to play** on
+both — hover on desktop is an extra preview, never the only way to see something. That keeps mobile
+nearly free without designing for it twice.
+
+**No `alert()`, `confirm()`, or `prompt()`.** In-page dialogs only.
+
+**Honour `prefers-reduced-motion`.** Skip tweens, keep state changes instant. `space.ts` must also
+stop its loop when the tab is hidden or reduced-motion is set — a permanently running canvas is a
+battery bug.
 
 **Accessibility: enough, not a research project.** Real `<button>`s and `<a>`s, keyboard reachable,
-visible focus, readable contrast, `aria-live` on things that change. `shell.css` handles focus rings
-and `prefers-reduced-motion`. Don't over-engineer it, just don't do obviously bad things.
+visible focus, readable contrast, `aria-live` on the combat log and on heat-threshold crossings.
 
-**English only.** No Swedish, no language toggle.
-
-**Keep it fast.** No web fonts, no CDN, no libraries. If an experiment genuinely needs a dependency,
-vendor the file into its own folder and justify it.
+**English only.**
 
 ---
 
-## Files
+## The look
 
-```
-index.html         the index — the space scene, hero, filter chips, card grid
-experiments.js     THE MANIFEST — the only file the index reads
-404.html           not-found page (absolute paths; server-only)
-_redirects         INERT — see below. Kept only so the intent is on record.
-assets/
-  shell.css        tokens (light+dark), .space scene, hero, card grid, chips,
-                   .xbar, .stage, .btn, .tag
-  index.js         chip building, card rendering, hash filter state, empty states
-  space.js         index-only: the asteroid + debris canvas behind the page
-x/<slug>/
-  index.html       one experiment, fully self-contained
-```
+Dark. The game is a lit object in space, not a themed surface — there is no light mode, and
+`<meta name="color-scheme" content="dark">` is set deliberately.
 
-### The index is a scene
+**Style against tokens, never hard-coded colours.** `--bg`, `--surface`, `--ink`, `--muted`,
+`--line`, `--accent`, plus one accent per stance: IAI hot amber, GUARD cold blue, FLOW pale green.
+Add a component and it lands in the scene for free.
 
-The whole index sits on a fixed, full-viewport canvas — asteroid, debris, key light, vignette —
-with the content drifting over it. `body` carries `class="space"`, and the index is **dark in both
-colour schemes on purpose**: it is a lit object in space, not a themed surface, so it declares
-`<meta name="color-scheme" content="dark">` and does not follow the light/dark tokens.
+**The SHIN/WAR wordmark is inline SVG**, hand-plotted on a 100-unit cap height with an 18-unit
+stem. It is not a font and must not become one — the N and W overlap at exact coordinates, and a
+real typeface would render that join differently on every device. WAR is painted first, in
+`#8c1b1b`, so the N reads over the W where they cross.
 
-**`.space` works by re-pointing the tokens, not by restyling components.** It overrides `--bg`,
-`--surface`, `--ink`, `--muted`, `--line`, `--accent` and the four `--cat-*` values on `body.space`;
-the card grid, chips, tags, empty states and footer inherit the new palette with their own rules
-untouched. Add a new component and it lands in the scene for free — so keep styling components
-against the tokens, never against hard-coded colours.
-
-Experiments load `shell.css` but never `.space`, so they still get the calm light/dark tokens.
-That difference between the index and an experiment page is deliberate.
-
-The SHIN/WAR wordmark is **inline SVG in `index.html`**, hand-plotted on a 100-unit cap height
-with an 18-unit stem. It is not a font and must not become one — the N and W overlap at exact
-coordinates, and any real typeface would render that join differently on every device. WAR is
-painted before SHIN so the N reads over the W where they cross.
-
-`space.js` seeds its rock from a fixed constant so it is the same asteroid on every visit, its
-canvas is fixed to the viewport rather than sized to the document (scrolling then costs nothing),
-and it stops the loop when the tab is hidden or `prefers-reduced-motion` is set. Honour all three
-when touching it — a permanently running canvas would break "keep it fast".
-
-**`_redirects` does nothing. Don't add rules to it.** It contains
-`https://www.shinwar.se/* https://shinwar.se/:splat 301`, but Cloudflare Pages matches `_redirects`
-rules on the **path only** — a rule whose source starts with `https://` is silently ignored. The file
-is kept only so the original intent is on record; it has never once fired.
-
-**www → apex is handled by a Cloudflare Redirect Rule instead** (dash → `shinwar.se` → Rules →
-Redirect Rules, named "www to apex"). Wildcard `https://www.*` → `https://${1}`, 301, preserve query
-string. The `${1}` capture is the important part: it keeps the path, so `www.shinwar.se/x/deep-run/`
-lands on the experiment rather than the homepage. Verified live — deep paths and query strings both
-survive, in one hop, and the apex is untouched.
-
-So: redirects for this site live in the Cloudflare dashboard, not in the repo.
-
-### Index behaviour worth knowing
-
-- Sorted by `added`, newest first; ties break alphabetically.
-- Filter state lives in the URL hash (`shinwar.se/#arcade`), so a filtered view is linkable.
-- **Chips only render once at least two categories are populated.** With one experiment there is
-  nothing to filter, so the chip row is hidden on purpose. Not a bug.
-- Two empty states: nothing at all ("Nothing here yet…", written to read as a promise), and a
-  filter with no matches ("No trainers yet.").
-- Cards link to `x/<slug>/index.html` — the explicit filename makes it work both from `file://` and
-  live. The prettier `shinwar.se/x/<slug>/` also works on the live site, so share that with friends.
+**`space.ts` is the asteroid scene** carried over from the old site. It seeds its rock from a fixed
+constant so it's the same asteroid every visit, fixes its canvas to the viewport rather than the
+document, and stops when the tab is hidden or reduced-motion is set. Honour all three when touching
+it. It backs the title and menu screens; the combat stage has its own, quieter background.
 
 ---
 
-## Running it
+## Balance
 
-Double-click `index.html`. That's the whole thing — no server, no install, no command.
+Tune against data, not vibes. `npm run sim` runs the engine headless with a heuristic bot and
+reports per-card pick rate against win-rate correlation — the pair is what identifies problems:
+
+- High pick rate **and** high win rate → overpowered.
+- Pick rate under ~8% → effectively not in the game.
+- Target band is **8–60%** pick rate for every card.
+
+Also watch: win rate by act reached, hull lost per encounter, per-environment win-rate delta,
+overheat frequency, and median run length. **Median run target is 45–70 minutes.** With no saves,
+a run drifting past 90 minutes is a real problem — cut Act 3's length before cutting anything else.
+
+Target win rate at Depth 0 for a competent player: 40–55%. At Depth 20: 10–20%.
+
+---
 
 ## Deploying
 
-`git push`. Cloudflare Pages rebuilds and it's live in about 20 seconds.
-There is no build command and no output directory to configure — the repo root *is* the site.
-
 ```bash
-git add -A && git commit -m "add reaction-time experiment" && git push
+git add -A && git commit -m "..." && git push
 ```
 
-If a change does not appear, suspect the browser or the Cloudflare edge cache before suspecting
-the build. Both have masqueraded as "the deploy failed" here. A cache-busting query string
-(`?x=1`) settles it in one request.
+Cloudflare Pages rebuilds and it's live in about 20 seconds.
+
+> **Changed from the old lab setup.** The repo root is no longer the site. Pages must be configured
+> with **build command `npm run build`** and **output directory `dist`**. If you're setting this up
+> fresh or the deploy suddenly serves a stale root, that's the first thing to check.
+
+If a change doesn't appear, suspect the browser or the Cloudflare edge cache before suspecting the
+build. Both have masqueraded as "the deploy failed" here. A cache-busting query string (`?x=1`)
+settles it in one request.
 
 ---
 
 ## Where it is hosted
 
-Nothing below lives in this repo. It is recorded here because it is otherwise invisible from the
-code, and rediscovering it costs an afternoon.
+None of this lives in the repo. It's recorded because it is otherwise invisible from the code, and
+rediscovering it costs an afternoon.
 
 | | |
 |---|---|
 | Host | Cloudflare Pages, project **`shinwar`** |
 | Source | GitHub `Shinwaro/shinwar`, branch `main` |
-| Build | none — no command, no output directory |
-| Always-on URL | `shinwar.pages.dev` (works independently of the domain; useful when DNS is in doubt) |
+| Build | `npm run build` → `dist` |
+| Always-on URL | `shinwar.pages.dev` (independent of the domain; useful when DNS is in doubt) |
 | Registrar | Loopia |
 | Nameservers | `elmo.ns.cloudflare.com`, `gail.ns.cloudflare.com` |
 | DNSSEC | **Off at Loopia, deliberately** |
 
 **The DNS records are managed by Pages, not by hand.** The zone holds exactly two records — the
-apex and `www`, both proxied CNAMEs to `shinwar.pages.dev` — and the Pages custom-domain flow
-wrote both. Do not add a second record for either name. Cloudflare will occasionally warn that
-`www` "may not be proxied" when adding a rule; that warning is wrong, and accepting its offer to
-create a proxied record would put a conflicting record alongside the one Pages manages.
+apex and `www`, both proxied CNAMEs to `shinwar.pages.dev` — and the Pages custom-domain flow wrote
+both. Do not add a second record for either name. Cloudflare will occasionally warn that `www` "may
+not be proxied" when adding a rule; that warning is wrong, and accepting its offer to create a
+proxied record would put a conflicting record alongside the one Pages manages.
 
 **Leave DNSSEC off unless you mean it.** Migrating the nameservers to Cloudflare required removing
-the DS record at the `.se` registry *first*. Moving them while it is still published makes every
+the DS record at the `.se` registry *first*. Moving them while it's still published makes every
 validating resolver return SERVFAIL, which looks exactly like the domain ceasing to exist. If you
-ever re-enable it, do it at Cloudflare, and only when nothing else is in flight.
+re-enable it, do it at Cloudflare, and only when nothing else is in flight.
 
-**Redirects are dashboard rules, not files.** See the `_redirects` note above.
+**Redirects are dashboard rules, not files.** `_redirects` is inert — Cloudflare Pages matches its
+rules on the path only, so a rule whose source starts with `https://` is silently ignored. It never
+once fired, and it was deleted at M0; this paragraph is the record of why it existed. Do not
+recreate it.
+
+**www → apex is a Cloudflare Redirect Rule** (dash → `shinwar.se` → Rules → Redirect Rules, named
+"www to apex"). Wildcard `https://www.*` → `https://${1}`, 301, preserve query string. The `${1}`
+capture is the important part: it keeps the path. Verified live — deep paths and query strings both
+survive, in one hop, and the apex is untouched.

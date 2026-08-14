@@ -1,0 +1,55 @@
+/* Tokens. Style against these, never against a hard-coded colour — add a
+   component and it lands in the scene for free.
+
+   There is no light mode. The game is a lit object in space, not a themed
+   surface, and `<meta name="color-scheme" content="dark">` says so deliberately.
+   Do not add a `prefers-color-scheme` block here. */
+
+:root {
+  color-scheme: dark;
+
+  /* ---- ground ---- */
+  --bg: #050507;
+  /* The alphas are set by contrast, not taste: panels sit over the lit face of
+     the asteroid, and anything more transparent drops body text under 4.5:1. */
+  --surface: rgba(18, 19, 24, 0.72);
+  --surface-solid: #101116;
+  --ink: #f2f0ec;
+  --muted: rgba(242, 240, 236, 0.7);
+  --line: rgba(255, 255, 255, 0.14);
+  --line-strong: rgba(255, 255, 255, 0.34);
+  --accent: #e8a87c;
+
+  /* ---- the stances ----
+     One accent each: IAI hot, GUARD cold, FLOW pale. These are the only
+     colours in the game that carry meaning on their own, so nothing else may
+     borrow them. */
+  --iai: #f0a13c;
+  --guard: #6ba8e8;
+  --flow: #8fd6a8;
+
+  /* ---- heat ----
+     The pressure gauge. It runs from the safe end to the overheat end, and the
+     threshold marker uses --heat-danger. */
+  --heat-cool: #4d6a86;
+  --heat-warm: #c9873f;
+  --heat-danger: #c9453f;
+
+  /* ---- semantic ---- */
+  --danger: #d4574f;
+  --good: #7fc98f;
+
+  /* ---- type ----
+     System stack. No web fonts, no CDN — the wordmark is the only lettering
+     that has to look identical everywhere, and it is hand-plotted SVG. */
+  --font: ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial,
+    sans-serif;
+  --mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+
+  /* ---- metrics ---- */
+  --wrap: 62rem;
+  --radius: 0.7rem;
+  --radius-sm: 0.45rem;
+  /* Never smaller than this for anything tappable. */
+  --tap: 2.75rem;
+}

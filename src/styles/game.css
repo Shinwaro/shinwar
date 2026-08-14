@@ -1,0 +1,213 @@
+/* Screen-specific rules. At M0 that is the title screen and the state dump. */
+
+/* ---------- title ---------- */
+
+.title-inner {
+  width: 100%;
+  max-width: var(--wrap);
+  margin: 0 auto;
+  display: grid;
+  gap: clamp(2rem, 6vw, 3.5rem);
+}
+
+/* Grid items default to `min-width: auto`, which lets an intrinsically wide
+   child — the wordmark, the seed input — push the whole column past the
+   viewport on a narrow phone. */
+.title-inner > *,
+.title-controls > * {
+  min-width: 0;
+}
+
+.title-head {
+  max-width: 40rem;
+}
+
+.wordmark {
+  margin: 0;
+}
+
+.wordmark svg {
+  display: block;
+  width: min(100%, 34rem);
+  max-width: 100%;
+  height: auto;
+  fill: var(--ink);
+  filter: drop-shadow(0 3px 26px rgba(0, 0, 0, 0.85));
+}
+
+/* The tagline is the one piece of body text with no panel behind it — it sits
+   straight on the rock, so it runs brighter than --muted and carries a shadow.
+   At --muted it measured ~3:1 over the asteroid's lit face. */
+.title-tag {
+  margin-top: clamp(1rem, 3vw, 1.5rem);
+  max-width: 34rem;
+  color: rgba(242, 240, 236, 0.94);
+  font-size: 0.95rem;
+  text-shadow: 0 1px 14px rgba(0, 0, 0, 0.8);
+  text-wrap: pretty;
+}
+
+.title-controls {
+  display: grid;
+  gap: 1.5rem;
+  width: min(100%, 30rem);
+  padding: clamp(1.25rem, 4vw, 1.75rem);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  backdrop-filter: blur(10px) saturate(115%);
+  -webkit-backdrop-filter: blur(10px) saturate(115%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 10px 30px rgba(0, 0, 0, 0.45);
+}
+
+/* A seed is read aloud and typed back in. Monospace and wide tracking so O and
+   0 cannot be confused — though the alphabet excludes both. */
+.seed-input {
+  font-family: var(--mono);
+  font-size: 1.05rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.seed-status {
+  min-height: 1.2em;
+  color: var(--good);
+  font-size: 0.8rem;
+}
+
+.depth-value {
+  font-family: var(--mono);
+  font-size: 1.4rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+}
+
+.depth-input {
+  width: 100%;
+  min-height: var(--tap);
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.depth-rules {
+  display: grid;
+  gap: 0.4rem;
+  max-height: 11rem;
+  overflow-y: auto;
+  padding-top: 0.25rem;
+  border-top: 1px solid var(--line);
+}
+
+.depth-rule {
+  display: grid;
+  grid-template-columns: 1.75rem 1fr;
+  gap: 0.5rem;
+  align-items: baseline;
+  font-size: 0.85rem;
+  color: var(--muted);
+  text-wrap: pretty;
+}
+
+.depth-rule-n {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+  text-align: right;
+}
+
+.depth-rule--pending {
+  font-style: italic;
+  opacity: 0.75;
+}
+
+.depth-rule--none {
+  display: block;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.title-warning {
+  color: var(--muted);
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+}
+
+/* ---------- run state dump ---------- */
+
+.rundump-inner {
+  width: 100%;
+  max-width: var(--wrap);
+  margin: 0 auto;
+  display: grid;
+  gap: 1.25rem;
+}
+
+.screen-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.run-note {
+  max-width: 44rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+  text-wrap: pretty;
+}
+
+.run-note--over {
+  color: var(--accent);
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(14rem, 100%), 1fr));
+  gap: 0.75rem;
+}
+
+.fact {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-solid);
+}
+
+.fact-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.fact-value {
+  font-family: var(--mono);
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+
+.dump {
+  margin: 0;
+  max-height: 55dvh;
+  overflow: auto;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-solid);
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  line-height: 1.5;
+  tab-size: 2;
+}
+
+.run-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}

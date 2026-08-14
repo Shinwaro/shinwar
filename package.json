@@ -1,0 +1,22 @@
+{
+  "name": "shinwar",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "A space-themed roguelike deckbuilder.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "sim": "node sim/index.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "typescript": "^5.9.3",
+    "vite": "^7.1.7",
+    "vitest": "^3.2.4"
+  }
+}
