@@ -226,7 +226,10 @@ function applyOp(state: GameState, op: EffectOp, context: EffectContext): Effect
           actor.kind === 'player'
             ? `Block +${op.amount} (${requireCombat(next).block}).`
             : `Block +${op.amount}.`,
-        detail: { amount: op.amount },
+        detail: {
+          to: actor.kind === 'player' ? 'player' : actor.uid,
+          amount: op.amount,
+        },
       });
       return keep(actor.kind === 'player' ? fireHook(logged, 'onBlockGained', { amount: op.amount }) : logged);
     }

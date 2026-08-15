@@ -235,6 +235,48 @@ input[type='text']:hover {
   border-color: var(--line-strong);
 }
 
+/* ---------- the effects layer ----------
+   Fixed to the viewport and outside every screen, because screens are replaced
+   wholesale on re-render and a number mid-flight must not go with them. */
+
+.fx-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.fx-float {
+  position: absolute;
+  font-family: var(--mono);
+  font-size: 1.15rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  text-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.95),
+    0 0 12px rgba(0, 0, 0, 0.8);
+  will-change: transform, opacity;
+}
+
+.fx-float--damage {
+  color: var(--danger);
+}
+
+.fx-float--block {
+  color: var(--guard);
+}
+
+.fx-float--heal {
+  color: var(--good);
+}
+
+.fx-float--heat {
+  color: var(--heat-danger);
+}
+
 /* ---------- motion ----------
    Skip the tweens, keep the state changes instant. */
 

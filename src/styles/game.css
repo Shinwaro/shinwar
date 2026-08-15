@@ -237,10 +237,14 @@
   overflow: hidden;
 }
 
+/* Drains rather than snapping. The width is set from the previous value and
+   then to the new one on the next frame — see `setBarFill` — because a
+   re-rendered element has nothing to transition from on its own. */
 .bar-fill {
   display: block;
   height: 100%;
   background: var(--good);
+  transition: width 0.4s cubic-bezier(0.2, 0.7, 0.3, 1);
 }
 
 .bar--hp .bar-fill {

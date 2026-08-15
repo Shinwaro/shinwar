@@ -31,6 +31,7 @@ import { renderEnemy } from '../components/enemy.ts';
 import { renderHeatGauge, renderResources, renderStanceStrip } from '../components/gauges.ts';
 import { renderLog, scrollLogToEnd } from '../components/log.ts';
 import { bindCombatKeys } from '../input.ts';
+import { clearFloaters, playLogFx, setBarFill } from '../anim.ts';
 
 interface Selection {
   /** The card the player has picked up, if any. */
@@ -54,18 +55,40 @@ export function renderCombat(store: Store): HTMLElement {
    */
   let rendering = false;
 
+  /*
+   * How far through the log the animation layer has played. The log is the
+   * event stream, so "what should animate" is exactly "what was appended since
+   * last time". Starts at the current length so mounting mid-fight does not
+   * replay the whole history at once.
+   */
+  let logCursor = store.getState().log.length;
+
   const rerender = (): void => {
     if (rendering) return;
     const state = store.getState();
     // A won fight clears `combat` before the app swaps the screen out, and the
     // listener fires on that state first. Render nothing rather than throw.
     if (state.run === null || state.run.combat === null) return;
+
+    // The rolling log window can shrink; never slice from a stale index.
+    if (state.log.length < logCursor) logCursor = state.log.length;
+    const fresh = state.log.slice(logCursor);
+    logCursor = state.log.length;
+
     rendering = true;
     try {
       host.replaceChildren(build(store, state, selection, rerender));
     } finally {
       rendering = false;
     }
+
+    // After the DOM exists, so the floaters can find what they rise from.
+    playLogFx(fresh, (target) =>
+      target === 'player'
+        ? host.querySelector('.stat--hull')
+        : host.querySelector(`.enemy[data-uid="${CSS.escape(target)}"]`),
+    );
+
     const log = host.querySelector('.log');
     if (log !== null) scrollLogToEnd(log);
   };
@@ -96,6 +119,8 @@ export function renderCombat(store: Store): HTMLElement {
   host.addEventListener('shinwar:unmount', () => {
     detachKeys();
     unsubscribe();
+    // A number still rising over a fight that has ended is just litter.
+    clearFloaters();
   });
 
   rerender();
@@ -135,6 +160,10 @@ function build(store: Store, state: GameState, selection: Selection, rerender: (
 
   /* ---- top bar ---- */
 
+  const healthFill = el('span', { class: 'bar-fill' });
+  const healthBar = el('div', { class: 'bar bar--hull' }, [healthFill]);
+  setBarFill(healthFill, 'player', healthFraction(run) * 100, true);
+
   const environment = environments.find(combat.environmentId);
   const topBar = el('header', { class: 'combat-bar' }, [
     el('div', { class: 'stat stat--hull' }, [
@@ -155,9 +184,7 @@ function build(store: Store, state: GameState, selection: Selection, rerender: (
           [el('span', { class: 'shield-icon', 'aria-hidden': 'true' }, ['⛨']), String(combat.block)],
         ),
       ]),
-      el('div', { class: 'bar bar--hull' }, [
-        el('span', { class: 'bar-fill', style: `width:${healthFraction(run) * 100}%` }),
-      ]),
+      healthBar,
     ]),
     el('div', { class: 'stat' }, [
       el('span', { class: 'stat-label' }, ['ALLOY']),

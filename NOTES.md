@@ -139,6 +139,23 @@ enough to make a state change *readable as a sequence*, which is legibility rath
 should be able to see the Focus fire before the stance bonus. Screen shake, weapon effects and hit
 sparks all wait for M7.
 
+**Built after M2, as planned.** `src/ui/anim.ts`. Exactly the three things and no more.
+
+- **Floating numbers** live in a fixed `.fx-layer` on `document.body`, deliberately outside every
+  screen's subtree: screens are replaced wholesale on re-render, and a number mid-flight must not be
+  swept away with them. WAAPI drives them so each one removes itself when its animation finishes.
+- **Bars drain** via `setBarFill`, which remembers the last width per bar key and starts the new
+  element there before moving it to the new value on the next frame. A freshly built element has
+  nothing for a CSS transition to transition *from*, which is why the naive version snaps.
+- **The beat** is a stagger: floaters are spaced 115ms apart with a 70ms lead, so a card that hits
+  twice reads as two blows rather than one number appearing over another.
+
+A fully blocked hit still floats — "blocked" over your shield is the clearest possible confirmation
+that the Block did its job, and silence there reads as the game ignoring you.
+
+Two engine log entries gained a `to` field so the stream has one shape: unblockable damage and block
+gain. Nothing else in the engine changed, which is the point.
+
 Two constraints on whatever gets built:
 
 - **The engine stays instant.** State transitions are synchronous and pure; only the *rendering* is

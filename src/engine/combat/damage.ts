@@ -311,7 +311,14 @@ export function applyDirectDamage(
     source,
     kind: 'damage',
     text: `${combatantName(state, target)} ${takes(target)} ${dealt} — ${reason}, unblockable`,
-    detail: { toHull: dealt, direct: true },
+    // `to` matches the field on pipeline damage so anything reading the log as
+    // an event stream — the animation layer, the simulator — sees one shape.
+    detail: {
+      to: target.kind === 'player' ? 'player' : target.uid,
+      toHull: dealt,
+      blocked: 0,
+      direct: true,
+    },
   });
 
   if (target.kind === 'player') {

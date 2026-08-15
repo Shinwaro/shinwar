@@ -11,6 +11,7 @@ import { describeIntent, intentOf } from '../../engine/combat/intents.ts';
 import { describeStatus } from '../../engine/combat/keywords.ts';
 import { enemies as enemyTable, statuses as statusTable } from '../../content/registry.ts';
 import { el } from '../dom.ts';
+import { setBarFill } from '../anim.ts';
 
 export interface EnemyViewOptions {
   readonly targetable: boolean;
@@ -63,6 +64,10 @@ export function renderEnemy(
       : null;
 
   const hpPct = enemy.maxHp === 0 ? 0 : Math.max(0, (enemy.hp / enemy.maxHp) * 100);
+  const hpFill = el('span', { class: 'bar-fill' });
+  const hpBar = el('div', { class: 'bar bar--hp' }, [hpFill]);
+  // Drains from wherever it was rather than snapping, so a hit reads as a hit.
+  setBarFill(hpFill, `enemy:${enemy.uid}`, hpPct, true);
 
   const node = el(
     'button',
@@ -78,9 +83,7 @@ export function renderEnemy(
         el('span', { class: 'enemy-name' }, [def.name]),
         el('span', { class: 'enemy-hp' }, [`${enemy.hp}/${enemy.maxHp}`]),
       ]),
-      el('div', { class: 'bar bar--hp' }, [
-        el('span', { class: 'bar-fill', style: `width:${hpPct}%` }),
-      ]),
+      hpBar,
       enemy.block > 0 ? el('span', { class: 'pip pip--block' }, [`Block ${enemy.block}`]) : null,
       statusRow.length > 0 ? el('div', { class: 'pips' }, statusRow) : null,
       intentNode,
