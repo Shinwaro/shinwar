@@ -428,6 +428,47 @@ The run bar was also restacked on narrow screens — it was eating close to a qu
 screen, which is a quarter less star chart. The seed stays visible there; it is required on the map
 screen and is the only thing that survives the tab closing.
 
+### The card pool, the rarity ladder, and the forge preview
+
+**24 cards** (4 basic plus 20 offerable), up from 4. Enough that the reward loop — win, choose, deck evolves — is actually
+exercised by play rather than only by a fixture in a test. The pool still scales to ~85 at M6.
+
+No new effect ops were needed, which is the architecture's own report card: Meridian Cut, Criticality,
+Counterweight, Momentum and Reactor Lance are all `conditional` and `scaleWith` over the vocabulary
+that already existed.
+
+**The ladder is now `basic → common → uncommon → rare → epic → legendary → artifact`.** Above `rare`,
+`DESIGN.md` §8's damage curve says nothing, so the intent is written into `types.ts` to stop the new
+tiers collapsing into "rare but bigger":
+
+- `epic` — a rule change with a real cost: exhaust, Heat, health.
+- `legendary` — run-defining; you build around it.
+- `artifact` — unique, and changes how a whole system reads.
+
+The top three tiers are deliberately thin — §9 names reward inflation as a trap, and a legendary you
+see every other screen is a common with a better border. A test asserts the top-tier share stays
+under 5% in every act, and another asserts every tier actually has cards in it, because an empty tier
+is a weight that silently rerolls and quietly changes the whole distribution.
+
+**Honest limitation:** `epic` and above want *persistent* effects to feel their tier, and the `power`
+card type is not wired to the hook bus yet. Playing a power would need its id in
+`activeHookSources` — a small change, but a real feature. Until then the top tiers are big
+conditional one-shots, which is a fair `epic` and a thin `legendary`.
+
+**Naming flag:** "artifact" is implemented as a card rarity, the plain reading of the request. If the
+intent was relic-style passive items — a thing you hold rather than draw — that is a different
+feature (an item slot plus hook handlers) and would be built differently.
+
+**The forge preview is two-step, not hover.** Pick a card, see exactly what it becomes, then confirm.
+Hover would have been cheaper, but a hover-only preview is *no preview at all on a phone*, and the
+two-step matches how cards are played in combat. Desktop keeps hover as an extra. Strip got the same
+treatment: removing the wrong card is painful enough to deserve a confirmation.
+
+The preview marks **what changed** rather than showing two cards to diff by eye — changed text, a
+changed rider, and a changed cost each get called out. `renderCardFace` is shared by the reward
+screen and the preview so a card cannot look like two different cards depending on which screen you
+meet it on.
+
 ### A false alarm worth recording
 
 On mobile, `document.documentElement.scrollWidth` reads ~900 against a 375 viewport during combat.

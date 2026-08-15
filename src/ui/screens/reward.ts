@@ -12,11 +12,12 @@ import type { GameState } from '../../engine/types.ts';
 import type { Store } from '../store.ts';
 import { requireRun } from '../../engine/state.ts';
 import { liveScreen } from '../screen.ts';
-import { describeCard, describeCost, describeRider } from '../../engine/combat/describe.ts';
+import { describeCard } from '../../engine/combat/describe.ts';
 import { cards as cardTable } from '../../content/registry.ts';
-import { STANCES } from '../../content/balance.ts';
+import { RARITY_LABEL } from '../../content/balance.ts';
 import { button, el, fill } from '../dom.ts';
 import { renderRunBar } from '../components/runbar.ts';
+import { renderCardFace } from '../components/card.ts';
 
 export function renderReward(store: Store): HTMLElement {
   return liveScreen(store, 'reward screen', (state) => {
@@ -36,33 +37,25 @@ function buildReward(store: Store, state: GameState): HTMLElement {
     const def = cardTable.find(cardId);
     if (def === undefined) return null;
     const taken = offer.taken.includes(cardId);
-    const rider = describeRider(def);
 
     const node = button(
       '',
       {
-        class: `card card--${def.type} card--offer${taken ? ' is-selected' : ''}${alreadyTook && !taken ? ' is-unplayable' : ''}`,
+        class: `card-pick${taken ? ' is-selected' : ''}${alreadyTook && !taken ? ' is-passed' : ''}`,
+        'data-rarity': def.rarity,
         disabled: alreadyTook,
-        'aria-label': `${def.name}, ${describeCard(def)}`,
+        'aria-label': `${RARITY_LABEL[def.rarity]}: ${def.name}, ${describeCard(def)}`,
       },
       () => store.dispatch({ kind: 'takeRewardCard', cardId }),
     );
 
     fill(node, [
-      el('div', { class: 'card-head' }, [
-        el('span', { class: 'card-cost' }, [describeCost(def)]),
-        el('span', { class: 'card-name' }, [def.name]),
-      ]),
-      el('span', { class: `pip pip--${def.rarity}` }, [def.rarity]),
-      el('p', { class: 'card-text' }, [describeCard(def)]),
-      rider === null || def.stanceRider === undefined
-        ? null
-        : el('p', { class: 'card-rider is-dormant', 'data-stance': def.stanceRider.stance }, [
-            el('span', { class: 'card-rider-label' }, [`${STANCES[def.stanceRider.stance].name}:`]),
-            ' ',
-            rider,
-          ]),
-      def.flavor === undefined ? null : el('p', { class: 'card-flavor' }, [def.flavor]),
+      renderCardFace(def, {
+        state,
+        badge: RARITY_LABEL[def.rarity],
+        changedVs: null,
+        extraClass: null,
+      }),
     ]);
     return node;
   });

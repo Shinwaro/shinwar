@@ -7,12 +7,23 @@
  * the most common cause of a game feeling unfair. Flavor text is separate and
  * hand-written.
  *
- * Four cards at M1. The pool scales to ~85 at M6.
+ * 24 cards: 4 basic, plus 20 across the four archetypes and the rarity ladder.
+ * The pool scales to ~85 at M6.
  */
 
 import type { CardDef } from '../../engine/types.ts';
 import { BASIC_CARDS } from './basic.ts';
+import { GUARD_CARDS } from './guard.ts';
+import { IAI_CARDS } from './iai.ts';
+import { NEUTRAL_CARDS } from './neutral.ts';
+import { OVERHEAT_CARDS } from './overheat.ts';
 
-export const CARDS: readonly CardDef[] = [...BASIC_CARDS];
+export const CARDS: readonly CardDef[] = [
+  ...BASIC_CARDS,
+  ...IAI_CARDS,
+  ...GUARD_CARDS,
+  ...OVERHEAT_CARDS,
+  ...NEUTRAL_CARDS,
+];
 
 export { STARTING_DECK } from './basic.ts';

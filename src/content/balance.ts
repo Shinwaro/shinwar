@@ -227,12 +227,32 @@ export const TREASURE_ALLOY = { min: 25, max: 45 } as const;
    Weighted, not uniform, and the weights shift over the run. You are never
    pulling from a flat bag. */
 
+/**
+ * Weights per act. The ladder tilts upward as the run goes on, so Act 3
+ * genuinely feels different from Act 1 rather than just hitting harder.
+ *
+ * The top three tiers are deliberately thin. `DESIGN.md` §9 lists reward
+ * inflation as a named trap — "you gain so much that Act 3 is trivial" — and a
+ * legendary you see every other screen is a common with a better border. These
+ * are v0; the simulator moves them.
+ */
 export const RARITY_WEIGHTS: {
   readonly [act in 1 | 2 | 3]: { readonly [r in Exclude<Rarity, 'basic'>]: number };
 } = {
-  1: { common: 70, uncommon: 25, rare: 5 },
-  2: { common: 60, uncommon: 32, rare: 8 },
-  3: { common: 50, uncommon: 38, rare: 12 },
+  1: { common: 62, uncommon: 26, rare: 9, epic: 2.4, legendary: 0.5, artifact: 0.1 },
+  2: { common: 48, uncommon: 31, rare: 14, epic: 5, legendary: 1.6, artifact: 0.4 },
+  3: { common: 36, uncommon: 33, rare: 19, epic: 8.5, legendary: 2.6, artifact: 0.9 },
+};
+
+/** Display order and label for a tier. Colour lives in the stylesheet. */
+export const RARITY_LABEL: { readonly [r in Rarity]: string } = {
+  basic: 'Basic',
+  common: 'Common',
+  uncommon: 'Uncommon',
+  rare: 'Rare',
+  epic: 'Epic',
+  legendary: 'Legendary',
+  artifact: 'Artifact',
 };
 
 export const REWARDS = {

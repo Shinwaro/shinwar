@@ -1252,3 +1252,165 @@
     display: none;
   }
 }
+
+
+/* ---------- rarity ----------
+   Colour is the only thing carrying tier at a glance, so the ladder has to be
+   readable in one look and in order: quiet, cool, warm, violet, hot, pale. */
+
+.card-badge {
+  margin-left: auto;
+  padding: 0.05rem 0.4rem;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 0.55rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  opacity: 0.9;
+}
+
+.card-badge--basic,
+.card-badge--common { color: var(--muted); }
+.card-badge--uncommon { color: var(--guard); }
+.card-badge--rare { color: var(--iai); }
+.card-badge--epic { color: #b79ae0; }
+.card-badge--legendary { color: #ff7a4d; }
+.card-badge--artifact { color: #f4e3b0; }
+
+/* A hairline of tier colour down the left edge of every card face. */
+.card--face {
+  border-left-width: 3px;
+  border-left-style: solid;
+}
+
+.card--face[data-rarity='basic'],
+.card--face[data-rarity='common'] { border-left-color: var(--line-strong); }
+.card--face[data-rarity='uncommon'] { border-left-color: var(--guard); }
+.card--face[data-rarity='rare'] { border-left-color: var(--iai); }
+.card--face[data-rarity='epic'] { border-left-color: #b79ae0; }
+.card--face[data-rarity='legendary'] { border-left-color: #ff7a4d; }
+.card--face[data-rarity='artifact'] {
+  border-left-color: #f4e3b0;
+  box-shadow: inset 2px 0 12px rgba(244, 227, 176, 0.12);
+}
+
+/* A face is a display card: no hover lift, no pointer. */
+.card--face {
+  width: 13.5rem;
+  cursor: default;
+}
+
+.card--face:hover {
+  transform: none;
+  border-color: var(--line);
+}
+
+/* ---------- picking a reward ---------- */
+
+.card-pick {
+  padding: 0;
+  border: 0;
+  background: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: transform 0.12s;
+}
+
+.card-pick:hover:not(:disabled) {
+  transform: translateY(-4px);
+}
+
+.card-pick.is-selected .card--face {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.card-pick.is-passed {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* ---------- the forge preview ----------
+   Before and after, side by side, with everything that reads differently
+   marked. The point is to see WHAT CHANGED, not to re-read both cards. */
+
+.forge-preview {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(5, 5, 7, 0.5);
+}
+
+.forge-arrow {
+  font-size: 1.4rem;
+  color: var(--accent);
+}
+
+.forge-preview .is-upgraded {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
+}
+
+.forge-preview .is-leaving {
+  opacity: 0.75;
+  border-color: color-mix(in srgb, var(--danger) 55%, var(--line));
+}
+
+/* What actually changed. Marked rather than merely different, so you are not
+   diffing two paragraphs by eye. */
+.is-changed {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.card-cost.is-changed {
+  background: var(--good);
+  color: #0b1410;
+}
+
+.card-rider.is-changed {
+  outline: 1px dashed color-mix(in srgb, var(--accent) 60%, transparent);
+  outline-offset: 2px;
+}
+
+.forge-note {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.forge-empty {
+  padding: 1.4rem 0.9rem;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  color: var(--muted);
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.picker-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+/* ---------- the deck list ---------- */
+
+.card--pick {
+  width: 12rem;
+  min-height: 0;
+}
+
+.card--pick.is-selected {
+  border-color: var(--accent);
+  transform: translateY(-4px);
+}
+
+.card--pick[data-rarity='uncommon'] { border-left: 3px solid var(--guard); }
+.card--pick[data-rarity='rare'] { border-left: 3px solid var(--iai); }
+.card--pick[data-rarity='epic'] { border-left: 3px solid #b79ae0; }
+.card--pick[data-rarity='legendary'] { border-left: 3px solid #ff7a4d; }
+.card--pick[data-rarity='artifact'] { border-left: 3px solid #f4e3b0; }

@@ -87,7 +87,33 @@ export type EffectOp =
    Not state. Optionals are fine here. */
 
 export type CardType = 'attack' | 'skill' | 'power' | 'status' | 'curse';
-export type Rarity = 'basic' | 'common' | 'uncommon' | 'rare';
+
+/**
+ * The tier ladder. `basic` is the starting deck and is never offered.
+ *
+ * Above `rare`, DESIGN.md §8's damage curve says nothing — these tiers are
+ * inventions and the simulator has to earn them. The intent, so they stay
+ * distinct rather than becoming "rare but bigger":
+ *
+ *   common     the yardstick — 6 damage or 6 block per Energy, no strings
+ *   uncommon   ~8 per Energy, or the yardstick with a rider
+ *   rare       9-11 per Energy with a condition, or a small rule change
+ *   epic       a rule change with a real cost — exhaust, Heat, health
+ *   legendary  run-defining; you build around it
+ *   artifact   unique, and changes how a whole system reads
+ */
+export type Rarity = 'basic' | 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary' | 'artifact';
+
+/** Offerable tiers, weakest first. The order drives sorting and display. */
+export const RARITY_ORDER: readonly Rarity[] = [
+  'basic',
+  'common',
+  'uncommon',
+  'rare',
+  'epic',
+  'legendary',
+  'artifact',
+];
 
 export interface StanceRider {
   readonly stance: StanceId;

@@ -11,8 +11,10 @@ import { describeCard, describeRider, riderIsLive } from '../src/engine/combat/d
 import { definitionOf } from '../src/engine/combat/combat.ts';
 import { reloadContent } from '../src/content/index.ts';
 import { cards as cardTable } from '../src/content/registry.ts';
-import { BASIC_CARDS, IAI_SLASH, SEVER, SOLAR_PARRY, STARTING_DECK, VECTOR_STEP } from '../src/content/cards/basic.ts';
-import { PLAYER } from '../src/content/balance.ts';
+import { IAI_SLASH, SEVER, SOLAR_PARRY, STARTING_DECK, VECTOR_STEP } from '../src/content/cards/basic.ts';
+import { PLAYER, RARITY_WEIGHTS } from '../src/content/balance.ts';
+import { RARITY_ORDER } from '../src/engine/types.ts';
+import { rollCardChoices } from '../src/engine/run/rewards.ts';
 import { makeFight } from './helpers.ts';
 
 beforeEach(() => {
@@ -126,19 +128,87 @@ describe('generated rules text', () => {
 
 describe('every shipped card', () => {
   it('produces non-empty text', () => {
-    for (const card of BASIC_CARDS) {
-      expect(describeCard(card).trim()).not.toBe('');
+    for (const card of cardTable.all()) {
+      expect(describeCard(card).trim(), card.id).not.toBe('');
     }
   });
 
   it('has an upgrade that actually changes the text or the cost', () => {
-    for (const card of BASIC_CARDS) {
+    for (const card of cardTable.all()) {
       const upgraded = definitionOf({ uid: 'x', defId: card.id, upgraded: true });
       const changed =
         describeCard(upgraded) !== describeCard(card) ||
         describeRider(upgraded) !== describeRider(card) ||
         upgraded.cost !== card.cost;
       expect(changed, `${card.id} upgrades into something identical`).toBe(true);
+    }
+  });
+
+  it('keeps the upgrade an upgrade — never a downgrade in name', () => {
+    for (const card of cardTable.all()) {
+      const upgraded = definitionOf({ uid: 'x', defId: card.id, upgraded: true });
+      expect(upgraded.name, card.id).not.toBe('');
+      expect(upgraded.rarity, `${card.id} changed rarity on upgrade`).toBe(card.rarity);
+    }
+  });
+});
+
+describe('the rarity ladder', () => {
+  it('offers something at every tier above basic', () => {
+    // A tier with nothing in it is a weight that silently rerolls, which makes
+    // the reward distribution quietly different from the one in balance.ts.
+    for (const rarity of RARITY_ORDER) {
+      if (rarity === 'basic') continue;
+      const count = cardTable.all().filter((card) => card.rarity === rarity).length;
+      expect(count, `no cards at rarity '${rarity}'`).toBeGreaterThan(0);
+    }
+  });
+
+  it('weights every offerable tier in every act', () => {
+    for (const act of [1, 2, 3] as const) {
+      for (const rarity of RARITY_ORDER) {
+        if (rarity === 'basic') continue;
+        const weight = RARITY_WEIGHTS[act][rarity];
+        expect(weight, `act ${act} has no weight for '${rarity}'`).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it('tilts the ladder upward as the run goes on', () => {
+    // Act 3 should feel different from Act 1, not just hit harder.
+    expect(RARITY_WEIGHTS[3].common).toBeLessThan(RARITY_WEIGHTS[1].common);
+    expect(RARITY_WEIGHTS[3].legendary).toBeGreaterThan(RARITY_WEIGHTS[1].legendary);
+  });
+
+  it('keeps the top tiers rare enough to stay special', () => {
+    // DESIGN.md §9 names reward inflation as a trap. A legendary you see every
+    // other screen is a common with a better border.
+    for (const act of [1, 2, 3] as const) {
+      const weights = RARITY_WEIGHTS[act];
+      const total = Object.values(weights).reduce((sum, weight) => sum + weight, 0);
+      const top = (weights.legendary + weights.artifact) / total;
+      expect(top, `act ${act} top-tier share`).toBeLessThan(0.05);
+    }
+  });
+
+  it('keeps basic cards out of the reward pool', () => {
+    const state = makeFight();
+    const run = state.run;
+    expect(run).not.toBeNull();
+    const rolled = rollCardChoices(run!.rng, run!, 1, 0);
+    for (const id of rolled.cardIds) {
+      expect(cardTable.get(id).rarity, `${id} is basic and was offered`).not.toBe('basic');
+    }
+  });
+
+  it('never offers the same card twice on one screen', () => {
+    const state = makeFight();
+    const run = state.run!;
+    let rng = run.rng;
+    for (let i = 0; i < 200; i++) {
+      const rolled = rollCardChoices(rng, run, 3, 0);
+      expect(new Set(rolled.cardIds).size).toBe(rolled.cardIds.length);
+      rng = rolled.rng;
     }
   });
 });
