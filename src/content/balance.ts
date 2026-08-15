@@ -182,8 +182,14 @@ export const MAP = {
   rows: { 1: 15, 2: 18, 3: 13 },
   /** Width of the lane the paths wander in. */
   columns: 7,
-  /** Distinct starting nodes. They merge and cross on the way up. */
+  /** Path walks through the act. They merge and cross on the way up. */
   paths: 6,
+  /**
+   * Lanes out of the origin. Always the same starting point, always a real
+   * fan of choices out of it — three is a decision, six is a decision, one is
+   * a corridor.
+   */
+  branches: { min: 3, max: 6 },
   /** No elite, station or safe planet before this row — Act 1 opens plain. */
   earliestSpecialRow: 4,
   /** The row before the boss is always a Safe Planet. StS's rest-before-boss. */

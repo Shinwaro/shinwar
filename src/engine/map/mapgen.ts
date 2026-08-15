@@ -65,20 +65,45 @@ function buildSkeleton(rng: RngState, rows: number): { skeleton: Skeleton; rng: 
     if (into !== undefined) into.set(to, (into.get(to) ?? new Set<number>()).add(from));
   };
 
-  const starts = new Set<number>();
+  /* The origin: always one node, always the middle. You arrive where you
+     arrive; the decision is which lane out of it you take. */
+  const originCol = Math.floor(MAP.columns / 2);
+  occupy(0, originCol);
 
-  for (let path = 0; path < MAP.paths; path++) {
-    const rolled = nextInt(current, 'map', 0, MAP.columns);
-    current = rolled.rng;
-    let col = rolled.value;
+  /* The fan. Three to six distinct lanes, spread across the width rather than
+     bunched, so the opening choice reads as a real spread of directions. */
+  const rolledBranches = nextInt(current, 'map', MAP.branches.min, MAP.branches.max + 1);
+  current = rolledBranches.rng;
+  const branchCount = Math.min(rolledBranches.value, MAP.columns);
 
-    // The first two paths must start apart, or the map opens as a single point
-    // and the first choice is not a choice.
-    if (path === 1 && starts.has(col)) col = (col + 1) % MAP.columns;
-    starts.add(col);
-    occupy(0, col);
+  const branchCols: number[] = [];
+  for (let i = 0; i < branchCount; i++) {
+    const slot = Math.round((i * (MAP.columns - 1)) / Math.max(1, branchCount - 1));
+    const jitter = nextInt(current, 'map', 0, 2);
+    current = jitter.rng;
+    // Nudge the inner lanes so the fan is not perfectly symmetrical.
+    const nudged = i === 0 || i === branchCount - 1 ? slot : slot + (jitter.value === 0 ? 0 : 1);
+    const col = Math.max(0, Math.min(MAP.columns - 1, nudged));
+    if (!branchCols.includes(col)) branchCols.push(col);
+  }
+  // A collision on the nudge must not silently shrink the fan below the floor.
+  for (let col = 0; col < MAP.columns && branchCols.length < MAP.branches.min; col++) {
+    if (!branchCols.includes(col)) branchCols.push(col);
+  }
+  branchCols.sort((a, b) => a - b);
 
-    for (let row = 0; row < rows - 1; row++) {
+  for (const col of branchCols) {
+    occupy(1, col);
+    connect(0, originCol, col);
+  }
+
+  /* Path walks from row 1 upward, one per lane and then round-robin so the
+     map keeps its density even when the fan is narrow. */
+  const walks = Math.max(MAP.paths, branchCols.length);
+  for (let path = 0; path < walks; path++) {
+    let col = branchCols[path % branchCols.length] ?? originCol;
+
+    for (let row = 1; row < rows - 1; row++) {
       const drift = nextInt(current, 'map', -1, 2);
       current = drift.rng;
       const next = Math.max(0, Math.min(MAP.columns - 1, col + drift.value));
@@ -224,10 +249,41 @@ function assignEncounters(
 
 /* ---------- assembly ---------- */
 
+/**
+ * Where a node sits on the chart. Rows drive `y`, columns drive `x`, and both
+ * get a small deterministic jitter so the result reads as a star chart rather
+ * than a spreadsheet. The jitter is small on purpose: enough to break the grid,
+ * not enough to make a lane cross its neighbour and lie about who connects to
+ * whom.
+ */
+function positionOf(
+  rng: RngState,
+  row: number,
+  col: number,
+  rows: number,
+  isOrigin: boolean,
+  isBoss: boolean,
+): { x: number; y: number; rng: RngState } {
+  const laneY = 0.955 - (row / Math.max(1, rows - 1)) * 0.91;
+  const laneX = 0.09 + (col / Math.max(1, MAP.columns - 1)) * 0.82;
+
+  // The origin and the boss are landmarks: dead centre, no jitter.
+  if (isOrigin || isBoss) return { x: 0.5, y: laneY, rng };
+
+  const jx = nextInt(rng, 'map', -26, 27);
+  const jy = nextInt(jx.rng, 'map', -13, 14);
+  return {
+    x: Math.max(0.05, Math.min(0.95, laneX + jx.value / 1000)),
+    y: Math.max(0.03, Math.min(0.97, laneY + jy.value / 1000)),
+    rng: jy.rng,
+  };
+}
+
 function assemble(skeleton: Skeleton, act: 1 | 2 | 3, rng: RngState): GeneratedMap {
   const rows = skeleton.cells.length;
   const typed = assignTypes(skeleton, rng, rows);
   const fought = assignEncounters(skeleton, typed.types, typed.rng, rows, act);
+  let current = fought.rng;
 
   const nodes: MapNode[] = [];
   for (let row = 0; row < rows; row++) {
@@ -237,10 +293,15 @@ function assemble(skeleton: Skeleton, act: 1 | 2 | 3, rng: RngState): GeneratedM
       const encounterId = fought.encounters.get(id) ?? null;
       const outgoing = [...(skeleton.forward[row]?.get(col) ?? new Set<number>())].sort((a, b) => a - b);
 
+      const placed = positionOf(current, row, col, rows, row === 0, row === rows - 1);
+      current = placed.rng;
+
       nodes.push({
         id,
         row,
         col,
+        x: placed.x,
+        y: placed.y,
         type,
         // Everything is on foot until ship combat exists. The vocabulary is in
         // place so the map, routing and the crash are built once — see SHIP.md.
@@ -256,15 +317,16 @@ function assemble(skeleton: Skeleton, act: 1 | 2 | 3, rng: RngState): GeneratedM
 
   const bossRow = rows - 1;
   const boss = nodes.find((node) => node.row === bossRow);
+  const origin = nodes.find((node) => node.row === 0);
 
   return {
     map: {
       act,
       nodes,
-      entries: nodes.filter((node) => node.row === 0).map((node) => node.id),
+      startId: origin?.id ?? nodeId(0, Math.floor(MAP.columns / 2)),
       bossId: boss?.id ?? nodeId(bossRow, 0),
     },
-    rng: fought.rng,
+    rng: current,
   };
 }
 
@@ -279,21 +341,29 @@ export function mapProblems(map: RunMap): string[] {
   const byId = new Map(map.nodes.map((node) => [node.id, node]));
   const rows = Math.max(...map.nodes.map((node) => node.row)) + 1;
 
-  for (const entry of map.entries) {
-    const seen = new Set<string>();
-    const stack = [entry];
-    let reached = false;
-    while (stack.length > 0) {
-      const id = stack.pop();
-      if (id === undefined || seen.has(id)) continue;
-      seen.add(id);
-      if (id === map.bossId) {
-        reached = true;
-        break;
-      }
-      for (const next of byId.get(id)?.next ?? []) stack.push(next);
-    }
-    if (!reached) problems.push(`entry ${entry} cannot reach the boss`);
+  // Exactly one origin, and a real fan out of it.
+  const origins = map.nodes.filter((node) => node.row === 0);
+  if (origins.length !== 1) problems.push(`${origins.length} origin nodes, expected 1`);
+  const origin = byId.get(map.startId);
+  if (origin === undefined) problems.push('startId names no node');
+  else if (origin.next.length < MAP.branches.min || origin.next.length > MAP.branches.max) {
+    problems.push(`origin fans out into ${origin.next.length} lanes, expected ${MAP.branches.min}-${MAP.branches.max}`);
+  }
+
+  // Every node has to be reachable from the origin, and the origin has to
+  // reach the boss. An orphan node is a node the player can see and never
+  // visit, which reads as a bug even when it is only decoration.
+  const reachable = new Set<string>();
+  const stack = [map.startId];
+  while (stack.length > 0) {
+    const id = stack.pop();
+    if (id === undefined || reachable.has(id)) continue;
+    reachable.add(id);
+    for (const next of byId.get(id)?.next ?? []) stack.push(next);
+  }
+  if (!reachable.has(map.bossId)) problems.push('the origin cannot reach the boss');
+  for (const node of map.nodes) {
+    if (!reachable.has(node.id)) problems.push(`${node.id} is unreachable from the origin`);
   }
 
   const countOf = (type: NodeType): number => map.nodes.filter((node) => node.type === type).length;
@@ -321,14 +391,13 @@ export function mapProblems(map: RunMap): string[] {
     }
   }
 
-  for (const entry of map.entries) {
-    const node = byId.get(entry);
-    if (node?.type !== 'combat') {
-      problems.push(`entry ${entry} is ${node?.type ?? 'missing'}, not combat`);
-    }
-    if (node?.environmentId !== CLEAR_SPACE_ID) {
-      problems.push(`entry ${entry} is not Clear Space`);
-    }
+  // Act 1 node 1 is always a normal combat, in Clear Space.
+  const first = byId.get(map.startId);
+  if (first?.type !== 'combat') {
+    problems.push(`the origin is ${first?.type ?? 'missing'}, not combat`);
+  }
+  if (first?.environmentId !== CLEAR_SPACE_ID) {
+    problems.push('the origin is not Clear Space');
   }
 
   return problems;

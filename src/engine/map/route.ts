@@ -16,17 +16,18 @@ export function currentNode(run: RunState): MapNode | null {
 }
 
 /**
- * The nodes the player may move to. Before the first move that is every entry
- * on row 0; afterwards it is whatever the current node leads to.
+ * The nodes the player may move to. Before the first move that is the origin
+ * and nothing else — you always arrive in the same place, and the choice is
+ * which of its lanes you take afterwards. Then it is whatever the current node
+ * leads to.
  */
 export function availableMoves(run: RunState): readonly MapNode[] {
   const map = run.map;
   if (map === null) return [];
 
   if (run.position === null) {
-    return map.entries
-      .map((id) => nodeById(map, id))
-      .filter((node): node is MapNode => node !== undefined);
+    const start = nodeById(map, map.startId);
+    return start === undefined ? [] : [start];
   }
 
   const here = nodeById(map, run.position);

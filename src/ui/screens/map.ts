@@ -1,34 +1,41 @@
-/* The star map.
+/* The star chart.
  *
- * Drawn boss-first, top to bottom, the way the player climbs it. Every combat
- * node shows its environment badge **before** the player commits to the route
- * — that is the whole reason the map is a decision surface and not a corridor.
+ * Lanes are drawn as one SVG layer behind the nodes; the nodes themselves are
+ * real `<button>`s positioned over it. That split is deliberate: SVG gets the
+ * clean hairline lanes and the glow, and the player still gets genuine buttons
+ * with keyboard reach and a focus ring, which an `<svg><circle>` would not be.
  *
- * Reachable nodes are the only ones that respond. Everything else is legible
- * but inert, so the player can read three columns ahead and plan.
+ * Noise discipline: only the nodes you can actually reach carry a label. The
+ * requirement is that a combat's environment is visible **before you commit to
+ * the route** — that is satisfied by labelling the three-to-six lanes you are
+ * choosing between, not by printing fifty captions across the sky. Everything
+ * else is a coloured star, with its detail on hover, focus, or in the readout.
  */
 
-import type { GameState, MapNode } from '../../engine/types.ts';
+import type { GameState, MapNode, RunMap } from '../../engine/types.ts';
 import type { Store } from '../store.ts';
 import { requireRun } from '../../engine/state.ts';
-import { availableMoves, currentNode, describeNode, rowsOf } from '../../engine/map/route.ts';
+import { availableMoves, currentNode, describeNode } from '../../engine/map/route.ts';
 import { encountersFor } from '../../content/encounters.ts';
 import { environments } from '../../content/registry.ts';
 import { button, el, fill } from '../dom.ts';
 import { liveScreen } from '../screen.ts';
 import { renderRunBar } from '../components/runbar.ts';
 
-const GLYPH: Record<MapNode['type'], string> = {
-  combat: '⚔',
-  elite: '☠',
-  boss: '✷',
-  event: '◈',
-  station: '⌾',
-  safe: '◉',
-  unknown: '?',
-  crash: '✖',
-  wreck: '⚒',
-};
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+/** The chart is drawn in this coordinate space and scaled by CSS. */
+const VIEW_W = 1000;
+const VIEW_H = 1400;
+
+function svg<K extends keyof SVGElementTagNameMap>(
+  tag: K,
+  attrs: Readonly<Record<string, string | number>>,
+): SVGElementTagNameMap[K] {
+  const node = document.createElementNS(SVG_NS, tag);
+  for (const [name, value] of Object.entries(attrs)) node.setAttribute(name, String(value));
+  return node;
+}
 
 function environmentName(node: MapNode): string | null {
   if (node.environmentId === null) return null;
@@ -37,18 +44,53 @@ function environmentName(node: MapNode): string | null {
 
 function encounterName(node: MapNode): string | null {
   if (node.encounterId === null) return null;
-  const all = [...encountersFor(1, 'normal'), ...encountersFor(1, 'elite'), ...encountersFor(1, 'boss')];
+  const all = [
+    ...encountersFor(1, 'normal'),
+    ...encountersFor(1, 'elite'),
+    ...encountersFor(1, 'boss'),
+  ];
   return all.find((entry) => entry.id === node.encounterId)?.name ?? null;
 }
 
+function labelOf(node: MapNode): string {
+  return [describeNode(node), encounterName(node), environmentName(node)]
+    .filter((part) => part !== null)
+    .join(' · ');
+}
+
 export function renderMap(store: Store): HTMLElement {
+  /*
+   * The chart is taller than the viewport, so the player's position is scrolled
+   * into view — but only when it actually MOVES. Re-centring on every render
+   * would yank the view back the moment anything else changed, which makes
+   * reading ahead impossible: you scroll up to look at the boss, something
+   * re-renders, and you are back at your feet.
+   */
+  let lastAnchor: string | null = null;
+
+  /*
+   * A rebuild replaces the scroller, which resets its scroll to the top. So
+   * where the player had scrolled to is remembered here and restored — without
+   * it, glancing at the boss and then hovering anything snaps you back to the
+   * top of the chart.
+   */
+  const scroll = { top: 0 };
+
   return liveScreen(store, 'map screen', (state) => {
     if (state.run === null || state.run.screen !== 'map') return null;
-    return buildMap(store, state);
+    const anchor = state.run.position ?? state.run.map?.startId ?? null;
+    const moved = anchor !== lastAnchor;
+    lastAnchor = anchor;
+    return buildMap(store, state, moved, scroll);
   });
 }
 
-function buildMap(store: Store, state: GameState): HTMLElement {
+function buildMap(
+  store: Store,
+  state: GameState,
+  recentre: boolean,
+  scroll: { top: number },
+): HTMLElement {
   const run = requireRun(state);
   const map = run.map;
   if (map === null) return el('div', { class: 'map-inner' }, ['No map.']);
@@ -57,68 +99,120 @@ function buildMap(store: Store, state: GameState): HTMLElement {
   const here = currentNode(run);
   const visited = new Set(run.visited);
 
-  const rows = rowsOf(map).map((row, index) =>
-    el(
-      'div',
-      { class: 'map-row', 'data-row': String(index) },
-      row.map((node) => renderNode(store, state, node, {
-        reachable: reachable.has(node.id),
-        current: here?.id === node.id,
-        visited: visited.has(node.id),
-      })),
-    ),
-  );
-
-  return el('div', { class: 'map-inner' }, [
-    renderRunBar(store, state),
-    el('p', { class: 'map-hint' }, [
-      run.position === null
-        ? 'Choose where to enter the system. Every combat shows its environment before you commit.'
-        : 'Choose your next jump.',
-    ]),
-    el('div', { class: 'map-grid', role: 'group', 'aria-label': 'Star map' }, rows),
+  /* -- the readout, driven by hover and focus -- */
+  const readout = el('p', { class: 'map-readout', role: 'status', 'aria-live': 'polite' }, [
+    run.position === null
+      ? 'You arrive. One way in — the choices start after it.'
+      : 'Choose your next jump.',
   ]);
+  const setReadout = (text: string | null): void => {
+    readout.textContent =
+      text ?? (run.position === null ? 'You arrive. One way in — the choices start after it.' : 'Choose your next jump.');
+  };
+
+  /* -- lanes -- */
+  const chart = svg('svg', {
+    class: 'map-lanes',
+    viewBox: `0 0 ${VIEW_W} ${VIEW_H}`,
+    preserveAspectRatio: 'none',
+    'aria-hidden': 'true',
+  });
+
+  for (const node of map.nodes) {
+    for (const nextId of node.next) {
+      const target = map.nodes.find((entry) => entry.id === nextId);
+      if (target === undefined) continue;
+      const live = here?.id === node.id && reachable.has(nextId);
+      const travelled = visited.has(node.id) && visited.has(nextId);
+      chart.append(
+        svg('line', {
+          x1: node.x * VIEW_W,
+          y1: node.y * VIEW_H,
+          x2: target.x * VIEW_W,
+          y2: target.y * VIEW_H,
+          class: `lane${live ? ' is-live' : ''}${travelled ? ' is-travelled' : ''}`,
+        }),
+      );
+    }
+  }
+
+  /* -- stars -- */
+  const stars = el('div', { class: 'map-stars' });
+
+  for (const node of map.nodes) {
+    const isReachable = reachable.has(node.id);
+    const isHere = here?.id === node.id;
+    const label = labelOf(node);
+
+    const classes = ['star', `star--${node.type}`];
+    if (isReachable) classes.push('is-reachable');
+    if (isHere) classes.push('is-here');
+    if (visited.has(node.id)) classes.push('is-visited');
+
+    const star = button(
+      '',
+      {
+        class: classes.join(' '),
+        style: `left:${(node.x * 100).toFixed(3)}%; top:${(node.y * 100).toFixed(3)}%`,
+        // A centred label on a star near the edge runs off the chart and gets
+        // clipped. Near the sides it hangs inward instead.
+        'data-edge': node.x < 0.18 ? 'left' : node.x > 0.82 ? 'right' : null,
+        disabled: !isReachable,
+        'aria-label': label,
+      },
+      () => {
+        if (!isReachable) return;
+        store.dispatch({ kind: 'moveToNode', nodeId: node.id });
+      },
+    );
+
+    fill(star, [
+      el('span', { class: 'star-dot', 'aria-hidden': 'true' }),
+      // Only the lanes you are choosing between are captioned. Fifty labels is
+      // the noise; three to six is the decision.
+      isReachable ? el('span', { class: 'star-label' }, [label]) : null,
+    ]);
+
+    const show = (): void => setReadout(label);
+    const hide = (): void => setReadout(null);
+    star.addEventListener('pointerenter', show);
+    star.addEventListener('pointerleave', hide);
+    star.addEventListener('focus', show);
+    star.addEventListener('blur', hide);
+
+    stars.append(star);
+  }
+
+  const field = el('div', { class: 'map-field' }, [chart, stars]);
+
+  const viewport = el('div', { class: 'map-viewport', role: 'group', 'aria-label': actLabel(map) }, [
+    field,
+  ]);
+  viewport.addEventListener('scroll', () => {
+    scroll.top = viewport.scrollTop;
+  });
+
+  /* `requestAnimationFrame`, not a microtask: on a fresh mount the screen is
+     still detached when microtasks run, and setting `scrollTop` on an element
+     with no layout does nothing at all. */
+  requestAnimationFrame(() => {
+    if (recentre) {
+      const anchor = field.querySelector('.star.is-here') ?? field.querySelector('.star.is-reachable');
+      if (anchor instanceof HTMLElement) {
+        // Centre by arithmetic rather than `scrollIntoView`, which also walks
+        // up and scrolls the page itself.
+        const target = anchor.offsetTop - viewport.clientHeight / 2;
+        viewport.scrollTop = Math.max(0, target);
+      }
+      scroll.top = viewport.scrollTop;
+      return;
+    }
+    viewport.scrollTop = scroll.top;
+  });
+
+  return el('div', { class: 'map-inner' }, [renderRunBar(store, state), readout, viewport]);
 }
 
-interface NodeFlags {
-  readonly reachable: boolean;
-  readonly current: boolean;
-  readonly visited: boolean;
-}
-
-function renderNode(store: Store, state: GameState, node: MapNode, flags: NodeFlags): HTMLElement {
-  const classes = ['map-node', `map-node--${node.type}`];
-  if (flags.reachable) classes.push('is-reachable');
-  if (flags.current) classes.push('is-current');
-  if (flags.visited) classes.push('is-visited');
-
-  const environment = environmentName(node);
-  const encounter = encounterName(node);
-
-  const label = [describeNode(node), encounter, environment].filter((part) => part !== null).join(' · ');
-
-  const node_ = button(
-    '',
-    {
-      class: classes.join(' '),
-      style: `--col:${node.col}`,
-      disabled: !flags.reachable,
-      'aria-label': label,
-      title: label,
-    },
-    () => {
-      if (!flags.reachable) return;
-      store.dispatch({ kind: 'moveToNode', nodeId: node.id });
-    },
-  );
-
-  fill(node_, [
-    el('span', { class: 'map-glyph', 'aria-hidden': 'true' }, [GLYPH[node.type]]),
-    // The environment badge is on the node, not behind a hover — a route
-    // decision the player cannot see is not a decision.
-    environment === null ? null : el('span', { class: 'map-env' }, [environment]),
-  ]);
-
-  void state;
-  return node_;
+function actLabel(map: RunMap): string {
+  return `Act ${map.act} star chart`;
 }

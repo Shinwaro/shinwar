@@ -381,6 +381,14 @@ export interface MapNode {
   readonly id: string;
   readonly row: number;
   readonly col: number;
+  /**
+   * Where it sits on the chart, 0..1, with `y` measured from the top so the
+   * boss is near 0 and the origin near 1. Generated with the rest of the map
+   * so the layout is part of the seed — the same seed draws the same sky, and
+   * the UI positions nodes rather than deciding where they go.
+   */
+  readonly x: number;
+  readonly y: number;
   readonly type: NodeType;
   readonly arena: Arena;
   /** Combat nodes only. */
@@ -394,8 +402,12 @@ export interface MapNode {
 export interface RunMap {
   readonly act: 1 | 2 | 3;
   readonly nodes: readonly MapNode[];
-  /** Row 0 — the nodes the player may start from. */
-  readonly entries: readonly string[];
+  /**
+   * The origin. Always exactly one, always the same kind of place — you arrive
+   * where you arrive, and the first decision is which of the 3-6 lanes out of
+   * it you take.
+   */
+  readonly startId: string;
   readonly bossId: string;
 }
 

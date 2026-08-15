@@ -818,102 +818,199 @@
   background: var(--surface-solid);
 }
 
-/* ---------- the star map ----------
-   Drawn boss-first, top to bottom, the way the player climbs it. */
+/* ---------- the star chart ----------
+   Hairline lanes on an SVG layer, real buttons as stars over it. Quiet by
+   default: only the lanes you are choosing between carry a caption, because
+   fifty labels is noise and three to six is the decision. */
 
 .map-inner {
   width: 100%;
   max-width: 62rem;
   margin: 0 auto;
   display: grid;
-  gap: 0.9rem;
+  gap: 0.75rem;
 }
 
-.map-hint {
+.map-readout {
+  min-height: 1.4em;
   color: var(--muted);
   font-size: 0.85rem;
+  letter-spacing: 0.01em;
 }
 
-.map-grid {
-  display: grid;
-  gap: 0.5rem;
-  padding: 1rem 0.5rem;
+.map-viewport {
+  position: relative;
+  height: min(66dvh, 40rem);
+  overflow-y: auto;
+  overflow-x: hidden;
   border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: rgba(5, 5, 7, 0.55);
-  overflow-x: auto;
+  border-radius: var(--radius);
+  background: #04050a;
 }
 
-.map-row {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(4.5rem, 1fr));
-  gap: 0.4rem;
-  min-width: 34rem;
+.map-field {
+  position: relative;
+  width: 100%;
+  height: 118rem;
+  /* The galaxy the act sits in. Fixed to the field rather than the viewport so
+     it scrolls with the chart — the sky should move when you move through it.
+     Kept well under the lanes: this is a ground, not a subject. */
+  background:
+    radial-gradient(38% 13% at 50% 30%, rgba(214, 232, 255, 0.1), transparent 70%),
+    radial-gradient(60% 22% at 50% 32%, rgba(104, 156, 142, 0.13), transparent 72%),
+    radial-gradient(85% 40% at 46% 55%, rgba(58, 92, 96, 0.1), transparent 76%),
+    radial-gradient(70% 30% at 55% 82%, rgba(120, 92, 70, 0.07), transparent 74%);
 }
 
-.map-node {
-  grid-column: calc(var(--col) + 1);
+.map-lanes {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.lane {
+  stroke: rgba(226, 236, 255, 0.16);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.lane.is-travelled {
+  stroke: rgba(226, 236, 255, 0.07);
+}
+
+/* The lanes out of where you stand. The only bright lines on the chart. */
+.lane.is-live {
+  stroke: color-mix(in srgb, var(--accent) 75%, transparent);
+  stroke-width: 1.4;
+}
+
+.map-stars {
+  position: absolute;
+  inset: 0;
+}
+
+/* The button is a full tap target centred on the node's point, with the dot
+   centred inside it. Sizing the button to its contents instead would put the
+   BOX centre on the lane endpoint — so a labelled node would hang its dot
+   above the line it is supposed to sit on — and would leave the hit area about
+   27px tall, well under the 44px floor. */
+.star {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: var(--tap);
+  height: var(--tap);
   display: grid;
-  gap: 0.1rem;
-  justify-items: center;
-  align-content: center;
-  min-height: 3.1rem;
-  padding: 0.3rem 0.2rem;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: transparent;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: none;
   color: var(--muted);
   cursor: default;
-  transition: border-color 0.15s, transform 0.1s, color 0.15s;
 }
 
-/* Unreachable nodes stay fully legible — reading three columns ahead is the
-   whole point of the map — they simply do not respond. */
-.map-node:disabled {
+.star-dot {
+  width: 0.62rem;
+  height: 0.62rem;
+  border-radius: 50%;
+  background: var(--star, rgba(226, 236, 255, 0.85));
+  box-shadow: 0 0 0.5rem var(--star-glow, rgba(226, 236, 255, 0.45));
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.star--combat  { --star: #dfe7f5; --star-glow: rgba(223, 231, 245, 0.5); }
+.star--elite   { --star: #e0564d; --star-glow: rgba(224, 86, 77, 0.55); }
+.star--boss    { --star: #f0a13c; --star-glow: rgba(240, 161, 60, 0.6); }
+.star--safe    { --star: #8fd6a8; --star-glow: rgba(143, 214, 168, 0.5); }
+.star--station { --star: #6ba8e8; --star-glow: rgba(107, 168, 232, 0.5); }
+.star--unknown { --star: #e8c87c; --star-glow: rgba(232, 200, 124, 0.5); }
+.star--event   { --star: #b79ae0; --star-glow: rgba(183, 154, 224, 0.5); }
+.star--crash,
+.star--wreck   { --star: #c9453f; --star-glow: rgba(201, 69, 63, 0.5); }
+
+.star--boss .star-dot {
+  width: 1.05rem;
+  height: 1.05rem;
+  box-shadow: 0 0 1.4rem var(--star-glow);
+}
+
+/* Unvisited, unreachable stars stay readable — reading the sky ahead is the
+   whole point — they simply do not respond. */
+.star:disabled .star-dot {
   opacity: 0.5;
 }
 
-.map-node.is-reachable {
+.star.is-visited .star-dot {
+  opacity: 0.22;
+}
+
+.star.is-reachable {
   cursor: pointer;
-  color: var(--ink);
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  z-index: 2;
+}
+
+.star.is-reachable .star-dot {
   opacity: 1;
+  transform: scale(1.25);
+  box-shadow:
+    0 0 0.9rem var(--star-glow),
+    0 0 0 2px color-mix(in srgb, var(--accent) 55%, transparent);
 }
 
-.map-node.is-reachable:hover {
-  transform: translateY(-2px);
-  background: color-mix(in srgb, var(--accent) 20%, transparent);
+.star.is-reachable:hover .star-dot,
+.star.is-reachable:focus-visible .star-dot {
+  transform: scale(1.55);
 }
 
-.map-node.is-current {
-  border-color: var(--ink);
-  color: var(--ink);
+.star.is-here {
+  z-index: 3;
+}
+
+.star.is-here .star-dot {
   opacity: 1;
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--ink) 35%, transparent);
+  box-shadow:
+    0 0 0.9rem var(--star-glow),
+    0 0 0 2px rgba(242, 240, 236, 0.8);
 }
 
-.map-node.is-visited {
-  opacity: 0.32;
-}
-
-.map-glyph {
-  font-size: 1.15rem;
-  line-height: 1;
-}
-
-.map-env {
-  font-size: 0.55rem;
-  letter-spacing: 0.04em;
+/* Floated out of flow so it cannot push the dot off its point or stretch the
+   hit area into its neighbours. */
+.star-label {
+  position: absolute;
+  top: calc(50% + 0.6rem);
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: 8.5rem;
+  font-size: 0.62rem;
+  line-height: 1.25;
+  letter-spacing: 0.02em;
   text-align: center;
-  color: var(--muted);
+  color: var(--ink);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.95);
+  text-wrap: balance;
+  pointer-events: none;
 }
 
-.map-node--elite .map-glyph { color: var(--danger); }
-.map-node--boss .map-glyph { color: var(--iai); }
-.map-node--safe .map-glyph { color: var(--good); }
-.map-node--station .map-glyph { color: var(--guard); }
-.map-node--unknown .map-glyph { color: var(--accent); }
+.star[data-edge='left'] .star-label {
+  left: 0.2rem;
+  transform: none;
+  text-align: left;
+}
+
+.star[data-edge='right'] .star-label {
+  left: auto;
+  right: 0.2rem;
+  transform: none;
+  text-align: right;
+}
+
+.star:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 6px;
+  border-radius: 50%;
+}
 
 /* ---------- rewards ---------- */
 
@@ -1120,8 +1217,27 @@
 }
 
 @media (max-width: 56rem) {
+  /* Two tight rows instead of a stack: the health bar across the top, then
+     everything else beside it. Stacking these ate nearly a quarter of a phone
+     screen, which is a quarter less star chart.
+
+     The seed stays. It is required on the map screen — with no saves it is the
+     only thing that survives the tab closing. */
   .run-bar {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: auto auto 1fr auto;
+    gap: 0.45rem 0.75rem;
+    padding: 0.5rem 0.65rem;
+    align-items: end;
+  }
+
+  .run-bar .stat--hull {
+    grid-column: 1 / -1;
+  }
+
+  .run-bar .btn {
+    min-height: 2.25rem;
+    padding-inline: 0.7rem;
+    align-self: center;
   }
 
   .pause-card {

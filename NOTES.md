@@ -364,6 +364,53 @@ rising card-removal counter arrive with the shop at M4 (`removalsPurchased` and 
 place for it). Anomalies are M4. Acts 2 and 3 are M5, so the Act 1 boss ends the run. The epilogue
 generator is M7; the game-over screen gives an honest account and the seed instead.
 
+### The star chart
+
+Robin supplied a reference: a 4X-style star map — glowing coloured points, hairline lanes, dark
+sky — with the note "a lot less noise and way cleaner", plus one structural rule: **always the same
+starting point, branching out into 3 to 6 different paths.**
+
+**One origin, a real fan.** `RunMap.entries` became `RunMap.startId`. Row 0 is exactly one node,
+dead centre, and it fans into 3-6 lanes rolled on the `map` stream. Before the first move the only
+reachable node is the origin — you arrive where you arrive, and the choice is which lane out of it
+you take. `PROMPT.md` §5's "Act 1 node 1 is always normal combat in Clear Space" now reads
+literally: it is one specific node, and mapgen asserts it.
+
+Two invariants came with it: exactly one origin, and **every node reachable from it**. An orphan
+node is one the player can see and never visit, which reads as a bug even when it is only decoration.
+
+**Positions are generated, not laid out.** `MapNode` carries `x`/`y` in 0..1, produced with the rest
+of the map so the layout is part of the seed — the same seed draws the same sky. Rows drive `y`,
+columns drive `x`, and both take a small deterministic jitter: enough to break the grid, not enough
+to make a lane cross its neighbour and lie about who connects to whom. The origin and the boss get
+no jitter; they are landmarks.
+
+**SVG lanes, real buttons as stars.** The lanes are one SVG layer; the nodes are `<button>`s
+positioned over it. SVG gets the hairlines and the glow, and the player still gets genuine buttons
+with keyboard reach and a focus ring, which `<circle>` would not.
+
+**Noise discipline.** Only *reachable* nodes carry a caption. The requirement is that a combat's
+environment is visible **before the player commits to the route** — that is satisfied by labelling
+the three-to-six lanes being chosen between, not by printing fifty captions across the sky.
+Everything else is a coloured star, with detail on hover, focus, and in the readout line.
+
+**Three fixes the screenshots caught, in order:**
+
+1. Sizing the star button to its contents put the *box* centre on the lane endpoint, so a labelled
+   node hung its dot above the line it was supposed to sit on — and left the hit area 27px tall,
+   well under the 44px floor. The button is now a 44×44 target centred on the point, with the label
+   floated out of flow beneath it.
+2. Auto-centring on the player ran on every render, so glancing at the boss and then hovering
+   anything snapped the view back. It now fires only when the position actually moves.
+3. A rebuild replaces the scroller, which resets its scroll to the top — so the remembered offset is
+   restored on every render that is not a recentre. And the recentre uses `requestAnimationFrame`,
+   not a microtask: on a fresh mount the screen is still detached when microtasks run, and setting
+   `scrollTop` on an element with no layout does nothing at all.
+
+The run bar was also restacked on narrow screens — it was eating close to a quarter of a phone
+screen, which is a quarter less star chart. The seed stays visible there; it is required on the map
+screen and is the only thing that survives the tab closing.
+
 ### A false alarm worth recording
 
 On mobile, `document.documentElement.scrollWidth` reads ~900 against a 375 viewport during combat.

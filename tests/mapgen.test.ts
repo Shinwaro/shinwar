@@ -36,10 +36,61 @@ describe('the guarantees, across 1000 seeds', () => {
     }
   });
 
-  it('offers a real first choice', () => {
+  it('always starts from the same single origin', () => {
     for (const seed of SEEDS.slice(0, 200)) {
       const { map } = generateMap(createRng(seed), 1);
-      expect(map.entries.length, `${seed} opens on one node`).toBeGreaterThan(1);
+      const origins = map.nodes.filter((node) => node.row === 0);
+      expect(origins, `${seed} has ${origins.length} origins`).toHaveLength(1);
+      expect(origins[0]?.id).toBe(map.startId);
+      expect(origins[0]?.type).toBe('combat');
+    }
+  });
+
+  it('fans the origin out into three to six lanes', () => {
+    const widths = new Set<number>();
+    for (const seed of SEEDS) {
+      const { map } = generateMap(createRng(seed), 1);
+      const origin = map.nodes.find((node) => node.id === map.startId);
+      const lanes = origin?.next.length ?? 0;
+      expect(lanes, `${seed} fans into ${lanes}`).toBeGreaterThanOrEqual(MAP.branches.min);
+      expect(lanes).toBeLessThanOrEqual(MAP.branches.max);
+      widths.add(lanes);
+    }
+    // And the width actually varies run to run, rather than being nominally a
+    // range that always rolls the same number.
+    expect(widths.size).toBeGreaterThan(1);
+  });
+
+  it('leaves no node stranded off the origin', () => {
+    for (const seed of SEEDS.slice(0, 200)) {
+      const { map } = generateMap(createRng(seed), 1);
+      const byId = new Map(map.nodes.map((node) => [node.id, node]));
+      const seen = new Set<string>();
+      const stack = [map.startId];
+      while (stack.length > 0) {
+        const id = stack.pop();
+        if (id === undefined || seen.has(id)) continue;
+        seen.add(id);
+        for (const next of byId.get(id)?.next ?? []) stack.push(next);
+      }
+      expect(seen.size, `${seed} strands ${map.nodes.length - seen.size} nodes`).toBe(map.nodes.length);
+    }
+  });
+
+  it('places every node inside the chart', () => {
+    for (const seed of SEEDS.slice(0, 200)) {
+      const { map } = generateMap(createRng(seed), 1);
+      for (const node of map.nodes) {
+        expect(node.x).toBeGreaterThanOrEqual(0);
+        expect(node.x).toBeLessThanOrEqual(1);
+        expect(node.y).toBeGreaterThanOrEqual(0);
+        expect(node.y).toBeLessThanOrEqual(1);
+      }
+      // The origin sits at the bottom, the boss at the top.
+      const origin = map.nodes.find((node) => node.id === map.startId);
+      const boss = map.nodes.find((node) => node.id === map.bossId);
+      expect(origin!.y).toBeGreaterThan(boss!.y);
+      expect(origin!.x).toBeCloseTo(0.5, 5);
     }
   });
 
@@ -103,7 +154,7 @@ describe('routing', () => {
   it('opens on the entry row, then follows the edges', () => {
     const run = { ...createRunState('ROUTE', 0), map: generateMap(createRng('ROUTE'), 1).map };
     const opening = availableMoves(run);
-    expect(opening.map((node) => node.id).sort()).toEqual([...run.map!.entries].sort());
+    expect(opening.map((node) => node.id)).toEqual([run.map!.startId]);
 
     const first = opening[0];
     expect(first).toBeDefined();

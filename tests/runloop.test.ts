@@ -75,11 +75,27 @@ describe('opening a run', () => {
     expect(state.run?.pilot.deck).toHaveLength(PLAYER.startingDeckSize);
   });
 
-  it('offers only the entry row to begin with', () => {
+  it('offers only the origin to begin with', () => {
     const state = openRun('OPEN-2');
     const run = state.run;
     expect(run).not.toBeNull();
-    expect(availableMoves(run!).map((node) => node.id).sort()).toEqual([...run!.map!.entries].sort());
+    expect(availableMoves(run!).map((node) => node.id)).toEqual([run!.map!.startId]);
+  });
+
+  it('opens the real fan of choices once the origin is behind you', () => {
+    let state = openRun('OPEN-2b');
+    state = applyAction(state, { kind: 'moveToNode', nodeId: state.run!.map!.startId });
+    // The origin is a fight; play it out however it goes.
+    let guard = 0;
+    while (guard++ < 200 && state.run?.combat?.outcome === 'ongoing') {
+      state = applyAction(state, { kind: 'endTurn' });
+    }
+    if (state.phase === 'over') return;
+    if (state.run?.screen === 'reward') state = applyAction(state, { kind: 'leaveReward' });
+
+    const lanes = availableMoves(state.run!).length;
+    expect(lanes).toBeGreaterThanOrEqual(3);
+    expect(lanes).toBeLessThanOrEqual(6);
   });
 
   it('refuses a node that is not reachable', () => {
