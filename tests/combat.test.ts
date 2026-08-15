@@ -23,17 +23,25 @@ import { overheatDamageAt } from '../src/engine/combat/heat.ts';
 import { ACTIVE_STANCES, HEAT, PLAYER, STANCES } from '../src/content/balance.ts';
 import { IAI_SLASH, SEVER, SOLAR_PARRY, VECTOR_STEP } from '../src/content/cards/basic.ts';
 import { VULNERABLE } from '../src/content/statuses.ts';
-import { combatOf, firstEnemy, handCard, hullOf, makeFight } from './helpers.ts';
+import { beginRunInCombat, combatOf, firstEnemy, handCard, hullOf, makeFight } from './helpers.ts';
 
 beforeEach(() => {
   reloadContent();
 });
 
 describe('starting a run', () => {
-  it('opens straight into a fight with the starting deck', () => {
+  it('opens on the map, not in a fight', () => {
     const state = applyActions(createInitialState('OPENER'), [{ kind: 'beginRun' }]);
-    const combat = combatOf(state);
     expect(state.phase).toBe('run');
+    expect(state.run?.screen).toBe('map');
+    expect(state.run?.combat).toBeNull();
+    expect(state.run?.map).not.toBeNull();
+    expect(state.run?.position).toBeNull();
+  });
+
+  it('walks into the first fight with the starting deck', () => {
+    const state = beginRunInCombat('OPENER');
+    const combat = combatOf(state);
     expect(combat.enemies.length).toBeGreaterThan(0);
     expect(combat.turn).toBe(1);
     expect(combat.hand.length).toBe(PLAYER.drawPerTurn + STANCES[combat.stance].extraDraw);
@@ -41,8 +49,8 @@ describe('starting a run', () => {
   });
 
   it('gives the same fight for the same seed and a different one otherwise', () => {
-    const a = applyActions(createInitialState('SEED-AAAA'), [{ kind: 'beginRun' }]);
-    const b = applyActions(createInitialState('SEED-AAAA'), [{ kind: 'beginRun' }]);
+    const a = beginRunInCombat('SEED-AAAA');
+    const b = beginRunInCombat('SEED-AAAA');
     expect(combatOf(a).hand.map((c) => c.defId)).toEqual(combatOf(b).hand.map((c) => c.defId));
     expect(combatOf(a).encounterId).toBe(combatOf(b).encounterId);
   });
@@ -160,7 +168,7 @@ describe('the turn cycle', () => {
 
 describe('drawing', () => {
   it('keeps the hand at five and never loses a card', () => {
-    let state = applyActions(createInitialState('DRAW-TRACE'), [{ kind: 'beginRun' }]);
+    let state = beginRunInCombat('DRAW-TRACE');
     for (let turn = 0; turn < 6; turn++) {
       const combat = combatOf(state);
       if (combat.outcome !== 'ongoing') break;
@@ -173,7 +181,7 @@ describe('drawing', () => {
   });
 
   it('says so in the log — a silent draw reads as a broken one', () => {
-    const state = applyActions(createInitialState('DRAW-LOG'), [{ kind: 'beginRun' }]);
+    const state = beginRunInCombat('DRAW-LOG');
     expect(state.log.some((entry) => /^Drew \d+ cards?\./.test(entry.text))).toBe(true);
   });
 
@@ -291,15 +299,17 @@ describe('overheat', () => {
 });
 
 describe('outcomes', () => {
-  it('wins when the last enemy dies, and ends the run at M1', () => {
+  it('wins when the last enemy dies, and offers a reward', () => {
     const state = makeFight({ hand: [SEVER], enemyHp: 5, energy: 3 });
-    const after = applyAction(
-      { ...state },
-      { kind: 'playCard', cardUid: handCard(state, 0).uid, targetUid: firstEnemy(state).uid },
-    );
-    expect(combatOf(after).outcome).toBe('won');
-    expect(after.phase).toBe('over');
-    expect(after.run?.outcome).toBe('won');
+    const after = applyAction(state, {
+      kind: 'playCard',
+      cardUid: handCard(state, 0).uid,
+      targetUid: firstEnemy(state).uid,
+    });
+    expect(after.phase).toBe('run');
+    expect(after.run?.combat).toBeNull();
+    expect(after.run?.screen).toBe('reward');
+    expect(after.run?.pendingReward).not.toBeNull();
   });
 
   it('loses when hull reaches zero', () => {
@@ -310,7 +320,7 @@ describe('outcomes', () => {
     expect(after.phase).toBe('over');
   });
 
-  it('ignores actions once the fight is over', () => {
+  it('ignores combat actions once the fight is over', () => {
     const state = makeFight({ hand: [SEVER], enemyHp: 5 });
     const won = applyAction(state, {
       kind: 'playCard',

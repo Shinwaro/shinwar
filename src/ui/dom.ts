@@ -42,6 +42,16 @@ export function clear(node: Element): void {
   node.replaceChildren();
 }
 
+/**
+ * Replace a node's children, dropping the nulls. `replaceChildren` rejects
+ * them, and conditional children read far better as `cond ? node : null` than
+ * as an array built up in pieces.
+ */
+export function fill(node: Element, children: readonly Child[]): void {
+  node.replaceChildren();
+  appendChildren(node, children);
+}
+
 /** Real `<button>`s everywhere, so keyboard and focus work without being asked. */
 export function button(label: string, attrs: Attrs, onClick: () => void): HTMLButtonElement {
   const node = el('button', { type: 'button', ...attrs }, [label]);

@@ -171,6 +171,52 @@ export const ENEMY_BANDS = {
   },
 } as const;
 
+/* ---------- the map ----------
+   A StS-style DAG, generated bottom-up with merging paths. Act 2 is the
+   longest and Act 3 the tightest and most dangerous, tuned for the hour
+   target. With no saves, a run drifting past 90 minutes is a real problem —
+   cut Act 3's length before cutting anything else. */
+
+export const MAP = {
+  /** Rows per act, boss included. */
+  rows: { 1: 15, 2: 18, 3: 13 },
+  /** Width of the lane the paths wander in. */
+  columns: 7,
+  /** Distinct starting nodes. They merge and cross on the way up. */
+  paths: 6,
+  /** No elite, station or safe planet before this row — Act 1 opens plain. */
+  earliestSpecialRow: 4,
+  /** The row before the boss is always a Safe Planet. StS's rest-before-boss. */
+  restBeforeBoss: true,
+} as const;
+
+/**
+ * Node weights, rolled per row on the `map` stream. Combat is the floor the
+ * rest sits on; the guarantees in the mapgen invariants override these where
+ * they conflict.
+ */
+export const NODE_WEIGHTS = {
+  combat: 45,
+  unknown: 38,
+  /** Anomalies arrive with the event pool at M4. Zero until then: a node type
+      that resolves to nothing is worse than one that does not generate. */
+  event: 0,
+  elite: 8,
+  station: 5,
+  safe: 4,
+} as const;
+
+/** What a `?` turns into, rolled on the `events` stream when entered. */
+export const UNKNOWN_WEIGHTS = {
+  /** Also M4. The weight moves back here from `combat` when events exist. */
+  event: 0,
+  combat: 60,
+  treasure: 40,
+} as const;
+
+/** A derelict found behind a `?`. */
+export const TREASURE_ALLOY = { min: 25, max: 45 } as const;
+
 /* ---------- rewards ----------
    Weighted, not uniform, and the weights shift over the run. You are never
    pulling from a flat bag. */

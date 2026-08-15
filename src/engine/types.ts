@@ -350,6 +350,55 @@ export interface ShipState {
   readonly installed: readonly InstalledModule[];
 }
 
+/* ---------- the map ----------
+   A DAG of rows. Every node knows only which nodes in the next row it leads
+   to, which is all routing needs and all the renderer needs. */
+
+/**
+ * Combat happens in two entirely different systems, and a node declares which.
+ * `surface` is the deckbuilder and risks the ronin; `space` is the module grid
+ * and risks the cutter. See SHIP.md.
+ *
+ * Only `surface` is playable today — `space` exists in the vocabulary so the
+ * map, routing and the crash can be built once rather than retrofitted.
+ */
+export type Arena = 'surface' | 'space';
+
+export type NodeType =
+  | 'combat'
+  | 'elite'
+  | 'boss'
+  | 'event'
+  | 'station'
+  | 'safe'
+  | 'unknown'
+  /** Injected by a crash. Elite-band encounters, and the way off the rock. */
+  | 'crash'
+  /** The repair node that ends a crash pocket. */
+  | 'wreck';
+
+export interface MapNode {
+  readonly id: string;
+  readonly row: number;
+  readonly col: number;
+  readonly type: NodeType;
+  readonly arena: Arena;
+  /** Combat nodes only. */
+  readonly encounterId: EncounterId | null;
+  /** Shown on the badge before the player commits to the route. */
+  readonly environmentId: EnvironmentId | null;
+  /** Node ids this leads to. Empty on the boss. */
+  readonly next: readonly string[];
+}
+
+export interface RunMap {
+  readonly act: 1 | 2 | 3;
+  readonly nodes: readonly MapNode[];
+  /** Row 0 — the nodes the player may start from. */
+  readonly entries: readonly string[];
+  readonly bossId: string;
+}
+
 /* ---------- run ---------- */
 
 export interface ThreadState {
@@ -371,12 +420,34 @@ export interface PilotState {
 
 export type RunOutcome = 'won' | 'died' | 'abandoned';
 
+/**
+ * A reward screen. Card choices plus Skip, and Skip is always real — a reward
+ * you must take is not a decision, and a bloated deck is its own punishment.
+ */
+export interface RewardOffer {
+  readonly cardIds: readonly CardId[];
+  readonly alloy: number;
+  /** Cards already taken from this screen. One pick, but the shape allows more. */
+  readonly taken: readonly CardId[];
+  readonly alloyClaimed: boolean;
+}
+
+/** What the player is looking at between fights. */
+export type RunScreen = 'map' | 'combat' | 'reward' | 'safe' | 'station' | 'event';
+
 export interface RunState {
   /** Copyable, re-enterable. Not persistence — a number you can write down. */
   readonly seed: string;
   readonly depth: number;
   readonly rng: RngState;
   readonly act: 1 | 2 | 3;
+  readonly map: RunMap | null;
+  /** Node id the player is standing on, or `null` before the first move. */
+  readonly position: string | null;
+  readonly visited: readonly string[];
+  readonly screen: RunScreen;
+  /** The reward on offer, if a screen is showing one. */
+  readonly pendingReward: RewardOffer | null;
   readonly alloy: number;
   readonly pilot: PilotState;
   readonly ship: ShipState;
@@ -385,6 +456,10 @@ export interface RunState {
   readonly outcome: RunOutcome | null;
   /** Monotonic source of instance uids. See `combat/instances.ts`. */
   readonly uidCounter: number;
+  /** Consecutive reward screens with nothing matching the deck's lean. */
+  readonly rewardDrought: number;
+  /** Card removals bought so far. The price rises with each one. */
+  readonly removalsPurchased: number;
 }
 
 /* ---------- rng ---------- */

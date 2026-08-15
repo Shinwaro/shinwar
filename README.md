@@ -42,12 +42,15 @@ technical contract and milestone order. `NOTES.md` records decisions taken along
 
 ## Status
 
-**M1 complete — one playable fight.** Stance and Heat, energy/draw/block, the damage pipeline with
-previews, the two-step selection model, telegraphed enemy intents, the 12-card starting deck, three
-Act 1 enemies with real AI, the combat log, and win/lose.
+**M2 complete — a playable Act 1.** A branching star map with environment badges shown before you
+commit to a route, node types, rewards with a real Skip, the Safe Planet menu, Alloy, the Station,
+the pause screen, replay-from-log, and the `beforeunload` guard. Mapgen's guarantees are asserted
+across 1000 seeds.
 
-M0 before it laid the ground: toolchain, the seeded RNG with named streams, the hook bus, the pure
-reducer, the content registry with validation, and the title screen.
+Before it: **M1** put a fight underneath — stance and heat, the damage pipeline with previews that
+cannot disagree with the result, telegraphed intents, and three Act 1 enemies. **M0** laid the
+ground — seeded RNG with named streams, the hook bus, the pure reducer, and the content registry.
 
-Next is M2 — the run loop: Act 1 mapgen, node types, rewards, the Safe Planet menu, Alloy, the
-pause screen, replay-from-log, and the `beforeunload` guard.
+Ship combat is a separate system and is not built. See [SHIP.md](SHIP.md).
+
+Next is a small animation pass, then M3.

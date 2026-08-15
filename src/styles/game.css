@@ -804,3 +804,331 @@
     width: 11.5rem;
   }
 }
+
+/* ---------- the shared run bar ---------- */
+
+.run-bar {
+  display: grid;
+  grid-template-columns: minmax(10rem, 1.4fr) repeat(3, minmax(5rem, 1fr)) auto;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-solid);
+}
+
+/* ---------- the star map ----------
+   Drawn boss-first, top to bottom, the way the player climbs it. */
+
+.map-inner {
+  width: 100%;
+  max-width: 62rem;
+  margin: 0 auto;
+  display: grid;
+  gap: 0.9rem;
+}
+
+.map-hint {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.map-grid {
+  display: grid;
+  gap: 0.5rem;
+  padding: 1rem 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: rgba(5, 5, 7, 0.55);
+  overflow-x: auto;
+}
+
+.map-row {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(4.5rem, 1fr));
+  gap: 0.4rem;
+  min-width: 34rem;
+}
+
+.map-node {
+  grid-column: calc(var(--col) + 1);
+  display: grid;
+  gap: 0.1rem;
+  justify-items: center;
+  align-content: center;
+  min-height: 3.1rem;
+  padding: 0.3rem 0.2rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--muted);
+  cursor: default;
+  transition: border-color 0.15s, transform 0.1s, color 0.15s;
+}
+
+/* Unreachable nodes stay fully legible — reading three columns ahead is the
+   whole point of the map — they simply do not respond. */
+.map-node:disabled {
+  opacity: 0.5;
+}
+
+.map-node.is-reachable {
+  cursor: pointer;
+  color: var(--ink);
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  opacity: 1;
+}
+
+.map-node.is-reachable:hover {
+  transform: translateY(-2px);
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+.map-node.is-current {
+  border-color: var(--ink);
+  color: var(--ink);
+  opacity: 1;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--ink) 35%, transparent);
+}
+
+.map-node.is-visited {
+  opacity: 0.32;
+}
+
+.map-glyph {
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+.map-env {
+  font-size: 0.55rem;
+  letter-spacing: 0.04em;
+  text-align: center;
+  color: var(--muted);
+}
+
+.map-node--elite .map-glyph { color: var(--danger); }
+.map-node--boss .map-glyph { color: var(--iai); }
+.map-node--safe .map-glyph { color: var(--good); }
+.map-node--station .map-glyph { color: var(--guard); }
+.map-node--unknown .map-glyph { color: var(--accent); }
+
+/* ---------- rewards ---------- */
+
+.reward-inner,
+.safe-inner {
+  width: 100%;
+  max-width: 62rem;
+  margin: 0 auto;
+  display: grid;
+  gap: 1rem;
+}
+
+.reward-note,
+.safe-note {
+  color: var(--muted);
+  font-size: 0.88rem;
+  text-wrap: pretty;
+}
+
+.reward-claimed {
+  color: var(--good);
+  font-size: 0.85rem;
+}
+
+.reward-cards,
+.deck-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+}
+
+.card--offer {
+  width: 14rem;
+}
+
+.pip--common { color: var(--muted); }
+.pip--uncommon { color: var(--guard); border-color: color-mix(in srgb, var(--guard) 45%, var(--line)); }
+.pip--rare { color: var(--iai); border-color: color-mix(in srgb, var(--iai) 45%, var(--line)); }
+
+.reward-actions {
+  display: flex;
+  gap: 0.6rem;
+}
+
+/* ---------- safe planet and station ---------- */
+
+.safe-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(15rem, 100%), 1fr));
+  gap: 0.7rem;
+}
+
+.safe-option {
+  display: grid;
+  gap: 0.25rem;
+  align-content: start;
+  min-height: 6.5rem;
+  padding: 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-solid);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.1s;
+}
+
+.safe-option:hover:not(:disabled) {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+}
+
+.safe-option:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.safe-option-title {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.safe-option-effect {
+  font-size: 0.85rem;
+}
+
+.safe-option-hint {
+  font-size: 0.78rem;
+  color: var(--muted);
+  text-wrap: pretty;
+}
+
+/* ---------- pause ---------- */
+
+.overlay-host:empty {
+  display: none;
+}
+
+.pause-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 1.25rem;
+  background: rgba(5, 5, 7, 0.82);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+
+.pause-panel {
+  width: min(100%, 44rem);
+  max-height: 88dvh;
+  overflow-y: auto;
+  display: grid;
+  gap: 1rem;
+  padding: clamp(1rem, 4vw, 1.6rem);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-solid);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
+}
+
+.pause-panel:focus {
+  outline: none;
+}
+
+.pause-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
+  gap: 0.6rem;
+}
+
+.pause-section {
+  display: grid;
+  gap: 0.4rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--line);
+}
+
+.pause-heading {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.pause-empty {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.pause-deck {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.pause-card {
+  display: grid;
+  grid-template-columns: 1.4rem 8rem 1fr;
+  gap: 0.5rem;
+  align-items: baseline;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.pause-card-cost {
+  font-family: var(--mono);
+  color: var(--accent);
+  text-align: right;
+}
+
+.pause-card-name {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.pause-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--line);
+}
+
+.pause-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  font-size: 0.85rem;
+  color: var(--danger);
+}
+
+.btn-danger {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.btn-danger:hover {
+  background: color-mix(in srgb, var(--danger) 15%, var(--surface));
+}
+
+@media (max-width: 56rem) {
+  .run-bar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pause-card {
+    grid-template-columns: 1.4rem 1fr;
+  }
+
+  .pause-card-text {
+    display: none;
+  }
+}

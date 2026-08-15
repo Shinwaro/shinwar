@@ -46,10 +46,26 @@ export function renderCombat(store: Store): HTMLElement {
   const selection: Selection = { cardUid: null, hoverUid: null, focusUid: null, logOpen: true };
   const host = el('main', { class: 'combat screen' });
 
+  /*
+   * Re-entrancy guard. Swapping the hand removes the focused card, which fires
+   * `blur` synchronously — and the hover handler on `blur` asks for another
+   * render, landing back in here while the DOM is mid-mutation. That throws
+   * `NotFoundError`, once per card, on every turn.
+   */
+  let rendering = false;
+
   const rerender = (): void => {
+    if (rendering) return;
     const state = store.getState();
-    if (state.run?.combat === null || state.run === null) return;
-    host.replaceChildren(build(store, state, selection, rerender));
+    // A won fight clears `combat` before the app swaps the screen out, and the
+    // listener fires on that state first. Render nothing rather than throw.
+    if (state.run === null || state.run.combat === null) return;
+    rendering = true;
+    try {
+      host.replaceChildren(build(store, state, selection, rerender));
+    } finally {
+      rendering = false;
+    }
     const log = host.querySelector('.log');
     if (log !== null) scrollLogToEnd(log);
   };
@@ -73,12 +89,16 @@ export function renderCombat(store: Store): HTMLElement {
     },
   });
 
-  // The screen host is replaced wholesale on a phase change; drop the listener
-  // with it rather than leaving it bound to a dead screen.
-  host.addEventListener('shinwar:unmount', detachKeys);
+  // Both listeners have to come down with the screen. Without the unsubscribe,
+  // every combat ever fought keeps re-rendering into a detached node for the
+  // rest of the run.
+  const unsubscribe = store.subscribe(rerender);
+  host.addEventListener('shinwar:unmount', () => {
+    detachKeys();
+    unsubscribe();
+  });
 
   rerender();
-  store.subscribe(rerender);
   return host;
 }
 

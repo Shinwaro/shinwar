@@ -15,6 +15,8 @@ import type {
   StatusStack,
 } from '../src/engine/types.ts';
 import { createInitialState, createRunState } from '../src/engine/state.ts';
+import { applyActions } from '../src/engine/reducer.ts';
+import { availableMoves } from '../src/engine/map/route.ts';
 import { buildDeck, mintEnemy } from '../src/engine/combat/instances.ts';
 import { HEAT, PLAYER } from '../src/content/balance.ts';
 import { CLEAR_SPACE_ID } from '../src/content/environments.ts';
@@ -96,6 +98,21 @@ export function makeFight(options: FightOptions = {}): GameState {
       combat,
     },
   };
+}
+
+/**
+ * Begin a run and walk into the first fight. `beginRun` opens the map, not a
+ * combat — every entry node is a normal combat by invariant, so this is the
+ * shortest honest path to a live fight through the real actions.
+ */
+export function beginRunInCombat(seed: string): GameState {
+  reloadContent();
+  const opened = applyActions(createInitialState(seed), [{ kind: 'beginRun' }]);
+  const run = opened.run;
+  if (run === null) throw new Error('test: beginRun produced no run');
+  const entry = availableMoves(run)[0];
+  if (entry === undefined) throw new Error('test: the map opened with nowhere to go');
+  return applyActions(opened, [{ kind: 'moveToNode', nodeId: entry.id }]);
 }
 
 export function combatOf(state: GameState): CombatState {

@@ -100,11 +100,11 @@ describe('the reducer', () => {
     expect(over.log).toEqual([]);
   });
 
-  it('records the run start in the log, ahead of the first fight', () => {
+  it('records the run start in the log', () => {
     const state = applyActions(createInitialState('LOGGED'), [{ kind: 'beginRun' }]);
     expect(state.log[0]?.kind).toBe('run');
     expect(state.log[0]?.text).toContain('LOGGED');
-    // Opening the run opens the first combat, so the fight narrates after it.
-    expect(state.log.some((entry) => entry.text.startsWith('Contact:'))).toBe(true);
+    // Opening a run opens the map, not a fight.
+    expect(state.run?.screen).toBe('map');
   });
 });

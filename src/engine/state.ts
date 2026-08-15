@@ -53,6 +53,11 @@ export function createRunState(seed: string, depth: number): RunState {
     depth,
     rng: createRng(seed),
     act: 1,
+    map: null,
+    position: null,
+    visited: [],
+    screen: 'map',
+    pendingReward: null,
     alloy: PLAYER.startingAlloy,
     pilot: {
       health: PLAYER.maxHealth,
@@ -70,6 +75,8 @@ export function createRunState(seed: string, depth: number): RunState {
     combat: null,
     outcome: null,
     uidCounter: built.uidCounter,
+    rewardDrought: 0,
+    removalsPurchased: 0,
   };
 }
 

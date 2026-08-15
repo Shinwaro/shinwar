@@ -9,10 +9,22 @@
 import type { Action, ActionLog } from './actions.ts';
 import type { GameState } from './types.ts';
 import { appendLog, createInitialState, createRunState } from './state.ts';
-import { normalizeSeed, pick } from './rng.ts';
-import { concludeCombat, endPlayerTurn, playCard, startCombat } from './combat/combat.ts';
-import { encountersFor } from '../content/encounters.ts';
-import { CLEAR_SPACE_ID } from '../content/environments.ts';
+import { normalizeSeed } from './rng.ts';
+import { endPlayerTurn, playCard } from './combat/combat.ts';
+import {
+  claimRewardAlloy,
+  concludeNode,
+  enterNode,
+  leaveNode,
+  leaveReward,
+  openMap,
+  safePlanetHeal,
+  safePlanetRemove,
+  safePlanetTrade,
+  safePlanetUpgrade,
+  stationRepair,
+  takeRewardCard,
+} from './run/run.ts';
 import { MAX_DEPTH } from '../content/balance.ts';
 
 export function clampDepth(depth: number): number {
@@ -21,22 +33,50 @@ export function clampDepth(depth: number): number {
 }
 
 /**
- * Open the run's first fight.
+ * Settle a combat that has just resolved.
  *
- * At M1 there is no map, so the run is one encounter drawn from the Act 1
- * normal pool on the `map` stream — the same stream mapgen will use at M2, so
- * a seed keeps meaning roughly the same thing across the change. Act 1 node 1
- * is always a normal combat in Clear Space, and this is that node.
+ * A loss ends the run — on foot, the ronin's death is final. A win hands over
+ * to the run loop for the reward. Losing a *space* battle will crash rather
+ * than kill (see SHIP.md), which is why this branch is about the arena and not
+ * about combat in general.
  */
-function openFirstCombat(state: GameState): GameState {
-  const run = state.run;
-  if (run === null) return state;
+function settleCombat(state: GameState): GameState {
+  const combat = state.run?.combat ?? null;
+  if (combat === null || combat.outcome === 'ongoing') return state;
 
-  const pool = encountersFor(1, 'normal');
-  const rolled = pick(run.rng, 'map', pool);
-  const withRoll: GameState = { ...state, run: { ...run, rng: rolled.rng } };
+  if (combat.outcome === 'lost') {
+    const ended = appendLog(state, {
+      source: 'system',
+      kind: 'combat',
+      text: 'The run ends here.',
+      detail: { outcome: 'lost' },
+    });
+    return {
+      ...ended,
+      phase: 'over',
+      run: ended.run === null ? null : { ...ended.run, outcome: 'died' },
+    };
+  }
 
-  return startCombat(withRoll, rolled.value.id, CLEAR_SPACE_ID);
+  const won = appendLog(state, {
+    source: 'system',
+    kind: 'combat',
+    text: 'Contact cleared.',
+    detail: { outcome: 'won' },
+  });
+
+  // The Act 1 boss is the end of the road until Acts 2 and 3 land at M5.
+  const run = won.run;
+  const atBoss = run !== null && run.map !== null && run.position === run.map.bossId;
+  if (atBoss) {
+    return {
+      ...won,
+      phase: 'over',
+      run: run === null ? null : { ...run, outcome: 'won', combat: null },
+    };
+  }
+
+  return concludeNode(won);
 }
 
 export function applyAction(state: GameState, action: Action): GameState {
@@ -62,23 +102,74 @@ export function applyAction(state: GameState, action: Action): GameState {
         run: createRunState(seed, depth),
         log: [],
       };
-      const announced = appendLog(started, {
-        source: 'system',
-        kind: 'run',
-        text: `Run started. Seed ${seed}, Depth ${depth}.`,
-        detail: { seed, depth },
-      });
-      return openFirstCombat(announced);
+      return openMap(
+        appendLog(started, {
+          source: 'system',
+          kind: 'run',
+          text: `Run started. Seed ${seed}, Depth ${depth}.`,
+          detail: { seed, depth },
+        }),
+      );
+    }
+
+    case 'moveToNode': {
+      if (state.run === null || state.run.screen !== 'map' || state.run.combat !== null) return state;
+      return settleCombat(enterNode(state, action.nodeId));
     }
 
     case 'playCard': {
       if (state.run?.combat?.outcome !== 'ongoing') return state;
-      return concludeCombat(playCard(state, action.cardUid, action.targetUid));
+      return settleCombat(playCard(state, action.cardUid, action.targetUid));
     }
 
     case 'endTurn': {
       if (state.run?.combat?.outcome !== 'ongoing') return state;
-      return concludeCombat(endPlayerTurn(state));
+      return settleCombat(endPlayerTurn(state));
+    }
+
+    case 'takeRewardCard': {
+      if (state.run?.screen !== 'reward') return state;
+      return takeRewardCard(state, action.cardId);
+    }
+
+    case 'claimRewardAlloy': {
+      if (state.run?.screen !== 'reward') return state;
+      return claimRewardAlloy(state);
+    }
+
+    case 'leaveReward': {
+      if (state.run?.screen !== 'reward') return state;
+      return leaveReward(state);
+    }
+
+    case 'safePlanetHeal': {
+      if (state.run?.screen !== 'safe') return state;
+      return safePlanetHeal(state);
+    }
+
+    case 'safePlanetUpgrade': {
+      if (state.run?.screen !== 'safe') return state;
+      return safePlanetUpgrade(state, action.cardUid);
+    }
+
+    case 'safePlanetRemove': {
+      if (state.run?.screen !== 'safe') return state;
+      return safePlanetRemove(state, action.cardUid);
+    }
+
+    case 'safePlanetTrade': {
+      if (state.run?.screen !== 'safe') return state;
+      return safePlanetTrade(state);
+    }
+
+    case 'stationRepair': {
+      if (state.run?.screen !== 'station') return state;
+      return stationRepair(state, action.amount);
+    }
+
+    case 'leaveNode': {
+      if (state.run === null || state.run.screen === 'combat') return state;
+      return leaveNode(state);
     }
 
     case 'abandonRun': {
@@ -111,7 +202,7 @@ export function applyAction(state: GameState, action: Action): GameState {
   }
 }
 
-/** Fold a list of actions. The shape replay (M2) and the simulator both use. */
+/** Fold a list of actions. The shape replay and the simulator both use. */
 export function applyActions(state: GameState, actions: readonly Action[]): GameState {
   return actions.reduce<GameState>(applyAction, state);
 }

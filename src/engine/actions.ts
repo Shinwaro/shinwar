@@ -21,6 +21,20 @@ export type Action =
      stop being a record of what the player actually chose to do. */
   | { readonly kind: 'playCard'; readonly cardUid: string; readonly targetUid: string | null }
   | { readonly kind: 'endTurn' }
+  /* -- the map -- */
+  | { readonly kind: 'moveToNode'; readonly nodeId: string }
+  /* -- rewards -- */
+  | { readonly kind: 'takeRewardCard'; readonly cardId: string }
+  | { readonly kind: 'claimRewardAlloy' }
+  | { readonly kind: 'leaveReward' }
+  /* -- safe planet: a menu, pick one -- */
+  | { readonly kind: 'safePlanetHeal' }
+  | { readonly kind: 'safePlanetUpgrade'; readonly cardUid: string }
+  | { readonly kind: 'safePlanetRemove'; readonly cardUid: string }
+  | { readonly kind: 'safePlanetTrade' }
+  /* -- station -- */
+  | { readonly kind: 'stationRepair'; readonly amount: number }
+  | { readonly kind: 'leaveNode' }
   /* -- run -- */
   | { readonly kind: 'abandonRun' }
   | { readonly kind: 'returnToTitle' };

@@ -326,6 +326,44 @@ ship fight (breaks determinism, so it costs the seed, the simulator and the bug-
 losing 50 minutes to a reflex slip is a worse feeling than losing to a bad route), and a random
 survival roll on crashing (output randomness delivered as a verdict after the plan already failed).
 
+### M2 — the run loop
+
+**Mapgen retries rather than being clever.** Generation builds a skeleton, assigns types, assigns
+encounters, then checks `mapProblems`. If anything fails it rolls again, up to 40 times, and throws
+with a message naming the cause. The guarantees are satisfied by construction, so a retry means the
+weights and the invariants have drifted apart — which is exactly when you want to be told loudly.
+
+**The adjacency bugs, both of them.** "No two Safe Planets adjacent" and "no repeated encounter"
+were first written against the same column one row down. An edge can arrive from a *neighbouring*
+column, so a same-column check silently misses most of the cases it exists for. Both now walk the
+node's real predecessors. This is the kind of bug the 1000-seed test exists to catch, and it did.
+
+**Node types that resolve to nothing do not generate.** `event` weight is 0 until the event pool
+lands at M4, and `?` resolves to combat-or-derelict rather than including an event branch. A node
+type on the map that does nothing when entered is worse than one that is not there yet.
+
+Elites and the boss fall back to the normal encounter pool, since their rosters arrive at M5.
+Under-tuned beats empty, and a boss node that opens an empty fight is a stuck run.
+
+**Screens have to subscribe.** The app shell swaps screens when the *view* changes, but plenty of
+state changes leave the view alone — moving between map nodes, taking a reward card, repairing at a
+station. The map and reward screens originally rendered once, so after a `?` resolved to a derelict
+and returned you to the map, every node you clicked was one that was no longer reachable and the
+game looked frozen. `ui/screen.ts` now owns that pattern: subscribe, re-render, and **unsubscribe on
+unmount** — without the last part every screen ever mounted keeps re-rendering into a detached node
+for the rest of the run.
+
+**Re-entrant renders.** Replacing the hand removes the focused card, which fires `blur`
+synchronously, whose handler asked for another render — landing back inside `replaceChildren` while
+the DOM was mid-mutation and throwing `NotFoundError` once per card per turn. Both render paths now
+carry a re-entrancy guard. Dropping the nested call is correct as well as safe: the outer render is
+already producing the newest state.
+
+**Deferred from M2, deliberately.** The Station sells hull repair only — cards, modules and the
+rising card-removal counter arrive with the shop at M4 (`removalsPurchased` and `removalCost` are in
+place for it). Anomalies are M4. Acts 2 and 3 are M5, so the Act 1 boss ends the run. The epilogue
+generator is M7; the game-over screen gives an honest account and the seed instead.
+
 ### A false alarm worth recording
 
 On mobile, `document.documentElement.scrollWidth` reads ~900 against a 375 viewport during combat.
