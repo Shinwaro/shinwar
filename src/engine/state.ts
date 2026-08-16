@@ -77,6 +77,7 @@ export function createRunState(seed: string, depth: number): RunState {
     },
     threads: [],
     combat: null,
+    shipCombat: null,
     outcome: null,
     uidCounter: built.uidCounter,
     rewardDrought: 0,

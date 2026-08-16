@@ -8,7 +8,8 @@
 import { CARDS } from './cards/index.ts';
 import { ENEMIES } from './enemies/index.ts';
 import { EVENTS } from './events/index.ts';
-import { MODULES } from './modules/index.ts';
+import { MODULES, WEAPONS } from './modules/index.ts';
+import { SHIP_ENEMIES } from './ships/index.ts';
 import { ENVIRONMENTS } from './environments.ts';
 import { MASTERIES } from './masteries.ts';
 import { STATUSES } from './statuses.ts';
@@ -20,7 +21,9 @@ import {
   events,
   masteries,
   modules,
+  shipEnemies,
   statuses,
+  weapons,
   threads,
 } from './registry.ts';
 import type { ThreadDef } from '../engine/types.ts';
@@ -37,6 +40,8 @@ export function loadContent(): void {
   cards.register(CARDS);
   enemies.register(ENEMIES);
   modules.register(MODULES);
+  weapons.register(WEAPONS);
+  shipEnemies.register(SHIP_ENEMIES);
   events.register(EVENTS);
   environments.register(ENVIRONMENTS);
   masteries.register(MASTERIES);

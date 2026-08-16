@@ -16,7 +16,7 @@
  * so a same-column check silently misses most of the cases it exists for.
  */
 
-import type { EncounterId, MapNode, NodeType, RngState, RunMap } from '../types.ts';
+import type { Arena, EncounterId, MapNode, NodeType, RngState, RunMap } from '../types.ts';
 import { nextInt, weightedPick } from '../rng.ts';
 import { MAP, NODE_WEIGHTS } from '../../content/balance.ts';
 import { CLEAR_SPACE_ID } from '../../content/environments.ts';
@@ -25,6 +25,20 @@ import { encountersFor } from '../../content/encounters.ts';
 export interface GeneratedMap {
   readonly map: RunMap;
   readonly rng: RngState;
+}
+
+/**
+ * Which system a fight uses. Space nodes are the ship grid; surface nodes are
+ * the deckbuilder. Deterministic from the position rather than rolled, so the
+ * mix is even and a seed's route reads the same every time.
+ *
+ * Never the origin — Act 1 node 1 is always a normal fight in Clear Space —
+ * and never the boss, which is on foot until ship bosses exist.
+ */
+function arenaFor(type: NodeType, row: number, col: number): Arena {
+  if (type !== 'combat' && type !== 'elite') return 'surface';
+  if (row === 0) return 'surface';
+  return (row + col) % 3 === 0 ? 'space' : 'surface';
 }
 
 function nodeId(row: number, col: number): string {
@@ -305,7 +319,7 @@ function assemble(skeleton: Skeleton, act: 1 | 2 | 3, rng: RngState): GeneratedM
         type,
         // Everything is on foot until ship combat exists. The vocabulary is in
         // place so the map, routing and the crash are built once — see SHIP.md.
-        arena: 'surface',
+        arena: arenaFor(type, row, col),
         encounterId,
         // Real environments arrive at M5. Act 1 node 1 is always Clear Space,
         // which is trivially true while it is the only one.

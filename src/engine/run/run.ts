@@ -8,16 +8,17 @@
 import type { CardId, GameState, MapNode, RunState } from '../types.ts';
 import { appendLog, requireRun, withRun } from '../state.ts';
 import { fireHook } from '../hooks.ts';
-import { nextIntInclusive, weightedPick } from '../rng.ts';
+import { nextIntInclusive, pick, weightedPick } from '../rng.ts';
 import { generateMap } from '../map/mapgen.ts';
 import { canMoveTo, nodeById } from '../map/route.ts';
 import { startCombat } from '../combat/combat.ts';
+import { startShipCombat } from '../ship/combat.ts';
 import { mintCard } from '../combat/instances.ts';
 import { gainAlloy, removalCost, rollAlloy, spendAlloy } from './economy.ts';
 import { offerMatchesLean, rollReward } from './rewards.ts';
 import { ECONOMY, PLAYER, TREASURE_ALLOY, UNKNOWN_WEIGHTS } from '../../content/balance.ts';
 import { CLEAR_SPACE_ID } from '../../content/environments.ts';
-import { cards as cardTable } from '../../content/registry.ts';
+import { cards as cardTable, shipEnemies } from '../../content/registry.ts';
 
 /* ---------- opening the run ---------- */
 
@@ -130,6 +131,8 @@ function resolveUnknown(state: GameState, node: MapNode): GameState {
 }
 
 function openCombat(state: GameState, node: MapNode): GameState {
+  if (node.arena === 'space') return openShipCombat(state, node);
+
   const run = requireRun(state);
   const encounterId = node.encounterId ?? fallbackEncounter(run);
   if (encounterId === null) {
@@ -138,6 +141,17 @@ function openCombat(state: GameState, node: MapNode): GameState {
   }
   const staged = withRun(state, (current) => ({ ...current, screen: 'combat' }));
   return startCombat(staged, encounterId, node.environmentId ?? CLEAR_SPACE_ID);
+}
+
+/** Pick an enemy ship on the map stream and hand over to the grid. */
+function openShipCombat(state: GameState, node: MapNode): GameState {
+  const run = requireRun(state);
+  const pool = shipEnemies.all().filter((entry) => entry.act === run.act);
+  if (pool.length === 0) return withRun(state, (current) => ({ ...current, screen: 'map' }));
+  const rolled = pick(run.rng, 'map', pool);
+  const spun = withRun(state, (current) => ({ ...current, rng: rolled.rng }));
+  void node;
+  return startShipCombat(spun, rolled.value.id);
 }
 
 function fallbackEncounter(run: RunState): string | null {

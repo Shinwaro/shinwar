@@ -24,6 +24,10 @@ export type Action =
   /** Resolve one enemy. The UI dispatches these on a timer so the enemy turn
       can be watched rather than arriving in a single frame. */
   | { readonly kind: 'advanceEnemies' }
+  /* -- ship combat: one lever a turn, then the turn resolves -- */
+  | { readonly kind: 'intervene'; readonly verb: import('./types.ts').InterventionId }
+  | { readonly kind: 'resolveShipTurn' }
+  | { readonly kind: 'moveModule'; readonly moduleId: string; readonly x: number; readonly y: number }
   /* -- the map -- */
   | { readonly kind: 'moveToNode'; readonly nodeId: string }
   /* -- rewards -- */

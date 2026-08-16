@@ -132,6 +132,22 @@ export const SHIP = {
 } as const;
 
 
+/* ---------- ship combat ----------
+   Autoresolve numbers. Heat carries between turns and is the thing that
+   punishes a greedy build; Energy resets so every turn is a fresh decision. */
+
+export const SHIP_COMBAT = {
+  maxHeat: 12,
+  /** At or above this at the end of a turn, the reactor cooks the hull. */
+  overheatAt: 10,
+  overheatDamage: 6,
+  overchargeDamage: 5,
+  overchargeHeat: 3,
+  ventAmount: 5,
+  divertEnergy: 3,
+  braceShield: 8,
+} as const;
+
 /* ---------- economy ---------- */
 
 export const ECONOMY = {

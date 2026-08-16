@@ -8,9 +8,11 @@
 
 import type { Action, ActionLog } from './actions.ts';
 import type { GameState } from './types.ts';
-import { appendLog, createInitialState, createRunState } from './state.ts';
+import { appendLog, createInitialState, createRunState, withRun } from './state.ts';
 import { normalizeSeed } from './rng.ts';
 import { advanceEnemyTurn, endPlayerTurn, playCard } from './combat/combat.ts';
+import { intervene, resolveShipTurn } from './ship/combat.ts';
+import { moveModule as moveOnGrid } from './ship/grid.ts';
 import {
   claimRewardAlloy,
   concludeNode,
@@ -40,6 +42,36 @@ export function clampDepth(depth: number): number {
  * than kill (see SHIP.md), which is why this branch is about the arena and not
  * about combat in general.
  */
+/** Close out a ship fight. Losing crashes rather than kills — see SHIP.md. */
+function settleShipCombat(state: GameState): GameState {
+  const fight = state.run?.shipCombat ?? null;
+  if (fight === null || fight.outcome === 'ongoing') return state;
+
+  if (fight.outcome === 'won') {
+    return appendLog(
+      withRun(state, (run) => ({ ...run, shipCombat: null, screen: 'map' })),
+      { source: 'system', kind: 'combat', text: 'The other ship stops moving.', detail: null },
+    );
+  }
+
+  // You cannot die in space. The crash pocket arrives with the map work; for
+  // now the cutter is left on its last sliver and you are put back on the map.
+  return appendLog(
+    withRun(state, (run) => ({
+      ...run,
+      shipCombat: null,
+      screen: 'map',
+      ship: { ...run.ship, hull: Math.max(1, Math.floor(run.ship.maxHull * 0.1)) },
+    })),
+    {
+      source: 'system',
+      kind: 'combat',
+      text: 'The cutter is falling. You ride it down.',
+      detail: { crashed: true },
+    },
+  );
+}
+
 function settleCombat(state: GameState): GameState {
   const combat = state.run?.combat ?? null;
   if (combat === null || combat.outcome === 'ongoing') return state;
@@ -130,6 +162,33 @@ export function applyAction(state: GameState, action: Action): GameState {
     case 'advanceEnemies': {
       if (state.run?.combat?.outcome !== 'ongoing') return state;
       return settleCombat(advanceEnemyTurn(state));
+    }
+
+    case 'intervene': {
+      if (state.run?.shipCombat?.outcome !== 'ongoing') return state;
+      return intervene(state, action.verb);
+    }
+
+    case 'resolveShipTurn': {
+      if (state.run?.shipCombat?.outcome !== 'ongoing') return state;
+      return settleShipCombat(resolveShipTurn(state));
+    }
+
+    case 'moveModule': {
+      const run = state.run;
+      if (run === null) return state;
+      // In a fight, moving costs the turn's lever; between fights it is free.
+      if (run.shipCombat !== null && run.shipCombat.usedIntervention !== null) return state;
+      const moved = withRun(state, (current) => ({
+        ...current,
+        ship: moveOnGrid(current.ship, action.moduleId, action.x, action.y),
+      }));
+      if (moved === state || run.shipCombat === null) return moved;
+      return withRun(moved, (current) => ({
+        ...current,
+        shipCombat:
+          current.shipCombat === null ? null : { ...current.shipCombat, usedIntervention: 'reposition' },
+      }));
     }
 
     case 'takeRewardCard': {

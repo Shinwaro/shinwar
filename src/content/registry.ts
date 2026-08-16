@@ -19,8 +19,10 @@ import type {
   EventDef,
   MasteryDef,
   ModuleDef,
+  ShipEnemyDef,
   StatusDef,
   ThreadDef,
+  WeaponDef,
 } from '../engine/types.ts';
 import { ACTIVE_STANCES, SCOPE, THREADS } from './balance.ts';
 
@@ -75,10 +77,12 @@ export const environments = createTable<EnvironmentDef>('environment');
 export const masteries = createTable<MasteryDef>('mastery');
 export const threads = createTable<ThreadDef>('thread');
 export const statuses = createTable<StatusDef>('status');
+export const weapons = createTable<WeaponDef>('weapon');
+export const shipEnemies = createTable<ShipEnemyDef>('ship enemy');
 
 /** Tests only. The game registers once at import and never clears. */
 export function clearAllContent(): void {
-  for (const table of [cards, enemies, modules, events, environments, masteries, threads, statuses]) {
+  for (const table of [cards, enemies, modules, events, environments, masteries, threads, statuses, weapons, shipEnemies]) {
     table.clear();
   }
 }
@@ -311,5 +315,7 @@ export function contentCounts(): Readonly<Record<string, number>> {
     masteries: masteries.all().length,
     threads: threads.all().length,
     statuses: statuses.all().length,
+    weapons: weapons.all().length,
+    shipEnemies: shipEnemies.all().length,
   };
 }

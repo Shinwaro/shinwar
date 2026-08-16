@@ -1466,3 +1466,124 @@
   outline-offset: 3px;
   border-radius: 3px;
 }
+
+
+/* ---------- ship combat ---------- */
+
+.shipfight-inner {
+  width: 100%;
+  max-width: 62rem;
+  margin: 0 auto;
+  display: grid;
+  gap: 0.85rem;
+}
+
+.shipenemy {
+  display: grid;
+  gap: 0.4rem;
+  padding: 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-solid);
+}
+
+.ship-flavor {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-style: italic;
+}
+
+.ship-note {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+/* The grid IS the screen. */
+.ship-grid {
+  display: grid;
+  gap: 3px;
+  padding: 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: #04050a;
+  aspect-ratio: 5 / 3;
+  max-height: 16rem;
+}
+
+.grid-cell {
+  border: 1px dashed rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+}
+
+.grid-tile {
+  display: grid;
+  place-items: center;
+  gap: 0.1rem;
+  padding: 0.2rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  background: var(--surface-solid);
+  font-size: 0.65rem;
+  line-height: 1.15;
+  text-align: center;
+}
+
+.grid-tile--reactor { border-color: var(--iai); background: color-mix(in srgb, var(--iai) 14%, var(--surface-solid)); }
+.grid-tile--converter { border-color: var(--good); background: color-mix(in srgb, var(--good) 14%, var(--surface-solid)); }
+.grid-tile--emitter { border-color: #b79ae0; background: color-mix(in srgb, #b79ae0 14%, var(--surface-solid)); }
+.grid-tile--plating { border-color: var(--guard); background: color-mix(in srgb, var(--guard) 14%, var(--surface-solid)); }
+.grid-tile--sensor { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--surface-solid)); }
+.grid-tile--drive { border-color: var(--muted); }
+
+/* Adjacency is a bonus, so it reads as a bonus: a link mark, not a warning. */
+.grid-tile.is-linked {
+  box-shadow: 0 0 0 1px var(--good), 0 0 10px color-mix(in srgb, var(--good) 30%, transparent);
+}
+
+.tile-link {
+  font-size: 0.7rem;
+  color: var(--good);
+}
+
+.pools {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(9rem, 100%), 1fr));
+  gap: 0.6rem;
+}
+
+.pool {
+  display: grid;
+  gap: 0.1rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-solid);
+}
+
+.pool.is-hot {
+  border-color: var(--heat-danger);
+  color: var(--heat-danger);
+}
+
+.pool-value {
+  font-family: var(--mono);
+  font-size: 1.25rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.pool-hint {
+  font-size: 0.66rem;
+  color: var(--muted);
+  text-wrap: pretty;
+}
+
+.verbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.verb.is-used {
+  border-color: var(--accent);
+  color: var(--accent);
+}

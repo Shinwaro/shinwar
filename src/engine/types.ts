@@ -219,6 +219,52 @@ export interface PlacedModule {
   readonly y: number;
 }
 
+/* ---------- ship combat ----------
+   Autoresolve with one high-leverage decision a turn. The build is the
+   strategy; the turn is where you spend the one lever the build gave you. */
+
+export interface ShipEnemyMove {
+  readonly id: string;
+  readonly label: string;
+  readonly damage: number;
+  readonly shots: number;
+  readonly shield: number;
+}
+
+export interface ShipEnemyDef {
+  readonly id: EnemyId;
+  readonly name: string;
+  readonly maxHull: number;
+  readonly act: 1 | 2 | 3;
+  readonly moves: readonly ShipEnemyMove[];
+  readonly script: EnemyScript;
+  readonly flavor?: string;
+}
+
+export interface ShipEnemyState {
+  readonly defId: EnemyId;
+  readonly hull: number;
+  readonly maxHull: number;
+  readonly shield: number;
+  /** Committed at telegraph time, exactly like a card-combat intent. */
+  readonly intentMoveId: string | null;
+  readonly ai: EnemyAiState;
+}
+
+export type ShipPools = { readonly [K in ShipResource]: number };
+
+export interface ShipCombatState {
+  readonly turn: number;
+  readonly pools: ShipPools;
+  readonly shield: number;
+  /** Damage added to every shot this turn, from Overcharge and amplifiers. */
+  readonly amplify: number;
+  readonly enemy: ShipEnemyState;
+  /** One a turn. `null` means the player has not spent it yet. */
+  readonly usedIntervention: InterventionId | null;
+  readonly outcome: 'ongoing' | 'won' | 'lost';
+}
+
 export interface EnvironmentDef {
   readonly id: EnvironmentId;
   readonly name: string;
@@ -548,7 +594,7 @@ export interface RewardOffer {
 }
 
 /** What the player is looking at between fights. */
-export type RunScreen = 'map' | 'combat' | 'reward' | 'safe' | 'station' | 'event';
+export type RunScreen = 'map' | 'combat' | 'shipCombat' | 'reward' | 'safe' | 'station' | 'event';
 
 export interface RunState {
   /** Copyable, re-enterable. Not persistence — a number you can write down. */
@@ -568,6 +614,8 @@ export interface RunState {
   readonly ship: ShipState;
   readonly threads: readonly ThreadState[];
   readonly combat: CombatState | null;
+  /** The other kind of fight. Never live at the same time as `combat`. */
+  readonly shipCombat: ShipCombatState | null;
   readonly outcome: RunOutcome | null;
   /** Monotonic source of instance uids. See `combat/instances.ts`. */
   readonly uidCounter: number;
