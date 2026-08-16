@@ -504,6 +504,45 @@ Robin's read after playing, not yet acted on:
 
 Both wait for `sim/` at M6 rather than being guessed at now.
 
+## M3 — the ship
+
+Built in three passes: the grid, then ship combat, then the loadout, the crash and elite drops.
+`SHIP.md` holds the design; this records what the code actually does and why.
+
+**The Power budget is gone.** Space on a 5×3 grid replaced it outright. `SlotId`, `powerCapacity`
+and `installed` are all deleted — the grid is not an extension of the old model, it is a replacement.
+
+**Adjacency counts shared edges, never corners.** Corner-touching reads as "not connected" to anyone
+looking at a grid, and a rule the player has to be told is a rule they will get wrong. It is always
+a *bonus for touching*, never a requirement to function; a badly packed ship is weaker and never
+broken, and there is a test for that.
+
+**Modules tick in placement order, sorted by cell.** Two ships with the same modules in different
+cells must resolve identically for a seed, so iteration order can never be array order.
+
+**Modules grant verbs, not just numbers.** The intervention list is a function of what is bolted on.
+The weapon mount grants Overcharge by itself, though — agency must never depend on having found the
+right module, so an empty grid still gets one thing to do.
+
+**Aiming is not the intervention.** Subsystem targeting is the decision you always get whatever the
+grid looks like; the lever is the one the build gave you. Shields cover the hull but not the parts,
+which is what keeps aiming live all fight instead of being a turn-one-only move.
+
+**The crash bills you on four axes** — dead drive, modules shaken loose from the last-packed corner
+inward, an injured ronin, and a repair cost that rises each time. That last detail turns placement
+into a defensive decision as well as a packing puzzle: what you put in the corner is what you lose.
+You still cannot die in space.
+
+**Deferred, deliberately:** the Station selling modules is M4's shop. The crash does not yet inject a
+node pocket — being stranded is expressed as "space nodes refuse you until repaired" instead, which
+delivers the punish without map surgery. `SHIP.md`'s 2–3 node cap still applies if that changes.
+
+**Ship Energy is per-turn rather than banked** — taken as a default, not a considered ruling, and
+flagged as such in `SHIP.md`.
+
+**Balance is loose.** A three-turn kill in the first trace. Parked for the simulator alongside the
+Focus and Heat problems.
+
 ### A false alarm worth recording
 
 On mobile, `document.documentElement.scrollWidth` reads ~900 against a 375 viewport during combat.

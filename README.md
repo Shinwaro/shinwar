@@ -58,16 +58,18 @@ Before it: **M1** put a fight underneath — stance and heat, the damage pipelin
 cannot disagree with the result, telegraphed intents, and three Act 1 enemies. **M0** laid the
 ground — seeded RNG with named streams, the hook bus, the pure reducer, and the content registry.
 
-Since M2: the animation pass (floating numbers, draining bars, paced enemy turns), 24 cards across
-a seven-tier rarity ladder, the forge preview, and two rounds of playtest fixes.
+**M3 is in too — both kinds of combat now exist.** Space nodes open the ship grid instead of the
+deckbuilder: modules are rectangles you pack, adjacency pays a bonus for touching, the turn
+autoresolves, and you spend one verb plus one aiming decision. Losing a ship fight crashes you rather
+than killing you. Plus the loadout screen, elite module drops, and the animation pass.
 
-Ship combat is a separate system and is not built. See [SHIP.md](SHIP.md).
+**Next**, in order:
 
-**Next**, in order of what is actually blocking:
+1. **M4** — events, Threads, the Manifest panel, and the Station shop (which sells modules and card
+   removals — both currently missing).
+2. **M5** — environments, Acts 2 and 3, bosses, Stance Masteries, the Wavefront.
+3. **M6's simulator** is where the balance problems in `NOTES.md` get settled — Focus is overtuned,
+   Heat never threatens anything, and ship fights end in about three turns. Tuning any of those by
+   hand before the bot exists is guessing.
 
-1. **M3 — the ship grid.** Blocked on three questions at the bottom of `SHIP.md`: does the grid
-   rearrange under fire, is adjacency required or only rewarded, and is ship Energy per-turn or
-   accumulated.
-2. **M4** — events, Threads, the Station shop.
-3. **M6's simulator** is where the Focus and Heat problems in `NOTES.md` get settled. Tuning them
-   by hand before the bot exists is guessing.
+Two open design questions sit at the bottom of [SHIP.md](SHIP.md).
