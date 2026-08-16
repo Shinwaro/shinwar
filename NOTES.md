@@ -469,6 +469,41 @@ changed rider, and a changed cost each get called out. `renderCardFace` is share
 screen and the preview so a card cannot look like two different cards depending on which screen you
 meet it on.
 
+### Playtest round two — what changed and why
+
+From Robin playing it. Recorded because several are *design* rulings, not bug fixes.
+
+- **No damage predictions, anywhere.** Not hover-only — removed entirely. "We are not trying to
+  handhold the player; the game is supposed to be difficult and involve thinking." The card states
+  its effect and the stance strip states the stance; adding them up is the game.
+  `previewCard` and the preview-equals-resolution test stay — the guarantee is architectural and
+  free to keep — but nothing on the combat screen asks for it.
+- **Enemy turns are paced, not instant.** `endTurn` only queues the enemies; the UI dispatches
+  `advanceEnemies` on a timer (500ms lead, +500ms per extra blow) and highlights whoever is
+  swinging. `endTurnImmediately` runs the whole thing in one call for tests and the simulator, so
+  the engine stays instant.
+- **Overkill stays wasted.** A card whose first op kills no longer slides its remaining ops onto the
+  next enemy. Free damage the player never chose to place is both a gift and a lie about where
+  damage lands.
+- **The reward pick is changeable.** Choosing only marks the choice; nothing reaches the deck until
+  Continue. A screen that locks on the first click punishes reading the third card.
+- **Alloy is paid on arrival.** Nobody has ever left money on a reward screen.
+- Enemy Block uses the player's shield badge on the health row — Block is not a status.
+- The forge preview is a fixed box; it used to resize under the pointer.
+
+### Known balance problems, deferred to the tuning pass
+
+Robin's read after playing, not yet acted on:
+
+- **Focus is overtuned.** `+2 damage per stack` on top of the IAI first-attack bonus stacks too
+  hard, and Iai Slash's rider grants Focus *after* spending it, so an IAI deck snowballs.
+- **Heat is close to useless.** You never have to worry about it. GUARD vents 2 a turn, Purge Cycle
+  and Iron Wake vent more, and nothing forces the gauge upward fast enough for 8 to be a real
+  threshold. The whole "safe → strong → greedy → threatened" arc in `DESIGN.md` §1 is currently not
+  happening inside a fight.
+
+Both wait for `sim/` at M6 rather than being guessed at now.
+
 ### A false alarm worth recording
 
 On mobile, `document.documentElement.scrollWidth` reads ~900 against a 375 viewport during combat.

@@ -40,6 +40,13 @@ tests/          guard tests and correctness tests
 `CLAUDE.md` holds the binding conventions, `DESIGN.md` the design rationale, and `PROMPT.md` the
 technical contract and milestone order. `NOTES.md` records decisions taken along the way.
 
+## Where to pick up
+
+Read `NOTES.md` first — every decision that is not obvious from the code is in there, newest
+milestone last, including the design rulings from playtesting and the balance problems parked for
+M6. `SHIP.md` holds the ship-combat design, which is not built and has three open questions at the
+bottom that block starting it.
+
 ## Status
 
 **M2 complete — a playable Act 1.** A branching star map with environment badges shown before you
@@ -51,6 +58,16 @@ Before it: **M1** put a fight underneath — stance and heat, the damage pipelin
 cannot disagree with the result, telegraphed intents, and three Act 1 enemies. **M0** laid the
 ground — seeded RNG with named streams, the hook bus, the pure reducer, and the content registry.
 
+Since M2: the animation pass (floating numbers, draining bars, paced enemy turns), 24 cards across
+a seven-tier rarity ladder, the forge preview, and two rounds of playtest fixes.
+
 Ship combat is a separate system and is not built. See [SHIP.md](SHIP.md).
 
-Next is a small animation pass, then M3.
+**Next**, in order of what is actually blocking:
+
+1. **M3 — the ship grid.** Blocked on three questions at the bottom of `SHIP.md`: does the grid
+   rearrange under fire, is adjacency required or only rewarded, and is ship Energy per-turn or
+   accumulated.
+2. **M4** — events, Threads, the Station shop.
+3. **M6's simulator** is where the Focus and Heat problems in `NOTES.md` get settled. Tuning them
+   by hand before the bot exists is guessing.
