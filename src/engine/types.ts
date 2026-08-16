@@ -136,19 +136,87 @@ export interface CardDef {
   readonly flavor?: string;
 }
 
-export type SlotId = 'reactor' | 'hull' | 'drive' | 'sensors' | 'weapons' | 'cargo';
+/* ---------- the ship ----------
+   Modules occupy rectangles on a grid. Space is the constraint — it replaces
+   the Power budget from DESIGN.md §2 entirely, because a rectangle that will
+   not fit is legible at a glance in a way a number you are under is not.
+   See SHIP.md. */
+
+export type ShipResource = 'heat' | 'energy' | 'singularity';
+
+/** What a module family does, for grouping and for adjacency rules. */
+export type ModuleKind = 'reactor' | 'converter' | 'emitter' | 'plating' | 'sensor' | 'drive';
+
+/** A rectangle of grid cells, in cells. */
+export interface Footprint {
+  readonly w: number;
+  readonly h: number;
+}
+
+/**
+ * What a module does each ship-combat turn. Deliberately a tiny vocabulary:
+ * produce a resource, convert one into another, or add damage. The interesting
+ * builds are chains of these, not any one of them.
+ */
+export type ModuleEffect =
+  | { readonly kind: 'produce'; readonly resource: ShipResource; readonly amount: number }
+  | {
+      readonly kind: 'convert';
+      readonly from: ShipResource;
+      readonly to: ShipResource;
+      readonly rate: number;
+      /** Most it will convert in one turn. */
+      readonly cap: number;
+    }
+  | { readonly kind: 'damage'; readonly amount: number }
+  /** Adds to every weapon shot: `amount` plus `perResource` of the named pool. */
+  | {
+      readonly kind: 'amplify';
+      readonly amount: number;
+      readonly perResource?: ShipResource;
+      readonly per?: number;
+    }
+  | { readonly kind: 'shield'; readonly amount: number };
 
 export interface ModuleDef {
   readonly id: ModuleId;
   readonly name: string;
-  readonly slot: SlotId;
+  readonly kind: ModuleKind;
   readonly rarity: Rarity;
-  /** Power drawn. A reactor draws 0 and supplies via `power`. */
-  readonly draw: number;
-  /** Power supplied. Reactors only. */
-  readonly supplies?: number;
-  readonly text: string;
+  readonly footprint: Footprint;
+  readonly effects: readonly ModuleEffect[];
+  /**
+   * Extra effects granted only while this module touches one of `adjacentTo`.
+   * A bonus for good packing, never a requirement — a badly packed ship is
+   * weaker and never broken.
+   */
+  readonly adjacentTo?: readonly ModuleKind[];
+  readonly adjacencyEffects?: readonly ModuleEffect[];
+  /** A verb this module grants in combat. Modules grant verbs, not just numbers. */
+  readonly grants?: InterventionId;
   readonly flavor?: string;
+}
+
+/** The small set of things a player may do on a ship-combat turn. */
+export type InterventionId = 'overcharge' | 'vent' | 'divert' | 'brace' | 'reposition';
+
+export interface WeaponDef {
+  readonly id: ModuleId;
+  readonly name: string;
+  readonly rarity: Rarity;
+  /** Base damage per shot. */
+  readonly damage: number;
+  readonly shots: number;
+  /** Heat generated per shot. The cannon's drawback is the converter's input. */
+  readonly heat: number;
+  readonly flavor?: string;
+}
+
+/** A module sitting on the grid at a position. */
+export interface PlacedModule {
+  readonly moduleId: ModuleId;
+  readonly x: number;
+  readonly y: number;
 }
 
 export interface EnvironmentDef {
@@ -371,18 +439,18 @@ export interface CombatState {
 
 /* ---------- ship ---------- */
 
-export interface InstalledModule {
-  readonly moduleId: ModuleId;
-  readonly slot: SlotId;
-}
-
 export interface ShipState {
   /** The cutter's own health. Spent in space combat, repaired with Alloy. */
   readonly hull: number;
   readonly maxHull: number;
-  /** Power supplied by the reactor plus any capacity bought. */
-  readonly powerCapacity: number;
-  readonly installed: readonly InstalledModule[];
+  /** Grid size in cells. Growing this is the ship-path equivalent of a card slot. */
+  readonly gridW: number;
+  readonly gridH: number;
+  readonly placed: readonly PlacedModule[];
+  /** Mounted separately — weapons are not part of the grid. */
+  readonly weaponId: ModuleId;
+  /** Owned but not fitted. The grid is the constraint, not ownership. */
+  readonly stored: readonly ModuleId[];
 }
 
 /* ---------- the map ----------

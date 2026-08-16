@@ -58,16 +58,3 @@ export function hullFraction(run: RunState): number {
   if (run.ship.maxHull <= 0) return 0;
   return Math.max(0, Math.min(1, run.ship.hull / run.ship.maxHull));
 }
-
-/* ---------- ship power ----------
-   Power is the ship's deck size. Installing over budget is rejected with a
-   clear reason, so the check has to be a query the UI can ask before it acts,
-   not a boolean buried in the install path. */
-
-export function powerDrawn(run: RunState, drawOf: (moduleId: string) => number): number {
-  return run.ship.installed.reduce((sum, installed) => sum + drawOf(installed.moduleId), 0);
-}
-
-export function powerFree(run: RunState, drawOf: (moduleId: string) => number): number {
-  return run.ship.powerCapacity - powerDrawn(run, drawOf);
-}

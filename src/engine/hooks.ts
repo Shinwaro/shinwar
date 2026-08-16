@@ -167,7 +167,7 @@ export function activeHookSources(state: GameState): readonly string[] {
 
   const sources: string[] = [];
 
-  for (const installed of run.ship.installed) sources.push(installed.moduleId);
+  for (const placed of run.ship.placed) sources.push(placed.moduleId);
   for (const masteryId of run.pilot.masteries) sources.push(masteryId);
   for (const thread of run.threads) {
     if (!thread.resolved) sources.push(thread.threadId);

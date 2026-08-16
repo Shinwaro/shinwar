@@ -6,7 +6,7 @@
  */
 
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { GameState, SlotId } from '../src/engine/types.ts';
+import type { GameState } from '../src/engine/types.ts';
 import { defineHook, fireHook, handlersFor, registerHooks, resetHooks } from '../src/engine/hooks.ts';
 import { appendLog, createInitialState, requireRun } from '../src/engine/state.ts';
 import { applyAction } from '../src/engine/reducer.ts';
@@ -22,7 +22,7 @@ function stateWithModules(moduleIds: readonly string[]): GameState {
       ...run,
       ship: {
         ...run.ship,
-        installed: moduleIds.map((moduleId) => ({ moduleId, slot: 'hull' as SlotId })),
+        placed: moduleIds.map((moduleId, index) => ({ moduleId, x: index, y: 0 })),
       },
     },
   };

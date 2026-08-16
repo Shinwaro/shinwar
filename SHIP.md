@@ -163,6 +163,16 @@ choice rather than a wall.
 
 ---
 
+## Settled
+
+1. **The grid rearranges under fire.** Repositioning is one of the intervention verbs, so it costs
+   the turn's action — otherwise it is free optimisation.
+2. **Adjacency gives synergies.** A bonus for touching, never a requirement to function, so a badly
+   packed ship is weaker and never broken.
+3. **Ship Energy is per-turn, like the card game's 3.** Accumulation snowballs long fights, which
+   is exactly what autoresolve does not want, and a resource that resets keeps every turn a fresh
+   decision. *Taken as a default rather than a considered ruling — say if it should bank.*
+
 ## Open questions
 
 Fewer than there were. These still block implementation.

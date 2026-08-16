@@ -194,9 +194,9 @@ git add -A && git commit -m "..." && git push
 
 Cloudflare Pages rebuilds and it's live in about 20 seconds.
 
-> **Changed from the old lab setup.** The repo root is no longer the site. Pages must be configured
-> with **build command `npm run build`** and **output directory `dist`**. If you're setting this up
-> fresh or the deploy suddenly serves a stale root, that's the first thing to check.
+> **Changed from the old lab setup.** The repo root is no longer the site. Pages is configured with
+> **build command `npm run build`** and **output directory `dist`** — done, August 2026. If the
+> deploy ever suddenly serves a stale root, that's still the first thing to check.
 
 If a change doesn't appear, suspect the browser or the Cloudflare edge cache before suspecting the
 build. Both have masqueraded as "the deploy failed" here. A cache-busting query string (`?x=1`)

@@ -6,7 +6,7 @@
  * comments here carry the reasoning.
  */
 
-import type { Archetype, Rarity, SlotId, StanceId } from '../engine/types.ts';
+import type { Archetype, Rarity, StanceId } from '../engine/types.ts';
 
 /* ---------- the player ---------- */
 
@@ -123,13 +123,14 @@ export const SHIP = {
    * Alloy, unlike the ronin.
    */
   startingHull: 70,
-  startingPowerCapacity: 8,
+  /** Grid size in cells. Growing it is the ship path's equivalent of a card slot. */
+  gridW: 5,
+  gridH: 3,
+  targetEndGrid: { w: 7, h: 4 },
   /** A finished run should land here — enough that you had to choose. */
-  targetEndPowerCapacity: { min: 12, max: 16 },
   targetEndModules: { min: 5, max: 7 },
 } as const;
 
-export const SLOTS: readonly SlotId[] = ['reactor', 'hull', 'drive', 'sensors', 'weapons', 'cargo'];
 
 /* ---------- economy ---------- */
 
