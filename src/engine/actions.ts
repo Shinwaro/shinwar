@@ -21,6 +21,9 @@ export type Action =
      stop being a record of what the player actually chose to do. */
   | { readonly kind: 'playCard'; readonly cardUid: string; readonly targetUid: string | null }
   | { readonly kind: 'endTurn' }
+  /** Resolve one enemy. The UI dispatches these on a timer so the enemy turn
+      can be watched rather than arriving in a single frame. */
+  | { readonly kind: 'advanceEnemies' }
   /* -- the map -- */
   | { readonly kind: 'moveToNode'; readonly nodeId: string }
   /* -- rewards -- */

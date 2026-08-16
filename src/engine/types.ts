@@ -357,6 +357,15 @@ export interface CombatState {
   readonly attacksThisTurn: number;
   /** Energy lost next turn, from a critical overheat. */
   readonly energyPenaltyNextTurn: number;
+  /**
+   * Enemies that still owe an action this round, in order. The player's turn
+   * ends by filling this; the round ends when it empties. Stepping one enemy
+   * at a time is what lets the UI pace the enemy turn instead of resolving the
+   * whole thing in a single frame.
+   */
+  readonly pendingEnemies: readonly string[];
+  /** The enemy acting right now, so the UI can point at it. */
+  readonly actingUid: string | null;
   readonly outcome: 'ongoing' | 'won' | 'lost';
 }
 

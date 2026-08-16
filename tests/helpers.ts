@@ -85,6 +85,8 @@ export function makeFight(options: FightOptions = {}): GameState {
     blockGainedThisTurn: 0,
     attacksThisTurn: 0,
     energyPenaltyNextTurn: 0,
+    pendingEnemies: [],
+    actingUid: null,
     outcome: 'ongoing',
   };
 
@@ -113,6 +115,21 @@ export function beginRunInCombat(seed: string): GameState {
   const entry = availableMoves(run)[0];
   if (entry === undefined) throw new Error('test: the map opened with nowhere to go');
   return applyActions(opened, [{ kind: 'moveToNode', nodeId: entry.id }]);
+}
+
+/**
+ * End the turn and drain the enemy queue, through the real actions.
+ *
+ * `endTurn` only queues the enemies now — the UI steps them on a timer so the
+ * enemy turn can be watched. Tests want the whole round in one call.
+ */
+export function endTurnVia(state: GameState): GameState {
+  let next = applyActions(state, [{ kind: 'endTurn' }]);
+  let guard = 0;
+  while (guard++ < 64 && next.run?.combat?.pendingEnemies.length) {
+    next = applyActions(next, [{ kind: 'advanceEnemies' }]);
+  }
+  return next;
 }
 
 export function combatOf(state: GameState): CombatState {

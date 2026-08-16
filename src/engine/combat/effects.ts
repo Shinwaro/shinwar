@@ -24,7 +24,6 @@ import {
   enemyTarget,
   healPlayer,
   livingEnemies,
-  sameCombatant,
 } from './damage.ts';
 import { gainHeat, ventHeat } from './heat.ts';
 import { addStacks, stacksOf } from './keywords.ts';
@@ -83,13 +82,23 @@ function resolveTargets(
 
     case 'enemy':
     case 'chosenEnemy': {
-      // A card that wants a target uses the one the player picked. If that
-      // target is already dead the effect falls to the first living one rather
-      // than fizzling — a card should never be wasted by resolution order.
+      /*
+       * The target the player picked, and only that one.
+       *
+       * If it died partway through the card, the rest of the card is spent on
+       * the corpse rather than sliding onto the next enemy. Overkill has to
+       * stay wasted: a rider that quietly re-aims turns "I killed it with
+       * room to spare" into free damage the player never chose to place, and
+       * makes the preview a lie about where the damage lands.
+       */
       const chosen = context.chosen;
-      if (chosen !== null && opponents.some((entry) => sameCombatant(entry, chosen))) {
-        return { targets: [chosen], state };
+      if (chosen !== null) {
+        const stillListed = requireCombat(state).enemies.some(
+          (enemy) => chosen.kind === 'enemy' && enemy.uid === chosen.uid,
+        );
+        if (stillListed) return { targets: [chosen], state };
       }
+      // No pick at all — an enemy move, or a card played without a target.
       const first = opponents[0];
       return { targets: first === undefined ? [] : [first], state };
     }

@@ -19,6 +19,8 @@ export interface EnemyViewOptions {
   /** Predicted HP loss from the selected card, or null when nothing is selected. */
   readonly predicted: number | null;
   readonly willDie: boolean;
+  /** This enemy is taking its turn right now. */
+  readonly acting: boolean;
   readonly onPick: () => void;
 }
 
@@ -36,6 +38,7 @@ export function renderEnemy(
   if (dead) classes.push('is-dead');
   if (options.targetable) classes.push('is-targetable');
   if (options.focused) classes.push('is-focused');
+  if (options.acting) classes.push('is-acting');
 
   const statusRow = enemy.statuses.map((held) =>
     el(
@@ -82,9 +85,18 @@ export function renderEnemy(
       el('div', { class: 'enemy-head' }, [
         el('span', { class: 'enemy-name' }, [def.name]),
         el('span', { class: 'enemy-hp' }, [`${enemy.hp}/${enemy.maxHp}`]),
+        // Same shield as the player's, on the same row as the health it
+        // protects. Block is not a status and should not read as one.
+        el(
+          'span',
+          {
+            class: `shield ${enemy.block > 0 ? 'is-up' : 'is-down'}`,
+            title: 'Block absorbs damage before it reaches hull.',
+          },
+          [el('span', { class: 'shield-icon', 'aria-hidden': 'true' }, ['⛨']), String(enemy.block)],
+        ),
       ]),
       hpBar,
-      enemy.block > 0 ? el('span', { class: 'pip pip--block' }, [`Block ${enemy.block}`]) : null,
       statusRow.length > 0 ? el('div', { class: 'pips' }, statusRow) : null,
       intentNode,
       predictionNode,

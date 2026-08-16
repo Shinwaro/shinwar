@@ -19,9 +19,9 @@
 import type { GameState } from '../../engine/types.ts';
 import type { Store } from '../store.ts';
 import { requireCombat, requireRun } from '../../engine/state.ts';
-import { canPlay, definitionOf, needsTarget } from '../../engine/combat/combat.ts';
+import { canPlay, definitionOf, enemiesPending, needsTarget } from '../../engine/combat/combat.ts';
 import { previewCard } from '../../engine/combat/preview.ts';
-import { incomingDamage } from '../../engine/combat/intents.ts';
+import { incomingDamage, intentOf } from '../../engine/combat/intents.ts';
 import { livingEnemies } from '../../engine/combat/damage.ts';
 import { currentSeed, healthFraction } from '../../engine/queries.ts';
 import { environments } from '../../content/registry.ts';
@@ -32,6 +32,11 @@ import { renderHeatGauge, renderResources, renderStanceStrip } from '../componen
 import { renderLog, scrollLogToEnd } from '../components/log.ts';
 import { bindCombatKeys } from '../input.ts';
 import { clearFloaters, playLogFx, setBarFill } from '../anim.ts';
+
+/** Beat before an enemy acts, so you see who is about to swing. */
+const ENEMY_LEAD_MS = 500;
+/** Extra time per additional blow, so `2 x 4` takes a second rather than none. */
+const ENEMY_HIT_MS = 500;
 
 interface Selection {
   /** The card the player has picked up, if any. */
@@ -63,6 +68,34 @@ export function renderCombat(store: Store): HTMLElement {
    */
   let logCursor = store.getState().log.length;
 
+  /*
+   * The enemy turn is paced rather than resolved in one frame. The engine
+   * still steps instantly — `advanceEnemies` is a normal action — but the UI
+   * dispatches one step at a time so you can see who is swinging at you, and
+   * spaces the step by how many blows the move lands.
+   */
+  let enemyTimer = 0;
+
+  const scheduleEnemy = (): void => {
+    if (enemyTimer !== 0) return;
+    const state = store.getState();
+    if (!enemiesPending(state)) return;
+
+    const combat = state.run?.combat ?? null;
+    const uid = combat?.pendingEnemies[0] ?? null;
+    const enemy = combat?.enemies.find((entry) => entry.uid === uid);
+    const hits =
+      enemy === undefined
+        ? 1
+        : intentOf(state, enemy).reduce((total, hit) => total + Math.max(1, hit.times), 0);
+
+    enemyTimer = window.setTimeout(() => {
+      enemyTimer = 0;
+      store.dispatch({ kind: 'advanceEnemies' });
+      // The next enemy is scheduled by the render this dispatch triggers.
+    }, ENEMY_LEAD_MS + Math.max(0, hits - 1) * ENEMY_HIT_MS);
+  };
+
   const rerender = (): void => {
     if (rendering) return;
     const state = store.getState();
@@ -91,6 +124,8 @@ export function renderCombat(store: Store): HTMLElement {
 
     const log = host.querySelector('.log');
     if (log !== null) scrollLogToEnd(log);
+
+    scheduleEnemy();
   };
 
   const detachKeys = bindCombatKeys({
@@ -119,6 +154,7 @@ export function renderCombat(store: Store): HTMLElement {
   host.addEventListener('shinwar:unmount', () => {
     detachKeys();
     unsubscribe();
+    window.clearTimeout(enemyTimer);
     // A number still rising over a fight that has ended is just litter.
     clearFloaters();
   });
@@ -131,8 +167,13 @@ function build(store: Store, state: GameState, selection: Selection, rerender: (
   const run = requireRun(state);
   const combat = requireCombat(state);
 
-  /* The card under consideration: the selected one, or whatever is hovered. */
-  const previewUid = selection.cardUid ?? selection.hoverUid;
+  /*
+   * Predictions come from the SELECTED card only. Showing them on hover meant
+   * numbers flickering under every enemy as the pointer crossed the hand,
+   * which reads as noise rather than information — you get the numbers when
+   * you have actually picked a card up.
+   */
+  const previewUid = selection.cardUid;
   const alive = livingEnemies(combat);
 
   /*
@@ -212,6 +253,7 @@ function build(store: Store, state: GameState, selection: Selection, rerender: (
         focused: selection.focusUid === enemy.uid,
         predicted: predicted === null ? null : predicted.hpLoss,
         willDie: predicted?.willDie ?? false,
+        acting: combat.actingUid === enemy.uid,
         onPick: () => {
           if (selection.cardUid === null) {
             selection.focusUid = enemy.uid;

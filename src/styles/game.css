@@ -1335,11 +1335,15 @@
    Before and after, side by side, with everything that reads differently
    marked. The point is to see WHAT CHANGED, not to re-read both cards. */
 
+/* Fixed height and fixed card widths. The panel used to resize with whatever
+   card was under the pointer, which made the whole list jump under your hand. */
 .forge-preview {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  justify-content: center;
   gap: 0.85rem;
+  min-height: 15rem;
   padding: 0.9rem;
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -1414,3 +1418,51 @@
 .card--pick[data-rarity='epic'] { border-left: 3px solid #b79ae0; }
 .card--pick[data-rarity='legendary'] { border-left: 3px solid #ff7a4d; }
 .card--pick[data-rarity='artifact'] { border-left: 3px solid #f4e3b0; }
+
+
+/* The card faces inside the forge preview are a fixed box: same size for every
+   card, so moving between them does not resize the panel. */
+.forge-preview .card--face {
+  width: 14rem;
+  height: 13rem;
+  overflow: hidden;
+}
+
+.forge-preview .card-flavor {
+  margin-top: auto;
+}
+
+.forge-empty {
+  min-height: 15rem;
+  display: grid;
+  place-items: center;
+}
+
+/* The enemy taking its turn. Deliberately loud — the whole point of pacing the
+   enemy turn is that you can see who is swinging. */
+.enemy.is-acting {
+  border-color: var(--danger);
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--danger) 60%, transparent),
+    0 0 22px color-mix(in srgb, var(--danger) 30%, transparent);
+  transform: translateY(-3px);
+}
+
+.enemy .shield {
+  margin-left: 0;
+}
+
+.resource--info {
+  cursor: help;
+}
+
+.resource-hint {
+  font-size: 0.68rem;
+  color: var(--muted);
+}
+
+.resource--info:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 3px;
+}

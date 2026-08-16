@@ -221,6 +221,14 @@ export function livingEnemies(combat: CombatState): readonly EnemyState[] {
  * derivation is exactly the thing that makes a game feel unfair.
  */
 export function applyDamage(state: GameState, input: DamageInput, source: string): GameState {
+  // Hitting something already dead does nothing and logs nothing. Without this
+  // a multi-hit card narrates three swings at a corpse.
+  const aimedAt = input.target;
+  if (aimedAt.kind === 'enemy') {
+    const target = state.run?.combat?.enemies.find((enemy) => enemy.uid === aimedAt.uid);
+    if (target === undefined || target.hp <= 0) return state;
+  }
+
   const breakdown = computeDamage(state, input);
   const targetName = combatantName(state, input.target);
 

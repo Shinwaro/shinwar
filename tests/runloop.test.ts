@@ -19,6 +19,7 @@ import { removalCost } from '../src/engine/run/economy.ts';
 import { reloadContent } from '../src/content/index.ts';
 import { cards as cardTable } from '../src/content/registry.ts';
 import { ECONOMY, PLAYER } from '../src/content/balance.ts';
+import { endTurnVia } from './helpers.ts';
 
 const TEST_CARD: CardDef = {
   id: 'test_uncommon',
@@ -55,7 +56,7 @@ function walkTo(state: GameState, type: string, limit = 30): GameState | null {
     // Fight through whatever we landed on.
     let guard = 0;
     while (guard++ < 60 && current.run?.combat?.outcome === 'ongoing') {
-      current = applyAction(current, { kind: 'endTurn' });
+      current = endTurnVia(current);
     }
     if (current.phase === 'over') return null;
     if (current.run?.screen === 'reward') {
@@ -88,7 +89,7 @@ describe('opening a run', () => {
     // The origin is a fight; play it out however it goes.
     let guard = 0;
     while (guard++ < 200 && state.run?.combat?.outcome === 'ongoing') {
-      state = applyAction(state, { kind: 'endTurn' });
+      state = endTurnVia(state);
     }
     if (state.phase === 'over') return;
     if (state.run?.screen === 'reward') state = applyAction(state, { kind: 'leaveReward' });
@@ -131,7 +132,7 @@ describe('rewards', () => {
       const combat = state.run.combat;
       const playable = combat.hand.find((card) => canPlay(state, card.uid).ok);
       if (playable === undefined) {
-        state = applyAction(state, { kind: 'endTurn' });
+        state = endTurnVia(state);
         continue;
       }
       state = applyAction(state, {

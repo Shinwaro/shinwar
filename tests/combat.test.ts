@@ -11,7 +11,7 @@ import { applyAction, applyActions } from '../src/engine/reducer.ts';
 import { createInitialState } from '../src/engine/state.ts';
 import {
   canPlay,
-  endPlayerTurn,
+  endTurnImmediately,
   needsTarget,
   playCard,
   startPlayerTurn,
@@ -23,7 +23,15 @@ import { overheatDamageAt } from '../src/engine/combat/heat.ts';
 import { ACTIVE_STANCES, HEAT, PLAYER, STANCES } from '../src/content/balance.ts';
 import { IAI_SLASH, SEVER, SOLAR_PARRY, VECTOR_STEP } from '../src/content/cards/basic.ts';
 import { VULNERABLE } from '../src/content/statuses.ts';
-import { beginRunInCombat, combatOf, firstEnemy, handCard, hullOf, makeFight } from './helpers.ts';
+import {
+  beginRunInCombat,
+  combatOf,
+  endTurnVia,
+  firstEnemy,
+  handCard,
+  hullOf,
+  makeFight,
+} from './helpers.ts';
 
 beforeEach(() => {
   reloadContent();
@@ -98,7 +106,7 @@ describe('intents', () => {
     const seen: (string | null)[] = [];
     for (let i = 0; i < 6; i++) {
       seen.push(firstEnemy(state).intentMoveId);
-      state = endPlayerTurn(state);
+      state = endTurnImmediately(state);
     }
     expect(seen).toEqual(['strike', 'plate', 'sap', 'strike', 'plate', 'sap']);
   });
@@ -112,7 +120,7 @@ describe('intents', () => {
       streak = move === last ? streak + 1 : 1;
       last = move;
       expect(streak, `move '${move ?? '-'}' repeated ${streak} times`).toBeLessThanOrEqual(2);
-      state = endPlayerTurn(state);
+      state = endTurnImmediately(state);
     }
   });
 });
@@ -150,7 +158,7 @@ describe('the turn cycle', () => {
 
   it('reshuffles the discard when the draw pile runs dry', () => {
     const state = makeFight({ hand: [IAI_SLASH, SOLAR_PARRY], drawPile: [] });
-    const discarded = endPlayerTurn(state);
+    const discarded = endTurnImmediately(state);
     const combat = combatOf(discarded);
     // The hand went to discard, then the new turn reshuffled it back to draw.
     expect(combat.hand.length + combat.draw.length + combat.discard.length).toBeGreaterThan(0);
@@ -175,7 +183,7 @@ describe('drawing', () => {
       const total = combat.hand.length + combat.draw.length + combat.discard.length + combat.exhaust.length;
       expect(total, `turn ${combat.turn} lost or duplicated a card`).toBe(PLAYER.startingDeckSize);
       expect(combat.hand.length).toBe(PLAYER.drawPerTurn + STANCES[combat.stance].extraDraw);
-      state = applyActions(state, [{ kind: 'endTurn' }]);
+      state = endTurnVia(state);
       if (state.phase !== 'run') break;
     }
   });
@@ -193,7 +201,7 @@ describe('drawing', () => {
 
   it('announces the reshuffle', () => {
     const state = makeFight({ hand: [IAI_SLASH, SOLAR_PARRY], drawPile: [] });
-    const after = endPlayerTurn(state);
+    const after = endTurnImmediately(state);
     expect(after.log.some((entry) => entry.text.includes('shuffled back into the deck'))).toBe(true);
   });
 });
@@ -244,12 +252,12 @@ describe('stance', () => {
 
   it('cooks you in IAI at the end of the turn', () => {
     const state = makeFight({ stance: 'iai', heat: 0, drawPile: [IAI_SLASH] });
-    expect(combatOf(endPlayerTurn(state)).heat).toBe(STANCES.iai.heatAtTurnEnd);
+    expect(combatOf(endTurnImmediately(state)).heat).toBe(STANCES.iai.heatAtTurnEnd);
   });
 
   it('vents in GUARD at the end of the turn', () => {
     const state = makeFight({ stance: 'guard', heat: 5, drawPile: [IAI_SLASH] });
-    expect(combatOf(endPlayerTurn(state)).heat).toBe(5 - STANCES.guard.ventAtTurnEnd);
+    expect(combatOf(endTurnImmediately(state)).heat).toBe(5 - STANCES.guard.ventAtTurnEnd);
   });
 });
 
@@ -268,7 +276,7 @@ describe('overheat', () => {
       drawPile: [SOLAR_PARRY],
     });
     const before = hullOf(state);
-    const after = endPlayerTurn(state);
+    const after = endTurnImmediately(state);
     expect(hullOf(after)).toBeLessThan(before);
     expect(combatOf(after).exhaust.length).toBe(1);
   });
@@ -282,7 +290,7 @@ describe('overheat', () => {
       drawPile: [SOLAR_PARRY, IAI_SLASH, IAI_SLASH, IAI_SLASH, IAI_SLASH, IAI_SLASH],
       hull: 500,
     });
-    expect(combatOf(endPlayerTurn(state)).energy).toBe(
+    expect(combatOf(endTurnImmediately(state)).energy).toBe(
       PLAYER.energyPerTurn - HEAT.criticalEnergyLoss,
     );
   });
@@ -292,7 +300,7 @@ describe('overheat', () => {
     // runs after the passive — that is the bargain IAI offers.
     const state = makeFight({ stance: 'iai', heat: 7, hand: [IAI_SLASH], drawPile: [SOLAR_PARRY] });
     const before = hullOf(state);
-    const after = endPlayerTurn(state);
+    const after = endTurnImmediately(state);
     expect(combatOf(after).heat).toBe(8);
     expect(hullOf(after)).toBe(before - overheatDamageAt(8));
   });
@@ -314,7 +322,7 @@ describe('outcomes', () => {
 
   it('loses when hull reaches zero', () => {
     const state = makeFight({ enemyIds: ['scrap_hound'], hull: 3, hand: [], drawPile: [IAI_SLASH] });
-    const after = applyAction(telegraphAll(state), { kind: 'endTurn' });
+    const after = endTurnVia(telegraphAll(state));
     expect(hullOf(after)).toBe(0);
     expect(after.run?.outcome).toBe('died');
     expect(after.phase).toBe('over');

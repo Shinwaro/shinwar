@@ -12,7 +12,7 @@
 import type { GameState } from '../../engine/types.ts';
 import { heatStatus } from '../../engine/combat/heat.ts';
 import { requireCombat } from '../../engine/state.ts';
-import { HEAT, STANCES } from '../../content/balance.ts';
+import { FOCUS_DAMAGE_PER_STACK, HEAT, STANCES } from '../../content/balance.ts';
 import { el } from '../dom.ts';
 
 export function renderStanceStrip(state: GameState): HTMLElement {
@@ -62,10 +62,23 @@ export function renderResources(state: GameState): HTMLElement {
   // Block is not here: it lives beside the hull bar, next to the thing it
   // protects. Repeating it would be two numbers to keep in sync on screen.
   return el('div', { class: 'resources' }, [
-    el('span', { class: 'resource' }, [
-      el('span', { class: 'resource-label' }, ['Focus']),
-      el('span', { class: 'resource-value' }, [String(combat.focus)]),
-    ]),
+    el(
+      'span',
+      {
+        class: 'resource resource--info',
+        tabindex: '0',
+        title: `Focus: your next attack deals ${FOCUS_DAMAGE_PER_STACK} more damage per stack, then Focus resets to 0. It is not spendable — the next attack takes all of it.`,
+      },
+      [
+        el('span', { class: 'resource-label' }, ['Focus']),
+        el('span', { class: 'resource-value' }, [String(combat.focus)]),
+        el('span', { class: 'resource-hint' }, [
+          combat.focus > 0
+            ? `next attack +${combat.focus * FOCUS_DAMAGE_PER_STACK}`
+            : `+${FOCUS_DAMAGE_PER_STACK} per stack`,
+        ]),
+      ],
+    ),
     el('span', { class: 'resource resource--energy' }, [
       el('span', { class: 'resource-label' }, ['Energy']),
       el('span', { class: 'energy-pips', 'aria-label': `${combat.energy} Energy` }, pips),

@@ -167,9 +167,12 @@ export function concludeNode(state: GameState): GameState {
   next = withRun(next, (current) => ({
     ...current,
     rng: rolled.rng,
-    pendingReward: rolled.offer,
+    // Alloy is paid on arrival. It is not a decision — nobody has ever left
+    // money on a reward screen — so it should not cost a click.
+    pendingReward: { ...rolled.offer, alloyClaimed: true },
     screen: 'reward',
   }));
+  next = gainAlloy(next, rolled.offer.alloy, 'reward');
 
   // Drought tracking for the soft archetype nudge. Reset when a screen finally
   // offers something the deck wants; otherwise it climbs.

@@ -10,7 +10,7 @@ import type { Action, ActionLog } from './actions.ts';
 import type { GameState } from './types.ts';
 import { appendLog, createInitialState, createRunState } from './state.ts';
 import { normalizeSeed } from './rng.ts';
-import { endPlayerTurn, playCard } from './combat/combat.ts';
+import { advanceEnemyTurn, endPlayerTurn, playCard } from './combat/combat.ts';
 import {
   claimRewardAlloy,
   concludeNode,
@@ -125,6 +125,11 @@ export function applyAction(state: GameState, action: Action): GameState {
     case 'endTurn': {
       if (state.run?.combat?.outcome !== 'ongoing') return state;
       return settleCombat(endPlayerTurn(state));
+    }
+
+    case 'advanceEnemies': {
+      if (state.run?.combat?.outcome !== 'ongoing') return state;
+      return settleCombat(advanceEnemyTurn(state));
     }
 
     case 'takeRewardCard': {

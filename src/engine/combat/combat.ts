@@ -82,6 +82,8 @@ export function startCombat(state: GameState, encounterId: string, environmentId
       blockGainedThisTurn: 0,
       attacksThisTurn: 0,
       energyPenaltyNextTurn: 0,
+      pendingEnemies: [],
+      actingUid: null,
       outcome: 'ongoing',
     },
   }));
@@ -256,7 +258,7 @@ export function playCard(state: GameState, cardUid: string, targetUid: string | 
  */
 export function endPlayerTurn(state: GameState): GameState {
   const combat = requireCombat(state);
-  if (combat.outcome !== 'ongoing') return state;
+  if (combat.outcome !== 'ongoing' || combat.pendingEnemies.length > 0) return state;
 
   const stance = STANCES[combat.stance];
   let next = state;
@@ -271,60 +273,99 @@ export function endPlayerTurn(state: GameState): GameState {
   if (requireCombat(next).outcome !== 'ongoing') return next;
 
   next = withCombat(next, discardHand);
-  next = enemyTurns(next);
 
-  next = checkOutcome(next);
-  if (requireCombat(next).outcome !== 'ongoing') return next;
-
+  // Queue the enemies rather than running them. The UI steps through this so
+  // the enemy turn can be watched instead of arriving all at once.
   next = withCombat(next, (current) => ({
     ...current,
-    statuses: decayStatuses(current.statuses),
-    enemies: current.enemies.map((enemy) => ({ ...enemy, statuses: decayStatuses(enemy.statuses) })),
+    pendingEnemies: current.enemies
+      .filter((enemy) => enemy.hp > 0 && enemy.intentMoveId !== null)
+      .map((enemy) => enemy.uid),
+    actingUid: null,
   }));
 
-  next = fireHook(next, 'onRoundEnd', { round: requireCombat(next).round });
-
-  return startPlayerTurn(next);
+  // Nothing to wait for — no living enemy owes an action — so close the round
+  // here rather than leaving the fight parked with an empty queue.
+  if (requireCombat(next).pendingEnemies.length === 0) return closeRound(next);
+  return next;
 }
 
-function enemyTurns(state: GameState): GameState {
-  let next = state;
+/** Decay statuses, fire `onRoundEnd`, and open the next player turn. */
+function closeRound(state: GameState): GameState {
+  const next = withCombat(state, (current) => ({
+    ...current,
+    actingUid: null,
+    statuses: decayStatuses(current.statuses),
+    enemies: current.enemies.map((entry) => ({ ...entry, statuses: decayStatuses(entry.statuses) })),
+  }));
 
-  for (const seated of requireCombat(state).enemies) {
-    if (requireCombat(next).outcome !== 'ongoing') break;
+  return startPlayerTurn(fireHook(next, 'onRoundEnd', { round: requireCombat(next).round }));
+}
 
-    const enemy = requireCombat(next).enemies.find((entry) => entry.uid === seated.uid);
-    if (enemy === undefined || enemy.hp <= 0 || enemy.intentMoveId === null) continue;
+/** Is the enemy turn still owed? Drives the UI's playback timer. */
+export function enemiesPending(state: GameState): boolean {
+  const combat = state.run?.combat ?? null;
+  return combat !== null && combat.outcome === 'ongoing' && combat.pendingEnemies.length > 0;
+}
 
-    const def = enemyTable.get(enemy.defId);
-    const move = def.moves.find((entry) => entry.id === enemy.intentMoveId);
-    if (move === undefined) continue;
+/**
+ * Resolve exactly one enemy, then hand back. When the queue empties this also
+ * closes the round and opens the next player turn.
+ */
+export function advanceEnemyTurn(state: GameState): GameState {
+  const combat = requireCombat(state);
+  if (combat.outcome !== 'ongoing') return state;
 
+  const uid = combat.pendingEnemies[0];
+  if (uid === undefined) return state;
+
+  let next = withCombat(state, (current) => ({
+    ...current,
+    pendingEnemies: current.pendingEnemies.slice(1),
+    actingUid: uid,
+  }));
+
+  const enemy = requireCombat(next).enemies.find((entry) => entry.uid === uid);
+  const def = enemy === undefined ? undefined : enemyTable.get(enemy.defId);
+  const move = def?.moves.find((entry) => entry.id === enemy?.intentMoveId);
+
+  if (enemy !== undefined && def !== undefined && move !== undefined && enemy.hp > 0) {
     // Enemy Block, like the player's, is gone by the time it acts again.
     next = withCombat(next, (current) => ({
       ...current,
-      enemies: current.enemies.map((entry) => (entry.uid === enemy.uid ? { ...entry, block: 0 } : entry)),
+      enemies: current.enemies.map((entry) => (entry.uid === uid ? { ...entry, block: 0 } : entry)),
     }));
 
     next = appendLog(next, {
-      source: enemy.uid,
+      source: uid,
       kind: 'combat',
       text: `${def.name}: ${move.label}.`,
       detail: { enemy: def.id, move: move.id },
     });
 
-    const context = createContext(enemy.uid, enemyTarget(enemy.uid), PLAYER);
-    next = applyEffects(next, move.effects, context).state;
+    next = applyEffects(next, move.effects, createContext(uid, enemyTarget(uid), PLAYER)).state;
 
     // Spent. A cleared intent is also how the UI knows not to draw a stale one.
     next = withCombat(next, (current) => ({
       ...current,
       enemies: current.enemies.map((entry) =>
-        entry.uid === enemy.uid ? { ...entry, intentMoveId: null } : entry,
+        entry.uid === uid ? { ...entry, intentMoveId: null } : entry,
       ),
     }));
   }
 
+  next = checkOutcome(next);
+  if (requireCombat(next).outcome !== 'ongoing') return next;
+  if (requireCombat(next).pendingEnemies.length > 0) return next;
+
+  return closeRound(next);
+}
+
+/** End the turn and run the whole enemy turn at once. Tests and the simulator. */
+export function endTurnImmediately(state: GameState): GameState {
+  let next = endPlayerTurn(state);
+  let guard = 0;
+  while (guard++ < 64 && enemiesPending(next)) next = advanceEnemyTurn(next);
   return next;
 }
 
