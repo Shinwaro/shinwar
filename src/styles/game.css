@@ -1587,3 +1587,91 @@
   border-color: var(--accent);
   color: var(--accent);
 }
+
+
+/* ---------- the loadout ---------- */
+
+.loadout-inner {
+  width: 100%;
+  max-width: 56rem;
+  margin: 0 auto;
+  display: grid;
+  gap: 0.8rem;
+}
+
+.loadout-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(9rem, 100%), 1fr));
+  gap: 0.6rem;
+}
+
+.ship-grid--edit {
+  max-height: 20rem;
+}
+
+.grid-cell--drop {
+  padding: 0;
+  background: none;
+  cursor: default;
+}
+
+.grid-cell--drop.is-legal {
+  border-style: solid;
+  border-color: color-mix(in srgb, var(--good) 60%, transparent);
+  background: color-mix(in srgb, var(--good) 10%, transparent);
+  cursor: pointer;
+}
+
+.grid-tile.is-held {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+button.grid-tile {
+  cursor: pointer;
+  color: inherit;
+}
+
+.store-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.store-item {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 9rem;
+  max-width: 16rem;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-solid);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.store-item:hover { border-color: var(--line-strong); }
+.store-item.is-held { border-color: var(--accent); outline: 1px solid var(--accent); }
+
+.store-item[data-rarity='uncommon'] { border-left: 3px solid var(--guard); }
+.store-item[data-rarity='rare'] { border-left: 3px solid var(--iai); }
+.store-item[data-rarity='epic'] { border-left: 3px solid #b79ae0; }
+
+.store-name { font-weight: 600; font-size: 0.85rem; }
+.store-size { font-family: var(--mono); font-size: 0.7rem; color: var(--muted); }
+.store-hint { font-size: 0.7rem; font-style: italic; color: var(--muted); text-wrap: pretty; }
+
+.ship-note--bad { color: var(--danger); }
+
+.verb-list {
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.verb-list strong { color: var(--ink); }
+
+.reward-modules { display: grid; gap: 0.4rem; }

@@ -52,6 +52,12 @@ export function fill(node: Element, children: readonly Child[]): void {
   appendChildren(node, children);
 }
 
+/** Fill a node and hand it back, so a button can be built in one expression. */
+export function withChildren<T extends Element>(node: T, children: readonly Child[]): T {
+  fill(node, children);
+  return node;
+}
+
 /** Real `<button>`s everywhere, so keyboard and focus work without being asked. */
 export function button(label: string, attrs: Attrs, onClick: () => void): HTMLButtonElement {
   const node = el('button', { type: 'button', ...attrs }, [label]);

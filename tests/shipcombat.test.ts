@@ -164,6 +164,105 @@ describe('outcomes', () => {
   });
 });
 
+describe('the crash', () => {
+  function crashOut(): GameState {
+    const opened = applyActions(createInitialState('CRASH-2'), [{ kind: 'beginRun' }]);
+    let state = applyAction(opened, { kind: 'placeModule', moduleId: 'core_reactor', x: 0, y: 0 });
+    state = applyAction(state, { kind: 'placeModule', moduleId: 'heat_sink', x: 2, y: 0 });
+    state = { ...state, run: { ...state.run!, ship: { ...state.run!.ship, hull: 1 } } };
+    state = startShipCombat(state, 'hauler_escort');
+    let guard = 0;
+    while (guard++ < 40 && state.run?.shipCombat !== null) {
+      state = applyAction(state, { kind: 'resolveShipTurn' });
+    }
+    return state;
+  }
+
+  it('leaves the ronin alive, and never at zero', () => {
+    const state = crashOut();
+    expect(state.phase).toBe('run');
+    expect(state.run?.outcome).toBeNull();
+    expect(state.run!.pilot.health).toBeGreaterThan(0);
+  });
+
+  it('bills you for the drive and shakes a module loose', () => {
+    const state = crashOut();
+    const crash = state.run!.crash;
+    expect(crash).not.toBeNull();
+    expect(crash!.repairCost).toBeGreaterThan(0);
+    expect(crash!.knockedLoose.length).toBeGreaterThan(0);
+    // Knocked loose, not destroyed — it is in storage.
+    for (const id of crash!.knockedLoose) expect(state.run!.ship.stored).toContain(id);
+  });
+
+  it('hurts the ronin and leaves the cutter on a sliver', () => {
+    const state = crashOut();
+    expect(state.run!.pilot.health).toBeLessThan(state.run!.pilot.maxHealth);
+    expect(state.run!.ship.hull).toBeLessThan(state.run!.ship.maxHull * 0.2);
+  });
+
+  it('refuses space nodes until the drive is paid for', () => {
+    const state = crashOut();
+    const space = state.run!.map!.nodes.find((node) => node.arena === 'space');
+    if (space === undefined) return;
+    const parked: GameState = {
+      ...state,
+      run: { ...state.run!, position: null, screen: 'map' },
+    };
+    // Reaching one is the map's business; what matters is that entering is refused.
+    const tried = applyAction(parked, { kind: 'moveToNode', nodeId: space.id });
+    expect(tried.run?.shipCombat).toBeNull();
+  });
+
+  it('reopens the sky once repaired, and charges for it', () => {
+    let state = crashOut();
+    const cost = state.run!.crash!.repairCost;
+    state = { ...state, run: { ...state.run!, alloy: cost + 10 } };
+    state = applyAction(state, { kind: 'repairDrive' });
+
+    expect(state.run?.crash).toBeNull();
+    expect(state.run?.alloy).toBe(10);
+    expect(state.run!.ship.hull).toBeGreaterThan(state.run!.ship.maxHull * 0.2);
+  });
+
+  it('refuses the repair you cannot afford', () => {
+    let state = crashOut();
+    state = { ...state, run: { ...state.run!, alloy: 0 } };
+    expect(applyAction(state, { kind: 'repairDrive' })).toBe(state);
+  });
+});
+
+describe('the loadout', () => {
+  it('places and un-places through the real actions', () => {
+    let state = applyActions(createInitialState('FIT'), [{ kind: 'beginRun' }]);
+    expect(state.run!.ship.stored).toContain('core_reactor');
+
+    state = applyAction(state, { kind: 'placeModule', moduleId: 'core_reactor', x: 0, y: 0 });
+    expect(state.run!.ship.placed.map((p) => p.moduleId)).toContain('core_reactor');
+    expect(state.run!.ship.stored).not.toContain('core_reactor');
+
+    state = applyAction(state, { kind: 'unplaceModule', moduleId: 'core_reactor' });
+    expect(state.run!.ship.placed).toHaveLength(0);
+    expect(state.run!.ship.stored).toContain('core_reactor');
+  });
+
+  it('refuses a placement that does not fit, without changing anything', () => {
+    let state = applyActions(createInitialState('FIT2'), [{ kind: 'beginRun' }]);
+    state = applyAction(state, { kind: 'placeModule', moduleId: 'core_reactor', x: 0, y: 0 });
+    const before = state;
+    // Overlapping the reactor.
+    expect(applyAction(before, { kind: 'placeModule', moduleId: 'heat_sink', x: 1, y: 1 })).toBe(before);
+  });
+
+  it('opens only between fights', () => {
+    const opened = applyActions(createInitialState('FIT3'), [{ kind: 'beginRun' }]);
+    expect(applyAction(opened, { kind: 'openLoadout' }).run?.screen).toBe('ship');
+
+    const fighting = startShipCombat(opened, 'picket_drone');
+    expect(applyAction(fighting, { kind: 'openLoadout' }).run?.screen).toBe('shipCombat');
+  });
+});
+
 describe('determinism', () => {
   it('plays out identically for the same seed', () => {
     const play = (): GameState => {

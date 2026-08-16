@@ -12,6 +12,7 @@ import { createSpaceScene } from './space.ts';
 import { renderTitle } from './screens/title.ts';
 import { renderCombat } from './screens/combat.ts';
 import { renderShipCombat } from './screens/shipcombat.ts';
+import { renderLoadout } from './screens/loadout.ts';
 import { renderMap } from './screens/map.ts';
 import { renderReward } from './screens/reward.ts';
 import { renderSafePlanet, renderStation } from './screens/safe.ts';
@@ -43,6 +44,8 @@ function renderView(store: Store, view: View): HTMLElement {
       return renderReward(store);
     case 'run:safe':
       return renderSafePlanet(store);
+    case 'run:ship':
+      return renderLoadout(store);
     case 'run:station':
       return renderStation(store);
     // Anomalies arrive at M4. Until then an event node never generates, so

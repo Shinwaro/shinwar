@@ -82,6 +82,7 @@ export function createRunState(seed: string, depth: number): RunState {
     uidCounter: built.uidCounter,
     rewardDrought: 0,
     removalsPurchased: 0,
+    crash: null,
   };
 }
 

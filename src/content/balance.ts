@@ -148,6 +148,20 @@ export const SHIP_COMBAT = {
   braceShield: 8,
 } as const;
 
+/* ---------- crashing ----------
+   You always survive; the escalation is in what you lose. */
+
+export const CRASH = {
+  /** Fraction of max hull the cutter is left with. */
+  hullLeftPct: 0.1,
+  roninDamage: { min: 8, max: 16 },
+  modulesKnockedLoose: 1,
+  repairBase: 70,
+  repairIncrement: 50,
+  /** Surface fights while stranded roll from this tier instead of normal. */
+  strandedTier: 'elite',
+} as const;
+
 /* ---------- economy ---------- */
 
 export const ECONOMY = {

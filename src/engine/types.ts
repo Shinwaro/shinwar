@@ -579,6 +579,13 @@ export interface PilotState {
   readonly masteries: readonly MasteryId[];
 }
 
+/** Stranded after a crash. The drive is dead until it is paid for. */
+export interface CrashState {
+  readonly repairCost: number;
+  /** Modules shaken off the grid by the hit. They are in storage, not lost. */
+  readonly knockedLoose: readonly ModuleId[];
+}
+
 export type RunOutcome = 'won' | 'died' | 'abandoned';
 
 /**
@@ -587,6 +594,9 @@ export type RunOutcome = 'won' | 'died' | 'abandoned';
  */
 export interface RewardOffer {
   readonly cardIds: readonly CardId[];
+  /** Elites drop a module. Empty on a normal fight. */
+  readonly moduleIds: readonly ModuleId[];
+  readonly takenModules: readonly ModuleId[];
   readonly alloy: number;
   /** Cards already taken from this screen. One pick, but the shape allows more. */
   readonly taken: readonly CardId[];
@@ -594,7 +604,16 @@ export interface RewardOffer {
 }
 
 /** What the player is looking at between fights. */
-export type RunScreen = 'map' | 'combat' | 'shipCombat' | 'reward' | 'safe' | 'station' | 'event';
+export type RunScreen =
+  | 'map'
+  | 'combat'
+  | 'shipCombat'
+  | 'reward'
+  | 'safe'
+  | 'station'
+  | 'event'
+  /** The loadout: the grid, out of combat. */
+  | 'ship';
 
 export interface RunState {
   /** Copyable, re-enterable. Not persistence — a number you can write down. */
@@ -623,6 +642,12 @@ export interface RunState {
   readonly rewardDrought: number;
   /** Card removals bought so far. The price rises with each one. */
   readonly removalsPurchased: number;
+  /**
+   * Set when a ship fight is lost. You always survive a crash — what you lose
+   * is the drive, some modules, a bite out of the ronin, and the Alloy it
+   * takes to fly again. See SHIP.md.
+   */
+  readonly crash: CrashState | null;
 }
 
 /* ---------- rng ---------- */

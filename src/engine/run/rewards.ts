@@ -11,7 +11,7 @@
 import type { Archetype, CardDef, CardId, RewardOffer, RngState, RunState } from '../types.ts';
 import { weightedPick } from '../rng.ts';
 import { RARITY_WEIGHTS, REWARDS } from '../../content/balance.ts';
-import { cards as cardTable } from '../../content/registry.ts';
+import { cards as cardTable, modules as moduleTable } from '../../content/registry.ts';
 
 export interface RolledReward {
   readonly offer: RewardOffer;
@@ -98,13 +98,51 @@ export function rollReward(
   act: 1 | 2 | 3,
   alloy: number,
   drought: number,
+  tier: 'combat' | 'elite' | 'boss' = 'combat',
 ): RolledReward {
   const cards = rollCardChoices(rng, run, act, drought);
+  // Elites drop a module — guaranteed, per DESIGN.md §3. That is what makes
+  // routing toward one a real decision rather than just more Alloy.
+  const withModule = tier === 'elite' ? rollModule(cards.rng, run) : { moduleIds: [], rng: cards.rng };
+
   return {
-    offer: { cardIds: cards.cardIds, alloy, taken: [], alloyClaimed: false },
-    rng: cards.rng,
+    offer: {
+      cardIds: cards.cardIds,
+      moduleIds: withModule.moduleIds,
+      alloy,
+      taken: [],
+      takenModules: [],
+      alloyClaimed: false,
+    },
+    rng: withModule.rng,
   };
 }
+
+/** One module the player does not already own, weighted by rarity. */
+function rollModule(
+  rng: RngState,
+  run: RunState,
+): { readonly moduleIds: readonly string[]; readonly rng: RngState } {
+  const owned = new Set([...run.ship.stored, ...run.ship.placed.map((entry) => entry.moduleId)]);
+  const pool = moduleTable.all().filter((def) => def.rarity !== 'basic' && !owned.has(def.id));
+  if (pool.length === 0) return { moduleIds: [], rng };
+
+  const rolled = weightedPick(
+    rng,
+    'rewards',
+    pool.map((def) => ({ value: def.id, weight: MODULE_WEIGHTS[def.rarity] ?? 1 })),
+  );
+  return { moduleIds: [rolled.value], rng: rolled.rng };
+}
+
+const MODULE_WEIGHTS: Readonly<Record<string, number>> = {
+  common: 50,
+  uncommon: 32,
+  rare: 14,
+  epic: 3,
+  legendary: 0.9,
+  artifact: 0.1,
+};
 
 /** Did this screen offer anything matching the deck's lean? Feeds the drought counter. */
 export function offerMatchesLean(offer: RewardOffer, run: RunState): boolean {

@@ -12,7 +12,8 @@ import { appendLog, createInitialState, createRunState, withRun } from './state.
 import { normalizeSeed } from './rng.ts';
 import { advanceEnemyTurn, endPlayerTurn, playCard } from './combat/combat.ts';
 import { intervene, resolveShipTurn } from './ship/combat.ts';
-import { moveModule as moveOnGrid } from './ship/grid.ts';
+import { moveModule as moveOnGrid, place as placeOnGrid, unplace as unplaceOnGrid } from './ship/grid.ts';
+import { crashLand, repairDrive } from './ship/crash.ts';
 import {
   claimRewardAlloy,
   concludeNode,
@@ -26,6 +27,7 @@ import {
   safePlanetUpgrade,
   stationRepair,
   takeRewardCard,
+  takeRewardModule,
 } from './run/run.ts';
 import { MAX_DEPTH } from '../content/balance.ts';
 
@@ -54,22 +56,8 @@ function settleShipCombat(state: GameState): GameState {
     );
   }
 
-  // You cannot die in space. The crash pocket arrives with the map work; for
-  // now the cutter is left on its last sliver and you are put back on the map.
-  return appendLog(
-    withRun(state, (run) => ({
-      ...run,
-      shipCombat: null,
-      screen: 'map',
-      ship: { ...run.ship, hull: Math.max(1, Math.floor(run.ship.maxHull * 0.1)) },
-    })),
-    {
-      source: 'system',
-      kind: 'combat',
-      text: 'The cutter is falling. You ride it down.',
-      detail: { crashed: true },
-    },
-  );
+  // You cannot die in space. Losing crashes you back onto the map.
+  return crashLand(state);
 }
 
 function settleCombat(state: GameState): GameState {
@@ -179,16 +167,53 @@ export function applyAction(state: GameState, action: Action): GameState {
       if (run === null) return state;
       // In a fight, moving costs the turn's lever; between fights it is free.
       if (run.shipCombat !== null && run.shipCombat.usedIntervention !== null) return state;
-      const moved = withRun(state, (current) => ({
-        ...current,
-        ship: moveOnGrid(current.ship, action.moduleId, action.x, action.y),
-      }));
-      if (moved === state || run.shipCombat === null) return moved;
+      const ship = moveOnGrid(run.ship, action.moduleId, action.x, action.y);
+      if (ship === run.ship) return state;
+      const moved = withRun(state, (current) => ({ ...current, ship }));
+      if (run.shipCombat === null) return moved;
       return withRun(moved, (current) => ({
         ...current,
         shipCombat:
           current.shipCombat === null ? null : { ...current.shipCombat, usedIntervention: 'reposition' },
       }));
+    }
+
+    /*
+     * The grid helpers return the ship unchanged when the move is refused, so
+     * the reducer has to hand back the *same state object* rather than a fresh
+     * wrapper around identical data. The store skips notifying on reference
+     * equality, and a "nothing happened" that still re-renders is how a
+     * rejected placement ends up flashing the whole screen.
+     */
+    case 'placeModule': {
+      if (state.run === null) return state;
+      const ship = placeOnGrid(state.run.ship, action.moduleId, action.x, action.y);
+      if (ship === state.run.ship) return state;
+      return withRun(state, (current) => ({ ...current, ship }));
+    }
+
+    case 'unplaceModule': {
+      if (state.run === null) return state;
+      const ship = unplaceOnGrid(state.run.ship, action.moduleId);
+      if (ship === state.run.ship) return state;
+      return withRun(state, (current) => ({ ...current, ship }));
+    }
+
+    case 'openLoadout': {
+      // Only between fights: mid-combat the grid is edited through Reposition,
+      // which costs the turn's lever.
+      if (state.run === null || state.run.combat !== null || state.run.shipCombat !== null) return state;
+      return withRun(state, (current) => ({ ...current, screen: 'ship' }));
+    }
+
+    case 'repairDrive': {
+      if (state.run === null) return state;
+      return repairDrive(state);
+    }
+
+    case 'takeRewardModule': {
+      if (state.run?.screen !== 'reward') return state;
+      return takeRewardModule(state, action.moduleId);
     }
 
     case 'takeRewardCard': {

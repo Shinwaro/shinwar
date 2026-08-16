@@ -28,6 +28,11 @@ export type Action =
   | { readonly kind: 'intervene'; readonly verb: import('./types.ts').InterventionId }
   | { readonly kind: 'resolveShipTurn' }
   | { readonly kind: 'moveModule'; readonly moduleId: string; readonly x: number; readonly y: number }
+  | { readonly kind: 'placeModule'; readonly moduleId: string; readonly x: number; readonly y: number }
+  | { readonly kind: 'unplaceModule'; readonly moduleId: string }
+  | { readonly kind: 'openLoadout' }
+  | { readonly kind: 'repairDrive' }
+  | { readonly kind: 'takeRewardModule'; readonly moduleId: string }
   /* -- the map -- */
   | { readonly kind: 'moveToNode'; readonly nodeId: string }
   /* -- rewards -- */

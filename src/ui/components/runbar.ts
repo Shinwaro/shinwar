@@ -14,7 +14,6 @@ import { button, el } from '../dom.ts';
 
 export function renderRunBar(store: Store, state: GameState): HTMLElement {
   const run = requireRun(state);
-  void store;
 
   return el('header', { class: 'run-bar' }, [
     el('div', { class: 'stat stat--hull' }, [
@@ -38,6 +37,12 @@ export function renderRunBar(store: Store, state: GameState): HTMLElement {
       el('span', { class: 'stat-label' }, ['SEED']),
       el('span', { class: 'stat-value stat-value--mono' }, [currentSeed(state)]),
     ]),
+    // The loadout is reachable from anywhere between fights.
+    state.run?.combat === null && state.run?.shipCombat === null
+      ? button('Ship', { class: 'btn btn-quiet' }, () => {
+          store.dispatch({ kind: 'openLoadout' });
+        })
+      : null,
     // Asks the app shell to open the overlay rather than owning it — the
     // pause screen sits above every run screen, so it cannot belong to one.
     button('Pause', { class: 'btn btn-quiet', 'aria-keyshortcuts': 'P' }, () => {

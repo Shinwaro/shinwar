@@ -45,6 +45,16 @@ export function enterNode(state: GameState, nodeId: string): GameState {
   const node = map === null ? undefined : nodeById(map, nodeId);
   if (node === undefined) return state;
 
+  // The drive is dead. You are not flying anywhere until it is paid for.
+  if (run.crash !== null && node.arena === 'space') {
+    return appendLog(state, {
+      source: 'crash',
+      kind: 'run',
+      text: 'The drive is dead. Repair it before taking anything in open space.',
+      detail: null,
+    });
+  }
+
   let next = withRun(state, (current) => ({
     ...current,
     position: nodeId,
@@ -177,7 +187,7 @@ export function concludeNode(state: GameState): GameState {
   const alloy = rollAlloy(run.rng, tier);
   let next = withRun(state, (current) => ({ ...current, rng: alloy.rng, combat: null }));
 
-  const rolled = rollReward(requireRun(next).rng, requireRun(next), run.act, alloy.value, run.rewardDrought);
+  const rolled = rollReward(requireRun(next).rng, requireRun(next), run.act, alloy.value, run.rewardDrought, tier);
   next = withRun(next, (current) => ({
     ...current,
     rng: rolled.rng,
@@ -223,6 +233,22 @@ export function takeRewardCard(state: GameState, cardId: CardId): GameState {
   }));
 }
 
+/** Take the elite's module. Changeable until you leave, like the card. */
+export function takeRewardModule(state: GameState, moduleId: string): GameState {
+  const run = requireRun(state);
+  const offer = run.pendingReward;
+  if (offer === null || !offer.moduleIds.includes(moduleId)) return state;
+
+  const already = offer.takenModules.includes(moduleId);
+  return withRun(state, (current) => ({
+    ...current,
+    pendingReward:
+      current.pendingReward === null
+        ? null
+        : { ...current.pendingReward, takenModules: already ? [] : [moduleId] },
+  }));
+}
+
 export function claimRewardAlloy(state: GameState): GameState {
   const run = requireRun(state);
   const offer = run.pendingReward;
@@ -245,11 +271,22 @@ export function leaveReward(state: GameState): GameState {
 
   const chosen = offer.taken[0];
   const def = chosen === undefined ? undefined : cardTable.find(chosen);
+  const takenModules = offer.takenModules;
 
   if (chosen === undefined || def === undefined) {
     return appendLog(
-      withRun(state, (current) => ({ ...current, pendingReward: null, screen: 'map' })),
-      { source: 'reward', kind: 'reward', text: 'Took nothing.', detail: null },
+      withRun(state, (current) => ({
+        ...current,
+        ship: { ...current.ship, stored: [...current.ship.stored, ...takenModules] },
+        pendingReward: null,
+        screen: 'map',
+      })),
+      {
+        source: 'reward',
+        kind: 'reward',
+        text: takenModules.length === 0 ? 'Took nothing.' : 'Took the module and nothing else.',
+        detail: null,
+      },
     );
   }
 
@@ -258,6 +295,7 @@ export function leaveReward(state: GameState): GameState {
     ...current,
     uidCounter: minted.uidCounter,
     pilot: { ...current.pilot, deck: [...current.pilot.deck, minted.value] },
+    ship: { ...current.ship, stored: [...current.ship.stored, ...takenModules] },
     pendingReward: null,
     screen: 'map',
   }));

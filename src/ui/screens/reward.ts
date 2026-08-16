@@ -13,9 +13,9 @@ import type { Store } from '../store.ts';
 import { requireRun } from '../../engine/state.ts';
 import { liveScreen } from '../screen.ts';
 import { describeCard } from '../../engine/combat/describe.ts';
-import { cards as cardTable } from '../../content/registry.ts';
+import { cards as cardTable, modules as moduleTable } from '../../content/registry.ts';
 import { RARITY_LABEL } from '../../content/balance.ts';
-import { button, el, fill } from '../dom.ts';
+import { button, el, fill, withChildren } from '../dom.ts';
 import { renderRunBar } from '../components/runbar.ts';
 import { renderCardFace } from '../components/card.ts';
 
@@ -74,6 +74,33 @@ function buildReward(store: Store, state: GameState): HTMLElement {
         : 'Take one card, or take none. A card you did not want dilutes every draw after it.',
     ]),
     alloyRow,
+    offer.moduleIds.length === 0
+      ? null
+      : el('div', { class: 'reward-modules' }, [
+          el('h2', { class: 'pause-heading' }, ['Salvaged module']),
+          el(
+            'div',
+            { class: 'store-row' },
+            offer.moduleIds.map((moduleId) => {
+              const def = moduleTable.get(moduleId);
+              const taken = offer.takenModules.includes(moduleId);
+              const node = button(
+                '',
+                {
+                  class: `store-item${taken ? ' is-held' : ''}`,
+                  'data-rarity': def.rarity,
+                  'aria-pressed': taken ? 'true' : 'false',
+                },
+                () => store.dispatch({ kind: 'takeRewardModule', moduleId }),
+              );
+              return withChildren(node, [
+                el('span', { class: 'store-name' }, [def.name]),
+                el('span', { class: 'store-size' }, [`${def.footprint.w}×${def.footprint.h}`]),
+                el('span', { class: 'store-hint' }, [def.flavor ?? '']),
+              ]);
+            }),
+          ),
+        ]),
     el('div', { class: 'reward-cards' }, cards),
     el('div', { class: 'reward-actions' }, [
       button(alreadyTook ? 'Continue' : 'Take nothing', { class: 'btn btn-primary' }, () => {
