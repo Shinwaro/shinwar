@@ -231,6 +231,28 @@ export interface ShipEnemyMove {
   readonly shield: number;
 }
 
+/**
+ * A part of an enemy ship you can aim at instead of its hull.
+ *
+ * This is where the per-turn agency lives: shooting the hull ends the fight
+ * sooner, shooting a subsystem makes the rest of the fight cheaper. Neither is
+ * free, which is the whole decision.
+ */
+export interface SubsystemDef {
+  readonly id: string;
+  readonly name: string;
+  readonly hp: number;
+  /** What breaking it takes away. */
+  readonly disables: 'guns' | 'shields' | 'drive';
+  readonly text: string;
+}
+
+export interface SubsystemState {
+  readonly id: string;
+  readonly hp: number;
+  readonly maxHp: number;
+}
+
 export interface ShipEnemyDef {
   readonly id: EnemyId;
   readonly name: string;
@@ -238,6 +260,7 @@ export interface ShipEnemyDef {
   readonly act: 1 | 2 | 3;
   readonly moves: readonly ShipEnemyMove[];
   readonly script: EnemyScript;
+  readonly subsystems: readonly SubsystemDef[];
   readonly flavor?: string;
 }
 
@@ -249,6 +272,7 @@ export interface ShipEnemyState {
   /** Committed at telegraph time, exactly like a card-combat intent. */
   readonly intentMoveId: string | null;
   readonly ai: EnemyAiState;
+  readonly subsystems: readonly SubsystemState[];
 }
 
 export type ShipPools = { readonly [K in ShipResource]: number };
@@ -260,8 +284,16 @@ export interface ShipCombatState {
   /** Damage added to every shot this turn, from Overcharge and amplifiers. */
   readonly amplify: number;
   readonly enemy: ShipEnemyState;
-  /** One a turn. `null` means the player has not spent it yet. */
+  /** One a turn.  means the player has not spent it yet. */
   readonly usedIntervention: InterventionId | null;
+  /**
+   * Where the volley goes: `'hull'`, or a subsystem id.
+   *
+   * Free to change, and re-decided every turn. Aiming is deliberately NOT the
+   * intervention — it is the decision you always get, and the lever is the one
+   * the build gave you.
+   */
+  readonly target: string;
   readonly outcome: 'ongoing' | 'won' | 'lost';
 }
 

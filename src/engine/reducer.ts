@@ -11,7 +11,7 @@ import type { GameState } from './types.ts';
 import { appendLog, createInitialState, createRunState, withRun } from './state.ts';
 import { normalizeSeed } from './rng.ts';
 import { advanceEnemyTurn, endPlayerTurn, playCard } from './combat/combat.ts';
-import { intervene, resolveShipTurn } from './ship/combat.ts';
+import { aimAt, intervene, resolveShipTurn } from './ship/combat.ts';
 import { moveModule as moveOnGrid, place as placeOnGrid, unplace as unplaceOnGrid } from './ship/grid.ts';
 import { crashLand, repairDrive } from './ship/crash.ts';
 import {
@@ -155,6 +155,11 @@ export function applyAction(state: GameState, action: Action): GameState {
     case 'intervene': {
       if (state.run?.shipCombat?.outcome !== 'ongoing') return state;
       return intervene(state, action.verb);
+    }
+
+    case 'aimAt': {
+      if (state.run?.shipCombat?.outcome !== 'ongoing') return state;
+      return aimAt(state, action.target);
     }
 
     case 'resolveShipTurn': {

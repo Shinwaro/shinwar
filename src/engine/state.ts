@@ -9,7 +9,7 @@ import { createRng } from './rng.ts';
 import { buildDeck } from './combat/instances.ts';
 import { PLAYER, SHIP } from '../content/balance.ts';
 import { STARTING_DECK } from '../content/cards/index.ts';
-import { STARTING_MODULES, STARTING_WEAPON } from '../content/modules/index.ts';
+import { STARTING_PLACEMENT, STARTING_WEAPON } from '../content/modules/index.ts';
 
 /** Bumped when the shape of `GameState` changes, so a pasted dump identifies itself. */
 export const SCHEMA_VERSION = 1;
@@ -71,9 +71,9 @@ export function createRunState(seed: string, depth: number): RunState {
       maxHull: SHIP.startingHull,
       gridW: SHIP.gridW,
       gridH: SHIP.gridH,
-      placed: [],
+      placed: [STARTING_PLACEMENT],
       weaponId: STARTING_WEAPON,
-      stored: [...STARTING_MODULES],
+      stored: [],
     },
     threads: [],
     combat: null,

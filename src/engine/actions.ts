@@ -27,6 +27,8 @@ export type Action =
   /* -- ship combat: one lever a turn, then the turn resolves -- */
   | { readonly kind: 'intervene'; readonly verb: import('./types.ts').InterventionId }
   | { readonly kind: 'resolveShipTurn' }
+  /** Aim the volley. Free — the decision you always get. */
+  | { readonly kind: 'aimAt'; readonly target: string }
   | { readonly kind: 'moveModule'; readonly moduleId: string; readonly x: number; readonly y: number }
   | { readonly kind: 'placeModule'; readonly moduleId: string; readonly x: number; readonly y: number }
   | { readonly kind: 'unplaceModule'; readonly moduleId: string }

@@ -80,6 +80,24 @@ function build(store: Store, state: GameState): HTMLElement {
       ]),
     ]),
     el('p', { class: 'ship-flavor' }, [enemyDef.flavor ?? '']),
+
+    /* Where the volley goes. Free to change, decided fresh every turn — this
+       is the choice you always get, whatever the grid looks like. */
+    el('div', { class: 'targets' }, [
+      aimButton(store, 'hull', enemyDef.name, fight.target === 'hull', false, null),
+      ...enemyDef.subsystems.map((sub) => {
+        const live = fight.enemy.subsystems.find((entry) => entry.id === sub.id);
+        const wrecked = (live?.hp ?? 0) <= 0;
+        return aimButton(
+          store,
+          sub.id,
+          `${sub.name} ${wrecked ? '—' : `${live?.hp ?? 0}/${live?.maxHp ?? sub.hp}`}`,
+          fight.target === sub.id,
+          wrecked,
+          sub.text,
+        );
+      }),
+    ]),
   ]);
 
   /* -- the grid -- */
@@ -173,6 +191,26 @@ function build(store: Store, state: GameState): HTMLElement {
     ]),
     renderLog(state, true),
   ]);
+}
+
+function aimButton(
+  store: Store,
+  target: string,
+  label: string,
+  aimed: boolean,
+  wrecked: boolean,
+  hint: string | null,
+): HTMLElement {
+  return button(
+    label,
+    {
+      class: `target${aimed ? ' is-aimed' : ''}${wrecked ? ' is-wrecked' : ''}`,
+      disabled: wrecked,
+      'aria-pressed': aimed ? 'true' : 'false',
+      title: hint ?? 'Aim at the hull. Ends the fight sooner.',
+    },
+    () => store.dispatch({ kind: 'aimAt', target }),
+  );
 }
 
 function pool(label: string, value: number, hint: string, hot: boolean): HTMLElement {

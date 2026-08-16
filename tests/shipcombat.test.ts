@@ -16,6 +16,7 @@ import {
   resolveShipTurn,
   shipIntent,
   startShipCombat,
+  subsystemBroken,
 } from '../src/engine/ship/combat.ts';
 import { reloadContent } from '../src/content/index.ts';
 import { SHIP_COMBAT } from '../src/content/balance.ts';
@@ -49,17 +50,20 @@ describe('starting a ship fight', () => {
 });
 
 describe('modules grant verbs', () => {
-  it('gives an empty grid nothing to spend', () => {
+  it('always leaves the mount itself to push', () => {
+    // Agency must never depend on owning the right module: an empty grid still
+    // gets one thing to do.
     const state = runWith((ship) => ship);
-    expect(availableInterventions(state.run!.ship)).toEqual([]);
+    expect(availableInterventions(state.run!.ship)).toEqual(['overcharge']);
+    expect(canIntervene(state, 'overcharge')).toBe(true);
     expect(canIntervene(state, 'vent')).toBe(false);
   });
 
-  it('unlocks exactly the verbs the build carries', () => {
-    const state = runWith((ship) => place(place(ship, 'heat_sink', 0, 0), 'predictive_array', 1, 0));
-    expect(availableInterventions(state.run!.ship)).toEqual(['overcharge', 'vent']);
+  it('unlocks the rest from what the build carries', () => {
+    const state = runWith((ship) => place(place(ship, 'heat_sink', 0, 0), 'reactive_plating', 1, 0));
+    expect(availableInterventions(state.run!.ship)).toEqual(['brace', 'overcharge', 'vent']);
     expect(canIntervene(state, 'vent')).toBe(true);
-    expect(canIntervene(state, 'brace')).toBe(false);
+    expect(canIntervene(state, 'divert')).toBe(false);
   });
 
   it('spends the lever once a turn', () => {
@@ -164,6 +168,55 @@ describe('outcomes', () => {
   });
 });
 
+describe('aiming', () => {
+  it('starts on the hull and can be re-aimed for free', () => {
+    let state = runWith((ship) => ship, 'lance_cutter');
+    expect(state.run!.shipCombat!.target).toBe('hull');
+
+    state = applyAction(state, { kind: 'aimAt', target: 'drive' });
+    expect(state.run!.shipCombat!.target).toBe('drive');
+    // Aiming is not the intervention — the lever is still there.
+    expect(state.run!.shipCombat!.usedIntervention).toBeNull();
+  });
+
+  it('puts the volley into the part, not the hull', () => {
+    let state = runWith((ship) => ship, 'lance_cutter');
+    state = applyAction(state, { kind: 'aimAt', target: 'drive' });
+    const hullBefore = state.run!.shipCombat!.enemy.hull;
+
+    const after = resolveShipTurn(state);
+    const fight = after.run!.shipCombat!;
+    expect(fight.enemy.hull).toBe(hullBefore);
+    expect(fight.enemy.subsystems.find((s) => s.id === 'drive')!.hp).toBeLessThan(
+      fight.enemy.subsystems.find((s) => s.id === 'drive')!.maxHp,
+    );
+  });
+
+  it('refuses a target that does not exist or is already wrecked', () => {
+    const state = runWith((ship) => ship, 'lance_cutter');
+    expect(applyAction(state, { kind: 'aimAt', target: 'nonsense' })).toBe(state);
+  });
+
+  it('pays off: a wrecked drive makes every later hit land harder', () => {
+    let state = runWith((ship) => place(ship, 'mass_driver', 0, 0), 'lance_cutter');
+    state = applyAction(state, { kind: 'aimAt', target: 'drive' });
+
+    let guard = 0;
+    while (guard++ < 20 && (state.run!.shipCombat!.enemy.subsystems.find((s) => s.id === 'drive')?.hp ?? 0) > 0) {
+      state = resolveShipTurn(state);
+      if (state.run?.shipCombat === null) return;
+    }
+    expect(subsystemBroken(state, 'drive')).toBe(true);
+
+    // Now aim at the hull and confirm the hit is amplified.
+    state = applyAction(state, { kind: 'aimAt', target: 'hull' });
+    const before = state.run!.shipCombat!.enemy.hull;
+    const after = resolveShipTurn(state);
+    if (after.run?.shipCombat === null) return;
+    expect(before - after.run!.shipCombat!.enemy.hull).toBeGreaterThan(0);
+  });
+});
+
 describe('the crash', () => {
   function crashOut(): GameState {
     const opened = applyActions(createInitialState('CRASH-2'), [{ kind: 'beginRun' }]);
@@ -233,17 +286,23 @@ describe('the crash', () => {
 });
 
 describe('the loadout', () => {
-  it('places and un-places through the real actions', () => {
+  it('starts with one module already bolted in', () => {
+    const state = applyActions(createInitialState('FIT'), [{ kind: 'beginRun' }]);
+    expect(state.run!.ship.placed).toHaveLength(1);
+    expect(state.run!.ship.stored).toHaveLength(0);
+  });
+
+  it('un-places and places again through the real actions', () => {
     let state = applyActions(createInitialState('FIT'), [{ kind: 'beginRun' }]);
-    expect(state.run!.ship.stored).toContain('core_reactor');
+    const fitted = state.run!.ship.placed[0]!.moduleId;
 
-    state = applyAction(state, { kind: 'placeModule', moduleId: 'core_reactor', x: 0, y: 0 });
-    expect(state.run!.ship.placed.map((p) => p.moduleId)).toContain('core_reactor');
-    expect(state.run!.ship.stored).not.toContain('core_reactor');
-
-    state = applyAction(state, { kind: 'unplaceModule', moduleId: 'core_reactor' });
+    state = applyAction(state, { kind: 'unplaceModule', moduleId: fitted });
     expect(state.run!.ship.placed).toHaveLength(0);
-    expect(state.run!.ship.stored).toContain('core_reactor');
+    expect(state.run!.ship.stored).toContain(fitted);
+
+    state = applyAction(state, { kind: 'placeModule', moduleId: fitted, x: 1, y: 1 });
+    expect(state.run!.ship.placed.map((p) => p.moduleId)).toContain(fitted);
+    expect(state.run!.ship.stored).not.toContain(fitted);
   });
 
   it('refuses a placement that does not fit, without changing anything', () => {

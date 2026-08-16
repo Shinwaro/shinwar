@@ -66,7 +66,9 @@ export function liveModules(ship: ShipState): readonly LiveModule[] {
 
 /** The verbs this build allows. An empty list is a fight you only watch. */
 export function availableInterventions(ship: ShipState): readonly InterventionId[] {
-  const verbs = new Set<InterventionId>();
+  // Every mount can be pushed. Agency must never depend on owning the right
+  // module — a ship with a bare grid still gets to make a decision.
+  const verbs = new Set<InterventionId>(['overcharge']);
   for (const placed of ship.placed) {
     const granted = moduleTable.get(placed.moduleId).grants;
     if (granted !== undefined) verbs.add(granted);
@@ -94,8 +96,10 @@ export function startShipCombat(state: GameState, enemyId: string): GameState {
         shield: 0,
         intentMoveId: null,
         ai: { moveIndex: 0, lastMoveId: null, repeats: 0 },
+        subsystems: def.subsystems.map((sub) => ({ id: sub.id, hp: sub.hp, maxHp: sub.hp })),
       },
       usedIntervention: null,
+      target: 'hull',
       outcome: 'ongoing' as const,
     },
   }));
@@ -407,11 +411,69 @@ export function resolveShipTurn(state: GameState): GameState {
   return startShipTurn(next);
 }
 
+/** Is a named capability broken? */
+export function subsystemBroken(state: GameState, disables: 'guns' | 'shields' | 'drive'): boolean {
+  const fight = state.run?.shipCombat ?? null;
+  if (fight === null) return false;
+  const def = shipEnemies.find(fight.enemy.defId);
+  return (def?.subsystems ?? []).some(
+    (sub) =>
+      sub.disables === disables &&
+      (fight.enemy.subsystems.find((live) => live.id === sub.id)?.hp ?? 1) <= 0,
+  );
+}
+
+/**
+ * Put the volley where the player aimed it.
+ *
+ * Hull ends the fight sooner; a subsystem makes the rest of it cheaper. The
+ * shield stands in front of the hull but not in front of a subsystem — you can
+ * always get at the parts, which is what keeps aiming a live option rather
+ * than something only worth doing on turn one.
+ */
 function damageEnemy(state: GameState, amount: number): GameState {
   if (amount <= 0) return state;
   const fight = requireShipCombat(state);
-  const absorbed = Math.min(fight.enemy.shield, amount);
-  const toHull = amount - absorbed;
+  const def = shipEnemies.get(fight.enemy.defId);
+  const name = def.name;
+
+  // A broken drive means it cannot get out of the way.
+  const exposed = subsystemBroken(state, 'drive');
+  const total = exposed ? Math.floor(amount * 1.5) : amount;
+
+  const aimed = fight.enemy.subsystems.find((sub) => sub.id === fight.target && sub.hp > 0);
+
+  if (aimed !== undefined) {
+    const subDef = def.subsystems.find((sub) => sub.id === aimed.id);
+    const left = Math.max(0, aimed.hp - total);
+    const next = withShip(state, (current) => ({
+      ...current,
+      enemy: {
+        ...current.enemy,
+        subsystems: current.enemy.subsystems.map((sub) =>
+          sub.id === aimed.id ? { ...sub, hp: left } : sub,
+        ),
+      },
+    }));
+
+    const logged = appendLog(next, {
+      source: 'ship',
+      kind: 'damage',
+      text: `${subDef?.name ?? aimed.id} takes ${Math.min(total, aimed.hp)}.`,
+      detail: { to: 'enemy', toHull: 0, blocked: 0 },
+    });
+
+    if (left > 0) return logged;
+    return appendLog(logged, {
+      source: 'ship',
+      kind: 'combat',
+      text: `${subDef?.name ?? aimed.id} is wrecked. ${subDef?.text ?? ''}`,
+      detail: { subsystem: aimed.id },
+    });
+  }
+
+  const absorbed = Math.min(fight.enemy.shield, total);
+  const toHull = total - absorbed;
 
   const next = withShip(state, (current) => ({
     ...current,
@@ -425,9 +487,20 @@ function damageEnemy(state: GameState, amount: number): GameState {
   return appendLog(next, {
     source: 'ship',
     kind: 'damage',
-    text: `${shipEnemies.get(fight.enemy.defId).name} takes ${toHull}${absorbed > 0 ? ` (${absorbed} shielded)` : ''}.`,
+    text: `${name} takes ${toHull}${absorbed > 0 ? ` (${absorbed} shielded)` : ''}${exposed ? ' — drive is gone' : ''}.`,
     detail: { to: 'enemy', toHull, blocked: absorbed },
   });
+}
+
+/** Aim the volley. Free, and re-decided every turn. */
+export function aimAt(state: GameState, target: string): GameState {
+  const fight = state.run?.shipCombat ?? null;
+  if (fight === null || fight.outcome !== 'ongoing') return state;
+  if (target !== 'hull' && !fight.enemy.subsystems.some((sub) => sub.id === target && sub.hp > 0)) {
+    return state;
+  }
+  if (fight.target === target) return state;
+  return withShip(state, (current) => ({ ...current, target }));
 }
 
 /** `ignoreShield` is for Heat: the reactor cooks you from the inside. */
@@ -464,14 +537,18 @@ function enemyShipActs(state: GameState): GameState {
     detail: { move: move.id },
   });
 
-  if (move.shield > 0) {
+  // A wrecked plate array cannot shield; a wrecked gun deck hits for half.
+  // This is the payoff for spending turns on the parts instead of the hull.
+  if (move.shield > 0 && !subsystemBroken(next, 'shields')) {
     next = withShip(next, (current) => ({
       ...current,
       enemy: { ...current.enemy, shield: current.enemy.shield + move.shield },
     }));
   }
 
-  const incoming = move.damage * move.shots;
+  const blunted = subsystemBroken(next, 'guns');
+  const perShot = blunted ? Math.floor(move.damage / 2) : move.damage;
+  const incoming = perShot * move.shots;
   if (incoming > 0) next = damageShip(next, incoming);
 
   return next;

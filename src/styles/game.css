@@ -275,14 +275,14 @@
     transform 0.1s;
 }
 
+/* No glow on every enemy the moment a card is picked up — it lit the whole row
+   and said nothing you did not already know. The pointer is the affordance. */
 .enemy.is-targetable {
   cursor: pointer;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent);
 }
 
 .enemy.is-targetable:hover {
-  transform: translateY(-2px);
+  border-color: var(--line-strong);
 }
 
 .enemy.is-focused {
@@ -1675,3 +1675,38 @@ button.grid-tile {
 .verb-list strong { color: var(--ink); }
 
 .reward-modules { display: grid; gap: 0.4rem; }
+
+
+/* Where the volley goes. The one decision every ship always has. */
+.targets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  padding-top: 0.4rem;
+  border-top: 1px solid var(--line);
+}
+
+.target {
+  min-height: 2rem;
+  padding: 0.25rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.target:hover:not(:disabled) { border-color: var(--line-strong); color: var(--ink); }
+
+.target.is-aimed {
+  border-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 18%, transparent);
+  color: var(--ink);
+}
+
+.target.is-wrecked {
+  opacity: 0.4;
+  text-decoration: line-through;
+  cursor: not-allowed;
+}

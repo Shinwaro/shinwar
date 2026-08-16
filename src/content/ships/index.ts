@@ -18,6 +18,10 @@ export const SHIP_ENEMIES: readonly ShipEnemyDef[] = [
       { id: 'harden', label: 'Harden', damage: 0, shots: 0, shield: 8 },
     ],
     script: { kind: 'sequence', moves: ['strafe', 'strafe', 'harden'] },
+    subsystems: [
+      { id: 'guns', name: 'Gun Pod', hp: 14, disables: 'guns', text: 'Break it and its shots hit for half.' },
+      { id: 'plates', name: 'Plate Array', hp: 12, disables: 'shields', text: 'Break it and it stops shielding.' },
+    ],
     flavor: 'Unmanned, unhurried, and entirely certain you should not be here.',
   },
   {
@@ -39,6 +43,10 @@ export const SHIP_ENEMIES: readonly ShipEnemyDef[] = [
       ],
       maxRepeats: 2,
     },
+    subsystems: [
+      { id: 'lance', name: 'Lance Mount', hp: 20, disables: 'guns', text: 'Break it and its shots hit for half.' },
+      { id: 'drive', name: 'Drive Cone', hp: 16, disables: 'drive', text: 'Break it and it takes 50% more from every hit.' },
+    ],
     flavor: 'Somebody else’s cutter, flown by somebody who kept their sect.',
   },
   {
@@ -52,6 +60,11 @@ export const SHIP_ENEMIES: readonly ShipEnemyDef[] = [
       { id: 'ram', label: 'Ram', damage: 16, shots: 1, shield: 0 },
     ],
     script: { kind: 'sequence', moves: ['volley', 'plate', 'volley', 'ram'] },
+    subsystems: [
+      { id: 'battery', name: 'Battery Deck', hp: 22, disables: 'guns', text: 'Break it and its shots hit for half.' },
+      { id: 'plating', name: 'Belt Plating', hp: 26, disables: 'shields', text: 'Break it and it stops shielding.' },
+      { id: 'thrusters', name: 'Thrusters', hp: 18, disables: 'drive', text: 'Break it and it takes 50% more from every hit.' },
+    ],
     flavor: 'Built to survive the trip, not to win the argument.',
   },
 ];

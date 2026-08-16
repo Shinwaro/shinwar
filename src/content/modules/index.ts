@@ -171,4 +171,6 @@ export const WEAPONS: readonly WeaponDef[] = [
 ];
 
 export const STARTING_WEAPON = 'rail_repeater';
-export const STARTING_MODULES: readonly string[] = ['core_reactor', 'heat_sink'];
+/** One module, already bolted in. The cutter is salvage, not a kit. */
+export const STARTING_MODULES: readonly string[] = ['core_reactor'];
+export const STARTING_PLACEMENT = { moduleId: 'core_reactor', x: 0, y: 0 } as const;
