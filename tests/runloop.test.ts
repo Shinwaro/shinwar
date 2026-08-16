@@ -192,15 +192,29 @@ describe('rewards', () => {
     expect(state, 'no reward offered a card').not.toBeNull();
 
     const before = state!.run!.pilot.deck.length;
-    const first = state!.run!.pendingReward!.cardIds[0]!;
+    const ids = state!.run!.pendingReward!.cardIds;
+    const first = ids[0]!;
+
+    // Choosing only marks the choice — nothing reaches the deck yet, so the
+    // pick stays changeable right up to the moment it is committed.
     const took = applyAction(state!, { kind: 'takeRewardCard', cardId: first });
-    expect(took.run?.pilot.deck).toHaveLength(before + 1);
+    expect(took.run?.pilot.deck).toHaveLength(before);
+    expect(took.run?.pendingReward?.taken).toEqual([first]);
 
-    // A second card from the same screen is refused.
-    const again = applyAction(took, { kind: 'takeRewardCard', cardId: first });
-    expect(again.run?.pilot.deck).toHaveLength(before + 1);
+    // Clicking the same card again puts it back.
+    const undone = applyAction(took, { kind: 'takeRewardCard', cardId: first });
+    expect(undone.run?.pendingReward?.taken).toEqual([]);
 
+    // Picking a different one swaps rather than adding a second.
+    const second = ids[1];
+    if (second !== undefined) {
+      const swapped = applyAction(took, { kind: 'takeRewardCard', cardId: second });
+      expect(swapped.run?.pendingReward?.taken).toEqual([second]);
+    }
+
+    // Leaving commits exactly one.
     const left = applyAction(took, { kind: 'leaveReward' });
+    expect(left.run?.pilot.deck).toHaveLength(before + 1);
     expect(left.run?.screen).toBe('map');
     expect(left.run?.pendingReward).toBeNull();
 

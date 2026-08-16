@@ -38,12 +38,14 @@ function buildReward(store: Store, state: GameState): HTMLElement {
     if (def === undefined) return null;
     const taken = offer.taken.includes(cardId);
 
+    // Every card stays clickable: picking a different one swaps the choice,
+    // and clicking the chosen one again puts it back.
     const node = button(
       '',
       {
         class: `card-pick${taken ? ' is-selected' : ''}${alreadyTook && !taken ? ' is-passed' : ''}`,
         'data-rarity': def.rarity,
-        disabled: alreadyTook,
+        'aria-pressed': taken ? 'true' : 'false',
         'aria-label': `${RARITY_LABEL[def.rarity]}: ${def.name}, ${describeCard(def)}`,
       },
       () => store.dispatch({ kind: 'takeRewardCard', cardId }),
@@ -60,11 +62,8 @@ function buildReward(store: Store, state: GameState): HTMLElement {
     return node;
   });
 
-  const alloyRow = offer.alloyClaimed
-    ? el('p', { class: 'reward-claimed' }, [`Alloy taken.`])
-    : button(`Take ${offer.alloy} Alloy`, { class: 'btn' }, () => {
-        store.dispatch({ kind: 'claimRewardAlloy' });
-      });
+  // Alloy is already in the pocket by the time this screen opens.
+  const alloyRow = el('p', { class: 'reward-claimed' }, [`+${offer.alloy} Alloy salvaged.`]);
 
   return el('div', { class: 'reward-inner' }, [
     renderRunBar(store, state),
@@ -77,8 +76,7 @@ function buildReward(store: Store, state: GameState): HTMLElement {
     alloyRow,
     el('div', { class: 'reward-cards' }, cards),
     el('div', { class: 'reward-actions' }, [
-      button(alreadyTook ? 'Continue' : 'Skip the card', { class: 'btn btn-primary' }, () => {
-        store.dispatch({ kind: 'claimRewardAlloy' });
+      button(alreadyTook ? 'Continue' : 'Take nothing', { class: 'btn btn-primary' }, () => {
         store.dispatch({ kind: 'leaveReward' });
       }),
     ]),

@@ -187,30 +187,26 @@ export function concludeNode(state: GameState): GameState {
 
 /* ---------- the reward screen ---------- */
 
+/**
+ * Choose a card — or change your mind, or unpick it entirely.
+ *
+ * This only marks the choice. Nothing reaches the deck until the screen is
+ * left, so the pick stays changeable right up to the moment you commit. A
+ * reward screen that locks on the first click punishes reading the third card.
+ */
 export function takeRewardCard(state: GameState, cardId: CardId): GameState {
   const run = requireRun(state);
   const offer = run.pendingReward;
-  if (offer === null || !offer.cardIds.includes(cardId) || offer.taken.length > 0) return state;
+  if (offer === null || !offer.cardIds.includes(cardId)) return state;
 
-  const def = cardTable.find(cardId);
-  if (def === undefined) return state;
-
-  const minted = mintCard(run.uidCounter, cardId, false);
-  const next = withRun(state, (current) => ({
+  const already = offer.taken.includes(cardId);
+  return withRun(state, (current) => ({
     ...current,
-    uidCounter: minted.uidCounter,
-    pilot: { ...current.pilot, deck: [...current.pilot.deck, minted.value] },
-    pendingReward: current.pendingReward === null
-      ? null
-      : { ...current.pendingReward, taken: [cardId] },
+    pendingReward:
+      current.pendingReward === null
+        ? null
+        : { ...current.pendingReward, taken: already ? [] : [cardId] },
   }));
-
-  return appendLog(next, {
-    source: 'reward',
-    kind: 'reward',
-    text: `Took ${def.name}.`,
-    detail: { card: cardId },
-  });
 }
 
 export function claimRewardAlloy(state: GameState): GameState {
@@ -227,21 +223,37 @@ export function claimRewardAlloy(state: GameState): GameState {
   }));
 }
 
-/** Skip is always available and always real. Leaving takes whatever was claimed. */
+/** Commit the choice. Skip is always available and always real. */
 export function leaveReward(state: GameState): GameState {
   const run = requireRun(state);
-  if (run.pendingReward === null) return state;
-  const skipped = run.pendingReward.taken.length === 0;
+  const offer = run.pendingReward;
+  if (offer === null) return state;
 
+  const chosen = offer.taken[0];
+  const def = chosen === undefined ? undefined : cardTable.find(chosen);
+
+  if (chosen === undefined || def === undefined) {
+    return appendLog(
+      withRun(state, (current) => ({ ...current, pendingReward: null, screen: 'map' })),
+      { source: 'reward', kind: 'reward', text: 'Took nothing.', detail: null },
+    );
+  }
+
+  const minted = mintCard(run.uidCounter, chosen, false);
   const next = withRun(state, (current) => ({
     ...current,
+    uidCounter: minted.uidCounter,
+    pilot: { ...current.pilot, deck: [...current.pilot.deck, minted.value] },
     pendingReward: null,
     screen: 'map',
   }));
 
-  return skipped
-    ? appendLog(next, { source: 'reward', kind: 'reward', text: 'Took nothing.', detail: null })
-    : next;
+  return appendLog(next, {
+    source: 'reward',
+    kind: 'reward',
+    text: `Took ${def.name}.`,
+    detail: { card: chosen },
+  });
 }
 
 /* ---------- the Safe Planet ----------

@@ -20,7 +20,6 @@ import type { GameState } from '../../engine/types.ts';
 import type { Store } from '../store.ts';
 import { requireCombat, requireRun } from '../../engine/state.ts';
 import { canPlay, definitionOf, enemiesPending, needsTarget } from '../../engine/combat/combat.ts';
-import { previewCard } from '../../engine/combat/preview.ts';
 import { incomingDamage, intentOf } from '../../engine/combat/intents.ts';
 import { livingEnemies } from '../../engine/combat/damage.ts';
 import { currentSeed, healthFraction } from '../../engine/queries.ts';
@@ -168,31 +167,16 @@ function build(store: Store, state: GameState, selection: Selection, rerender: (
   const combat = requireCombat(state);
 
   /*
-   * Predictions come from the SELECTED card only. Showing them on hover meant
-   * numbers flickering under every enemy as the pointer crossed the hand,
-   * which reads as noise rather than information — you get the numbers when
-   * you have actually picked a card up.
-   */
-  const previewUid = selection.cardUid;
-  const alive = livingEnemies(combat);
-
-  /*
-   * Every enemy shows what IT would take, which means previewing the card once
-   * per candidate target rather than once against the focused one. That is the
-   * whole point of the two-step model: the player compares before committing,
-   * and comparing needs all the numbers on screen at the same time.
+   * No damage predictions on the enemies. The card says what it does and the
+   * stance strip says what the stance does — working out what that adds up to
+   * is the game, not a chore to be automated away.
    *
-   * Each of these is a dry run of the real `playCard`, so none of them can
-   * disagree with what actually happens.
+   * `previewCard` still exists and is still tested against resolution: the
+   * guarantee that a preview cannot disagree with the result is architectural,
+   * and it will be needed the moment anything wants to ask. Nothing on this
+   * screen asks.
    */
-  const predictions = new Map<string, { hpLoss: number; willDie: boolean }>();
-  if (previewUid !== null) {
-    for (const enemy of alive) {
-      const preview = previewCard(state, previewUid, enemy.uid);
-      const mine = preview.enemies.find((entry) => entry.uid === enemy.uid);
-      if (mine !== undefined) predictions.set(enemy.uid, { hpLoss: mine.hpLoss, willDie: mine.willDie });
-    }
-  }
+  const alive = livingEnemies(combat);
   const selectedDef = selection.cardUid === null
     ? null
     : (combat.hand.find((card) => card.uid === selection.cardUid) ?? null);
@@ -247,12 +231,9 @@ function build(store: Store, state: GameState, selection: Selection, rerender: (
     'section',
     { class: 'enemy-row', 'aria-label': 'Enemies' },
     combat.enemies.map((enemy) => {
-      const predicted = predictions.get(enemy.uid) ?? null;
       return renderEnemy(state, enemy, {
         targetable: selection.cardUid !== null && enemy.hp > 0,
         focused: selection.focusUid === enemy.uid,
-        predicted: predicted === null ? null : predicted.hpLoss,
-        willDie: predicted?.willDie ?? false,
         acting: combat.actingUid === enemy.uid,
         onPick: () => {
           if (selection.cardUid === null) {

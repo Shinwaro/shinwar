@@ -17,8 +17,6 @@ export interface EnemyViewOptions {
   readonly targetable: boolean;
   readonly focused: boolean;
   /** Predicted HP loss from the selected card, or null when nothing is selected. */
-  readonly predicted: number | null;
-  readonly willDie: boolean;
   /** This enemy is taking its turn right now. */
   readonly acting: boolean;
   readonly onPick: () => void;
@@ -58,14 +56,6 @@ export function renderEnemy(
         el('span', { class: 'intent-text' }, [describeIntent(hits)]),
       ]);
 
-  const predictionNode =
-    options.predicted !== null && options.predicted > 0
-      ? el('div', { class: `prediction ${options.willDie ? 'is-lethal' : ''}` }, [
-          `-${options.predicted}`,
-          options.willDie ? el('span', { class: 'prediction-kill' }, ['LETHAL']) : null,
-        ])
-      : null;
-
   const hpPct = enemy.maxHp === 0 ? 0 : Math.max(0, (enemy.hp / enemy.maxHp) * 100);
   const hpFill = el('span', { class: 'bar-fill' });
   const hpBar = el('div', { class: 'bar bar--hp' }, [hpFill]);
@@ -99,7 +89,6 @@ export function renderEnemy(
       hpBar,
       statusRow.length > 0 ? el('div', { class: 'pips' }, statusRow) : null,
       intentNode,
-      predictionNode,
     ],
   );
 
