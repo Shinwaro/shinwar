@@ -24,10 +24,14 @@ import { incomingDamage } from '../src/engine/combat/intents.ts';
 import { livingEnemies } from '../src/engine/combat/damage.ts';
 import { overheatThreshold } from '../src/engine/combat/heat.ts';
 import { liveStance } from '../src/engine/combat/rules.ts';
-import { availableMoves } from '../src/engine/map/route.ts';
+import { availableMoves, nodeById } from '../src/engine/map/route.ts';
 import { optionsFor, canTakeOption } from '../src/engine/run/events.ts';
 import { archetypeLean } from '../src/engine/run/rewards.ts';
-import { cards as cardTable, events as eventTable } from '../src/content/registry.ts';
+import {
+  cards as cardTable,
+  events as eventTable,
+  implants as implantTable,
+} from '../src/content/registry.ts';
 import { ACTIVE_STANCES } from '../src/content/balance.ts';
 
 function eventDefOf(id: string): EventDef | null {
@@ -59,6 +63,17 @@ export interface RunReport {
   readonly encounters: number;
   readonly healthLost: number;
   readonly overheats: number;
+  /**
+   * Where the health actually went, by node type plus everything that is not a
+   * fight at all.
+   *
+   * Added because the first tuning pass cut Act 1 enemy damage by a third and
+   * moved the death rate by three points. A total says attrition is too high; it
+   * does not say which encounter is spending it, and the answer turned out not
+   * to be the one the totals implied.
+   */
+  readonly lostBy: Readonly<Record<string, number>>;
+  readonly fightsBy: Readonly<Record<string, number>>;
   /** Card ids offered on a reward screen, and the ones actually taken. */
   readonly offered: readonly string[];
   readonly taken: readonly string[];
@@ -66,6 +81,20 @@ export interface RunReport {
   readonly finalDeck: readonly string[];
   /** Environments fought in, for the per-environment delta. */
   readonly environments: readonly string[];
+  /**
+   * The power curve, measured rather than assumed.
+   *
+   * Robin's diagnosis was that nothing changes between the first fight and the
+   * first boss — you are the same character with a bigger deck. These are the
+   * numbers that say whether that is still true, and a deck that grows while
+   * none of the others move is the shape of the problem.
+   */
+  readonly relics: number;
+  readonly implants: number;
+  readonly deckSize: number;
+  readonly upgraded: number;
+  readonly maxHealth: number;
+  readonly masteries: number;
   readonly outcome: 'won' | 'died' | 'stuck';
 }
 
@@ -360,6 +389,22 @@ function station(state: GameState): GameState {
     next = applyAction(next, { kind: 'stationRepair', amount: Math.min(missing, 25) });
   }
 
+  /*
+   * Implants first, and by a distance. An Energy or a card drawn changes every
+   * turn of the rest of the run; another card in a 23-card deck changes about
+   * one turn in five. A player who understood the shop would spend here first,
+   * so the bot does.
+   */
+  for (const stock of [...shop.implants].sort((a, b) => b.price - a.price)) {
+    if (stock.sold) continue;
+    const current = next.run;
+    if (current === null || current.alloy < stock.price) continue;
+    const def = implantTable.find(stock.implantId);
+    if (def === undefined) continue;
+    if (current.pilot.implants.filter((id) => id === def.id).length >= def.maxStacks) continue;
+    next = applyAction(next, { kind: 'buyImplant', implantId: stock.implantId });
+  }
+
   const lean = archetypeLean(run);
   for (const stock of shop.cards) {
     if (stock.sold) continue;
@@ -382,6 +427,23 @@ function station(state: GameState): GameState {
     // Strip a basic. That is what removal is for.
     const worst = after.pilot.deck.find((card) => cardTable.find(card.defId)?.rarity === 'basic');
     if (worst !== undefined) next = applyAction(next, { kind: 'buyRemoval', cardUid: worst.uid });
+  }
+
+  // Forge the best card that is not already forged. A better card beats another
+  // card, and unlike a card it does not make the deck harder to draw through.
+  const forged = next.run;
+  if (forged !== null && !shop.forgeUsed && forged.alloy >= shop.forgePrice) {
+    let pick: string | null = null;
+    let bestValue = -1;
+    for (const card of forged.pilot.deck) {
+      if (card.upgraded) continue;
+      const value = RARITY_VALUE[cardTable.find(card.defId)?.rarity ?? 'common'] ?? 0;
+      if (value > bestValue) {
+        bestValue = value;
+        pick = card.uid;
+      }
+    }
+    if (pick !== null) next = applyAction(next, { kind: 'buyForge', cardUid: pick });
   }
 
   return applyAction(next, { kind: 'leaveNode' });
@@ -416,6 +478,8 @@ interface Mutable {
   offered: string[];
   taken: string[];
   environments: string[];
+  lostBy: Record<string, number>;
+  fightsBy: Record<string, number>;
 }
 
 export function playRun(seed: string, depth: number): RunReport {
@@ -428,6 +492,8 @@ export function playRun(seed: string, depth: number): RunReport {
     offered: [],
     taken: [],
     environments: [],
+    lostBy: {},
+    fightsBy: {},
   };
 
   let state = applyAction(
@@ -464,7 +530,15 @@ export function playRun(seed: string, depth: number): RunReport {
         const environmentId = run.combat?.environmentId;
         if (environmentId !== undefined && environmentId !== null) report.environments.push(environmentId);
         report.encounters += 1;
+
+        const here = run.position === null || run.map === null ? null : nodeById(run.map, run.position);
+        const kind = run.forcedTier ?? here?.type ?? 'combat';
+        report.fightsBy[kind] = (report.fightsBy[kind] ?? 0) + 1;
+
+        const healthBefore = run.pilot.health;
         state = fight(state, report);
+        const spent = healthBefore - (state.run?.pilot.health ?? healthBefore);
+        report.lostBy[kind] = (report.lostBy[kind] ?? 0) + Math.max(0, spent);
         break;
       }
 
@@ -493,7 +567,13 @@ export function playRun(seed: string, depth: number): RunReport {
     }
 
     const health = state.run?.pilot.health ?? lastHealth;
-    if (health < lastHealth) healthLost += lastHealth - health;
+    if (health < lastHealth) {
+      const delta = lastHealth - health;
+      healthLost += delta;
+      // Anything spent outside a fight: an Anomaly's price, a Thread's payoff,
+      // bleeding at a Safe Planet.
+      if (run.screen !== 'combat') report.lostBy['off-screen'] = (report.lostBy['off-screen'] ?? 0) + delta;
+    }
     lastHealth = health;
 
     if (stuck) break;
@@ -519,6 +599,14 @@ export function playRun(seed: string, depth: number): RunReport {
     taken: report.taken,
     finalDeck: (finished?.pilot.deck ?? []).map((card) => card.defId),
     environments: report.environments,
+    relics: finished?.pilot.relics.length ?? 0,
+    implants: finished?.pilot.implants.length ?? 0,
+    deckSize: finished?.pilot.deck.length ?? 0,
+    upgraded: (finished?.pilot.deck ?? []).filter((card) => card.upgraded).length,
+    maxHealth: finished?.pilot.maxHealth ?? 0,
+    masteries: finished?.pilot.masteries.length ?? 0,
+    lostBy: report.lostBy,
+    fightsBy: report.fightsBy,
     outcome,
   };
 }

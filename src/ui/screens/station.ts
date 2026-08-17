@@ -18,6 +18,7 @@ import { describeCard, describeCost } from '../../engine/combat/describe.ts';
 import { ECONOMY, RARITY_LABEL } from '../../content/balance.ts';
 import {
   cards as cardTable,
+  implants as implantTable,
   masteries as masteryTable,
 } from '../../content/registry.ts';
 import { button, el } from '../dom.ts';
@@ -25,15 +26,19 @@ import { liveScreen } from '../screen.ts';
 import { renderRunBar } from '../components/runbar.ts';
 import { renderCardFace } from '../components/card.ts';
 import { renderManifest } from '../components/manifest.ts';
+import { describeImplant, implantStackLabel } from '../../engine/run/describe.ts';
 
 interface Local {
-  /** The removal picker is open. UI state — it changes nothing about the world. */
-  stripping: boolean;
+  /**
+   * Which card picker is open, if any. UI state — it changes nothing about the
+   * world, so it never goes near the reducer.
+   */
+  picking: 'strip' | 'forge' | null;
   chosen: string | null;
 }
 
 export function renderStation(store: Store): HTMLElement {
-  const local: Local = { stripping: false, chosen: null };
+  const local: Local = { picking: null, chosen: null };
   let host: HTMLElement | null = null;
 
   const redraw = (): void => {
@@ -53,7 +58,7 @@ function build(store: Store, state: GameState, local: Local, redraw: () => void)
   const run = requireRun(state);
   const shop = run.shop;
 
-  if (local.stripping && shop !== null) return buildStripper(store, state, local, redraw);
+  if (local.picking !== null && shop !== null) return buildPicker(store, state, local, redraw);
 
   const bodyMissing = run.pilot.maxHealth - run.pilot.health;
   const bodyAffordable = Math.min(bodyMissing, Math.floor(run.alloy / ECONOMY.hullRepairPerPoint));
@@ -91,6 +96,49 @@ function build(store: Store, state: GameState, local: Local, redraw: () => void)
                       `${stock.price} Alloy`,
                       { class: `btn btn-buy${broke ? ' is-disabled' : ''}`, disabled: broke },
                       () => store.dispatch({ kind: 'buyShopCard', cardId: stock.cardId }),
+                    ),
+              ]);
+            }),
+          ),
+        ]),
+
+    /* The implant shelf. Deliberately above the cards: this is what Alloy is
+       for now, and a player scanning the shop should meet the thing that
+       changes every turn before the thing that changes one turn in five. */
+    shop === null || shop.implants.length === 0
+      ? null
+      : el('section', { class: 'shop-section' }, [
+          el('h2', { class: 'shop-heading' }, ['Implants']),
+          el(
+            'div',
+            { class: 'shop-shelf' },
+            shop.implants.map((stock) => {
+              const def = implantTable.find(stock.implantId);
+              if (def === undefined) return null;
+              const broke = run.alloy < stock.price;
+              const held = implantStackLabel(def, run.pilot.implants);
+
+              return el('div', { class: `shop-lot${stock.sold ? ' is-sold' : ''}` }, [
+                el('div', { class: 'implant-card' }, [
+                  el('div', { class: 'card-head' }, [
+                    el('span', { class: 'card-name' }, [def.name]),
+                    el('span', { class: `card-badge card-badge--${def.rarity}` }, [
+                      RARITY_LABEL[def.rarity],
+                    ]),
+                  ]),
+                  // Generated, never hand-written: this is a permanent purchase
+                  // being compared against two others, so the line has to be
+                  // exactly what it will do.
+                  el('p', { class: 'card-text' }, [describeImplant(def)]),
+                  held === '' ? null : el('p', { class: 'implant-held' }, [held]),
+                  def.flavor === undefined ? null : el('p', { class: 'card-flavor' }, [def.flavor]),
+                ]),
+                stock.sold
+                  ? el('span', { class: 'shop-sold' }, ['Fitted'])
+                  : button(
+                      `${stock.price} Alloy`,
+                      { class: `btn btn-buy${broke ? ' is-disabled' : ''}`, disabled: broke },
+                      () => store.dispatch({ kind: 'buyImplant', implantId: stock.implantId }),
                     ),
               ]);
             }),
@@ -137,7 +185,26 @@ function build(store: Store, state: GameState, local: Local, redraw: () => void)
                   : 'A smaller deck draws what it needs more often.',
               shop.removalUsed || run.alloy < shop.removalPrice || run.pilot.deck.length <= 1,
               () => {
-                local.stripping = true;
+                local.picking = 'strip';
+                local.chosen = null;
+                redraw();
+              },
+            ),
+        shop === null
+          ? null
+          : serviceOption(
+              shop.forgeUsed ? 'Forge used' : 'Forge a card',
+              `${shop.forgePrice} Alloy, one per Station.`,
+              shop.forgeUsed
+                ? 'This station has done its one.'
+                : run.alloy < shop.forgePrice
+                  ? 'Not enough Alloy.'
+                  : 'A better card beats another card.',
+              shop.forgeUsed ||
+                run.alloy < shop.forgePrice ||
+                run.pilot.deck.every((card) => card.upgraded),
+              () => {
+                local.picking = 'forge';
                 local.chosen = null;
                 redraw();
               },
@@ -181,36 +248,50 @@ function serviceOption(
    about to do, then commit. Never hover-only — that is no preview at all on a
    phone. */
 
-function buildStripper(store: Store, state: GameState, local: Local, redraw: () => void): HTMLElement {
+function buildPicker(store: Store, state: GameState, local: Local, redraw: () => void): HTMLElement {
   const run = requireRun(state);
-  const price = run.shop?.removalPrice ?? 0;
+  const forging = local.picking === 'forge';
+  const price = (forging ? run.shop?.forgePrice : run.shop?.removalPrice) ?? 0;
   const chosen = run.pilot.deck.find((card) => card.uid === local.chosen) ?? null;
+  // Forging an already-forged card does nothing, so it is not offered.
+  const eligible = forging ? run.pilot.deck.filter((card) => !card.upgraded) : run.pilot.deck;
 
   return el('div', { class: 'station-inner' }, [
     renderRunBar(store, state),
-    el('h1', { class: 'screen-title' }, ['Strip a card']),
+    el('h1', { class: 'screen-title' }, [forging ? 'Forge a card' : 'Strip a card']),
     el('p', { class: 'safe-note' }, [
-      `${price} Alloy. The price rises every time you do this, so the deck cannot be filed down to four cards.`,
+      forging
+        ? `${price} Alloy. One per Station — a deck that gets better beats a deck that gets bigger.`
+        : `${price} Alloy. The price rises every time you do this, so the deck cannot be filed down to four cards.`,
     ]),
     el('div', { class: 'picker-actions' }, [
       button('Back', { class: 'btn' }, () => {
-        local.stripping = false;
+        local.picking = null;
         local.chosen = null;
         redraw();
       }),
       chosen === null
         ? null
-        : button(`Strip ${definitionOf(chosen).name}`, { class: 'btn btn-primary' }, () => {
-            const uid = chosen.uid;
-            local.stripping = false;
-            local.chosen = null;
-            store.dispatch({ kind: 'buyRemoval', cardUid: uid });
-          }),
+        : button(
+            `${forging ? 'Forge' : 'Strip'} ${definitionOf(chosen).name}`,
+            { class: 'btn btn-primary' },
+            () => {
+              const uid = chosen.uid;
+              const mode = local.picking;
+              local.picking = null;
+              local.chosen = null;
+              store.dispatch(
+                mode === 'forge'
+                  ? { kind: 'buyForge', cardUid: uid }
+                  : { kind: 'buyRemoval', cardUid: uid },
+              );
+            },
+          ),
     ]),
     el(
       'div',
       { class: 'deck-list' },
-      run.pilot.deck.map((card) => {
+      eligible.map((card) => {
         const def = definitionOf(card);
         const picked = local.chosen === card.uid;
         const node = button(

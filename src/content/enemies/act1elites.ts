@@ -20,25 +20,25 @@ export const ACT1_ELITES: readonly EnemyDef[] = [
   {
     id: KILN_ALPHA,
     name: 'Kiln Alpha',
-    maxHp: 88,
+    maxHp: 76,
     act: 1,
     tier: 'elite',
     moves: [
       {
         id: 'maul',
         label: 'Maul',
-        intent: [{ kind: 'attack', amount: 17, times: 1, label: 'Maul' }],
-        effects: [{ op: 'damage', amount: 17, target: 'enemy' }],
+        intent: [{ kind: 'attack', amount: 13, times: 1, label: 'Maul' }],
+        effects: [{ op: 'damage', amount: 13, target: 'enemy' }],
       },
       {
         id: 'worry',
         label: 'Worry',
         intent: [
-          { kind: 'attack', amount: 6, times: 2, label: 'Worry' },
+          { kind: 'attack', amount: 5, times: 2, label: 'Worry' },
           { kind: 'debuff', amount: 1, times: 1, label: 'Vulnerable 1' },
         ],
         effects: [
-          { op: 'damage', amount: 6, target: 'enemy', times: 2 },
+          { op: 'damage', amount: 5, target: 'enemy', times: 2 },
           { op: 'applyStatus', status: VULNERABLE, stacks: 1, target: 'enemy' },
         ],
       },
@@ -62,7 +62,7 @@ export const ACT1_ELITES: readonly EnemyDef[] = [
   {
     id: MAG_LATHE,
     name: 'Mag-Lathe Warden',
-    maxHp: 102,
+    maxHp: 86,
     act: 1,
     tier: 'elite',
     moves: [
@@ -81,18 +81,18 @@ export const ACT1_ELITES: readonly EnemyDef[] = [
       {
         id: 'cut',
         label: 'Cut',
-        intent: [{ kind: 'attack', amount: 8, times: 2, label: 'Cut' }],
-        effects: [{ op: 'damage', amount: 8, target: 'enemy', times: 2 }],
+        intent: [{ kind: 'attack', amount: 6, times: 2, label: 'Cut' }],
+        effects: [{ op: 'damage', amount: 6, target: 'enemy', times: 2 }],
       },
       {
         id: 'true',
         label: 'True',
         intent: [
-          { kind: 'attack', amount: 19, times: 1, label: 'True' },
+          { kind: 'attack', amount: 15, times: 1, label: 'True' },
           { kind: 'debuff', amount: 1, times: 1, label: 'Weak 1' },
         ],
         effects: [
-          { op: 'damage', amount: 19, target: 'enemy' },
+          { op: 'damage', amount: 15, target: 'enemy' },
           { op: 'applyStatus', status: WEAK, stacks: 1, target: 'enemy' },
         ],
       },
@@ -104,7 +104,7 @@ export const ACT1_ELITES: readonly EnemyDef[] = [
   {
     id: KILN_SOVEREIGN,
     name: 'Kiln Sovereign',
-    maxHp: 168,
+    maxHp: 100,
     act: 1,
     tier: 'boss',
     moves: [
@@ -123,18 +123,18 @@ export const ACT1_ELITES: readonly EnemyDef[] = [
       {
         id: 'rake',
         label: 'Rake',
-        intent: [{ kind: 'attack', amount: 9, times: 2, label: 'Rake' }],
-        effects: [{ op: 'damage', amount: 9, target: 'enemy', times: 2 }],
+        intent: [{ kind: 'attack', amount: 7, times: 2, label: 'Rake' }],
+        effects: [{ op: 'damage', amount: 7, target: 'enemy', times: 2 }],
       },
       {
         id: 'tap_out',
         label: 'Tap Out',
         intent: [
-          { kind: 'attack', amount: 24, times: 1, label: 'Tap Out' },
+          { kind: 'attack', amount: 19, times: 1, label: 'Tap Out' },
           { kind: 'buff', amount: 2, times: 1, label: 'Strength +2' },
         ],
         effects: [
-          { op: 'damage', amount: 24, target: 'enemy' },
+          { op: 'damage', amount: 19, target: 'enemy' },
           { op: 'applyStatus', status: STRENGTH, stacks: 2, target: 'self' },
         ],
       },

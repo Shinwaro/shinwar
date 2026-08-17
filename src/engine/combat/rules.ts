@@ -18,6 +18,7 @@ import type {
   CombatState,
   EnvironmentRules,
   GameState,
+  RelicPassive,
   JsonValue,
   MasteryId,
   StanceId,
@@ -26,6 +27,7 @@ import { withCombat } from '../state.ts';
 import { STANCES, type StanceRules } from '../../content/balance.ts';
 import {
   environments as environmentTable,
+  implants as implantTable,
   masteries as masteryTable,
   relics as relicTable,
 } from '../../content/registry.ts';
@@ -118,13 +120,27 @@ const NO_PILOT_RULES: PilotRules = {
  */
 export function pilotRules(state: GameState): PilotRules {
   const held = state.run?.pilot.relics ?? [];
-  if (held.length === 0) return NO_PILOT_RULES;
+  const fitted = state.run?.pilot.implants ?? [];
+  if (held.length === 0 && fitted.length === 0) return NO_PILOT_RULES;
+
+  /*
+   * Relics and implants are the same shape and land in the same place. Implants
+   * are counted with multiplicity — two Honed Edges really is +4 on every
+   * attack, which is the whole reason they are a list and not a set — and both
+   * are walked in registry order so two touching the same field always compose
+   * the same way for a seed.
+   */
+  const passives: RelicPassive[] = [];
+  for (const def of relicTable.all()) {
+    if (held.includes(def.id) && def.passive !== undefined) passives.push(def.passive);
+  }
+  for (const def of implantTable.all()) {
+    const count = fitted.filter((id) => id === def.id).length;
+    for (let i = 0; i < Math.min(count, def.maxStacks); i++) passives.push(def.passive);
+  }
 
   let rules = NO_PILOT_RULES;
-  for (const def of relicTable.all()) {
-    if (!held.includes(def.id)) continue;
-    const passive = def.passive;
-    if (passive === undefined) continue;
+  for (const passive of passives) {
     rules = {
       energyPerTurn: rules.energyPerTurn + (passive.energyPerTurn ?? 0),
       drawPerTurn: rules.drawPerTurn + (passive.drawPerTurn ?? 0),

@@ -118,13 +118,17 @@ describe('passives reach the number they modify', () => {
 });
 
 describe('where relics come from', () => {
-  it('offers three at an act finale and none anywhere else', () => {
+  it('offers three at an Elite and at an act finale, and none from a normal fight', () => {
+    // Elites drop one *because* the first relic used to arrive at the end of
+    // Act 1 — so for the whole first act the player was the same character they
+    // started as, with a deck that had only got bigger. This assertion is the
+    // power curve's floor: if it ever goes back to boss-only, that returns.
     const state = applyAction(createInitialState('RELICS'), { kind: 'beginRun' });
     const run = state.run;
     if (run === null) throw new Error('test: no run');
 
     expect(rollRelics(run.rng, run, 'combat').relicIds).toEqual([]);
-    expect(rollRelics(run.rng, run, 'elite').relicIds).toEqual([]);
+    expect(rollRelics(run.rng, run, 'elite').relicIds).toHaveLength(REWARDS.relicChoices);
     expect(rollRelics(run.rng, run, 'boss').relicIds).toHaveLength(REWARDS.relicChoices);
   });
 

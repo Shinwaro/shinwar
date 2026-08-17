@@ -17,8 +17,10 @@ import { describeCard, describeCost } from '../../engine/combat/describe.ts';
 import { currentDepth, currentSeed, depthRules } from '../../engine/queries.ts';
 import {
   masteries as masteryTable,
+  implants as implantTable,
   relics as relicTable,
 } from '../../content/registry.ts';
+import { describeImplant } from '../../engine/run/describe.ts';
 import { button, el } from '../dom.ts';
 import { renderManifest } from '../components/manifest.ts';
 
@@ -87,6 +89,28 @@ function build(
 
     // Relics are the run's power curve. They belong high on the panel, not
     // under a deck list you have to scroll past.
+    /* Implants sit with the relics: from the player's side they are the same
+       thing — permanent passives already working — and splitting them across
+       two panels would only make you check twice. */
+    run.pilot.implants.length === 0
+      ? null
+      : el('section', { class: 'pause-section' }, [
+          el('h2', { class: 'pause-heading' }, [`Implants (${run.pilot.implants.length})`]),
+          el(
+            'ul',
+            { class: 'mastery-list' },
+            [...new Set(run.pilot.implants)].map((id) => {
+              const def = implantTable.find(id);
+              if (def === undefined) return null;
+              const count = run.pilot.implants.filter((held) => held === id).length;
+              return el('li', { class: 'mastery-line', 'data-rarity': def.rarity }, [
+                el('span', { class: 'mastery-name' }, [count > 1 ? `${def.name} x${count}` : def.name]),
+                el('span', { class: 'mastery-text' }, [describeImplant(def)]),
+              ]);
+            }),
+          ),
+        ]),
+
     run.pilot.relics.length === 0
       ? null
       : el('section', { class: 'pause-section' }, [

@@ -44,7 +44,11 @@ export type Action =
   | { readonly kind: 'stationRepair'; readonly amount: number }
   | { readonly kind: 'buyShopCard'; readonly cardId: string }
   | { readonly kind: 'buyRemoval'; readonly cardUid: string }
+  /** The forge: Alloy for an upgrade, one per Station. */
+  | { readonly kind: 'buyForge'; readonly cardUid: string }
   | { readonly kind: 'buyMastery'; readonly masteryId: string }
+  /** Fit an implant. Permanent, and stackable up to its cap. */
+  | { readonly kind: 'buyImplant'; readonly implantId: string }
   | { readonly kind: 'leaveNode' }
   /* -- run -- */
   | { readonly kind: 'abandonRun' }

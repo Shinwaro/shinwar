@@ -23,21 +23,21 @@ export const ACT1_ENEMIES: readonly EnemyDef[] = [
   {
     id: SCRAP_HOUND,
     name: 'Scrap Hound',
-    maxHp: 30,
+    maxHp: 26,
     act: 1,
     tier: 'normal',
     moves: [
       {
         id: 'bite',
         label: 'Bite',
-        intent: [{ kind: 'attack', amount: 9, times: 1, label: 'Bite' }],
-        effects: [{ op: 'damage', amount: 9, target: 'enemy' }],
+        intent: [{ kind: 'attack', amount: 6, times: 1, label: 'Bite' }],
+        effects: [{ op: 'damage', amount: 6, target: 'enemy' }],
       },
       {
         id: 'snap',
         label: 'Snap',
-        intent: [{ kind: 'attack', amount: 4, times: 2, label: 'Snap' }],
-        effects: [{ op: 'damage', amount: 4, target: 'enemy', times: 2 }],
+        intent: [{ kind: 'attack', amount: 3, times: 2, label: 'Snap' }],
+        effects: [{ op: 'damage', amount: 3, target: 'enemy', times: 2 }],
       },
     ],
     script: {
@@ -54,15 +54,15 @@ export const ACT1_ENEMIES: readonly EnemyDef[] = [
   {
     id: LATHE_DRONE,
     name: 'Lathe Drone',
-    maxHp: 36,
+    maxHp: 30,
     act: 1,
     tier: 'normal',
     moves: [
       {
         id: 'strike',
         label: 'Strike',
-        intent: [{ kind: 'attack', amount: 7, times: 1, label: 'Strike' }],
-        effects: [{ op: 'damage', amount: 7, target: 'enemy' }],
+        intent: [{ kind: 'attack', amount: 6, times: 1, label: 'Strike' }],
+        effects: [{ op: 'damage', amount: 6, target: 'enemy' }],
       },
       {
         id: 'plate',
@@ -84,7 +84,7 @@ export const ACT1_ENEMIES: readonly EnemyDef[] = [
   {
     id: CINDER_WISP,
     name: 'Cinder Wisp',
-    maxHp: 22,
+    maxHp: 20,
     act: 1,
     tier: 'normal',
     moves: [
@@ -92,11 +92,11 @@ export const ACT1_ENEMIES: readonly EnemyDef[] = [
         id: 'ignite',
         label: 'Ignite',
         intent: [
-          { kind: 'attack', amount: 5, times: 1, label: 'Ignite' },
+          { kind: 'attack', amount: 4, times: 1, label: 'Ignite' },
           { kind: 'debuff', amount: 2, times: 1, label: 'Heat +2' },
         ],
         effects: [
-          { op: 'damage', amount: 5, target: 'enemy' },
+          { op: 'damage', amount: 4, target: 'enemy' },
           { op: 'gainHeat', amount: 2 },
         ],
       },

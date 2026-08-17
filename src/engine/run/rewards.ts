@@ -146,13 +146,24 @@ export function rollReward(
  * thing that happened to you — which is what a granted Stance Mastery was. The
  * Masteries are still in the game; they moved to the Station, where wanting one
  * costs you the Alloy you were going to spend on something else.
+ *
+ * **Elites drop one too, and that is the whole power curve.** They used to be
+ * boss-only, which meant the first relic in a run arrived at the *end* of Act 1
+ * — so for the entire first act the player was the same character they started
+ * as, with a deck that had only got bigger. A bigger deck is not progression; it
+ * is usually the opposite. Relics are the only thing in the game that changes
+ * what a turn can do (an Energy, a card, 3 Block, +2 on every attack), so they
+ * have to start arriving early enough to build on.
+ *
+ * This is also what finally makes routing into an Elite a decision rather than a
+ * tax. `chooseNode` in the simulator now has something real to weigh.
  */
 export function rollRelics(
   rng: RngState,
   run: RunState,
   tier: 'combat' | 'elite' | 'boss',
 ): { readonly relicIds: readonly RelicId[]; readonly rng: RngState } {
-  if (tier !== 'boss') return { relicIds: [], rng };
+  if (tier === 'combat') return { relicIds: [], rng };
 
   const rarityWeights = RARITY_WEIGHTS[run.act];
   const pool = relicTable.all().filter((def) => !run.pilot.relics.includes(def.id));

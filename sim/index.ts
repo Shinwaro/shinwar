@@ -29,7 +29,7 @@
 
 import { loadContent } from '../src/content/index.ts';
 import { contentCounts, validateContent, cards as cardTable } from '../src/content/registry.ts';
-import { TARGETS } from '../src/content/balance.ts';
+import { PLAYER, TARGETS } from '../src/content/balance.ts';
 import { playRun, type RunReport } from './bot.ts';
 
 function flag(name: string, fallback: number): number {
@@ -124,6 +124,52 @@ console.log(
 );
 const neverOverheated = played.filter((report) => report.overheats === 0).length;
 console.log(`runs that never overheated  ${pct(neverOverheated, played.length)}`);
+
+/* Where the health actually goes. A total says attrition is too high; this says
+   which encounter is spending it, which is the number you can act on. */
+const lost = new Map<string, number>();
+const fights = new Map<string, number>();
+for (const report of played) {
+  for (const [kind, amount] of Object.entries(report.lostBy)) {
+    lost.set(kind, (lost.get(kind) ?? 0) + amount);
+  }
+  for (const [kind, count] of Object.entries(report.fightsBy)) {
+    fights.set(kind, (fights.get(kind) ?? 0) + count);
+  }
+}
+const totalLost = [...lost.values()].reduce((a, b) => a + b, 0);
+console.log('\nhealth spent, by what spent it:');
+for (const [kind, amount] of [...lost.entries()].sort((a, b) => b[1] - a[1])) {
+  const count = fights.get(kind) ?? 0;
+  const each = count === 0 ? '' : `  ${(amount / count).toFixed(1)} each over ${count}`;
+  console.log(`  ${kind.padEnd(12)} ${pct(amount, totalLost)} of all health lost${each}`);
+}
+
+/* ---------- the power curve ----------
+   The question Robin actually asked: does the character change between the
+   first fight and the first boss? A deck that grows while nothing else moves is
+   the shape of "you are the same character". */
+
+console.log('\n--- the power curve, at the end of a run ---');
+console.log(`relics held     ${median(played.map((r) => r.relics)).toFixed(1)}`);
+console.log(`implants fitted ${median(played.map((r) => r.implants)).toFixed(1)}`);
+console.log(`masteries       ${median(played.map((r) => r.masteries)).toFixed(1)}`);
+console.log(
+  `deck size       ${median(played.map((r) => r.deckSize)).toFixed(0)}   (starts at ${PLAYER.startingDeckSize})`,
+);
+console.log(`cards forged    ${median(played.map((r) => r.upgraded)).toFixed(1)}`);
+console.log(
+  `max health      ${median(played.map((r) => r.maxHealth)).toFixed(0)}   (starts at ${PLAYER.maxHealth})`,
+);
+
+const reachedAct2 = played.filter((r) => r.actReached >= 2);
+if (reachedAct2.length > 0) {
+  console.log(
+    `  of runs reaching Act 2: ${median(reachedAct2.map((r) => r.relics)).toFixed(1)} relics, ` +
+      `${median(reachedAct2.map((r) => r.upgraded)).toFixed(1)} forged, ` +
+      `deck ${median(reachedAct2.map((r) => r.deckSize)).toFixed(0)}`,
+  );
+}
 
 /* ---------- cards ----------
    Offered against taken is the pick rate; win rate is measured over the runs

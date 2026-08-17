@@ -19,7 +19,14 @@ import { applyRunEffects } from './effects.ts';
 import { clearEvent, openEvent } from './events.ts';
 import { advanceThreads, dueThreads, resolveThread } from './threads.ts';
 import { stockShop } from './shop.ts';
-import { ECONOMY, PLAYER, TREASURE_ALLOY, UNKNOWN_WEIGHTS, WAVEFRONT } from '../../content/balance.ts';
+import {
+  BOSS_MAX_HEALTH,
+  ECONOMY,
+  PLAYER,
+  TREASURE_ALLOY,
+  UNKNOWN_WEIGHTS,
+  WAVEFRONT,
+} from '../../content/balance.ts';
 import { CLEAR_SPACE_ID } from '../../content/environments.ts';
 import { cards as cardTable, relics as relicTable } from '../../content/registry.ts';
 
@@ -58,12 +65,20 @@ export function advanceAct(state: GameState): GameState {
   if (run.act >= 3) return state;
   const act = (run.act + 1) as 1 | 2 | 3;
 
+  // Beating an act is worth something permanent. A card reward can be diluted
+  // by the deck it joins; this cannot, and it is the one progression beat that
+  // reads as "I am more than I was" rather than "I have more than I had".
   const moved = withRun(state, (current) => ({
     ...current,
     act,
     combat: null,
     pendingReward: null,
     forcedTier: null,
+    pilot: {
+      ...current.pilot,
+      maxHealth: current.pilot.maxHealth + BOSS_MAX_HEALTH,
+      health: current.pilot.health + BOSS_MAX_HEALTH,
+    },
   }));
 
   return appendLog(openMap(moved), {
@@ -174,7 +189,7 @@ function resolveNode(state: GameState, node: MapNode): GameState {
       return openCombat(state, node);
 
     case 'safe':
-      return withRun(state, (run) => ({ ...run, screen: 'safe' }));
+      return openSafePlanet(state);
 
     case 'station':
       return withRun(stockShop(state, node.id), (run) => ({ ...run, screen: 'station' }));
@@ -445,6 +460,39 @@ export function takeRewardRelic(state: GameState, relicId: string): GameState {
    decisions Slay the Spire makes and it costs nothing to implement. */
 
 export type SafeChoice = 'heal' | 'upgrade' | 'remove' | 'trade';
+
+/**
+ * Arriving at a Safe Planet rests you, and *then* you choose what to improve.
+ *
+ * The menu used to include the rest, which made it "heal or upgrade" — and a
+ * player who is hurt always heals. So in practice the forge and the strip were
+ * offered constantly and taken almost never: the simulator had runs ending with
+ * a 23-card deck and exactly one card forged. A deck that only grows is not
+ * progression, it is dilution, and the choice that produced it was a false one.
+ *
+ * The rest is now the price of admission and the decision is what you do with
+ * the stop. Same node, and the interesting half of it survives.
+ */
+export function openSafePlanet(state: GameState): GameState {
+  const run = requireRun(state);
+  const amount = Math.floor(run.pilot.maxHealth * ECONOMY.safePlanetHealPct);
+  const healed = Math.min(run.pilot.maxHealth, run.pilot.health + amount);
+  const gained = healed - run.pilot.health;
+
+  const rested = withRun(state, (current) => ({
+    ...current,
+    pilot: { ...current.pilot, health: healed },
+    screen: 'safe' as const,
+  }));
+
+  if (gained === 0) return rested;
+  return appendLog(rested, {
+    source: 'safe',
+    kind: 'run',
+    text: `Rested. Health ${healed}/${run.pilot.maxHealth}.`,
+    detail: { healed: gained },
+  });
+}
 
 export function safePlanetHeal(state: GameState): GameState {
   const run = requireRun(state);

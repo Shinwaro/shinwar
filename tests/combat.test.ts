@@ -79,16 +79,16 @@ describe('intents', () => {
   });
 
   it('shows the number that will actually land, not the raw one', () => {
-    // The Lathe Drone's Strike is 7. Vulnerable on the player makes it 10, and
-    // the telegraph must say 10 — freezing the number instead of the choice is
-    // exactly how "it said 7" happens.
+    // The Lathe Drone's Strike is 6. Vulnerable on the player makes it 9, and
+    // the telegraph must say 9 — freezing the number instead of the choice is
+    // exactly how "it said 6" happens.
     const clean = telegraphAll(makeFight({ enemyIds: ['lathe_drone'] }));
     const vulnerable = telegraphAll(
       makeFight({ enemyIds: ['lathe_drone'], playerStatuses: [{ status: VULNERABLE, stacks: 1, fresh: false }] }),
     );
 
-    expect(intentOf(clean, firstEnemy(clean))[0]?.amount).toBe(7);
-    expect(intentOf(vulnerable, firstEnemy(vulnerable))[0]?.amount).toBe(10);
+    expect(intentOf(clean, firstEnemy(clean))[0]?.amount).toBe(6);
+    expect(intentOf(vulnerable, firstEnemy(vulnerable))[0]?.amount).toBe(9);
   });
 
   it('telegraphs multi-hit as times x amount', () => {
@@ -96,8 +96,8 @@ describe('intents', () => {
     const telegraphed = telegraphAll(state);
     const hit = intentOf(telegraphed, firstEnemy(telegraphed))[0];
     expect(hit).toBeDefined();
-    if (hit?.times === 2) expect(hit.amount).toBe(4);
-    else expect(hit?.amount).toBe(9);
+    if (hit?.times === 2) expect(hit.amount).toBe(3);
+    else expect(hit?.amount).toBe(6);
   });
 
   it('runs a sequence script in order, every time', () => {

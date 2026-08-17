@@ -25,6 +25,7 @@ export type EncounterId = string;
 export type EnvironmentId = string;
 export type MasteryId = string;
 export type RelicId = string;
+export type ImplantId = string;
 export type StatusId = string;
 export type ThreadId = string;
 
@@ -368,6 +369,36 @@ export interface RelicDef {
   readonly flavor?: string;
 }
 
+/**
+ * An implant. A relic you buy, and one you can buy twice.
+ *
+ * Relics are found; implants are *aimed at*. That is the whole reason both
+ * exist: Alloy used to convert into a card, one forge, one removal and a rare
+ * Mastery, so it piled up and the pilot never got faster or hit harder. An
+ * implant is what saving three fights' worth of Alloy is for, and the big three
+ * — an Energy, a card, damage on every attack — change how many cards a turn you
+ * get to play rather than adding another card to draw.
+ *
+ * Same declared-passive machinery as a relic, so  aggregates both
+ * and nothing downstream knows the difference.
+ */
+export interface ImplantDef {
+  readonly id: ImplantId;
+  readonly name: string;
+  readonly rarity: Rarity;
+  readonly price: number;
+  readonly passive: RelicPassive;
+  /**
+   * How many times one run may fit this.
+   *
+   * Stacking is the point for the small ones — two Honed Edges is +4 on every
+   * attack, and that is a build. The run-definers are capped at one so a pile of
+   * Alloy cannot simply buy six Energy.
+   */
+  readonly maxStacks: number;
+  readonly flavor?: string;
+}
+
 export interface MasteryDef {
   readonly id: MasteryId;
   readonly name: string;
@@ -610,8 +641,13 @@ export interface PilotState {
   readonly maxHealth: number;
   readonly deck: readonly CardInstance[];
   readonly masteries: readonly MasteryId[];
-  /** Passive items. The only thing in the game that raises Energy or draw. */
+  /** Passive items, found. */
   readonly relics: readonly RelicId[];
+  /**
+   * Passive items, bought. Repeats are meaningful — this is a list, not a set,
+   * because two of the same implant stack up to its .
+   */
+  readonly implants: readonly ImplantId[];
 }
 
 export type RunOutcome = 'won' | 'died' | 'abandoned';
@@ -691,6 +727,24 @@ export interface ShopState {
   readonly masteryId: MasteryId | null;
   readonly masteryPrice: number;
   readonly masterySold: boolean;
+  /**
+   * The forge: Alloy for a card upgrade, one per Station.
+   *
+   * The Safe Planet was the only place a card could be improved, and it made
+   * you choose between that and healing — so in practice nobody ever forged and
+   * the deck only ever got bigger. A bigger deck is not progression. This is the
+   * second source, and it costs the Alloy you were going to spend elsewhere.
+   */
+  readonly forgePrice: number;
+  readonly forgeUsed: boolean;
+  /** The implant shelf. What Alloy is actually for. */
+  readonly implants: readonly ShopImplantStock[];
+}
+
+export interface ShopImplantStock {
+  readonly implantId: ImplantId;
+  readonly price: number;
+  readonly sold: boolean;
 }
 
 /** What the player is looking at between fights. */

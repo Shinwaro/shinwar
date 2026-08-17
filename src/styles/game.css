@@ -2040,3 +2040,29 @@
   width: 100%;
   max-width: 32rem;
 }
+
+/* ---------- implants ----------
+   The Alloy sink. Styled like a card lot rather than a list row: you are
+   comparing two of these against each other and against a card, so they need
+   the same visual weight as the thing they are competing with. */
+
+.implant-card {
+  display: grid;
+  gap: 0.35rem;
+  align-content: start;
+  min-height: 7rem;
+  padding: 0.7rem;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--surface-solid);
+}
+
+/* What you already carry. A cap you are approaching is a decision, so it says
+   so rather than only refusing the purchase at the last one. */
+.implant-held {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+}

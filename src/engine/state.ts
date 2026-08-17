@@ -61,6 +61,7 @@ export function createRunState(seed: string, depth: number): RunState {
       deck: built.deck,
       masteries: [],
       relics: [],
+      implants: [],
     },
     threads: [],
     pendingEvent: null,

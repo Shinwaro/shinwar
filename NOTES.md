@@ -1213,3 +1213,93 @@ Content is at 41 cards, 20 enemies, 10 events against targets of ~85, ~28 and
 ~35. `CONTENT.md` is written, which is the thing that makes that scale-up cheap.
 `BALANCE.md` waits on the tuning pass, since it is meant to record why each
 number is what it is and right now the honest answer is "untested".
+
+## M6, part two — the power curve, because the numbers were never the problem
+
+Robin, after four passes of me tuning enemies down: *"The root of the issue is
+that the character doesn't get enough progression through meaningful upgrades.
+Nothing changes from the start to the first boss. You're the same character."*
+
+That was the correct diagnosis and mine was not. I had been lowering enemy
+numbers to meet a player who never got stronger, which is treating a symptom and
+guarantees the game gets easier without ever getting better.
+
+### The measurement that settled it
+
+The simulator was asked to report the curve directly, and it said:
+
+| | start | end of a run |
+|---|---|---|
+| deck size | 12 | **23** |
+| cards forged | 0 | **1.0** |
+| relics | 0 | 2.0 |
+| masteries | 0 | **0.0** |
+
+The deck nearly doubled and **one card in twenty-three** was ever improved.
+Masteries never happened at all. So the only thing that reliably "progressed"
+was the number of cards competing to be drawn — which is dilution, not power.
+Nothing else moved.
+
+### What was actually wrong, in four places
+
+**Relics were boss-only.** The first one arrived at the *end* of Act 1, so for
+the entire first act you were the character you started as. They now drop from
+Elites too, which is also the first time routing into an Elite has been worth
+anything.
+
+**The Safe Planet asked a false question.** "Rest, or forge, or strip" is only a
+decision if you can afford to say no to resting, and a hurt player never can. So
+the forge and the strip were offered constantly and taken almost never. The rest
+is now automatic on arrival and the menu is what you *improve*. Same node, and
+the interesting half survives.
+
+**Alloy did not convert into power.** It bought a card, one forge, one removal
+and a Mastery priced at 220 that nobody could reach. So it piled up.
+
+**Nothing raised Energy or draw.** Those are the two numbers that change how many
+cards a turn you get to play, and only three relics touched them — from a pool
+you saw twice a run.
+
+### Implants
+
+A second item class, and the distinction from relics is the point: **relics are
+found, implants are aimed at.** They use the same declared-passive machinery, so
+`pilotRules()` aggregates both and nothing downstream knows the difference.
+
+Sold on a Station shelf, two slots, and stackable — counted with multiplicity, so
+two Honed Edges really is +4 on every attack for the rest of the run. That is why
+`pilot.implants` is a list and not a set. The three run-definers are capped at one
+each (an Energy, a card drawn, damage on every attack) so a pile of Alloy cannot
+simply buy six Energy; the cheap ones stack to three or four, and choosing two of
+those over one Reactor Tuning is a build.
+
+Their text is **generated** from the passive by `describeImplant()`. A permanent
+purchase being compared against two others has to say exactly what it will do,
+and a hand-written line goes stale the day someone tunes the number.
+
+Also: bosses now grant +8 max health on the way into the next act — the one
+progression beat a card reward cannot dilute — and Station and Safe Planet node
+weights went up, because at 5 and 4 a player could cross a whole act meeting
+neither.
+
+### Where it landed
+
+Across the whole session, at 300 runs:
+
+| | before | after |
+|---|---|---|
+| runs ending in Act 1 | 86% | **22%** |
+| reach Act 3 | 1% | **24%** |
+| win rate | 0% | 4% |
+| cards forged | — | 2.0 |
+| implants fitted | — | 1.0 |
+
+Act 2 is the wall now (55% end there), and the win rate is still far under the
+40-55% target. But the shape is right for the first time: the character arrives
+at Act 2 measurably different from the one that started, which was the actual
+complaint.
+
+**Still thin, and worth saying:** one implant a run is not much of a curve — the
+constraint is Station frequency and Alloy income, not the shelf. Masteries are
+still at zero even after dropping to 170. And the deck still grows to 24, which
+means removal is not keeping up with rewards.

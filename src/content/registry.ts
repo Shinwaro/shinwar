@@ -18,6 +18,7 @@ import type {
   EnvironmentDef,
   EventDef,
   MasteryDef,
+  ImplantDef,
   RelicDef,
   RunEffect,
   StatusDef,
@@ -76,12 +77,13 @@ export const events = createTable<EventDef>('event');
 export const environments = createTable<EnvironmentDef>('environment');
 export const masteries = createTable<MasteryDef>('mastery');
 export const relics = createTable<RelicDef>('relic');
+export const implants = createTable<ImplantDef>('implant');
 export const threads = createTable<ThreadDef>('thread');
 export const statuses = createTable<StatusDef>('status');
 
 /** Tests only. The game registers once at import and never clears. */
 export function clearAllContent(): void {
-  for (const table of [cards, enemies, events, environments, masteries, relics, threads, statuses]) {
+  for (const table of [cards, enemies, events, environments, masteries, relics, implants, threads, statuses]) {
     table.clear();
   }
 }
@@ -460,6 +462,7 @@ export function contentCounts(): Readonly<Record<string, number>> {
     environments: environments.all().length,
     masteries: masteries.all().length,
     relics: relics.all().length,
+    implants: implants.all().length,
     threads: threads.all().length,
     statuses: statuses.all().length,
   };

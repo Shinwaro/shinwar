@@ -31,15 +31,15 @@ export const ACT2_ENEMIES: readonly EnemyDef[] = [
   {
     id: SABLE_DRIFTER,
     name: 'Sable Drifter',
-    maxHp: 58,
+    maxHp: 46,
     act: 2,
     tier: 'normal',
     moves: [
       {
         id: 'lunge',
         label: 'Lunge',
-        intent: [{ kind: 'attack', amount: 16, times: 1, label: 'Lunge' }],
-        effects: [{ op: 'damage', amount: 16, target: 'enemy' }],
+        intent: [{ kind: 'attack', amount: 13, times: 1, label: 'Lunge' }],
+        effects: [{ op: 'damage', amount: 13, target: 'enemy' }],
       },
       {
         id: 'drift',
@@ -55,7 +55,7 @@ export const ACT2_ENEMIES: readonly EnemyDef[] = [
   {
     id: ARC_WELDER,
     name: 'Arc Welder',
-    maxHp: 72,
+    maxHp: 56,
     act: 2,
     tier: 'normal',
     moves: [
@@ -69,19 +69,19 @@ export const ACT2_ENEMIES: readonly EnemyDef[] = [
         id: 'arc',
         label: 'Arc',
         intent: [
-          { kind: 'attack', amount: 6, times: 2, label: 'Arc' },
+          { kind: 'attack', amount: 5, times: 2, label: 'Arc' },
           { kind: 'debuff', amount: 2, times: 1, label: 'Heat +2' },
         ],
         effects: [
-          { op: 'damage', amount: 6, target: 'enemy', times: 2 },
+          { op: 'damage', amount: 5, target: 'enemy', times: 2 },
           { op: 'gainHeat', amount: 2 },
         ],
       },
       {
         id: 'grind',
         label: 'Grind',
-        intent: [{ kind: 'attack', amount: 13, times: 1, label: 'Grind' }],
-        effects: [{ op: 'damage', amount: 13, target: 'enemy' }],
+        intent: [{ kind: 'attack', amount: 11, times: 1, label: 'Grind' }],
+        effects: [{ op: 'damage', amount: 11, target: 'enemy' }],
       },
     ],
     script: { kind: 'sequence', moves: ['seal', 'arc', 'grind'] },
@@ -91,7 +91,7 @@ export const ACT2_ENEMIES: readonly EnemyDef[] = [
   {
     id: ASH_CHOIR,
     name: 'Ash Choir',
-    maxHp: 46,
+    maxHp: 38,
     act: 2,
     tier: 'normal',
     moves: [
@@ -105,11 +105,11 @@ export const ACT2_ENEMIES: readonly EnemyDef[] = [
         id: 'dirge',
         label: 'Dirge',
         intent: [
-          { kind: 'attack', amount: 8, times: 1, label: 'Dirge' },
+          { kind: 'attack', amount: 7, times: 1, label: 'Dirge' },
           { kind: 'debuff', amount: 1, times: 1, label: 'Weak 1' },
         ],
         effects: [
-          { op: 'damage', amount: 8, target: 'enemy' },
+          { op: 'damage', amount: 7, target: 'enemy' },
           { op: 'applyStatus', status: WEAK, stacks: 1, target: 'enemy' },
         ],
       },
@@ -121,15 +121,15 @@ export const ACT2_ENEMIES: readonly EnemyDef[] = [
   {
     id: VOID_RONIN,
     name: 'Void Ronin',
-    maxHp: 64,
+    maxHp: 52,
     act: 2,
     tier: 'normal',
     moves: [
       {
         id: 'draw_cut',
         label: 'Draw Cut',
-        intent: [{ kind: 'attack', amount: 18, times: 1, label: 'Draw Cut' }],
-        effects: [{ op: 'damage', amount: 18, target: 'enemy' }],
+        intent: [{ kind: 'attack', amount: 15, times: 1, label: 'Draw Cut' }],
+        effects: [{ op: 'damage', amount: 15, target: 'enemy' }],
       },
       {
         id: 'guard_form',
@@ -159,7 +159,7 @@ export const ACT2_ENEMIES: readonly EnemyDef[] = [
   {
     id: IRON_PROCESSION,
     name: 'Iron Procession',
-    maxHp: 148,
+    maxHp: 122,
     act: 2,
     tier: 'elite',
     moves: [
@@ -167,11 +167,11 @@ export const ACT2_ENEMIES: readonly EnemyDef[] = [
         id: 'advance',
         label: 'Advance',
         intent: [
-          { kind: 'attack', amount: 11, times: 2, label: 'Advance' },
+          { kind: 'attack', amount: 9, times: 2, label: 'Advance' },
           { kind: 'block', amount: 12, times: 1, label: 'Plate 12' },
         ],
         effects: [
-          { op: 'damage', amount: 11, target: 'enemy', times: 2 },
+          { op: 'damage', amount: 9, target: 'enemy', times: 2 },
           { op: 'block', amount: 12 },
         ],
       },
@@ -179,11 +179,11 @@ export const ACT2_ENEMIES: readonly EnemyDef[] = [
         id: 'toll',
         label: 'Toll',
         intent: [
-          { kind: 'attack', amount: 24, times: 1, label: 'Toll' },
+          { kind: 'attack', amount: 20, times: 1, label: 'Toll' },
           { kind: 'debuff', amount: 2, times: 1, label: 'Vulnerable 2' },
         ],
         effects: [
-          { op: 'damage', amount: 24, target: 'enemy' },
+          { op: 'damage', amount: 20, target: 'enemy' },
           { op: 'applyStatus', status: VULNERABLE, stacks: 2, target: 'enemy' },
         ],
       },
@@ -207,7 +207,7 @@ export const ACT2_ENEMIES: readonly EnemyDef[] = [
   {
     id: SIPHON_ENGINE,
     name: 'Siphon Engine',
-    maxHp: 136,
+    maxHp: 114,
     act: 2,
     tier: 'elite',
     moves: [
@@ -215,19 +215,19 @@ export const ACT2_ENEMIES: readonly EnemyDef[] = [
         id: 'draw_off',
         label: 'Draw Off',
         intent: [
-          { kind: 'attack', amount: 14, times: 1, label: 'Draw Off' },
+          { kind: 'attack', amount: 11, times: 1, label: 'Draw Off' },
           { kind: 'debuff', amount: 3, times: 1, label: 'Heat +3' },
         ],
         effects: [
-          { op: 'damage', amount: 14, target: 'enemy' },
+          { op: 'damage', amount: 11, target: 'enemy' },
           { op: 'gainHeat', amount: 3 },
         ],
       },
       {
         id: 'overpressure',
         label: 'Overpressure',
-        intent: [{ kind: 'attack', amount: 9, times: 3, label: 'Overpressure' }],
-        effects: [{ op: 'damage', amount: 9, target: 'enemy', times: 3 }],
+        intent: [{ kind: 'attack', amount: 7, times: 3, label: 'Overpressure' }],
+        effects: [{ op: 'damage', amount: 7, target: 'enemy', times: 3 }],
       },
       {
         id: 'bank',
@@ -254,7 +254,7 @@ export const ACT2_ENEMIES: readonly EnemyDef[] = [
   {
     id: WAVEFRONT_HERALD,
     name: 'Herald of the Front',
-    maxHp: 238,
+    maxHp: 150,
     act: 2,
     tier: 'boss',
     moves: [
@@ -262,11 +262,11 @@ export const ACT2_ENEMIES: readonly EnemyDef[] = [
         id: 'shockfall',
         label: 'Shockfall',
         intent: [
-          { kind: 'attack', amount: 12, times: 3, label: 'Shockfall' },
+          { kind: 'attack', amount: 10, times: 3, label: 'Shockfall' },
           { kind: 'debuff', amount: 2, times: 1, label: 'Heat +2' },
         ],
         effects: [
-          { op: 'damage', amount: 12, target: 'enemy', times: 3 },
+          { op: 'damage', amount: 10, target: 'enemy', times: 3 },
           { op: 'gainHeat', amount: 2 },
         ],
       },
@@ -286,11 +286,11 @@ export const ACT2_ENEMIES: readonly EnemyDef[] = [
         id: 'arrival',
         label: 'Arrival',
         intent: [
-          { kind: 'attack', amount: 34, times: 1, label: 'Arrival' },
+          { kind: 'attack', amount: 28, times: 1, label: 'Arrival' },
           { kind: 'buff', amount: 2, times: 1, label: 'Strength +2' },
         ],
         effects: [
-          { op: 'damage', amount: 34, target: 'enemy' },
+          { op: 'damage', amount: 28, target: 'enemy' },
           { op: 'applyStatus', status: STRENGTH, stacks: 2, target: 'self' },
         ],
       },

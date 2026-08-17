@@ -179,7 +179,7 @@ export const ECONOMY = {
   /** Safe Planet: trade health for Alloy. */
   refuelHullCost: 8,
   refuelAlloyGain: 60,
-  safePlanetHealPct: 0.3,
+  safePlanetHealPct: 0.4,
 } as const;
 
 /* ---------- the Station ----------
@@ -192,6 +192,16 @@ export const ECONOMY = {
 
 export const SHOP = {
   cardSlots: 4,
+  /**
+   * Implants on the shelf. Two, so the choice is a choice and not a catalogue.
+   *
+   * This is the shelf that turns Alloy into power. Before it, money bought a
+   * card, one forge, one removal and a Mastery nobody could afford, so it piled
+   * up while the pilot never got faster or hit harder.
+   */
+  implantSlots: 2,
+  /** A card upgrade. Cheaper than a card — it makes what you have better. */
+  forgePrice: 75,
   cardPrice: {
     common: 50,
     uncommon: 80,
@@ -270,13 +280,20 @@ export const MAP = {
  * they conflict.
  */
 export const NODE_WEIGHTS = {
-  combat: 42,
+  combat: 36,
   unknown: 26,
   /** Anomalies. Signposted on the map, unlike a `?`. */
   event: 15,
-  elite: 8,
-  station: 5,
-  safe: 4,
+  /** Worth routing to now that an Elite drops a relic. */
+  elite: 10,
+  /**
+   * Stations and Safe Planets are where a deck gets *better* rather than
+   * bigger — the forge and the two ways to strip a card. At 5 and 4 a player
+   * could cross a whole act meeting neither, which is most of why nothing
+   * changed between the first fight and the first boss.
+   */
+  station: 7,
+  safe: 6,
 } as const;
 
 /** What a `?` turns into, rolled on the `events` stream when entered. */
@@ -321,6 +338,15 @@ export const RARITY_LABEL: { readonly [r in Rarity]: string } = {
   artifact: 'Artifact',
 };
 
+/**
+ * What beating an act is worth, on top of the relic.
+ *
+ * A permanent, legible "you are more than you were" — the one progression beat
+ * that is not a card and cannot be diluted by deck size. Applied on the way into
+ * the next act, so Act 3's boss does not grant it: there is no act after it.
+ */
+export const BOSS_MAX_HEALTH = 8;
+
 export const REWARDS = {
   cardChoices: 3,
   /** Relics offered at an act finale. You take one. */
@@ -351,9 +377,9 @@ export const MASTERY = {
    * be a thing you decide you want, and the price is that it comes out of the
    * same Alloy as the card, the module and the removal.
    */
-  price: 220,
+  price: 170,
   /** Chance a given Station has one on the shelf at all. */
-  shopChance: 0.45,
+  shopChance: 0.6,
 } as const;
 
 /* ---------- the Wavefront ----------
