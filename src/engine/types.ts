@@ -132,6 +132,11 @@ export interface CardDef {
   readonly upgrade: Partial<Pick<CardDef, 'cost' | 'effects' | 'stanceRider' | 'name'>>;
   readonly exhaust?: boolean;
   readonly innate?: boolean;
+  /**
+   * Handed out by one specific event or thread and never rolled. Keeps a card
+   * that is the whole point of a choice from also turning up in a shop.
+   */
+  readonly exclusive?: boolean;
   /** Hand-written. Rules text is NOT — `describeCard()` generates that. */
   readonly flavor?: string;
 }
@@ -144,8 +149,20 @@ export interface CardDef {
 
 export type ShipResource = 'heat' | 'energy' | 'singularity';
 
-/** What a module family does, for grouping and for adjacency rules. */
-export type ModuleKind = 'reactor' | 'converter' | 'emitter' | 'plating' | 'sensor' | 'drive';
+/**
+ * What a module family does, for grouping and for adjacency rules.
+ *
+ * `cargo` is the odd one: it does nothing and grants nothing. It exists so a
+ * Thread can charge you grid space for carrying something — see `ThreadDef`.
+ */
+export type ModuleKind =
+  | 'reactor'
+  | 'converter'
+  | 'emitter'
+  | 'plating'
+  | 'sensor'
+  | 'drive'
+  | 'cargo';
 
 /** A rectangle of grid cells, in cells. */
 export interface Footprint {
@@ -361,21 +378,66 @@ export interface StatusDef {
   readonly damageTakenMult?: number;
 }
 
+/* ---------- run-scope effects ----------
+   What an event option or a thread payoff does. Deliberately a SEPARATE
+   vocabulary from `EffectOp`: that one is combat-scoped and interpreted inside
+   a fight, this one moves the run. Sharing them would mean every card op had to
+   answer "and what does this do outside combat", which is how an op vocabulary
+   turns into a scripting language.
+
+   Same rule as cards, though: an event is data, never code, and the text the
+   player reads is GENERATED from these by `describeRunEffects()`. */
+
+export type RunEffect =
+  | { readonly op: 'alloy'; readonly amount: number }
+  /** The ronin. Negative can never take the last point — an event is not a death. */
+  | { readonly op: 'health'; readonly amount: number }
+  | { readonly op: 'maxHealth'; readonly amount: number }
+  /** The cutter. Repairable with Alloy, unlike a body. */
+  | { readonly op: 'hull'; readonly amount: number }
+  | { readonly op: 'card'; readonly cardId: CardId; readonly upgraded?: boolean }
+  | { readonly op: 'module'; readonly moduleId: ModuleId }
+  | { readonly op: 'upgradeRandomCard' }
+  | { readonly op: 'removeRandomCard' }
+  | { readonly op: 'setThread'; readonly threadId: ThreadId }
+  | { readonly op: 'resolveThread'; readonly threadId: ThreadId }
+  /** A fight that arrives instead of whatever the node was going to be. */
+  | { readonly op: 'ambush'; readonly tier: 'combat' | 'elite' };
+
 export interface EventOption {
   readonly id: string;
   readonly label: string;
+  /** Hand-written framing. The mechanical line underneath it is generated. */
+  readonly detail: string;
+  readonly effects: readonly RunEffect[];
+  /**
+   * Legible risk categories rather than hidden dice — the player should be able
+   * to tell what KIND of thing might happen, even when the amount is deferred.
+   */
+  readonly risk: string;
+  readonly payoff: string;
   /** `true` on the always-available, always-worthless "leave" option. */
   readonly isLeave?: boolean;
+  /** Only shown when the run already carries this thread. */
+  readonly requiresThread?: ThreadId;
 }
 
 export interface EventDef {
   readonly id: EventId;
   readonly name: string;
   readonly body: string;
+  /** Which acts it can appear in. Absent means all of them. */
+  readonly acts?: readonly (1 | 2 | 3)[];
   readonly options: readonly EventOption[];
 }
 
 export type ThreadTone = 'positive' | 'mixed' | 'costly';
+
+/** When a thread comes due. Counted in nodes entered since it was set. */
+export interface ThreadTrigger {
+  readonly kind: 'nodes';
+  readonly count: number;
+}
 
 export interface ThreadDef {
   readonly id: ThreadId;
@@ -383,6 +445,16 @@ export interface ThreadDef {
   /** What the Manifest panel shows. The player must always be able to see this. */
   readonly description: string;
   readonly tone: ThreadTone;
+  /** The category of what is coming. Never the exact payoff — see DESIGN.md §6. */
+  readonly omen: string;
+  readonly trigger: ThreadTrigger;
+  readonly payoff: readonly RunEffect[];
+  /**
+   * Cargo the thread occupies on the ship grid while it is unresolved. The
+   * spatial version of DESIGN.md's "-1 Power": you are carrying something, and
+   * the room it takes is the price.
+   */
+  readonly cargoModuleId?: ModuleId;
 }
 
 export interface MasteryDef {
@@ -597,6 +669,8 @@ export interface RunMap {
 export interface ThreadState {
   readonly threadId: ThreadId;
   readonly resolved: boolean;
+  /** Nodes entered since it was set. The trigger reads this. */
+  readonly progress: number;
 }
 
 /**
@@ -635,6 +709,44 @@ export interface RewardOffer {
   readonly alloyClaimed: boolean;
 }
 
+/**
+ * An Anomaly in progress. Two beats: read the situation and choose, then read
+ * what it cost you and move on. The second beat is why the choice is kept in
+ * state rather than resolved and discarded — an outcome you scroll past in the
+ * log is an outcome the player never connects to the decision.
+ */
+export interface PendingEvent {
+  readonly eventId: EventId;
+  readonly chosenOptionId: string | null;
+  /** What happened, in order, once an option is taken. */
+  readonly outcome: readonly string[];
+}
+
+export interface ShopCardStock {
+  readonly cardId: CardId;
+  readonly price: number;
+  readonly sold: boolean;
+}
+
+export interface ShopModuleStock {
+  readonly moduleId: ModuleId;
+  readonly price: number;
+  readonly sold: boolean;
+}
+
+/**
+ * A Station's stock. Rolled once on arrival and kept in state, so prices and
+ * inventory cannot shuffle under the player between two clicks.
+ */
+export interface ShopState {
+  readonly nodeId: string;
+  readonly cards: readonly ShopCardStock[];
+  readonly modules: readonly ShopModuleStock[];
+  /** Every Station stocks exactly one removal. The price rises per purchase. */
+  readonly removalPrice: number;
+  readonly removalUsed: boolean;
+}
+
 /** What the player is looking at between fights. */
 export type RunScreen =
   | 'map'
@@ -664,6 +776,18 @@ export interface RunState {
   readonly pilot: PilotState;
   readonly ship: ShipState;
   readonly threads: readonly ThreadState[];
+  /** The Anomaly on screen, if one is. */
+  readonly pendingEvent: PendingEvent | null;
+  /** Anomalies already spent this run. An event you see twice is not a story. */
+  readonly seenEvents: readonly EventId[];
+  /** The Station's stock, kept from arrival so it cannot reshuffle mid-visit. */
+  readonly shop: ShopState | null;
+  /**
+   * Set when a Thread throws a fight at you. The reward screen reads it instead
+   * of the node's type, so a reprisal pays what a reprisal is worth. Cleared
+   * the moment it is spent.
+   */
+  readonly forcedTier: 'combat' | 'elite' | 'boss' | null;
   readonly combat: CombatState | null;
   /** The other kind of fight. Never live at the same time as `combat`. */
   readonly shipCombat: ShipCombatState | null;

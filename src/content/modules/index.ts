@@ -136,6 +136,20 @@ export const MODULES: readonly ModuleDef[] = [
     grants: 'reposition',
     flavor: 'Hold still. Let the grid move instead.',
   },
+
+  /* ---- cargo: does nothing, costs room ----
+     A Thread's price, expressed spatially. `basic` rarity keeps it out of every
+     reward and shop roll — the only way onto your grid is to have agreed to
+     carry it. */
+  {
+    id: 'clutch_egg',
+    name: 'Vareth Clutch',
+    kind: 'cargo',
+    rarity: 'basic',
+    footprint: { w: 1, h: 1 },
+    effects: [],
+    flavor: 'Warm. Heavier than it looks. Occasionally, it moves.',
+  },
 ];
 
 /* ---- weapons: mounted, not on the grid ---- */

@@ -13,6 +13,7 @@ import { SHIP_ENEMIES } from './ships/index.ts';
 import { ENVIRONMENTS } from './environments.ts';
 import { MASTERIES } from './masteries.ts';
 import { STATUSES } from './statuses.ts';
+import { THREAD_DEFS } from './threads.ts';
 import {
   cards,
   clearAllContent,
@@ -26,10 +27,6 @@ import {
   weapons,
   threads,
 } from './registry.ts';
-import type { ThreadDef } from '../engine/types.ts';
-
-/** Threads arrive at M4 with the events that set them. */
-const THREAD_DEFS: readonly ThreadDef[] = [];
 
 let loaded = false;
 

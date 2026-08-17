@@ -21,6 +21,7 @@ import { environments } from '../../content/registry.ts';
 import { button, el, fill } from '../dom.ts';
 import { liveScreen } from '../screen.ts';
 import { renderRunBar } from '../components/runbar.ts';
+import { renderManifest } from '../components/manifest.ts';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -210,7 +211,14 @@ function buildMap(
     viewport.scrollTop = scroll.top;
   });
 
-  return el('div', { class: 'map-inner' }, [renderRunBar(store, state), readout, viewport]);
+  // The Manifest sits on the chart, not behind the pause key. What you are
+  // carrying is part of reading the route.
+  return el('div', { class: 'map-inner' }, [
+    renderRunBar(store, state),
+    readout,
+    renderManifest(state, 'Carrying'),
+    viewport,
+  ]);
 }
 
 function actLabel(map: RunMap): string {

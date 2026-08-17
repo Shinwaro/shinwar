@@ -7,7 +7,7 @@
  */
 
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { CardDef, EventDef, ThreadDef } from '../src/engine/types.ts';
+import type { CardDef, EventDef, EventOption, ThreadDef } from '../src/engine/types.ts';
 import {
   cards,
   clearAllContent,
@@ -38,13 +38,26 @@ function event(id: string, options: EventDef['options']): EventDef {
   return { id, name: id, body: 'A specific, named situation.', options };
 }
 
+function option(id: string, overrides: Partial<EventOption> = {}): EventOption {
+  return {
+    id,
+    label: id,
+    detail: 'What it looks like from here.',
+    effects: [{ op: 'alloy', amount: 10 }],
+    risk: 'Economic',
+    payoff: 'Immediate',
+    ...overrides,
+  };
+}
+
 const REAL_OPTIONS: EventDef['options'] = [
-  { id: 'power', label: 'Take the power' },
-  { id: 'money', label: 'Take the money' },
-  { id: 'safety', label: 'Take the safe way' },
+  // One of the three defers into a Thread — the validator insists on it.
+  option('power', { effects: [{ op: 'setThread', threadId: 'p1' }] }),
+  option('money'),
+  option('safety'),
 ];
 
-const LEAVE = { id: 'leave', label: 'Leave them', isLeave: true } as const;
+const LEAVE: EventOption = option('leave', { label: 'Leave them', effects: [], isLeave: true });
 
 beforeEach(() => {
   clearAllContent();
@@ -164,7 +177,25 @@ describe('card validation', () => {
   });
 });
 
+function thread(id: string, tone: ThreadDef['tone']): ThreadDef {
+  return {
+    id,
+    name: id,
+    description: 'It will matter later.',
+    tone,
+    omen: 'Something is coming.',
+    trigger: { kind: 'nodes', count: 4 },
+    payoff: [{ op: 'alloy', amount: 50 }],
+  };
+}
+
 describe('event validation', () => {
+  // The options below open Threads, so the pool has to exist and has to be in
+  // tone balance or the thread checks drown out what these tests are asserting.
+  beforeEach(() => {
+    threads.register([thread('p1', 'positive'), thread('m1', 'mixed'), thread('c1', 'costly')]);
+  });
+
   it('accepts three real options plus a leave', () => {
     events.register([event('good', [...REAL_OPTIONS, LEAVE])]);
     expect(validateContent()).toEqual([]);
@@ -185,12 +216,40 @@ describe('event validation', () => {
       problem: '0 "leave" options, needs exactly 1',
     });
   });
+
+  it('refuses to let "leave" pay anything', () => {
+    const paid = option('leave', { effects: [{ op: 'alloy', amount: 5 }], isLeave: true });
+    events.register([event('bribed', [...REAL_OPTIONS, paid])]);
+    expect(validateContent()).toContainEqual({
+      where: "event 'bribed'",
+      problem: '"leave" has effects — it must be genuinely worthless',
+    });
+  });
+
+  it('demands that something on the screen defers its consequence', () => {
+    events.register([event('flat', [option('a'), option('b'), option('c'), LEAVE])]);
+    expect(validateContent()).toContainEqual({
+      where: "event 'flat'",
+      problem: 'no option opens a Thread',
+    });
+  });
+
+  it('catches a run effect naming a card that does not exist', () => {
+    events.register([
+      event('ghostly', [
+        ...REAL_OPTIONS,
+        option('gift', { effects: [{ op: 'card', cardId: 'not_a_card' }] }),
+        LEAVE,
+      ]),
+    ]);
+    expect(validateContent()).toContainEqual({
+      where: "event 'ghostly' option 'gift'",
+      problem: "references unknown card 'not_a_card'",
+    });
+  });
 });
 
 describe('thread validation', () => {
-  function thread(id: string, tone: ThreadDef['tone']): ThreadDef {
-    return { id, name: id, description: 'It will matter later.', tone };
-  }
 
   it('accepts a pool near the target mix', () => {
     // 3 positive / 4 mixed / 3 costly — exactly 30/40/30.
@@ -223,10 +282,26 @@ describe('thread validation', () => {
   });
 
   it('demands a description, because the Manifest shows it', () => {
-    threads.register([{ id: 'silent', name: 'Silent', description: '  ', tone: 'mixed' }]);
+    threads.register([thread('silent', 'mixed'), { ...thread('quiet', 'mixed'), description: '  ' }]);
     expect(validateContent()).toContainEqual({
-      where: "thread 'silent'",
+      where: "thread 'quiet'",
       problem: 'blank description — the Manifest shows this',
+    });
+  });
+
+  it('demands an omen, because the category is the part the player is owed', () => {
+    threads.register([{ ...thread('blind', 'mixed'), omen: '' }]);
+    expect(validateContent()).toContainEqual({
+      where: "thread 'blind'",
+      problem: 'blank omen — the player is owed the category',
+    });
+  });
+
+  it('rejects a payoff that resolves into nothing', () => {
+    threads.register([{ ...thread('hollow', 'mixed'), payoff: [] }]);
+    expect(validateContent()).toContainEqual({
+      where: "thread 'hollow'",
+      problem: 'no payoff — a Thread that resolves into nothing is a lie',
     });
   });
 

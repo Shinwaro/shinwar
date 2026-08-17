@@ -550,3 +550,92 @@ Nothing is actually overflowing: the hand is a horizontal scroll-snap row, and C
 scroller's extent into the root's reported `scrollWidth`. `window.scrollTo(600, 0)` leaves `scrollX`
 at 0, and no unclipped element exceeds the viewport. Check whether the page actually scrolls before
 chasing this one again.
+
+## M4 — anomalies, threads, and the shop
+
+**Events needed a second effect vocabulary, and got one.** `RunEffect` sits beside `EffectOp`
+rather than extending it. `EffectOp` is combat-scoped and interpreted inside a fight; sharing the
+two would have meant every card op had to answer "and what does this do outside combat", which is
+how an op vocabulary turns into a scripting language. Twelve run ops, all in `engine/run/effects.ts`,
+and adding an event still touches exactly one content file.
+
+**The mechanical line under every option is generated.** `describeRunEffects()` is the same rule as
+`describeCard()`, for the same reason — hand-written numbers drift the moment one is tuned. Worse
+here than on a card, because an event choice is taken once and cannot be re-read mid-fight. What is
+hand-written: the prose, the one-line framing, and the risk/payoff categories.
+
+**Nothing in an event rolls a die behind the player.** Every option states exactly what it does now;
+all the uncertainty lives in the Thread it opens. DESIGN.md §4 asks for "legible risk categories
+rather than hidden dice", and the cheapest way to guarantee that was to have no dice at all. A
+visible gamble ("50/50 for double") is still available later if the pool wants texture — it just is
+not needed to make ten events read differently.
+
+**An event never kills you.** Health and hull floor at 1, and a bill bigger than the account takes
+what is there rather than being refused. Dying to a menu is the most resented thing a roguelike can
+do, because there is no fight you could have played better.
+
+**"Leave" is validated, not just conventioned.** The validator rejects a leave option with any
+effects at all. The moment it pays something, every other option on the screen has to beat *it*
+instead of beating nothing, and the whole load that option carries is gone. The validator also
+insists at least one option per event opens a Thread.
+
+**Threads charge grid space, not Power.** DESIGN.md priced the Clutch at "-1 Power"; with the grid,
+the egg is a 1×1 inert `cargo` module. Same decision, expressed spatially, and it reuses everything
+`ship/grid.ts` already does. If the grid is full it rides in storage instead — a full grid should
+cost you the bonus, not the story.
+
+**`threads.ts` does not apply payoffs.** It reports which threads have come due and the caller
+applies them. Otherwise `threads.ts` and `effects.ts` import each other, and a cycle between two
+files that both run at module load is a bug waiting for a refactor to find it.
+
+**The clock is nodes entered, not acts.** `ThreadState.progress` is one number, ticked in
+`enterNode`. Triggers are 4–5 nodes, which lands a payoff inside the same act while leaving enough
+gap that it arrives somewhere you had stopped thinking about it.
+
+**A reprisal takes the node it lands on.** `marked` fires an `ambush`, which replaces whatever that
+node was going to be — you never find out, which is exactly what an ambush is. `RunState.forcedTier`
+banks the tier so the reward pays what a reprisal is worth rather than what the stolen node was
+worth, and it is spent in `concludeNode` so it can never leak into a second fight. The boss node is
+exempt from being *replaced* but not from payoffs: the boss must be a culmination, not a curveball.
+
+**Six threads, two per tone.** The 30/40/30 target with a ±10 tolerance means an even split passes,
+and an even split is the honest thing to ship at six. The validator holds the ratio as the pool
+grows.
+
+**Event-only cards are marked `exclusive` and filtered out of every roll.** A card that is the whole
+point of a choice stops being one if you can buy it two nodes later. Same filter feeds rewards and
+the shop, from `offerableCards()`.
+
+**A module you already own pays out instead of duplicating.** The grid identifies a module by its id,
+so a second copy has nowhere to go — `unplace` and `moveModule` would both pick the wrong one. The
+run effect converts it to its shop price. Money is the honest fallback; a dead option is not.
+
+**Shop stock is rolled once and kept in state.** A shop that re-rolls between two renders is a shop
+you cannot plan against, and planning against it is the entire activity. Re-entering the same
+`nodeId` is a no-op, and every refused purchase returns the *same state object* so the store's
+reference-equality check stops it re-rendering the screen.
+
+**The Station is its own screen now.** It outgrew living at the bottom of `safe.ts`.
+
+**The Manifest is on the map and on every between-fights screen**, not behind the pause key. What
+you are carrying is part of reading the route. It shows the countdown too — nothing a player could
+compute belongs on the hidden list; what stays hidden is the payoff, and the omen names its category.
+
+**Node weights moved.** Anomalies were 0 and are now 15, taken mostly out of `unknown`; a `?` now
+resolves to an event 34% of the time. Both were placeholders waiting for this pool.
+
+### Deferred from M4
+
+- The Vareth Hatchling is a card, not an ally. DESIGN.md wants a permanent companion that acts each
+  turn; there is no ally system and inventing one for a single thread payoff was the wrong trade.
+  `innate` gets most of the feel — it is there at the start of every fight.
+- Thread payoffs that inject map nodes. `marked` steals a node instead, which needs no map surgery.
+- `requiresThread` on an event option is implemented and unused. It is how a Thread alters a later
+  event, which is the half of the Thread model Act 3 will want.
+
+### Balance, unmeasured
+
+Every number in the events, the threads and `SHOP` is a first guess. Card prices ladder 50→340 and
+modules 90→520 against Act 1 payouts of 15–25 an encounter, which is deliberately tight — but
+nothing here has been near the simulator, and it joins Focus, Heat and ship-fight length on that
+list.

@@ -15,7 +15,9 @@ import { requireRun } from '../../engine/state.ts';
 import { definitionOf } from '../../engine/combat/combat.ts';
 import { describeCard, describeCost } from '../../engine/combat/describe.ts';
 import { currentDepth, currentSeed, depthRules } from '../../engine/queries.ts';
+import { modules as moduleTable } from '../../content/registry.ts';
 import { button, el } from '../dom.ts';
+import { renderManifest } from '../components/manifest.ts';
 
 export interface PauseHandle {
   readonly node: HTMLElement;
@@ -83,16 +85,21 @@ function build(
     el('section', { class: 'pause-section' }, [
       el('h2', { class: 'pause-heading' }, ['Ship']),
       el('p', { class: 'pause-empty' }, [
-        `Hull ${run.ship.hull}/${run.ship.maxHull}. No modules installed — the grid arrives with ship combat.`,
+        `Hull ${run.ship.hull}/${run.ship.maxHull}. ` +
+          (run.ship.placed.length === 0
+            ? 'Nothing on the grid.'
+            : `${run.ship.placed.map((entry) => moduleTable.get(entry.moduleId).name).join(', ')} fitted.`) +
+          (run.ship.stored.length === 0
+            ? ''
+            : ` ${run.ship.stored.length} in storage.`),
       ]),
     ]),
 
-    el('section', { class: 'pause-section' }, [
-      el('h2', { class: 'pause-heading' }, ['Manifest']),
-      run.threads.length === 0
-        ? el('p', { class: 'pause-empty' }, ['No Threads. They arrive at M4.'])
-        : el('ul', {}, run.threads.map((thread) => el('li', {}, [thread.threadId]))),
-    ]),
+    renderManifest(state) ??
+      el('section', { class: 'pause-section' }, [
+        el('h2', { class: 'pause-heading' }, ['Manifest']),
+        el('p', { class: 'pause-empty' }, ['Nothing carried. Anomalies are where Threads come from.']),
+      ]),
 
     rules.length === 0
       ? null

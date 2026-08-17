@@ -16,6 +16,10 @@ import { startShipCombat } from '../ship/combat.ts';
 import { mintCard } from '../combat/instances.ts';
 import { gainAlloy, removalCost, rollAlloy, spendAlloy } from './economy.ts';
 import { offerMatchesLean, rollReward } from './rewards.ts';
+import { applyRunEffects } from './effects.ts';
+import { clearEvent, openEvent } from './events.ts';
+import { advanceThreads, dueThreads, resolveThread } from './threads.ts';
+import { stockShop } from './shop.ts';
 import { ECONOMY, PLAYER, TREASURE_ALLOY, UNKNOWN_WEIGHTS } from '../../content/balance.ts';
 import { CLEAR_SPACE_ID } from '../../content/environments.ts';
 import { cards as cardTable, shipEnemies } from '../../content/registry.ts';
@@ -69,8 +73,36 @@ export function enterNode(state: GameState, nodeId: string): GameState {
   });
 
   next = fireHook(next, 'onNodeEntered', { nodeId, nodeType: node.type });
+  next = settleThreads(next, node);
+
+  // A Thread that came due with a reprisal takes the node. You never find out
+  // what was here, which is exactly what an ambush is.
+  if (requireRun(next).forcedTier !== null) return openCombat(next, { ...node, type: 'combat' });
 
   return resolveNode(next, node);
+}
+
+/**
+ * Move every carried Thread one node closer, and pay out the ones that arrive.
+ *
+ * The boss is exempt from reprisals only — a Thread coming due there still pays
+ * out, it just cannot replace the act finale. The boss must be a culmination,
+ * not a curveball, and being jumped by a bill instead of fighting it is the
+ * definition of a curveball.
+ */
+function settleThreads(state: GameState, node: MapNode): GameState {
+  let next = advanceThreads(state);
+
+  for (const def of dueThreads(requireRun(next))) {
+    next = resolveThread(next, def.id);
+    next = applyRunEffects(next, def.payoff, def.id).state;
+  }
+
+  if (node.type === 'boss' && requireRun(next).forcedTier !== null) {
+    next = withRun(next, (current) => ({ ...current, forcedTier: null }));
+  }
+
+  return next;
 }
 
 function resolveNode(state: GameState, node: MapNode): GameState {
@@ -84,14 +116,16 @@ function resolveNode(state: GameState, node: MapNode): GameState {
       return withRun(state, (run) => ({ ...run, screen: 'safe' }));
 
     case 'station':
-      return withRun(state, (run) => ({ ...run, screen: 'station' }));
+      return withRun(stockShop(state, node.id), (run) => ({ ...run, screen: 'station' }));
 
     case 'unknown':
       return resolveUnknown(state, node);
 
-    // Anomalies and the crash pocket arrive at M4 and with ship combat. A node
-    // type that resolves to nothing does not generate — see `NODE_WEIGHTS`.
     case 'event':
+      return openEvent(state);
+
+    // The crash pocket is expressed as "space nodes refuse you" rather than by
+    // injecting nodes, so these two never generate. See SHIP.md.
     case 'crash':
     case 'wreck':
       return withRun(state, (run) => ({ ...run, screen: 'map' }));
@@ -115,6 +149,8 @@ function resolveUnknown(state: GameState, node: MapNode): GameState {
     { value: 'event' as const, weight: UNKNOWN_WEIGHTS.event },
   ]);
   const spun = withRun(state, (current) => ({ ...current, rng: rolled.rng }));
+
+  if (rolled.value === 'event') return openEvent(spun);
 
   if (rolled.value === 'treasure') {
     const amount = nextIntInclusive(
@@ -170,6 +206,23 @@ function fallbackEncounter(run: RunState): string | null {
   return any ?? null;
 }
 
+/**
+ * Close an Anomaly. Back to the map, unless the choice turned out to have
+ * something waiting behind it — then the fight opens straight from the screen.
+ */
+export function leaveEvent(state: GameState): GameState {
+  const run = requireRun(state);
+  if (run.pendingEvent === null) return state;
+
+  const cleared = clearEvent(state);
+  const after = requireRun(cleared);
+  if (after.forcedTier === null) return cleared;
+
+  const node = after.position === null || after.map === null ? undefined : nodeById(after.map, after.position);
+  if (node === undefined) return withRun(cleared, (current) => ({ ...current, forcedTier: null }));
+  return openCombat(cleared, { ...node, type: 'combat' });
+}
+
 /* ---------- finishing a fight ---------- */
 
 /**
@@ -182,10 +235,18 @@ export function concludeNode(state: GameState): GameState {
   if (combat === null || combat.outcome !== 'won') return state;
 
   const node = run.position === null || run.map === null ? undefined : nodeById(run.map, run.position);
-  const tier = node?.type === 'boss' ? 'boss' : node?.type === 'elite' ? 'elite' : 'combat';
+  // A Thread's reprisal pays what a reprisal is worth, not what the node it
+  // stole was worth. Spent here, so it can never leak into a second fight.
+  const tier =
+    run.forcedTier ?? (node?.type === 'boss' ? 'boss' : node?.type === 'elite' ? 'elite' : 'combat');
 
   const alloy = rollAlloy(run.rng, tier);
-  let next = withRun(state, (current) => ({ ...current, rng: alloy.rng, combat: null }));
+  let next = withRun(state, (current) => ({
+    ...current,
+    rng: alloy.rng,
+    combat: null,
+    forcedTier: null,
+  }));
 
   const rolled = rollReward(requireRun(next).rng, requireRun(next), run.act, alloy.value, run.rewardDrought, tier);
   next = withRun(next, (current) => ({
@@ -397,7 +458,7 @@ export function safePlanetTrade(state: GameState): GameState {
 }
 
 /* ---------- the Station ----------
-   Repair only at M2. Cards, modules and the removal counter arrive at M4. */
+   Patching the ronin. Stock, prices and buying live in `shop.ts`. */
 
 export function stationRepair(state: GameState, amount: number): GameState {
   const run = requireRun(state);

@@ -43,14 +43,23 @@ export function archetypeLean(run: RunState): Archetype {
 }
 
 /**
- * The pool a reward may draw from. `all()` is sorted by id, so the candidate
- * list never depends on import order — a reshuffled import would otherwise
- * silently change every seed's rewards.
+ * The pool a reward or a shop may draw from. `all()` is sorted by id, so the
+ * candidate list never depends on import order — a reshuffled import would
+ * otherwise silently change every seed's rewards.
+ *
+ * `exclusive` cards are the payoff of one specific choice. Rolling one here
+ * would take the point out of having made that choice.
  */
-function eligible(): readonly CardDef[] {
+export function offerableCards(): readonly CardDef[] {
   return cardTable
     .all()
-    .filter((card) => card.rarity !== 'basic' && card.type !== 'status' && card.type !== 'curse');
+    .filter(
+      (card) =>
+        card.rarity !== 'basic' &&
+        card.type !== 'status' &&
+        card.type !== 'curse' &&
+        card.exclusive !== true,
+    );
 }
 
 /**
@@ -64,7 +73,7 @@ export function rollCardChoices(
   act: 1 | 2 | 3,
   drought: number,
 ): { readonly cardIds: readonly CardId[]; readonly rng: RngState } {
-  const pool = eligible();
+  const pool = offerableCards();
   if (pool.length === 0) return { cardIds: [], rng };
 
   const lean = archetypeLean(run);

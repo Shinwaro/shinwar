@@ -1019,7 +1019,9 @@
 /* ---------- rewards ---------- */
 
 .reward-inner,
-.safe-inner {
+.safe-inner,
+.station-inner,
+.anomaly-inner {
   width: 100%;
   max-width: 62rem;
   margin: 0 auto;
@@ -1106,6 +1108,250 @@
   color: var(--muted);
   text-wrap: pretty;
 }
+
+/* ---------- the Manifest ----------
+   Always on screen, never behind a hover. Knowing you are Marked is what makes
+   the reprisal feel earned instead of random. The tone stripe is the only
+   colour cue: green pays, amber cuts both ways, red bills. */
+
+.manifest {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.manifest-heading {
+  margin: 0;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.manifest-list {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.manifest-thread {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.1rem 0.6rem;
+  padding-left: 0.7rem;
+  border-left: 3px solid var(--line-strong);
+}
+
+.manifest-thread--positive { border-left-color: var(--good); }
+.manifest-thread--mixed { border-left-color: var(--accent); }
+.manifest-thread--costly { border-left-color: var(--danger); }
+
+.manifest-name {
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.manifest-due {
+  justify-self: end;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.manifest-desc,
+.manifest-omen {
+  grid-column: 1 / -1;
+  font-size: 0.8rem;
+  text-wrap: pretty;
+}
+
+.manifest-desc { color: var(--muted); }
+
+.manifest-omen {
+  color: var(--accent);
+  font-style: italic;
+}
+
+/* ---------- anomalies ----------
+   Prose, then options. Each option states exactly what it does now; where the
+   consequence is deferred, the chips name the category and nothing more. */
+
+.anomaly-body {
+  max-width: 46rem;
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.6;
+  text-wrap: pretty;
+  color: var(--ink);
+}
+
+.anomaly-options {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.anomaly-option {
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-solid);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.1s;
+}
+
+.anomaly-option:hover,
+.anomaly-option:focus-visible {
+  border-left-color: var(--accent);
+  transform: translateX(2px);
+}
+
+/* Always available, always genuinely worthless — and it should look it. */
+.anomaly-option--leave {
+  border-left-color: var(--line);
+  opacity: 0.72;
+}
+
+.anomaly-option-label {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.anomaly-option-detail {
+  font-size: 0.85rem;
+  color: var(--muted);
+  text-wrap: pretty;
+}
+
+.anomaly-option-effect {
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  color: var(--accent);
+}
+
+.anomaly-option-effect.is-nothing {
+  color: var(--muted);
+}
+
+.anomaly-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.15rem;
+}
+
+.anomaly-chip {
+  display: inline-flex;
+  gap: 0.35rem;
+  align-items: baseline;
+  padding: 0.15rem 0.45rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 0.72rem;
+}
+
+.anomaly-chip-label {
+  letter-spacing: 0.1em;
+  color: var(--muted);
+}
+
+.anomaly-outcome {
+  display: grid;
+  gap: 0.7rem;
+  justify-items: start;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-solid);
+}
+
+.anomaly-outcome-title {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.anomaly-outcome-list {
+  display: grid;
+  gap: 0.3rem;
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.9rem;
+}
+
+/* ---------- the shop ---------- */
+
+.shop-section {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.shop-heading {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.shop-shelf {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+}
+
+.shop-lot {
+  display: grid;
+  gap: 0.5rem;
+  justify-items: stretch;
+  width: 14rem;
+}
+
+.shop-lot.is-sold {
+  opacity: 0.42;
+}
+
+.shop-sold {
+  font-size: 0.78rem;
+  text-align: center;
+  color: var(--muted);
+}
+
+.btn-buy {
+  font-family: var(--mono);
+}
+
+.btn-buy.is-disabled {
+  opacity: 0.45;
+}
+
+.shop-module {
+  display: grid;
+  gap: 0.35rem;
+  align-content: start;
+  min-height: 8rem;
+  padding: 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-solid);
+}
+
+.shop-module--reactor { border-color: color-mix(in srgb, var(--iai) 45%, var(--line)); }
+.shop-module--converter { border-color: color-mix(in srgb, var(--good) 45%, var(--line)); }
+.shop-module--emitter { border-color: color-mix(in srgb, #b79ae0 45%, var(--line)); }
+.shop-module--plating { border-color: color-mix(in srgb, var(--guard) 45%, var(--line)); }
+.shop-module--sensor { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
 
 /* ---------- pause ---------- */
 
@@ -1534,6 +1780,16 @@
 .grid-tile--plating { border-color: var(--guard); background: color-mix(in srgb, var(--guard) 14%, var(--surface-solid)); }
 .grid-tile--sensor { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--surface-solid)); }
 .grid-tile--drive { border-color: var(--muted); }
+/* Cargo does nothing and is meant to look like it: hatched, in the way. */
+.grid-tile--cargo {
+  border-style: dashed;
+  border-color: var(--line-strong);
+  background: repeating-linear-gradient(
+    135deg,
+    var(--surface-solid) 0 6px,
+    color-mix(in srgb, var(--accent) 8%, var(--surface-solid)) 6px 12px
+  );
+}
 
 /* Adjacency is a bonus, so it reads as a bonus: a link mark, not a warning. */
 .grid-tile.is-linked {

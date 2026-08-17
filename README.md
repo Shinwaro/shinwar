@@ -44,8 +44,7 @@ technical contract and milestone order. `NOTES.md` records decisions taken along
 
 Read `NOTES.md` first — every decision that is not obvious from the code is in there, newest
 milestone last, including the design rulings from playtesting and the balance problems parked for
-M6. `SHIP.md` holds the ship-combat design, which is not built and has three open questions at the
-bottom that block starting it.
+M6. `SHIP.md` holds the ship-combat design and the two questions still open at the bottom of it.
 
 ## Status
 
@@ -63,13 +62,17 @@ deckbuilder: modules are rectangles you pack, adjacency pays a bonus for touchin
 autoresolves, and you spend one verb plus one aiming decision. Losing a ship fight crashes you rather
 than killing you. Plus the loadout screen, elite module drops, and the animation pass.
 
+**M4 gave the run a memory.** Ten Anomalies, each three real options plus a "leave" that is
+validated to be worthless; six Threads that come due four or five nodes later and can hand you an
+ally, a bill, or a Vareth reprisal that takes the node it lands on; a Manifest that is always on
+screen; and a Station that finally sells cards, modules and a card removal out of the same Alloy
+pool. Events are data — a new one is one file edit, and its rules text is generated from its effects.
+
 **Next**, in order:
 
-1. **M4** — events, Threads, the Manifest panel, and the Station shop (which sells modules and card
-   removals — both currently missing).
-2. **M5** — environments, Acts 2 and 3, bosses, Stance Masteries, the Wavefront.
-3. **M6's simulator** is where the balance problems in `NOTES.md` get settled — Focus is overtuned,
-   Heat never threatens anything, and ship fights end in about three turns. Tuning any of those by
-   hand before the bot exists is guessing.
+1. **M5** — environments, Acts 2 and 3, bosses, Stance Masteries, the Wavefront.
+2. **M6's simulator** is where the balance problems in `NOTES.md` get settled — Focus is overtuned,
+   Heat never threatens anything, ship fights end in about three turns, and none of M4's prices have
+   been measured. Tuning any of those by hand before the bot exists is guessing.
 
 Two open design questions sit at the bottom of [SHIP.md](SHIP.md).

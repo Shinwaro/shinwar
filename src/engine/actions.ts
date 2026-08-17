@@ -46,8 +46,15 @@ export type Action =
   | { readonly kind: 'safePlanetUpgrade'; readonly cardUid: string }
   | { readonly kind: 'safePlanetRemove'; readonly cardUid: string }
   | { readonly kind: 'safePlanetTrade' }
+  /* -- anomalies: choose, read what it cost, move on -- */
+  | { readonly kind: 'chooseEventOption'; readonly optionId: string }
+  | { readonly kind: 'leaveEvent' }
   /* -- station -- */
   | { readonly kind: 'stationRepair'; readonly amount: number }
+  | { readonly kind: 'repairShip'; readonly amount: number }
+  | { readonly kind: 'buyShopCard'; readonly cardId: string }
+  | { readonly kind: 'buyShopModule'; readonly moduleId: string }
+  | { readonly kind: 'buyRemoval'; readonly cardUid: string }
   | { readonly kind: 'leaveNode' }
   /* -- run -- */
   | { readonly kind: 'abandonRun' }

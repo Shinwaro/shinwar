@@ -18,6 +18,7 @@ import {
   claimRewardAlloy,
   concludeNode,
   enterNode,
+  leaveEvent,
   leaveNode,
   leaveReward,
   openMap,
@@ -29,6 +30,8 @@ import {
   takeRewardCard,
   takeRewardModule,
 } from './run/run.ts';
+import { chooseEventOption } from './run/events.ts';
+import { buyRemoval, buyShopCard, buyShopModule, repairShip } from './run/shop.ts';
 import { MAX_DEPTH } from '../content/balance.ts';
 
 export function clampDepth(depth: number): number {
@@ -256,9 +259,40 @@ export function applyAction(state: GameState, action: Action): GameState {
       return safePlanetTrade(state);
     }
 
+    case 'chooseEventOption': {
+      if (state.run?.screen !== 'event') return state;
+      return chooseEventOption(state, action.optionId);
+    }
+
+    case 'leaveEvent': {
+      if (state.run?.screen !== 'event') return state;
+      // Settled, in case the choice opened onto a fight the player then lost.
+      return settleCombat(leaveEvent(state));
+    }
+
     case 'stationRepair': {
       if (state.run?.screen !== 'station') return state;
       return stationRepair(state, action.amount);
+    }
+
+    case 'repairShip': {
+      if (state.run?.screen !== 'station') return state;
+      return repairShip(state, action.amount);
+    }
+
+    case 'buyShopCard': {
+      if (state.run?.screen !== 'station') return state;
+      return buyShopCard(state, action.cardId);
+    }
+
+    case 'buyShopModule': {
+      if (state.run?.screen !== 'station') return state;
+      return buyShopModule(state, action.moduleId);
+    }
+
+    case 'buyRemoval': {
+      if (state.run?.screen !== 'station') return state;
+      return buyRemoval(state, action.cardUid);
     }
 
     case 'leaveNode': {

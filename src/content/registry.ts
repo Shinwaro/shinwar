@@ -19,6 +19,7 @@ import type {
   EventDef,
   MasteryDef,
   ModuleDef,
+  RunEffect,
   ShipEnemyDef,
   StatusDef,
   ThreadDef,
@@ -120,6 +121,21 @@ function validateCards(issues: ValidationIssue[]): void {
   }
 }
 
+/** Every id a run effect can name gets checked here or nowhere. */
+function walkRunEffects(where: string, effects: readonly RunEffect[], issues: ValidationIssue[]): void {
+  for (const effect of effects) {
+    if (effect.op === 'card' && !cards.has(effect.cardId)) {
+      issues.push({ where, problem: `references unknown card '${effect.cardId}'` });
+    }
+    if (effect.op === 'module' && !modules.has(effect.moduleId)) {
+      issues.push({ where, problem: `references unknown module '${effect.moduleId}'` });
+    }
+    if ((effect.op === 'setThread' || effect.op === 'resolveThread') && !threads.has(effect.threadId)) {
+      issues.push({ where, problem: `references unknown thread '${effect.threadId}'` });
+    }
+  }
+}
+
 function validateEvents(issues: ValidationIssue[]): void {
   for (const event of events.all()) {
     const where = `event '${event.id}'`;
@@ -137,10 +153,37 @@ function validateEvents(issues: ValidationIssue[]): void {
       issues.push({ where, problem: `${leaves.length} "leave" options, needs exactly 1` });
     }
 
+    // A "leave" that pays anything at all stops being worthless, and the moment
+    // it does, every other option on the screen has to beat it instead of
+    // beating nothing. That is the whole load this option carries.
+    for (const leave of leaves) {
+      if (leave.effects.length > 0) {
+        issues.push({ where, problem: '"leave" has effects — it must be genuinely worthless' });
+      }
+    }
+
+    // At least one option defers its consequence. An Anomaly where everything
+    // settles on the spot is a vending machine.
+    if (!real.some((option) => option.effects.some((effect) => effect.op === 'setThread'))) {
+      issues.push({ where, problem: 'no option opens a Thread' });
+    }
+
+    if (event.body.trim() === '') issues.push({ where, problem: 'no body text' });
+
     const seen = new Set<string>();
     for (const option of event.options) {
       if (seen.has(option.id)) issues.push({ where, problem: `duplicate option id '${option.id}'` });
       seen.add(option.id);
+
+      const spot = `${where} option '${option.id}'`;
+      // Legible risk categories rather than hidden dice — DESIGN.md §4.
+      if (option.risk.trim() === '') issues.push({ where: spot, problem: 'no risk category' });
+      if (option.payoff.trim() === '') issues.push({ where: spot, problem: 'no payoff category' });
+      if (option.detail.trim() === '') issues.push({ where: spot, problem: 'no framing text' });
+      if (option.effects.length === 0 && option.isLeave !== true) {
+        issues.push({ where: spot, problem: 'does nothing, and is not the "leave"' });
+      }
+      walkRunEffects(spot, option.effects, issues);
     }
   }
 }
@@ -153,9 +196,26 @@ function validateThreads(issues: ValidationIssue[]): void {
   const counts = { positive: 0, mixed: 0, costly: 0 };
   for (const thread of all) {
     counts[thread.tone] += 1;
+    const where = `thread '${thread.id}'`;
+
     if (thread.description.trim() === '') {
-      issues.push({ where: `thread '${thread.id}'`, problem: 'blank description — the Manifest shows this' });
+      issues.push({ where, problem: 'blank description — the Manifest shows this' });
     }
+    // The player must always be able to see that they are Marked. That needs
+    // both halves: what they are carrying, and what kind of thing is coming.
+    if (thread.omen.trim() === '') {
+      issues.push({ where, problem: 'blank omen — the player is owed the category' });
+    }
+    if (thread.trigger.count < 1) {
+      issues.push({ where, problem: `trigger fires after ${thread.trigger.count} nodes` });
+    }
+    if (thread.payoff.length === 0) {
+      issues.push({ where, problem: 'no payoff — a Thread that resolves into nothing is a lie' });
+    }
+    if (thread.cargoModuleId !== undefined && !modules.has(thread.cargoModuleId)) {
+      issues.push({ where, problem: `cargo names unknown module '${thread.cargoModuleId}'` });
+    }
+    walkRunEffects(where, thread.payoff, issues);
   }
 
   for (const tone of ['positive', 'mixed', 'costly'] as const) {

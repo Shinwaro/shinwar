@@ -15,7 +15,9 @@ import { renderShipCombat } from './screens/shipcombat.ts';
 import { renderLoadout } from './screens/loadout.ts';
 import { renderMap } from './screens/map.ts';
 import { renderReward } from './screens/reward.ts';
-import { renderSafePlanet, renderStation } from './screens/safe.ts';
+import { renderSafePlanet } from './screens/safe.ts';
+import { renderStation } from './screens/station.ts';
+import { renderEvent } from './screens/event.ts';
 import { renderGameOver } from './screens/gameover.ts';
 import { renderPause } from './screens/pause.ts';
 import { el } from './dom.ts';
@@ -48,10 +50,8 @@ function renderView(store: Store, view: View): HTMLElement {
       return renderLoadout(store);
     case 'run:station':
       return renderStation(store);
-    // Anomalies arrive at M4. Until then an event node never generates, so
-    // this is unreachable — but it must render something rather than throw.
     case 'run:event':
-      return renderMap(store);
+      return renderEvent(store);
     case 'run':
       return renderMap(store);
     default: {

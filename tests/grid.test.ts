@@ -141,10 +141,21 @@ describe('the module pool', () => {
     }
   });
 
-  it('gives every module something to do', () => {
+  it('gives every module something to do — except cargo, whose job is to be in the way', () => {
     for (const def of moduleTable.all()) {
+      if (def.kind === 'cargo') continue;
       const does = def.effects.length > 0 || def.grants !== undefined;
       expect(does, `${def.id} has no effects and grants no verb`).toBe(true);
+    }
+  });
+
+  it('keeps cargo inert, so a Thread charges space and nothing else', () => {
+    for (const def of moduleTable.all()) {
+      if (def.kind !== 'cargo') continue;
+      expect(def.effects, `${def.id} does something`).toEqual([]);
+      expect(def.grants, `${def.id} grants a verb`).toBeUndefined();
+      // Never rolled. The only way onto the grid is to have agreed to carry it.
+      expect(def.rarity, `${def.id} can be rolled as a reward`).toBe('basic');
     }
   });
 

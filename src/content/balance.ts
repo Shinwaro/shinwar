@@ -172,13 +172,41 @@ export const ECONOMY = {
   cardRemovalBase: 60,
   cardRemovalIncrement: 15,
   hullRepairPerPoint: 1,
-  modulePrice: { common: 90, uncommon: 140, rare: 210 },
-  reactorCellBase: 180,
-  reactorCellPower: 2,
+  /** Station: patch the cutter, not the ronin. */
+  shipRepairPerPoint: 1,
   /** Safe Planet: trade hull for Alloy. */
   refuelHullCost: 8,
   refuelAlloyGain: 60,
   safePlanetHealPct: 0.3,
+} as const;
+
+/* ---------- the Station ----------
+   The shop is where Alloy stops being a score and becomes a decision. It
+   stocks both paths — cards for the pilot, modules for the ship — out of the
+   one pool, so every purchase is "pilot or ship, now or later".
+
+   Prices ladder by rarity. The top three tiers are priced so that seeing one is
+   an event in itself: you will usually have to give something up for it. */
+
+export const SHOP = {
+  cardSlots: 4,
+  moduleSlots: 2,
+  cardPrice: {
+    common: 50,
+    uncommon: 80,
+    rare: 130,
+    epic: 190,
+    legendary: 260,
+    artifact: 340,
+  },
+  modulePrice: {
+    common: 90,
+    uncommon: 140,
+    rare: 210,
+    epic: 300,
+    legendary: 400,
+    artifact: 520,
+  },
 } as const;
 
 /* ---------- enemies ----------
@@ -233,11 +261,10 @@ export const MAP = {
  * they conflict.
  */
 export const NODE_WEIGHTS = {
-  combat: 45,
-  unknown: 38,
-  /** Anomalies arrive with the event pool at M4. Zero until then: a node type
-      that resolves to nothing is worse than one that does not generate. */
-  event: 0,
+  combat: 42,
+  unknown: 26,
+  /** Anomalies. Signposted on the map, unlike a `?`. */
+  event: 15,
   elite: 8,
   station: 5,
   safe: 4,
@@ -245,10 +272,9 @@ export const NODE_WEIGHTS = {
 
 /** What a `?` turns into, rolled on the `events` stream when entered. */
 export const UNKNOWN_WEIGHTS = {
-  /** Also M4. The weight moves back here from `combat` when events exist. */
-  event: 0,
-  combat: 60,
-  treasure: 40,
+  event: 34,
+  combat: 38,
+  treasure: 28,
 } as const;
 
 /** A derelict found behind a `?`. */

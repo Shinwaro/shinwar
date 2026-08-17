@@ -1,16 +1,15 @@
-/* The Safe Planet, and the Station.
+/* The Safe Planet.
  *
- * The Safe Planet is a menu and never a bare heal button — "heal or upgrade"
- * is one of the best decisions Slay the Spire makes and it costs nothing to
- * implement. You get exactly one of the four.
+ * A menu, never a bare heal button — "heal or upgrade" is one of the best
+ * decisions Slay the Spire makes and it costs nothing to implement. You get
+ * exactly one of the four.
  *
  * Forge and Strip are two-step: pick a card, see exactly what you are about to
  * do to it, then confirm. Hover would have been cheaper, but a hover-only
  * preview is no preview at all on a phone, and the two-step matches how cards
  * are played in combat. On desktop, hover previews as well.
  *
- * The Station sells hull repair. Cards, modules and the card-removal counter
- * arrive at M4 with the shop proper.
+ * The Station is its own screen — see `station.ts`.
  */
 
 import type { CardDef, CardInstance, GameState } from '../../engine/types.ts';
@@ -275,36 +274,3 @@ function upgradedDef(card: CardInstance): CardDef {
   return { ...base, ...base.upgrade };
 }
 
-/* ---------- the Station ---------- */
-
-export function renderStation(store: Store): HTMLElement {
-  return liveScreen(store, 'safe screen', (state) => {
-    if (state.run === null || state.run.screen !== 'station') return null;
-    const run = requireRun(state);
-    const missing = run.pilot.maxHealth - run.pilot.health;
-    const affordable = Math.min(missing, Math.floor(run.alloy / ECONOMY.hullRepairPerPoint));
-
-    return el('div', { class: 'safe-inner' }, [
-      renderRunBar(store, state),
-      el('h1', { class: 'screen-title' }, ['Station']),
-      el('p', { class: 'safe-note' }, [
-        `Patch-up at ${ECONOMY.hullRepairPerPoint} Alloy per point. ` +
-          'Cards, modules and card removal arrive with the shop at M4.',
-      ]),
-      el('div', { class: 'safe-options' }, [
-        option(
-          'Patch up',
-          affordable === 0
-            ? missing === 0
-              ? 'Nothing to repair.'
-              : 'Not enough Alloy.'
-            : `Repair ${affordable} for ${affordable * ECONOMY.hullRepairPerPoint} Alloy.`,
-          `You are down ${missing}.`,
-          affordable === 0,
-          () => store.dispatch({ kind: 'stationRepair', amount: affordable }),
-        ),
-      ]),
-      button('Leave', { class: 'btn btn-primary' }, () => store.dispatch({ kind: 'leaveNode' })),
-    ]);
-  });
-}
