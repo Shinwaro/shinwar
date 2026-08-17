@@ -960,3 +960,24 @@ inflating power: more parts than cells is the decision.
 Ship combat itself is still thin — the refit and the salvage give it stakes and
 a reason to route toward it, but the fight is one lever and an aiming decision.
 Making the turn itself interesting is a separate piece of work.
+
+## Playtest pass 6 — salvage is a choice, and it lands after the fight
+
+**The pre-fight refit is gone.** Handing a module out on the approach to every
+space battle made them weightless: a reward that arrives on a schedule is not a
+reward, and it filled the grid without the player ever choosing what went on it.
+
+**Three parts off every wreck, take one.** The same screen, moved to the other
+side of the fight, where it is a decision about the run made knowing what the
+fight cost. The loadout is one click away from it, because "will this even fit"
+is half of what is being decided.
+
+**Early ship supply comes from derelicts now.** A `?` that rolls treasure has a
+45% chance of holding a module instead of Alloy. That is the right node for it —
+it is already the one that might be anything, and a part in a hulk needs no
+explaining — and it front-loads naturally, because `?` nodes are thickest early
+while the grid is emptiest.
+
+**One spare in the hold at the start.** A 1x1 Heat Sink. Not power: its job is to
+make the loadout screen worth opening on turn one rather than after the first
+space fight has already gone badly.

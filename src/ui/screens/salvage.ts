@@ -1,12 +1,12 @@
-/* The refit — parts before a space battle.
+/* The wreck — three parts off a ship you just beat, take one.
  *
- * A ship fight used to be whatever your grid already happened to be. You could
- * see it coming two nodes out on the map and there was nothing to do about it,
- * because the ship path only moved at Elites and Stations. Now every space node
- * offers parts on the approach and drops one off the wreck afterwards.
+ * After the fight rather than before it. A module handed out on the approach to
+ * every space battle arrived on a schedule, and a reward on a schedule is not a
+ * reward; it also filled the grid without the player ever choosing what went on
+ * it. Here it is a decision about the run, made knowing what the fight cost.
  *
- * The grid is still the limit, so this is not power inflation — it is the
- * packing puzzle finally having enough pieces to be a puzzle.
+ * The loadout is one click away, because "will this even fit" is half of what
+ * you are deciding.
  */
 
 import type { GameState } from '../../engine/types.ts';
@@ -20,40 +20,40 @@ import { liveScreen } from '../screen.ts';
 import { renderRunBar } from '../components/runbar.ts';
 import { moduleLines } from '../components/moduletip.ts';
 
-export function renderRefit(store: Store): HTMLElement {
-  return liveScreen(store, 'refit screen', (state) => {
-    if (state.run === null || state.run.screen !== 'refit') return null;
+export function renderSalvage(store: Store): HTMLElement {
+  return liveScreen(store, 'salvage screen', (state) => {
+    if (state.run === null || state.run.screen !== 'salvage') return null;
     return build(store, state);
   });
 }
 
 function build(store: Store, state: GameState): HTMLElement | null {
   const run = requireRun(state);
-  const refit = run.pendingRefit;
-  if (refit === null) return null;
+  const salvage = run.pendingSalvage;
+  if (salvage === null) return null;
 
-  const enemy = shipEnemies.find(refit.enemyId);
+  const enemy = shipEnemies.find(salvage.enemyId);
   const free = freeCells(run.ship);
 
-  return el('div', { class: 'refit-inner' }, [
+  return el('div', { class: 'salvage-inner' }, [
     renderRunBar(store, state),
-    el('h1', { class: 'screen-title' }, ['Approach']),
+    el('h1', { class: 'screen-title' }, ['The Wreck']),
     el('p', { class: 'safe-note' }, [
       enemy === undefined
-        ? 'Something is holding this lane.'
-        : `${enemy.name} is holding this lane. ${enemy.flavor ?? ''}`,
+        ? 'Whatever it was, it is parts now.'
+        : `${enemy.name}, in pieces. Three of them are worth carrying.`,
     ]),
     el('p', { class: 'ship-note' }, [
-      `Take one. ${free} free cell${free === 1 ? '' : 's'} on the grid — fit it from the loadout before you launch, or carry it.`,
+      `Take one. ${free} free cell${free === 1 ? '' : 's'} on the grid — a shape that will not fit today is a reason to buy a bay extension, not a reason to leave it.`,
     ]),
 
     el(
       'div',
       { class: 'relic-row' },
-      refit.moduleIds.map((moduleId) => {
+      salvage.moduleIds.map((moduleId) => {
         const def = moduleTable.find(moduleId);
         if (def === undefined) return null;
-        const taken = refit.taken === moduleId;
+        const taken = salvage.taken === moduleId;
         const node = button(
           '',
           {
@@ -61,7 +61,7 @@ function build(store: Store, state: GameState): HTMLElement | null {
             'data-rarity': def.rarity,
             'aria-pressed': taken ? 'true' : 'false',
           },
-          () => store.dispatch({ kind: 'takeRefitModule', moduleId }),
+          () => store.dispatch({ kind: 'takeSalvage', moduleId }),
         );
         return withChildren(node, [
           el('div', { class: 'card-head' }, [
@@ -77,8 +77,10 @@ function build(store: Store, state: GameState): HTMLElement | null {
 
     el('div', { class: 'reward-actions' }, [
       button('Open the loadout', { class: 'btn' }, () => store.dispatch({ kind: 'openLoadout' })),
-      button(refit.taken === null ? 'Launch with nothing' : 'Launch', { class: 'btn btn-primary' }, () =>
-        store.dispatch({ kind: 'launchShipCombat' }),
+      button(
+        salvage.taken === null ? 'Leave it all' : 'Take it and go',
+        { class: 'btn btn-primary' },
+        () => store.dispatch({ kind: 'leaveSalvage' }),
       ),
     ]),
   ]);

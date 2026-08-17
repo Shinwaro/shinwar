@@ -33,10 +33,10 @@ import {
   safePlanetTrade,
   safePlanetUpgrade,
   stationRepair,
-  launchShipCombat,
-  salvageWreck,
-  takeRefitModule,
+  leaveSalvage,
+  openSalvage,
   takeRewardCard,
+  takeSalvage,
   takeRewardModule,
   takeRewardRelic,
 } from './run/run.ts';
@@ -70,15 +70,19 @@ function settleShipCombat(state: GameState): GameState {
   if (fight === null || fight.outcome === 'ongoing') return state;
 
   if (fight.outcome === 'won') {
-    // Every win, not sometimes. A ship fight that paid nothing was a fight with
+    // Every win opens the wreck. A ship fight that paid nothing was a fight with
     // no reason to route toward it, and space nodes are four in ten of the map.
-    return salvageWreck(appendLog(
-      // `forcedTier` is cleared here as well as in `concludeNode`: only the
-      // surface path pays a reward, so a tier that reached a ship fight has
-      // nothing to spend it and would otherwise leak into the next fight.
-      withRun(state, (run) => ({ ...run, shipCombat: null, screen: 'map', forcedTier: null })),
-      { source: 'system', kind: 'combat', text: 'The other ship stops moving.', detail: null },
-    ));
+    const enemyId = fight.enemy.defId;
+    return openSalvage(
+      appendLog(
+        // `forcedTier` is cleared here as well as in `concludeNode`: only the
+        // surface path pays a reward, so a tier that reached a ship fight has
+        // nothing to spend it and would otherwise leak into the next fight.
+        withRun(state, (run) => ({ ...run, shipCombat: null, screen: 'map', forcedTier: null })),
+        { source: 'system', kind: 'combat', text: 'The other ship stops moving.', detail: null },
+      ),
+      enemyId,
+    );
   }
 
   // You cannot die in space. Losing crashes you back onto the map.
@@ -239,19 +243,19 @@ export function applyAction(state: GameState, action: Action): GameState {
       return withRun(state, (current) => ({ ...current, ship }));
     }
 
-    case 'takeRefitModule': {
-      if (state.run?.screen !== 'refit') return state;
-      return takeRefitModule(state, action.moduleId);
+    case 'takeSalvage': {
+      if (state.run?.screen !== 'salvage') return state;
+      return takeSalvage(state, action.moduleId);
     }
 
-    case 'backToRefit': {
-      if (state.run === null || state.run.pendingRefit === null) return state;
-      return withRun(state, (run) => ({ ...run, screen: 'refit' }));
+    case 'leaveSalvage': {
+      if (state.run?.screen !== 'salvage') return state;
+      return leaveSalvage(state);
     }
 
-    case 'launchShipCombat': {
-      if (state.run?.screen !== 'refit') return state;
-      return launchShipCombat(state);
+    case 'backToSalvage': {
+      if (state.run === null || state.run.pendingSalvage === null) return state;
+      return withRun(state, (run) => ({ ...run, screen: 'salvage' }));
     }
 
     case 'openLoadout': {

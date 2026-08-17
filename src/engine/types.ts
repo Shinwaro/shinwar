@@ -975,18 +975,18 @@ export interface PendingEvent {
 }
 
 /**
- * The refit offered before a space battle.
+ * The wreck, after a space battle.
  *
- * A ship fight used to be whatever your grid already was, which meant the ship
- * path only moved at Elites and Stations and a space node was a fight you had
- * no way to prepare for. Now every one of them offers parts first and drops one
- * off the wreck after — the grid is still the limit, so this fills the packing
- * puzzle rather than inflating power.
+ * Three parts, take one. Handing a module out before every fight made them
+ * weightless — a thing that arrives on a schedule is not a reward — and it meant
+ * the grid filled up without the player ever choosing what went on it. Salvage
+ * lands after the fight instead, where it is a decision about the run rather
+ * than a top-up before a fight you had not had yet.
  */
-export interface PendingRefit {
+export interface PendingSalvage {
   readonly moduleIds: readonly ModuleId[];
   readonly taken: ModuleId | null;
-  /** The enemy ship this refit is preparing you for. */
+  /** What you just took it apart. */
   readonly enemyId: EnemyId;
 }
 
@@ -1039,8 +1039,8 @@ export type RunScreen =
   | 'safe'
   | 'station'
   | 'event'
-  /** Parts before a space battle. */
-  | 'refit'
+  /** Picking over the wreck of a ship you just beat. */
+  | 'salvage'
   /** The loadout: the grid, out of combat. */
   | 'ship';
 
@@ -1067,8 +1067,8 @@ export interface RunState {
   readonly seenEvents: readonly EventId[];
   /** The Station's stock, kept from arrival so it cannot reshuffle mid-visit. */
   readonly shop: ShopState | null;
-  /** Parts on offer before a space battle. */
-  readonly pendingRefit: PendingRefit | null;
+  /** The wreck to pick over, after a space battle. */
+  readonly pendingSalvage: PendingSalvage | null;
   /**
    * Set when a Thread throws a fight at you. The reward screen reads it instead
    * of the node's type, so a reprisal pays what a reprisal is worth. Cleared

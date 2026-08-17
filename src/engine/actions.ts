@@ -47,10 +47,10 @@ export type Action =
   /** Turn a module where it stands. Refused if the new orientation will not fit. */
   | { readonly kind: 'rotateModule'; readonly moduleId: string }
   | { readonly kind: 'openLoadout' }
-  /* -- the refit: parts on the approach to a space battle -- */
-  | { readonly kind: 'takeRefitModule'; readonly moduleId: string }
-  | { readonly kind: 'launchShipCombat' }
-  | { readonly kind: 'backToRefit' }
+  /* -- salvage: three parts off the wreck, take one -- */
+  | { readonly kind: 'takeSalvage'; readonly moduleId: string }
+  | { readonly kind: 'leaveSalvage' }
+  | { readonly kind: 'backToSalvage' }
   | { readonly kind: 'repairDrive' }
   | { readonly kind: 'takeRewardModule'; readonly moduleId: string }
   /* -- the map -- */

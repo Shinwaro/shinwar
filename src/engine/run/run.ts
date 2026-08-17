@@ -21,9 +21,10 @@ import { clearEvent, openEvent } from './events.ts';
 import { advanceThreads, dueThreads, resolveThread } from './threads.ts';
 import { stockShop } from './shop.ts';
 import {
+  DERELICT_MODULE_CHANCE,
   ECONOMY,
   PLAYER,
-  REFIT,
+  SALVAGE,
   TREASURE_ALLOY,
   UNKNOWN_WEIGHTS,
   WAVEFRONT,
@@ -241,6 +242,37 @@ function resolveUnknown(state: GameState, node: MapNode): GameState {
   if (rolled.value === 'event') return openEvent(spun);
 
   if (rolled.value === 'treasure') {
+    /*
+     * A derelict is where the early ship supply comes from.
+     *
+     * The grid starts nearly bare and Elites are the only other module source,
+     * so without this the first space fight of a run is fought with one reactor
+     * and nothing else. A `?` is exactly the right place for it: it is already
+     * the node that might be anything, and finding a part in a hulk needs no
+     * explaining.
+     */
+    const wreck = nextIntInclusive(requireRun(spun).rng, 'rewards', 0, 99);
+    if (wreck.value < DERELICT_MODULE_CHANCE * 100) {
+      const found = rollModules(wreck.rng, requireRun(spun), 1);
+      const module = found.moduleIds[0];
+      const spunAgain = withRun(spun, (current) => ({ ...current, rng: found.rng }));
+      if (module !== undefined) {
+        return appendLog(
+          withRun(spunAgain, (current) => ({
+            ...current,
+            screen: 'map',
+            ship: { ...current.ship, stored: [...current.ship.stored, module] },
+          })),
+          {
+            source: 'derelict',
+            kind: 'reward',
+            text: `A derelict, stripped but for the ${moduleTable.get(module).name}.`,
+            detail: { module },
+          },
+        );
+      }
+    }
+
     const amount = nextIntInclusive(
       requireRun(spun).rng,
       'rewards',
@@ -277,14 +309,7 @@ function openCombat(state: GameState, node: MapNode): GameState {
   return startCombat(staged, encounterId, node.environmentId ?? CLEAR_SPACE_ID);
 }
 
-/**
- * A space node: parts first, then the fight.
- *
- * The refit answers "the ship path only moves at Elites and Stations". A space
- * fight used to be whatever your grid already happened to be, with no way to
- * prepare for the thing you could see coming on the map two nodes out. Now
- * every one offers parts before and drops one off the wreck after.
- */
+/** Pick an enemy ship on the map stream and hand over to the grid. */
 function openShipCombat(state: GameState, node: MapNode): GameState {
   const run = requireRun(state);
   // Falls back down the acts rather than returning to the map. Act 2 and 3 had
@@ -294,92 +319,82 @@ function openShipCombat(state: GameState, node: MapNode): GameState {
   const pool = exact.length > 0 ? exact : shipEnemies.all();
   if (pool.length === 0) return withRun(state, (current) => ({ ...current, screen: 'map' }));
   const rolled = pick(run.rng, 'map', pool);
-  let spun = withRun(state, (current) => ({ ...current, rng: rolled.rng }));
+  const spun = withRun(state, (current) => ({ ...current, rng: rolled.rng }));
   void node;
-
-  const offered = rollModules(requireRun(spun).rng, requireRun(spun), REFIT.choices);
-  spun = withRun(spun, (current) => ({ ...current, rng: offered.rng }));
-  if (offered.moduleIds.length === 0) return startShipCombat(spun, rolled.value.id);
-
-  return appendLog(
-    withRun(spun, (current) => ({
-      ...current,
-      screen: 'refit',
-      pendingRefit: { moduleIds: offered.moduleIds, taken: null, enemyId: rolled.value.id },
-    })),
-    {
-      source: 'refit',
-      kind: 'run',
-      text: 'Salvage drifting on the approach. Take what you can carry.',
-      detail: { enemy: rolled.value.id },
-    },
-  );
-}
-
-/** Pick a part for the coming fight, or change your mind. Free until you launch. */
-export function takeRefitModule(state: GameState, moduleId: string): GameState {
-  const run = requireRun(state);
-  const refit = run.pendingRefit;
-  if (refit === null || !refit.moduleIds.includes(moduleId)) return state;
-  const already = refit.taken === moduleId;
-  return withRun(state, (current) => ({
-    ...current,
-    pendingRefit:
-      current.pendingRefit === null
-        ? null
-        : { ...current.pendingRefit, taken: already ? null : moduleId },
-  }));
-}
-
-/** Launch. Whatever was taken goes into storage, and the fight opens. */
-export function launchShipCombat(state: GameState): GameState {
-  const run = requireRun(state);
-  const refit = run.pendingRefit;
-  if (refit === null) return state;
-
-  let next = withRun(state, (current) => ({ ...current, pendingRefit: null }));
-  const taken = refit.taken;
-  if (taken !== null) {
-    next = appendLog(
-      withRun(next, (current) => ({
-        ...current,
-        ship: { ...current.ship, stored: [...current.ship.stored, taken] },
-      })),
-      {
-        source: 'refit',
-        kind: 'run',
-        text: `${moduleTable.get(taken).name} aboard. Fit it before it matters.`,
-        detail: { module: taken },
-      },
-    );
-  }
-
-  return startShipCombat(next, refit.enemyId);
+  return startShipCombat(spun, rolled.value.id);
 }
 
 /**
- * Cut something out of the wreck. Every win, not sometimes.
+ * Open the wreck. Three parts, take one.
  *
- * A ship fight that paid nothing was a fight with no reason to route toward it,
- * and space nodes are four in ten of the map now.
+ * After the fight rather than before it. A module handed out on the approach to
+ * every space battle arrived on a schedule, and a reward on a schedule is not a
+ * reward — it also meant the grid filled without the player choosing what went
+ * on it. Here it is a decision about the run, made knowing what the fight cost.
  */
-export function salvageWreck(state: GameState): GameState {
+export function openSalvage(state: GameState, enemyId: string): GameState {
   const run = requireRun(state);
-  const rolled = rollModules(run.rng, run, 1);
-  const salvaged = rolled.moduleIds[0];
+  const rolled = rollModules(run.rng, run, SALVAGE.choices);
   const spun = withRun(state, (current) => ({ ...current, rng: rolled.rng }));
-  if (salvaged === undefined) return spun;
+  if (rolled.moduleIds.length === 0) {
+    return withRun(spun, (current) => ({ ...current, screen: 'map' }));
+  }
 
   return appendLog(
     withRun(spun, (current) => ({
       ...current,
-      ship: { ...current.ship, stored: [...current.ship.stored, salvaged] },
+      screen: 'salvage',
+      pendingSalvage: { moduleIds: rolled.moduleIds, taken: null, enemyId },
     })),
     {
       source: 'salvage',
       kind: 'reward',
-      text: `Cut ${moduleTable.get(salvaged).name} out of the wreck.`,
-      detail: { module: salvaged },
+      text: 'The wreck is still warm. Take what you can carry.',
+      detail: { enemy: enemyId },
+    },
+  );
+}
+
+/** Pick a part off the wreck, or change your mind. Nothing is spent until you leave. */
+export function takeSalvage(state: GameState, moduleId: string): GameState {
+  const run = requireRun(state);
+  const salvage = run.pendingSalvage;
+  if (salvage === null || !salvage.moduleIds.includes(moduleId)) return state;
+  const already = salvage.taken === moduleId;
+  return withRun(state, (current) => ({
+    ...current,
+    pendingSalvage:
+      current.pendingSalvage === null
+        ? null
+        : { ...current.pendingSalvage, taken: already ? null : moduleId },
+  }));
+}
+
+/** Leave the wreck. Whatever was taken goes into storage. */
+export function leaveSalvage(state: GameState): GameState {
+  const run = requireRun(state);
+  const salvage = run.pendingSalvage;
+  if (salvage === null) return state;
+
+  const cleared = withRun(state, (current) => ({
+    ...current,
+    pendingSalvage: null,
+    screen: 'map',
+  }));
+
+  const taken = salvage.taken;
+  if (taken === null) return cleared;
+
+  return appendLog(
+    withRun(cleared, (current) => ({
+      ...current,
+      ship: { ...current.ship, stored: [...current.ship.stored, taken] },
+    })),
+    {
+      source: 'salvage',
+      kind: 'reward',
+      text: `Cut ${moduleTable.get(taken).name} out of the wreck.`,
+      detail: { module: taken },
     },
   );
 }

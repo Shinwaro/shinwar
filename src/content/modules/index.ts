@@ -344,6 +344,15 @@ export const WEAPONS: readonly WeaponDef[] = [
 ];
 
 export const STARTING_WEAPON = 'rail_repeater';
+/**
+ * One spare in the hold at the start of the run.
+ *
+ * The grid opens with a reactor bolted in and nothing else, so the very first
+ * space fight used to be a reactor and a stock gun. This is a part to place, not
+ * power — it is a 1x1 that soaks a point, and its real job is to make the
+ * loadout screen worth opening on turn one.
+ */
+export const STARTING_STORAGE: readonly string[] = ['heat_sink'];
 /** One module, already bolted in. The cutter is salvage, not a kit. */
 export const STARTING_MODULES: readonly string[] = ['core_reactor'];
 export const STARTING_PLACEMENT = { moduleId: 'core_reactor', x: 0, y: 0, rot: 0 } as const;

@@ -157,14 +157,38 @@ describe('outcomes', () => {
     expect(state.run?.ship.hull).toBeGreaterThan(0);
   });
 
-  it('winning returns to the map with the cutter intact', () => {
+  it('winning opens the wreck, and leaving it returns to the map', () => {
     let state = runWith((ship) => place(ship, 'mass_driver', 0, 0), 'picket_drone');
     let guard = 0;
     while (guard++ < 40 && state.run?.shipCombat !== null) {
       state = applyAction(state, { kind: 'resolveShipTurn' });
     }
+
+    // Three parts, take one. A win that paid nothing was a fight with no reason
+    // to route toward it, and space nodes are four in ten of the map.
+    expect(state.run?.screen).toBe('salvage');
+    expect(state.run?.pendingSalvage?.moduleIds.length).toBeGreaterThan(0);
+
+    const offered = state.run?.pendingSalvage?.moduleIds[0] ?? '';
+    const before = state.run?.ship.stored.length ?? 0;
+    state = applyAction(state, { kind: 'takeSalvage', moduleId: offered });
+    state = applyAction(state, { kind: 'leaveSalvage' });
+
     expect(state.run?.screen).toBe('map');
     expect(state.phase).toBe('run');
+    expect(state.run?.ship.stored).toHaveLength(before + 1);
+  });
+
+  it('lets you walk away from the wreck with nothing', () => {
+    let state = runWith((ship) => place(ship, 'mass_driver', 0, 0), 'picket_drone');
+    let guard = 0;
+    while (guard++ < 40 && state.run?.shipCombat !== null) {
+      state = applyAction(state, { kind: 'resolveShipTurn' });
+    }
+    const before = state.run?.ship.stored.length ?? 0;
+    state = applyAction(state, { kind: 'leaveSalvage' });
+    expect(state.run?.screen).toBe('map');
+    expect(state.run?.ship.stored).toHaveLength(before);
   });
 });
 
@@ -286,10 +310,13 @@ describe('the crash', () => {
 });
 
 describe('the loadout', () => {
-  it('starts with one module already bolted in', () => {
+  it('starts with one module bolted in and one spare in the hold', () => {
+    // The spare is not power — it is a 1x1 that soaks a point. Its job is to
+    // make the loadout worth opening before the first space fight rather than
+    // after it.
     const state = applyActions(createInitialState('FIT'), [{ kind: 'beginRun' }]);
     expect(state.run!.ship.placed).toHaveLength(1);
-    expect(state.run!.ship.stored).toHaveLength(0);
+    expect(state.run!.ship.stored).toHaveLength(1);
   });
 
   it('un-places and places again through the real actions', () => {

@@ -18,7 +18,7 @@ import { renderReward } from './screens/reward.ts';
 import { renderSafePlanet } from './screens/safe.ts';
 import { renderStation } from './screens/station.ts';
 import { renderEvent } from './screens/event.ts';
-import { renderRefit } from './screens/refit.ts';
+import { renderSalvage } from './screens/salvage.ts';
 import { renderGameOver } from './screens/gameover.ts';
 import { renderPause } from './screens/pause.ts';
 import { el } from './dom.ts';
@@ -56,8 +56,8 @@ function renderView(store: Store, view: View): HTMLElement {
       return renderReward(store);
     case 'run:safe':
       return renderSafePlanet(store);
-    case 'run:refit':
-      return renderRefit(store);
+    case 'run:salvage':
+      return renderSalvage(store);
     case 'run:ship':
       return renderLoadout(store);
     case 'run:station':

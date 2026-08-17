@@ -9,7 +9,7 @@ import { createRng } from './rng.ts';
 import { buildDeck } from './combat/instances.ts';
 import { PLAYER, SHIP } from '../content/balance.ts';
 import { STARTING_DECK } from '../content/cards/index.ts';
-import { STARTING_PLACEMENT, STARTING_WEAPON } from '../content/modules/index.ts';
+import { STARTING_PLACEMENT, STARTING_STORAGE, STARTING_WEAPON } from '../content/modules/index.ts';
 
 /** Bumped when the shape of `GameState` changes, so a pasted dump identifies itself. */
 export const SCHEMA_VERSION = 1;
@@ -74,13 +74,13 @@ export function createRunState(seed: string, depth: number): RunState {
       gridH: SHIP.gridH,
       placed: [STARTING_PLACEMENT],
       weaponId: STARTING_WEAPON,
-      stored: [],
+      stored: [...STARTING_STORAGE],
     },
     threads: [],
     pendingEvent: null,
     seenEvents: [],
     shop: null,
-    pendingRefit: null,
+    pendingSalvage: null,
     forcedTier: null,
     // Act 1 has no front. `openMap` sets it when the act that does begins.
     wavefront: null,

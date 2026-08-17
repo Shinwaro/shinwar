@@ -229,14 +229,24 @@ export const ECONOMY = {
   safePlanetHealPct: 0.3,
 } as const;
 
-/* ---------- the refit ----------
-   Parts before a space battle, and one cut out of the wreck after. The grid is
-   still the limit, so this fills the packing puzzle rather than inflating
-   power: more parts than cells is the decision, not more power. */
+/* ---------- salvage ----------
+   Three parts off every wreck, take one. After the fight rather than before it:
+   a module that arrives on a schedule is not a reward, and handing one out on
+   every approach filled the grid without the player choosing what went on it. */
 
-export const REFIT = {
-  choices: 2,
+export const SALVAGE = {
+  choices: 3,
 } as const;
+
+/**
+ * Chance a `?` derelict holds a module rather than Alloy.
+ *
+ * This is the early ship supply. The grid starts nearly bare and Elites are the
+ * only other source, so without it the first space fight of a run is one
+ * reactor and nothing else — and a `?` is already the node that might be
+ * anything, so a part in a hulk needs no explaining.
+ */
+export const DERELICT_MODULE_CHANCE = 0.45;
 
 /* ---------- the Station ----------
    The shop is where Alloy stops being a score and becomes a decision. It

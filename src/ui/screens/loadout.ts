@@ -244,12 +244,12 @@ function build(store: Store, state: GameState, local: Local, redraw: () => void)
         ),
     // Back to wherever you came from. Opening the loadout from a refit and
     // being dropped onto the map would skip the fight you were preparing for.
-    run.pendingRefit === null
+    run.pendingSalvage === null
       ? button('Back to the map', { class: 'btn btn-primary' }, () => {
           store.dispatch({ kind: 'leaveNode' });
         })
-      : button('Back to the approach', { class: 'btn btn-primary' }, () => {
-          store.dispatch({ kind: 'backToRefit' });
+      : button('Back to the wreck', { class: 'btn btn-primary' }, () => {
+          store.dispatch({ kind: 'backToSalvage' });
         }),
   ]);
 }
