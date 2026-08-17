@@ -46,7 +46,15 @@ function fxLayer(): HTMLElement {
   return node;
 }
 
-export type FloatKind = 'damage' | 'block' | 'heal' | 'heat';
+/**
+ * `shield` is damage that never reached the hull.
+ *
+ * It gets its own number and its own colour rather than the word "blocked",
+ * because a hit that is half absorbed is two facts — how much the plating ate
+ * and how much got through — and one label cannot carry both. A partly blocked
+ * hit now floats a blue number and a red one.
+ */
+export type FloatKind = 'damage' | 'shield' | 'block' | 'heal' | 'heat';
 
 export interface FloatRequest {
   readonly text: string;
@@ -136,29 +144,39 @@ interface Hit {
   readonly kind: FloatKind;
 }
 
-function hitFromEntry(entry: LogEntry): Hit | null {
+/**
+ * One log entry can produce two numbers.
+ *
+ * A hit for 9 into 6 Block is `-6` in blue and `-3` in red, in that order. The
+ * old version printed the word "blocked" for a full absorb and nothing at all
+ * about the shield otherwise, which meant the most common question in a fight —
+ * "did my Block do anything" — had no answer on screen.
+ */
+function hitsFromEntry(entry: LogEntry): readonly Hit[] {
   const detail = entry.detail;
-  if (detail === null) return null;
+  if (detail === null) return [];
 
   const target = typeof detail['to'] === 'string' ? detail['to'] : null;
-  if (target === null) return null;
+  if (target === null) return [];
 
   if (entry.kind === 'damage') {
     const amount = typeof detail['toHull'] === 'number' ? detail['toHull'] : 0;
     const blocked = typeof detail['blocked'] === 'number' ? detail['blocked'] : 0;
-    // A fully blocked hit still gets a number: "0" over your shield is the
-    // clearest possible confirmation that the Block did its job.
-    if (amount === 0 && blocked === 0) return null;
-    return { target, text: amount === 0 ? 'blocked' : `-${amount}`, kind: 'damage' };
+    if (amount === 0 && blocked === 0) return [];
+
+    const out: Hit[] = [];
+    if (blocked > 0) out.push({ target, text: `-${blocked}`, kind: 'shield' });
+    if (amount > 0) out.push({ target, text: `-${amount}`, kind: 'damage' });
+    return out;
   }
 
   if (entry.kind === 'block') {
     const amount = typeof detail['amount'] === 'number' ? detail['amount'] : 0;
-    if (amount <= 0) return null;
-    return { target, text: `+${amount}`, kind: 'block' };
+    if (amount <= 0) return [];
+    return [{ target, text: `+${amount}`, kind: 'block' }];
   }
 
-  return null;
+  return [];
 }
 
 /**
@@ -176,23 +194,24 @@ export function playLogFx(
 
   let slot = 0;
   for (const entry of fresh) {
-    const hit = hitFromEntry(entry);
-    if (hit === null) continue;
+    for (const hit of hitsFromEntry(entry)) {
+      const anchor = locate(hit.target);
+      if (anchor === null) continue;
 
-    const anchor = locate(hit.target);
-    if (anchor === null) continue;
+      const box = anchor.getBoundingClientRect();
+      if (box.width === 0 && box.height === 0) continue;
 
-    const box = anchor.getBoundingClientRect();
-    if (box.width === 0 && box.height === 0) continue;
-
-    floatText({
-      text: hit.text,
-      kind: hit.kind,
-      x: box.left + box.width / 2,
-      y: box.top + box.height * 0.32,
-      delay: FIRST_BEAT + slot * BEAT_STEP,
-    });
-    slot += 1;
+      floatText({
+        text: hit.text,
+        kind: hit.kind,
+        // The shield number sits a little left of the hull number so a split
+        // hit reads as two numbers rather than one flickering twice.
+        x: box.left + box.width / 2 + (hit.kind === 'shield' ? -22 : 22),
+        y: box.top + box.height * 0.32,
+        delay: FIRST_BEAT + slot * BEAT_STEP,
+      });
+      slot += 1;
+    }
   }
 
   // How long the whole sequence takes, so the caller can wait for it. The enemy

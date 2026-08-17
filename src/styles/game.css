@@ -953,6 +953,22 @@
   box-shadow: 0 0 1.4rem var(--star-glow);
 }
 
+/* A ship fight is a different game with a different build behind it, so it has
+   to be legible from across the chart — you route toward or away from one
+   several nodes out, not when you arrive. A ring, not a colour: the colour is
+   already carrying the node type. */
+.star--space .star-dot {
+  box-shadow:
+    0 0 0 2px var(--bg),
+    0 0 0 3.5px var(--guard),
+    0 0 0.7rem var(--star-glow);
+}
+
+.star--space .star-detail {
+  color: var(--guard);
+  letter-spacing: 0.04em;
+}
+
 /* Unvisited, unreachable stars stay readable — reading the sky ahead is the
    whole point — they simply do not respond. */
 .star:disabled .star-dot {

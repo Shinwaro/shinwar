@@ -269,6 +269,13 @@ input[type='text']:hover {
   color: var(--guard);
 }
 
+/* Damage the shield ate. Blue because that is the shield's colour everywhere
+   else in the game, and a hit for 9 into 6 Block should read as two numbers —
+   what the plating took and what got through — rather than one word. */
+.fx-float--shield {
+  color: var(--guard);
+}
+
 .fx-float--heal {
   color: var(--good);
 }

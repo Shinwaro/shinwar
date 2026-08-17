@@ -981,3 +981,57 @@ while the grid is emptiest.
 **One spare in the hold at the start.** A 1x1 Heat Sink. Not power: its job is to
 make the loadout screen worth opening on turn one rather than after the first
 space fight has already gone badly.
+
+## Playtest pass 7 — split damage numbers, marked space nodes, and a simulated fight
+
+**A hit is two numbers now.** 9 damage into 6 Block floats `-6` in blue and `-3`
+in red, offset left and right so they read as two facts rather than one number
+flickering. The old version printed the word "blocked" on a full absorb and said
+nothing at all otherwise, which left the most common question in a fight — "did
+my Block do anything" — unanswered on screen.
+
+**Space nodes are marked on the chart.** A blue ring on the star, `· SHIP` on the
+caption, and "ship fight" in the accessible label. A space battle is a different
+game with a different build behind it, so you route toward or away from one
+several nodes out rather than discovering it on arrival.
+
+### The battleship prototype, simulated before building
+
+`npm run shipsim` — 400 fights per build per act, using the real module pool and
+the real stat aggregation, modelling both sides having a grid and one 1x1
+disabling strike a turn. Five configurations. What it found:
+
+**Energy does not gate the strike.** At a cost of 2, every build that could
+afford one struck on *every single turn* — strike count equalled turn count — and
+the Void build struck *zero* times in every fight, because its converter eats the
+whole Energy pool into Singularity before anything else sees it. So the cost is
+either free or infinite, never a decision. That is the strongest argument there
+is for taking Energy out of the space fight entirely.
+
+**A temporary disable barely registers.** Comparing no-strikes against
+strike-for-two-turns: most win rates moved by a few points. The exception was the
+turtle build in Act 2, 59% to 100%.
+
+**A disable that lasts the fight is transformative.** Turtle in Act 3 went 0% to
+86%; swarm 1% to 76%. And the strike count *fell* to 2–4 per fight, because you
+run out of things worth turning off. That is the shape a decision should have:
+finite, front-loaded, and it stops being obvious once the good targets are gone.
+
+**Fights are far too short.** The swarm build ends Act 1 fights in 1.9 turns and
+Act 2 in 2.8. Enemy hull needs roughly tripling before any of the above matters.
+
+**The enemy striking back changed almost nothing** — the with-and-without
+configurations are within a couple of points everywhere. It is not carrying
+weight at these numbers, whatever it does for tension.
+
+### What Backpack Battles actually does
+
+Worth writing down because it argues against the obvious instinct. Its combat is
+*fully* automatic — items run on cooldowns, weapons cost Stamina to fire, and the
+player makes no decisions at all once the fight starts. Every decision is in the
+placement phase. The fight is a readout of the build.
+
+That is the opposite of adding levers to the turn. If SHINWAR's ship fight keeps
+a per-turn decision it is closer to Into the Breach than to Backpack Battles, and
+the honest synthesis is: make the build carry the fight, and keep exactly one
+in-fight decision — which is what the strike is.
