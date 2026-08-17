@@ -314,28 +314,15 @@ export interface ShipEnemyMove {
   readonly damage: number;
   readonly shots: number;
   readonly shield: number;
-}
-
-/**
- * A part of an enemy ship you can aim at instead of its hull.
- *
- * This is where the per-turn agency lives: shooting the hull ends the fight
- * sooner, shooting a subsystem makes the rest of the fight cheaper. Neither is
- * free, which is the whole decision.
- */
-export interface SubsystemDef {
-  readonly id: string;
-  readonly name: string;
-  readonly hp: number;
-  /** What breaking it takes away. */
-  readonly disables: 'guns' | 'shields' | 'drive';
-  readonly text: string;
-}
-
-export interface SubsystemState {
-  readonly id: string;
-  readonly hp: number;
-  readonly maxHp: number;
+  /**
+   * Knocks one of YOUR modules offline for the rest of the fight.
+   *
+   * A telegraphed move rather than a background tax. The simulator found that
+   * an enemy chipping at your grid every turn changed win rates by a couple of
+   * points and mostly just added noise; as something you can see coming a turn
+   * ahead, it is a reason to have packed a spare.
+   */
+  readonly disables?: boolean;
 }
 
 export interface ShipEnemyDef {
@@ -345,7 +332,18 @@ export interface ShipEnemyDef {
   readonly act: 1 | 2 | 3;
   readonly moves: readonly ShipEnemyMove[];
   readonly script: EnemyScript;
-  readonly subsystems: readonly SubsystemDef[];
+  /**
+   * Its grid, and the whole reason a space fight is a fight.
+   *
+   * The enemy runs the same module pool the player does, so what it is doing to
+   * you is legible by looking at it rather than by reading a stat block — and
+   * knocking a cell out changes its build the same way losing one changes
+   * yours. Packed first-fit at combat start, so a seed always draws the same
+   * ship in the same arrangement.
+   */
+  readonly modules: readonly ModuleId[];
+  readonly gridW: number;
+  readonly gridH: number;
   readonly flavor?: string;
 }
 
@@ -357,10 +355,24 @@ export interface ShipEnemyState {
   /** Committed at telegraph time, exactly like a card-combat intent. */
   readonly intentMoveId: string | null;
   readonly ai: EnemyAiState;
-  readonly subsystems: readonly SubsystemState[];
+  /** Where its modules sit. Fully visible — you are targeting a schematic. */
+  readonly grid: readonly PlacedModule[];
+  /**
+   * Knocked offline for the rest of this fight.
+   *
+   * Not for a few turns: the simulator was unambiguous that a disable which
+   * wears off barely moves a win rate, while one that lasts turns the fight
+   * around — and it self-limits, because you run out of targets worth hitting
+   * after three or four. Nothing is permanent past the fight; a wreck is a
+   * wreck and your own grid is repaired on the way out.
+   */
+  readonly disabled: readonly ModuleId[];
 }
 
 export type ShipPools = { readonly [K in ShipResource]: number };
+
+/** A cell on the enemy grid, or `null` for "no strike this turn". */
+export type StrikeTarget = Cell | null;
 
 export interface ShipCombatState {
   readonly turn: number;
@@ -372,13 +384,20 @@ export interface ShipCombatState {
   /** One a turn.  means the player has not spent it yet. */
   readonly usedIntervention: InterventionId | null;
   /**
-   * Where the volley goes: `'hull'`, or a subsystem id.
+   * The cell you are striking this turn, or `null`.
    *
-   * Free to change, and re-decided every turn. Aiming is deliberately NOT the
-   * intervention — it is the decision you always get, and the lever is the one
-   * the build gave you.
+   * Free, one a turn, and it does not cost Energy. The simulator found the
+   * Energy gate was never a decision: every build that could afford a strike
+   * made one every single turn, and the Void build — whose converter eats the
+   * whole pool before anything else sees it — could never afford one at all.
+   * A cost that is either zero or infinite is not a cost.
+   *
+   * The volley itself always goes at the hull. This is the separate decision:
+   * end the fight sooner, or make the rest of it cheaper.
    */
-  readonly target: string;
+  readonly strike: StrikeTarget;
+  /** Your own modules knocked offline for this fight. Repaired on the way out. */
+  readonly playerDisabled: readonly ModuleId[];
   /**
    * Module ids that fired on the last resolve, in the order they fired.
    *

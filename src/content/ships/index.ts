@@ -1,148 +1,151 @@
 /* Enemy ships.
  *
- * Simpler than the ground roster on purpose: a ship fight is decided by the
- * build, so the enemy's job is to pose a shape — burst, grind, or armour —
- * rather than a puzzle of its own. Intents telegraph exactly, same as on foot.
+ * Every one of them runs the same module pool the player does, packed onto a
+ * grid you can see. That is the whole design: what the ship is doing to you is
+ * legible by looking at it, and knocking a cell out changes its build exactly
+ * the way losing one changes yours.
+ *
+ * A ship is therefore three things — a hull, a grid, and a small move script.
+ * The moves are the telegraphed part; the grid is the constant pressure
+ * underneath it. Intents commit at telegraph time, same as on foot.
+ *
+ * Hulls and damage are both tuned against `npm run shipsim`, which drives the
+ * real engine rather than a model of it. The bands: six to twelve turns, a real
+ * build clearing Act 1 comfortably and sweating in Act 3, and a bare grid
+ * losing.
+ *
+ * Hulls are deliberately modest and the durability lives in the GRID instead —
+ * plating that soaks, a wedge that parries. That is the whole reason the strike
+ * is a decision: a big hull number is something you grind through, a plating
+ * module is something you can choose to turn off.
  */
 
 import type { ShipEnemyDef } from '../../engine/types.ts';
 
 export const SHIP_ENEMIES: readonly ShipEnemyDef[] = [
+  /* ---------- Act 1 ----------
+     Small grids with one obvious thing worth turning off, so the strike teaches
+     itself on the first fight. */
   {
     id: 'picket_drone',
     name: 'Picket Drone',
-    maxHull: 42,
+    maxHull: 95,
     act: 1,
+    gridW: 3,
+    gridH: 2,
+    modules: ['ranging_spine', 'coolant_lattice'],
     moves: [
       { id: 'strafe', label: 'Strafe', damage: 4, shots: 2, shield: 0 },
-      { id: 'harden', label: 'Harden', damage: 0, shots: 0, shield: 8 },
+      { id: 'harden', label: 'Harden', damage: 0, shots: 0, shield: 10 },
     ],
     script: { kind: 'sequence', moves: ['strafe', 'strafe', 'harden'] },
-    subsystems: [
-      { id: 'guns', name: 'Gun Pod', hp: 14, disables: 'guns', text: 'Break it and its shots hit for half.' },
-      { id: 'plates', name: 'Plate Array', hp: 12, disables: 'shields', text: 'Break it and it stops shielding.' },
-    ],
-    flavor: 'Unmanned, unhurried, and entirely certain you should not be here.',
+    flavor: 'Cheap, patient, and bolted together from two better things.',
   },
   {
     id: 'lance_cutter',
     name: 'Lance Cutter',
-    maxHull: 58,
+    maxHull: 120,
     act: 1,
+    gridW: 3,
+    gridH: 3,
+    modules: ['whetstone_array', 'reactive_plating', 'heat_sink'],
     moves: [
       { id: 'lance', label: 'Lance', damage: 13, shots: 1, shield: 0 },
-      { id: 'reposition', label: 'Reposition', damage: 0, shots: 0, shield: 5 },
+      { id: 'reposition', label: 'Reposition', damage: 0, shots: 0, shield: 7 },
       { id: 'rake', label: 'Rake', damage: 5, shots: 3, shield: 0 },
     ],
-    script: {
-      kind: 'weighted',
-      entries: [
-        { move: 'lance', weight: 3 },
-        { move: 'rake', weight: 2 },
-        { move: 'reposition', weight: 1 },
-      ],
-      maxRepeats: 2,
-    },
-    subsystems: [
-      { id: 'lance', name: 'Lance Mount', hp: 20, disables: 'guns', text: 'Break it and its shots hit for half.' },
-      { id: 'drive', name: 'Drive Cone', hp: 16, disables: 'drive', text: 'Break it and it takes 50% more from every hit.' },
-    ],
-    flavor: 'Somebody else’s cutter, flown by somebody who kept their sect.',
+    script: { kind: 'sequence', moves: ['rake', 'reposition', 'lance'] },
+    flavor: 'One long gun and a crew that believes in it.',
   },
   {
     id: 'hauler_escort',
     name: 'Hauler Escort',
-    maxHull: 80,
+    maxHull: 145,
     act: 1,
+    gridW: 4,
+    gridH: 2,
+    modules: ['reactive_plating', 'coolant_lattice', 'ranging_spine'],
     moves: [
-      { id: 'volley', label: 'Volley', damage: 3, shots: 4, shield: 0 },
-      { id: 'plate', label: 'Plate', damage: 0, shots: 0, shield: 12 },
-      { id: 'ram', label: 'Ram', damage: 16, shots: 1, shield: 0 },
+      { id: 'volley', label: 'Volley', damage: 4, shots: 3, shield: 0 },
+      { id: 'plate', label: 'Plate', damage: 0, shots: 0, shield: 14 },
+      { id: 'ram', label: 'Ram', damage: 15, shots: 1, shield: 0 },
     ],
-    script: { kind: 'sequence', moves: ['volley', 'plate', 'volley', 'ram'] },
-    subsystems: [
-      { id: 'battery', name: 'Battery Deck', hp: 22, disables: 'guns', text: 'Break it and its shots hit for half.' },
-      { id: 'plating', name: 'Belt Plating', hp: 26, disables: 'shields', text: 'Break it and it stops shielding.' },
-      { id: 'thrusters', name: 'Thrusters', hp: 18, disables: 'drive', text: 'Break it and it takes 50% more from every hit.' },
-    ],
+    script: { kind: 'sequence', moves: ['plate', 'volley', 'ram'] },
     flavor: 'Built to survive the trip, not to win the argument.',
   },
+
   /* ---------- Act 2 ----------
-     Bigger hulls and a real subsystem decision: everything here punishes going
-     straight for the hull when a mount is what is actually hurting you. */
+     Wider grids and the first ships that reach into yours. The disabling move
+     is telegraphed a turn ahead, so it is a reason to have packed a spare
+     rather than a tax you cannot see coming. */
   {
     id: 'reach_corsair',
     name: 'Reach Corsair',
-    maxHull: 105,
+    maxHull: 150,
     act: 2,
+    gridW: 4,
+    gridH: 3,
+    modules: ['whetstone_array', 'ranging_spine', 'ablative_wedge'],
     moves: [
       { id: 'raking', label: 'Raking Pass', damage: 7, shots: 3, shield: 0 },
-      { id: 'skim', label: 'Skim', damage: 0, shots: 0, shield: 14 },
-      { id: 'broadside', label: 'Broadside', damage: 22, shots: 1, shield: 0 },
+      { id: 'skim', label: 'Skim', damage: 0, shots: 0, shield: 16 },
+      { id: 'shear', label: 'Shear Charge', damage: 9, shots: 1, shield: 0, disables: true },
     ],
-    script: { kind: 'sequence', moves: ['raking', 'skim', 'broadside'] },
-    subsystems: [
-      { id: 'rails', name: 'Rail Mounts', hp: 26, disables: 'guns', text: 'Break it and its shots hit for half.' },
-      { id: 'skirt', name: 'Deflector Skirt', hp: 22, disables: 'shields', text: 'Break it and it stops shielding.' },
-      { id: 'vanes', name: 'Steering Vanes', hp: 20, disables: 'drive', text: 'Break it and it takes 50% more from every hit.' },
-    ],
+    script: { kind: 'sequence', moves: ['raking', 'skim', 'shear'] },
     flavor: 'Fast, thin, and crewed by people who have never once broken off.',
   },
   {
     id: 'siege_tender',
     name: 'Siege Tender',
-    maxHull: 140,
+    maxHull: 175,
     act: 2,
+    gridW: 4,
+    gridH: 3,
+    modules: ['reactive_plating', 'ablative_wedge', 'coolant_lattice', 'whetstone_array'],
     moves: [
-      { id: 'bank', label: 'Bank Plates', damage: 0, shots: 0, shield: 20 },
-      { id: 'lob', label: 'Lob', damage: 26, shots: 1, shield: 0 },
-      { id: 'spray', label: 'Spray', damage: 6, shots: 4, shield: 0 },
+      { id: 'bank', label: 'Bank Plates', damage: 0, shots: 0, shield: 22 },
+      { id: 'lob', label: 'Lob', damage: 18, shots: 1, shield: 0 },
+      { id: 'spray', label: 'Spray', damage: 6, shots: 3, shield: 0 },
     ],
     script: { kind: 'sequence', moves: ['bank', 'lob', 'spray'] },
-    subsystems: [
-      { id: 'mortar', name: 'Mortar Deck', hp: 34, disables: 'guns', text: 'Break it and its shots hit for half.' },
-      { id: 'belt', name: 'Plate Belt', hp: 30, disables: 'shields', text: 'Break it and it stops shielding.' },
-    ],
     flavor: 'It does not manoeuvre. It arrives, and then it is a problem.',
   },
 
   /* ---------- Act 3 ----------
-     Enough hull that a build which cannot break a mount will not finish the
-     fight before the fight finishes it. */
+     Grids dense enough that you cannot turn all of it off, so the strike stops
+     being "disable the best thing" and starts being "which of these can I
+     afford to leave running". */
   {
     id: 'wavefront_picket',
     name: 'Wavefront Picket',
-    maxHull: 165,
+    maxHull: 175,
     act: 3,
+    gridW: 4,
+    gridH: 3,
+    modules: ['pyrometric_lens', 'whetstone_array', 'mirror_facet', 'heat_sink'],
     moves: [
-      { id: 'shear', label: 'Shear', damage: 11, shots: 3, shield: 0 },
-      { id: 'fold', label: 'Fold', damage: 0, shots: 0, shield: 24 },
-      { id: 'collapse', label: 'Collapse', damage: 34, shots: 1, shield: 0 },
+      { id: 'shear', label: 'Shear', damage: 6, shots: 3, shield: 0 },
+      { id: 'fold', label: 'Fold', damage: 0, shots: 0, shield: 20 },
+      { id: 'collapse', label: 'Collapse', damage: 13, shots: 1, shield: 0, disables: true },
     ],
     script: { kind: 'sequence', moves: ['shear', 'fold', 'collapse'] },
-    subsystems: [
-      { id: 'emitters', name: 'Shear Emitters', hp: 38, disables: 'guns', text: 'Break it and its shots hit for half.' },
-      { id: 'fold_core', name: 'Fold Core', hp: 32, disables: 'shields', text: 'Break it and it stops shielding.' },
-      { id: 'drive', name: 'Drive Spine', hp: 30, disables: 'drive', text: 'Break it and it takes 50% more from every hit.' },
-    ],
     flavor: 'Riding the front rather than running from it. It has made its peace.',
   },
   {
     id: 'horizon_keeper',
     name: 'Horizon Keeper',
-    maxHull: 210,
+    maxHull: 200,
     act: 3,
+    gridW: 5,
+    gridH: 3,
+    modules: ['ablative_wedge', 'mirror_facet', 'whetstone_array', 'ranging_spine', 'coolant_lattice'],
     moves: [
-      { id: 'sweep', label: 'Sweep', damage: 9, shots: 5, shield: 0 },
-      { id: 'anchor', label: 'Anchor', damage: 0, shots: 0, shield: 30 },
-      { id: 'sink', label: 'Sink', damage: 42, shots: 1, shield: 0 },
+      { id: 'sweep', label: 'Sweep', damage: 6, shots: 4, shield: 0 },
+      { id: 'anchor', label: 'Anchor', damage: 0, shots: 0, shield: 22 },
+      { id: 'sink', label: 'Sink', damage: 18, shots: 1, shield: 0 },
+      { id: 'strip', label: 'Strip', damage: 6, shots: 2, shield: 0, disables: true },
     ],
-    script: { kind: 'sequence', moves: ['anchor', 'sweep', 'sink'] },
-    subsystems: [
-      { id: 'battery', name: 'Keeper Battery', hp: 44, disables: 'guns', text: 'Break it and its shots hit for half.' },
-      { id: 'anchor_ring', name: 'Anchor Ring', hp: 40, disables: 'shields', text: 'Break it and it stops shielding.' },
-      { id: 'spine', name: 'Drive Spine', hp: 36, disables: 'drive', text: 'Break it and it takes 50% more from every hit.' },
-    ],
+    script: { kind: 'sequence', moves: ['anchor', 'sweep', 'sink', 'strip'] },
     flavor: 'Parked at the edge for a century, keeping something in rather than out.',
   },
 ];

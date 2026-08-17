@@ -169,7 +169,10 @@ export const MODULES: readonly ModuleDef[] = [
     rarity: 'common',
     footprint: { w: 1, h: 2 },
     effects: [{ kind: 'shield', amount: 4 }],
-    stats: { damageReduction: 2 },
+    // A point of damage as well as the soak. A build with no offence at all
+    // was taking twenty turns to finish an Act 1 fight — surviving is a way to
+    // win, but only if winning is still on the table.
+    stats: { damageReduction: 2, flatDamage: 1 },
     grants: 'brace',
     flavor: 'Layered so the outer sheet dies first and loudly.',
   },
@@ -193,7 +196,7 @@ export const MODULES: readonly ModuleDef[] = [
     rarity: 'rare',
     footprint: { w: 2, h: 1 },
     effects: [],
-    stats: { parryChance: 0.18, lifesteal: 2 },
+    stats: { parryChance: 0.18, lifesteal: 2, flatDamage: 2 },
     adjacentTo: ['plating', 'sensor'],
     adjacencyStats: { lifesteal: 3 },
     flavor: 'Half of what reaches it goes back the way it came, slightly annoyed.',
@@ -218,9 +221,12 @@ export const MODULES: readonly ModuleDef[] = [
     rarity: 'rare',
     footprint: { w: 3, h: 2, mask: ['###', '#..'] },
     effects: [],
+    // One extra shot, and only one. Shots multiply flat damage, so a second
+    // source of either turns the swarm build into a two-turn kill — the
+    // simulator had it ending Act 3 fights in under four.
     stats: { extraShots: 1 },
     adjacentTo: ['reactor'],
-    adjacencyStats: { extraShots: 1 },
+    adjacencyStats: { flatDamage: 1 },
     flavor: 'Feeds faster than the barrel would like. The barrel is outvoted.',
   },
   {
@@ -232,7 +238,7 @@ export const MODULES: readonly ModuleDef[] = [
     effects: [],
     stats: { flatDamage: 2 },
     adjacentTo: ['emitter'],
-    adjacencyStats: { flatDamage: 2 },
+    adjacencyStats: { flatDamage: 1 },
     flavor: 'Every shot leaves a little sharper than it arrived.',
   },
   {
@@ -318,7 +324,7 @@ export const WEAPONS: readonly WeaponDef[] = [
     id: 'rail_repeater',
     name: 'Rail Repeater',
     rarity: 'basic',
-    damage: 4,
+    damage: 6,
     shots: 2,
     heat: 1,
     flavor: 'Standard fit. Fires until told otherwise, which is its whole charm.',
@@ -327,7 +333,7 @@ export const WEAPONS: readonly WeaponDef[] = [
     id: 'plasma_cannon',
     name: 'Plasma Cannon',
     rarity: 'uncommon',
-    damage: 11,
+    damage: 17,
     shots: 1,
     heat: 3,
     flavor: 'It runs hot because it is, briefly, a star.',
@@ -336,7 +342,7 @@ export const WEAPONS: readonly WeaponDef[] = [
     id: 'lance_battery',
     name: 'Lance Battery',
     rarity: 'rare',
-    damage: 5,
+    damage: 6,
     shots: 3,
     heat: 2,
     flavor: 'Three thin holes are worth more than one wide one.',

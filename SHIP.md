@@ -270,3 +270,68 @@ back rather than a reason it was worthless.
 **`ShipCombatState.triggered` is presentation data in state, deliberately.** The
 screen replays the resolver's own firing order to stagger the pop-and-glow, and
 it has to be the real order rather than something the UI infers from the grid.
+
+---
+
+## Grid versus grid (playtest pass 8)
+
+The enemy has a grid now, fully visible, and it is the thing you click.
+
+**Subsystems are gone.** A ship's parts are modules from the same pool the
+player draws from, packed first-fit onto its own grid at combat start. Its
+plating really is plating; its damage really is a Whetstone Array. Both sides
+run through the same `shipStats`, so the numbers cannot drift apart — there is
+only one of them.
+
+**The volley always goes at the hull.** Aiming a volley at a subsystem and
+aiming a strike at a module were the same decision wearing two hats, and having
+both meant neither was interesting.
+
+**The strike is free, one a turn, and lasts the fight.** Both halves are
+simulator findings rather than taste:
+
+- *Free*, because the Energy gate was never a decision. Every build that could
+  afford a strike made one every single turn, and the Void build — whose
+  converter eats the whole pool before anything else sees it — could never
+  afford one at all. A cost that is either zero or infinite is not a cost.
+- *Lasting*, because a disable that wears off moved win rates by a couple of
+  points while one that holds turns fights around. It self-limits: after three
+  or four strikes there is nothing left worth turning off.
+
+Nothing is permanent past the fight. A wreck is a wreck, and your own grid is
+repaired on the way out — the ship is a run-long investment and losing part of
+it to one bad turn would make space nodes something to avoid.
+
+**Enemy hulls are modest and the durability lives in their grid.** That is the
+whole reason the strike is a decision: a big hull number is something you grind
+through, a plating module is something you can choose to turn off.
+
+**Some enemy moves reach into your grid.** Telegraphed a turn ahead like
+everything else, taking whatever is contributing most. As a background tax it
+changed win rates by a couple of points and added noise; as something you can
+see coming, it is a reason to have packed a spare.
+
+### Tuning
+
+`npm run shipsim` drives the real engine — `startShipCombat`, `markStrike`,
+`resolveShipTurn` — with a bot that strikes the most valuable module and spends
+its verb. Bands: 6–12 turns, 2–5 strikes, a real build clearing Act 1 and
+sweating in Act 3, a bare grid losing from Act 2.
+
+Where it landed, 40 fights per build per enemy:
+
+| | Act 1 | Act 2 | Act 3 |
+|---|---|---|---|
+| Heat | 100% / 4.1 turns | 99% / 6.1 | 99% / 7.2 |
+| Void | 100% / 4.3 | 100% / 8.5 | 31% / 10.2 |
+| Turtle | 100% / 12.0 | 100% / 15.0 | 100% / 16.5 |
+| Swarm | 100% / 2.7 | 100% / 2.9 | 100% / 2.8 |
+| Bare | 100% / 7.0 | **0%** | **0%** |
+
+Turtle sits above the band and Swarm below it, and that is the archetypes being
+different rather than a tuning failure — one wins by still being there, the
+other by not needing to be. Void is the weakest and the most fragile. The bare
+control losing from Act 2 is the check that the grid is the game.
+
+Two findings the strike is carrying: Act 2 turtle went 0% to 100% with it, and
+Act 1 turtle went 15.7 turns to 12.0.

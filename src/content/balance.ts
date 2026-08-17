@@ -167,11 +167,14 @@ export const STARTING_STANCE: StanceId = 'guard';
 
 export const SHIP = {
   /**
-   * The cutter's own pool, spent in space combat. Placeholder: it has never
-   * been played, and the real number waits on the grid system. Repairable with
-   * Alloy, unlike the ronin.
+   * The cutter's own pool, spent in space combat. Repairable with Alloy,
+   * unlike the ronin.
+   *
+   * 70 was the ronin's number borrowed, and at 70 a ship fight lasted three
+   * turns because an enemy volley is a volley. The simulator wants both sides
+   * standing for eight to ten turns; this is that, from the player's side.
    */
-  startingHull: 70,
+  startingHull: 145,
   /** Grid size in cells. Growing it is the ship path's equivalent of a card slot. */
   gridW: 5,
   gridH: 3,

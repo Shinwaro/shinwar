@@ -19,11 +19,12 @@ import {
   shipIntent,
 } from '../../engine/ship/combat.ts';
 import { adjacencyActive, cellsOf } from '../../engine/ship/grid.ts';
+import { enemyShipState, moduleAtCell, mostValuable, playerShipState } from '../../engine/ship/combat.ts';
 import { shipStats } from '../../engine/ship/stats.ts';
 import { hullFraction } from '../../engine/queries.ts';
 import { SHIP_COMBAT } from '../../content/balance.ts';
 import { modules as moduleTable, shipEnemies, weapons } from '../../content/registry.ts';
-import { button, el } from '../dom.ts';
+import { button, el, fill } from '../dom.ts';
 import { liveScreen } from '../screen.ts';
 import { renderRunBar } from '../components/runbar.ts';
 import { renderLog, scrollLogToEnd } from '../components/log.ts';
@@ -83,23 +84,24 @@ function build(store: Store, state: GameState): HTMLElement {
     ]),
     el('p', { class: 'ship-flavor' }, [enemyDef.flavor ?? '']),
 
-    /* Where the volley goes. Free to change, decided fresh every turn — this
-       is the choice you always get, whatever the grid looks like. */
-    el('div', { class: 'targets' }, [
-      aimButton(store, 'hull', enemyDef.name, fight.target === 'hull', false, null),
-      ...enemyDef.subsystems.map((sub) => {
-        const live = fight.enemy.subsystems.find((entry) => entry.id === sub.id);
-        const wrecked = (live?.hp ?? 0) <= 0;
-        return aimButton(
-          store,
-          sub.id,
-          `${sub.name} ${wrecked ? '—' : `${live?.hp ?? 0}/${live?.maxHp ?? sub.hp}`}`,
-          fight.target === sub.id,
-          wrecked,
-          sub.text,
-        );
-      }),
-    ]),
+    /*
+     * Their grid, fully visible, and the thing you click.
+     *
+     * The volley always goes at the hull; this is the separate decision. One
+     * cell a turn, free, and it knocks whatever is in it offline for the rest
+     * of the fight — so the question every turn is which of their parts you can
+     * least afford to leave running.
+     */
+    el('h2', { class: 'shop-heading' }, ['Their grid — one strike a turn']),
+    el(
+      'div',
+      {
+        class: 'ship-grid ship-grid--enemy',
+        style: `grid-template-columns:repeat(${enemyDef.gridW},1fr);grid-template-rows:repeat(${enemyDef.gridH},1fr)`,
+        'aria-label': `${enemyDef.name} grid`,
+      },
+      [...enemyCells(store, state, enemyDef.gridW, enemyDef.gridH)],
+    ),
   ]);
 
   /* -- the grid -- */
@@ -153,7 +155,7 @@ function build(store: Store, state: GameState): HTMLElement {
      The build is doing something every turn whether or not you press anything,
      so it has to be on screen. Scaling stats move as the pools move, which is
      the whole reason they are worth having. */
-  const stats = shipStats(ship, fight.pools);
+  const stats = shipStats(playerShipState(state), fight.pools);
   const statRow = el('div', { class: 'ship-stats' }, [
     stats.critChance > 0
       ? statChip('CRIT', `${Math.round(stats.critChance * 100)}%`, `x${(1.5 + stats.critBonus).toFixed(2)} when it lands`)
@@ -212,10 +214,22 @@ function build(store: Store, state: GameState): HTMLElement {
     statRow,
     pools,
     el('p', { class: 'ship-note' }, [
+      fight.strike === null
+        ? 'Pick a cell on their grid to knock offline, or fire without one.'
+        : `Striking ${moduleTable.get(moduleAtCell(state, fight.strike)?.moduleId ?? '')?.name ?? 'that cell'}. Click it again to call it off.`,
+    ]),
+    el('p', { class: 'ship-note' }, [
       spent
         ? `${VERB_LABEL[fight.usedIntervention!]} spent. Resolve the turn.`
         : 'One move a turn. Spend it, or hold it and let the grid do the work.',
     ]),
+    fight.playerDisabled.length === 0
+      ? null
+      : el('p', { class: 'ship-note ship-note--bad' }, [
+          `Offline until this fight ends: ${fight.playerDisabled
+            .map((id) => moduleTable.get(id).name)
+            .join(', ')}. They come back repaired.`,
+        ]),
     leverRow,
     el('div', { class: 'tray-actions' }, [
       button('Resolve turn', { class: 'btn btn-primary' }, () => {
@@ -226,24 +240,59 @@ function build(store: Store, state: GameState): HTMLElement {
   ]);
 }
 
-function aimButton(
-  store: Store,
-  target: string,
-  label: string,
-  aimed: boolean,
-  wrecked: boolean,
-  hint: string | null,
-): HTMLElement {
-  return button(
-    label,
-    {
-      class: `target${aimed ? ' is-aimed' : ''}${wrecked ? ' is-wrecked' : ''}`,
-      disabled: wrecked,
-      'aria-pressed': aimed ? 'true' : 'false',
-      title: hint ?? 'Aim at the hull. Ends the fight sooner.',
-    },
-    () => store.dispatch({ kind: 'aimAt', target }),
-  );
+/**
+ * Their grid as clickable cells.
+ *
+ * One tile per occupied cell rather than a span across a bounding box, same as
+ * the player's — a shape with a notch has to look like one on both sides of the
+ * fight, or the cell you are clicking is not the cell you think it is.
+ */
+function enemyCells(store: Store, state: GameState, w: number, h: number): readonly HTMLElement[] {
+  const fight = requireShipCombat(state);
+  const out: HTMLElement[] = [];
+
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      out.push(el('div', { class: 'grid-cell', style: `grid-column:${x + 1};grid-row:${y + 1}` }));
+    }
+  }
+
+  const worst = mostValuable(enemyShipState(state), fight.pools);
+
+  for (const placed of fight.enemy.grid) {
+    const def = moduleTable.get(placed.moduleId);
+    const dead = fight.enemy.disabled.includes(placed.moduleId);
+    const cells = cellsOf(placed);
+
+    cells.forEach((cell, index) => {
+      const marked =
+        fight.strike !== null && fight.strike.x === cell.x && fight.strike.y === cell.y;
+      const node = button(
+        '',
+        {
+          class:
+            `grid-tile grid-tile--${def.kind}` +
+            `${dead ? ' is-dead' : ''}${marked ? ' is-marked' : ''}` +
+            `${!dead && placed.moduleId === worst ? ' is-worst' : ''}`,
+          style: `grid-column:${cell.x + 1};grid-row:${cell.y + 1}`,
+          disabled: dead,
+          title: dead
+            ? `${def.name} — offline for the rest of this fight.`
+            : moduleTip(placed.moduleId),
+        },
+        () => store.dispatch({ kind: 'markStrike', cell: { x: cell.x, y: cell.y } }),
+      );
+      fill(node, [
+        index === 0 ? el('span', { class: 'tile-name' }, [def.name]) : null,
+        index === 0 && marked
+          ? el('span', { class: 'tile-link', 'aria-hidden': 'true' }, ['◎'])
+          : null,
+      ]);
+      out.push(node);
+    });
+  }
+
+  return out;
 }
 
 function statChip(label: string, value: string, hint: string): HTMLElement {

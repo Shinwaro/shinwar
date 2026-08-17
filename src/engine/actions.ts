@@ -27,8 +27,11 @@ export type Action =
   /* -- ship combat: one lever a turn, then the turn resolves -- */
   | { readonly kind: 'intervene'; readonly verb: import('./types.ts').InterventionId }
   | { readonly kind: 'resolveShipTurn' }
-  /** Aim the volley. Free — the decision you always get. */
-  | { readonly kind: 'aimAt'; readonly target: string }
+  /**
+   * Mark a cell on the enemy grid to strike. Free, one a turn, changeable until
+   * the turn resolves. `null` clears it.
+   */
+  | { readonly kind: 'markStrike'; readonly cell: import('./types.ts').Cell | null }
   | {
       readonly kind: 'moveModule';
       readonly moduleId: string;

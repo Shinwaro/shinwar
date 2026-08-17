@@ -2426,3 +2426,43 @@ button.grid-tile {
   display: grid;
   gap: 1rem;
 }
+
+/* ---------- their grid ----------
+   Fully visible, and the thing you click. The volley always goes at the hull;
+   this is the separate decision, one cell a turn, free. */
+
+.ship-grid--enemy {
+  max-height: 12rem;
+  border-color: color-mix(in srgb, var(--danger) 30%, var(--line));
+}
+
+.ship-grid--enemy .grid-tile {
+  cursor: pointer;
+  color: inherit;
+}
+
+.ship-grid--enemy .grid-tile:hover:not(:disabled),
+.ship-grid--enemy .grid-tile:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* Already offline. Kept on screen rather than removed: what you have already
+   turned off is half of reading what is left. */
+.ship-grid--enemy .grid-tile.is-dead {
+  opacity: 0.3;
+  cursor: not-allowed;
+  filter: grayscale(1);
+}
+
+.ship-grid--enemy .grid-tile.is-marked {
+  outline: 2px solid var(--danger);
+  outline-offset: -2px;
+  background: color-mix(in srgb, var(--danger) 22%, var(--surface-solid));
+}
+
+/* A hint at what the grid would miss most, so the first fight teaches the
+   decision instead of the player learning it three fights later. */
+.ship-grid--enemy .grid-tile.is-worst:not(.is-marked) {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 55%, transparent);
+}

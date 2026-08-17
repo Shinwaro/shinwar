@@ -10,10 +10,12 @@
  */
 
 import type {
+  Cell,
   GameState,
   InterventionId,
   ModuleDef,
   ModuleEffect,
+  PlacedModule,
   ShipCombatState,
   ShipEnemyDef,
   ShipPools,
@@ -24,7 +26,7 @@ import { appendLog, requireRun, withRun } from '../state.ts';
 import { nextFloat, weightedPick } from '../rng.ts';
 import { modules as moduleTable, shipEnemies, weapons } from '../../content/registry.ts';
 import { SHIP_COMBAT } from '../../content/balance.ts';
-import { adjacencyActive } from './grid.ts';
+import { adjacencyActive, cellsOf, firstFit, place } from './grid.ts';
 import { orderedModules, shipStats } from './stats.ts';
 
 const EMPTY_POOLS: ShipPools = { heat: 0, energy: 0, singularity: 0 };
@@ -99,10 +101,12 @@ export function startShipCombat(state: GameState, enemyId: string): GameState {
         shield: 0,
         intentMoveId: null,
         ai: { moveIndex: 0, lastMoveId: null, repeats: 0 },
-        subsystems: def.subsystems.map((sub) => ({ id: sub.id, hp: sub.hp, maxHp: sub.hp })),
+        grid: packEnemyGrid(def),
+        disabled: [],
       },
       usedIntervention: null,
-      target: 'hull',
+      strike: null,
+      playerDisabled: [],
       outcome: 'ongoing' as const,
     },
   }));
@@ -114,6 +118,71 @@ export function startShipCombat(state: GameState, enemyId: string): GameState {
       text: `Contact in open space: ${def.name}.`,
       detail: { enemy: def.id },
     }),
+  );
+}
+
+/**
+ * Pack an enemy's modules onto its grid, first-fit.
+ *
+ * Deterministic and derived rather than hand-authored: a roster is a list of
+ * module ids, and a seed always draws the same ship in the same arrangement.
+ * Anything that will not fit is dropped rather than overlapping — a ship with a
+ * module half off the board would be a ship you cannot target.
+ */
+function packEnemyGrid(def: ShipEnemyDef): readonly PlacedModule[] {
+  let ship: ShipState = {
+    hull: def.maxHull,
+    maxHull: def.maxHull,
+    gridW: def.gridW,
+    gridH: def.gridH,
+    placed: [],
+    stored: [],
+    weaponId: '',
+  };
+  for (const moduleId of def.modules) {
+    const spot = firstFit(ship, moduleId);
+    if (spot === null) continue;
+    ship = place(ship, moduleId, spot.x, spot.y, spot.rot);
+  }
+  return ship.placed;
+}
+
+/**
+ * The enemy's grid as a ship, minus whatever is offline.
+ *
+ * It runs through the same `shipStats` the player does, so an enemy's plating
+ * really is plating and turning it off really does make your shots land — the
+ * numbers cannot drift apart because there is only one of them.
+ */
+export function enemyShipState(state: GameState): ShipState {
+  const fight = requireShipCombat(state);
+  const def = shipEnemies.get(fight.enemy.defId);
+  return {
+    hull: fight.enemy.hull,
+    maxHull: fight.enemy.maxHull,
+    gridW: def.gridW,
+    gridH: def.gridH,
+    placed: fight.enemy.grid.filter((entry) => !fight.enemy.disabled.includes(entry.moduleId)),
+    stored: [],
+    weaponId: '',
+  };
+}
+
+/** Your grid, minus anything the enemy has knocked offline this fight. */
+export function playerShipState(state: GameState): ShipState {
+  const run = requireRun(state);
+  const offline = state.run?.shipCombat?.playerDisabled ?? [];
+  if (offline.length === 0) return run.ship;
+  return { ...run.ship, placed: run.ship.placed.filter((entry) => !offline.includes(entry.moduleId)) };
+}
+
+/** Which module occupies this cell of the enemy grid, if any. */
+export function moduleAtCell(state: GameState, cell: Cell): PlacedModule | null {
+  const fight = requireShipCombat(state);
+  return (
+    fight.enemy.grid.find((placed) =>
+      cellsOf(placed).some((own) => own.x === cell.x && own.y === cell.y),
+    ) ?? null
   );
 }
 
@@ -134,6 +203,7 @@ export function startShipTurn(state: GameState): GameState {
     shield: 0,
     amplify: 0,
     usedIntervention: null,
+    strike: null,
     pools: { ...current.pools, energy: 0 },
   }));
 
@@ -362,7 +432,7 @@ export function resolveShipTurn(state: GameState): GameState {
   let shield = fight.shield;
   let amplify = fight.amplify;
 
-  for (const live of liveModules(ship)) {
+  for (const live of liveModules(playerShipState(state))) {
     const result = applyModuleEffects(pools, live.effects);
     pools = result.pools;
     moduleDamage += result.damage;
@@ -381,7 +451,7 @@ export function resolveShipTurn(state: GameState): GameState {
    * Heat-into-crit chain: the cannon cooks the reactor, the converter reads the
    * heat, and the lens turns it into a crit chance — all inside one resolve.
    */
-  const stats = shipStats(ship, pools);
+  const stats = shipStats(playerShipState(state), pools);
   shield += stats.shieldPerTurn;
 
   const weapon = weapons.get(ship.weaponId);
@@ -421,6 +491,9 @@ export function resolveShipTurn(state: GameState): GameState {
     detail: { damage: total, crit },
   });
 
+  // The strike lands before the volley, so turning off their plating helps the
+  // shot you are taking this turn rather than the one after it.
+  next = resolveStrike(next);
   next = damageEnemy(next, total, stats.pierce);
 
   // Lifesteal comes off what actually landed, not off what was rolled.
@@ -461,71 +534,37 @@ export function resolveShipTurn(state: GameState): GameState {
   return startShipTurn(next);
 }
 
-/** Is a named capability broken? */
-export function subsystemBroken(state: GameState, disables: 'guns' | 'shields' | 'drive'): boolean {
-  const fight = state.run?.shipCombat ?? null;
-  if (fight === null) return false;
-  const def = shipEnemies.find(fight.enemy.defId);
-  return (def?.subsystems ?? []).some(
-    (sub) =>
-      sub.disables === disables &&
-      (fight.enemy.subsystems.find((live) => live.id === sub.id)?.hp ?? 1) <= 0,
-  );
+/**
+ * Everything the volley has to get through.
+ *
+ * The enemy's grid is read with the same aggregation as the player's, so its
+ * plating, its parry and its damage are its build rather than a stat block that
+ * has to be kept in sync with one.
+ */
+function enemyDefence(state: GameState): ReturnType<typeof shipStats> {
+  const fight = requireShipCombat(state);
+  return shipStats(enemyShipState(state), fight.pools);
 }
 
 /**
- * Put the volley where the player aimed it.
+ * Put the volley into the hull.
  *
- * Hull ends the fight sooner; a subsystem makes the rest of it cheaper. The
- * shield stands in front of the hull but not in front of a subsystem — you can
- * always get at the parts, which is what keeps aiming a live option rather
- * than something only worth doing on turn one.
+ * The volley always goes at the hull now — the decision moved to the strike,
+ * which is a separate thing you do to a cell. Aiming a volley at a subsystem
+ * and aiming a strike at a module were the same decision wearing two hats, and
+ * having both meant neither was interesting.
  */
 function damageEnemy(state: GameState, amount: number, pierce = 0): GameState {
   if (amount <= 0) return state;
   const fight = requireShipCombat(state);
-  const def = shipEnemies.get(fight.enemy.defId);
-  const name = def.name;
+  const name = shipEnemies.get(fight.enemy.defId).name;
+  const defence = enemyDefence(state);
 
-  // A broken drive means it cannot get out of the way.
-  const exposed = subsystemBroken(state, 'drive');
-  const total = exposed ? Math.floor(amount * 1.5) : amount;
-
-  const aimed = fight.enemy.subsystems.find((sub) => sub.id === fight.target && sub.hp > 0);
-
-  if (aimed !== undefined) {
-    const subDef = def.subsystems.find((sub) => sub.id === aimed.id);
-    const left = Math.max(0, aimed.hp - total);
-    const next = withShip(state, (current) => ({
-      ...current,
-      enemy: {
-        ...current.enemy,
-        subsystems: current.enemy.subsystems.map((sub) =>
-          sub.id === aimed.id ? { ...sub, hp: left } : sub,
-        ),
-      },
-    }));
-
-    const logged = appendLog(next, {
-      source: 'ship',
-      kind: 'damage',
-      text: `${subDef?.name ?? aimed.id} takes ${Math.min(total, aimed.hp)}.`,
-      detail: { to: 'enemy', toHull: 0, blocked: 0 },
-    });
-
-    if (left > 0) return logged;
-    return appendLog(logged, {
-      source: 'ship',
-      kind: 'combat',
-      text: `${subDef?.name ?? aimed.id} is wrecked. ${subDef?.text ?? ''}`,
-      detail: { subsystem: aimed.id },
-    });
-  }
-
-  // Pierce eats the shield before the shield eats the shot.
+  const parried = false;
+  const soaked = Math.max(0, amount - Math.round(defence.damageReduction));
   const shielded = Math.max(0, fight.enemy.shield - Math.round(pierce));
-  const absorbed = Math.min(shielded, total);
-  const toHull = total - absorbed;
+  const absorbed = Math.min(shielded, soaked);
+  const toHull = soaked - absorbed;
 
   const next = withShip(state, (current) => ({
     ...current,
@@ -536,6 +575,7 @@ function damageEnemy(state: GameState, amount: number, pierce = 0): GameState {
     },
   }));
 
+  void parried;
   return appendLog(next, {
     source: 'ship',
     kind: 'damage',
@@ -543,20 +583,59 @@ function damageEnemy(state: GameState, amount: number, pierce = 0): GameState {
       `${name} takes ${toHull}` +
       `${absorbed > 0 ? ` (${absorbed} shielded)` : ''}` +
       `${pierce > 0 && fight.enemy.shield > 0 ? ` — ${Math.round(pierce)} pierced` : ''}` +
-      `${exposed ? ' — drive is gone' : ''}.`,
+      `${defence.damageReduction > 0 ? ` — ${Math.round(defence.damageReduction)} soaked by plating` : ''}.`,
     detail: { to: 'enemy', toHull, blocked: absorbed },
   });
 }
 
-/** Aim the volley. Free, and re-decided every turn. */
-export function aimAt(state: GameState, target: string): GameState {
+/**
+ * Knock the module in the marked cell offline for the rest of the fight.
+ *
+ * Free, one a turn. Not permanent past the fight — a wreck is a wreck — and
+ * lasting rather than wearing off, because the simulator was unambiguous that a
+ * disable which expires barely moves a win rate while one that holds turns the
+ * fight around. It self-limits: after three or four there is nothing left worth
+ * turning off.
+ */
+function resolveStrike(state: GameState): GameState {
+  const fight = requireShipCombat(state);
+  const cell = fight.strike;
+  if (cell === null) return state;
+
+  const hit = moduleAtCell(state, cell);
+  if (hit === null || fight.enemy.disabled.includes(hit.moduleId)) return state;
+
+  const next = withShip(state, (current) => ({
+    ...current,
+    enemy: { ...current.enemy, disabled: [...current.enemy.disabled, hit.moduleId] },
+  }));
+
+  return appendLog(next, {
+    source: 'ship',
+    kind: 'combat',
+    text: `${moduleTable.get(hit.moduleId).name} is offline for the rest of the fight.`,
+    detail: { module: hit.moduleId },
+  });
+}
+
+/** Mark a cell to strike. Free, one a turn, changeable until the turn resolves. */
+export function markStrike(state: GameState, cell: Cell | null): GameState {
   const fight = state.run?.shipCombat ?? null;
   if (fight === null || fight.outcome !== 'ongoing') return state;
-  if (target !== 'hull' && !fight.enemy.subsystems.some((sub) => sub.id === target && sub.hp > 0)) {
-    return state;
+
+  if (cell === null) {
+    if (fight.strike === null) return state;
+    return withShip(state, (current) => ({ ...current, strike: null }));
   }
-  if (fight.target === target) return state;
-  return withShip(state, (current) => ({ ...current, target }));
+
+  const hit = moduleAtCell(state, cell);
+  // An empty cell or an already-dead module is not a strike, it is a wasted
+  // click — refused with the same state object so nothing re-renders.
+  if (hit === null || fight.enemy.disabled.includes(hit.moduleId)) return state;
+  if (fight.strike !== null && fight.strike.x === cell.x && fight.strike.y === cell.y) {
+    return withShip(state, (current) => ({ ...current, strike: null }));
+  }
+  return withShip(state, (current) => ({ ...current, strike: cell }));
 }
 
 /** `ignoreShield` is for Heat: the reactor cooks you from the inside. */
@@ -567,7 +646,7 @@ function damageShip(state: GameState, amount: number, ignoreShield = false): Gam
   // the inside — that is what `ignoreShield` already marks.
   const reduction = ignoreShield
     ? 0
-    : Math.round(shipStats(requireRun(state).ship, fight.pools).damageReduction);
+    : Math.round(shipStats(playerShipState(state), fight.pools).damageReduction);
   const incoming = Math.max(0, amount - reduction);
   if (incoming === 0) {
     return appendLog(state, {
@@ -607,21 +686,82 @@ function enemyShipActs(state: GameState): GameState {
     detail: { move: move.id },
   });
 
-  // A wrecked plate array cannot shield; a wrecked gun deck hits for half.
-  // This is the payoff for spending turns on the parts instead of the hull.
-  if (move.shield > 0 && !subsystemBroken(next, 'shields')) {
+  if (move.shield > 0) {
     next = withShip(next, (current) => ({
       ...current,
       enemy: { ...current.enemy, shield: current.enemy.shield + move.shield },
     }));
   }
 
-  const blunted = subsystemBroken(next, 'guns');
-  const perShot = blunted ? Math.floor(move.damage / 2) : move.damage;
-  const incoming = perShot * move.shots;
+  /*
+   * A move that reaches into your grid.
+   *
+   * Telegraphed a turn ahead like everything else, and it takes the module that
+   * is contributing most — the same heuristic you would use on it. Offline for
+   * the fight, repaired on the way out: the ship is a run-long investment and
+   * losing part of it permanently to one bad turn would make space nodes
+   * something to avoid rather than route toward.
+   */
+  if (move.disables === true) {
+    const live = playerShipState(next);
+    const best = mostValuable(live, requireShipCombat(next).pools);
+    if (best !== null) {
+      next = appendLog(
+        withShip(next, (current) => ({
+          ...current,
+          playerDisabled: [...current.playerDisabled, best],
+        })),
+        {
+          source: 'enemy',
+          kind: 'combat',
+          text: `${moduleTable.get(best).name} is knocked offline for the rest of the fight.`,
+          detail: { module: best },
+        },
+      );
+    }
+  }
+
+  const incoming = move.damage * move.shots;
   if (incoming > 0) next = damageShip(next, incoming);
 
   return next;
+}
+
+/**
+ * The module a grid would miss most.
+ *
+ * Used by the enemy to pick what to knock offline, and by the UI to hint at
+ * what a strike is worth. Weighted by what actually decides a ship fight:
+ * damage out first, then the things that keep you in it.
+ */
+export function mostValuable(ship: ShipState, pools: ShipPools): string | null {
+  const withAll = shipStats(ship, pools);
+  let best: string | null = null;
+  let bestDrop = 0;
+
+  // Sorted by cell, so a tie always resolves the same way for a seed.
+  for (const placed of orderedModules(ship)) {
+    const without: ShipState = {
+      ...ship,
+      placed: ship.placed.filter((entry) => entry.moduleId !== placed.moduleId),
+    };
+    const stats = shipStats(without, pools);
+    const drop =
+      (withAll.flatDamage - stats.flatDamage) * 3 +
+      (withAll.critChance - stats.critChance) * 40 +
+      (withAll.critBonus - stats.critBonus) * 10 +
+      (withAll.extraShots - stats.extraShots) * 8 +
+      (withAll.damageReduction - stats.damageReduction) * 3 +
+      (withAll.parryChance - stats.parryChance) * 30 +
+      (withAll.pierce - stats.pierce) * 2 +
+      (withAll.lifesteal - stats.lifesteal) * 2 +
+      (withAll.shieldPerTurn - stats.shieldPerTurn) * 2;
+    if (drop > bestDrop) {
+      bestDrop = drop;
+      best = placed.moduleId;
+    }
+  }
+  return best;
 }
 
 export function checkShipOutcome(state: GameState): GameState {

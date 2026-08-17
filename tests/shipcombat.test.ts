@@ -16,9 +16,9 @@ import {
   resolveShipTurn,
   shipIntent,
   startShipCombat,
-  subsystemBroken,
 } from '../src/engine/ship/combat.ts';
 import { reloadContent } from '../src/content/index.ts';
+import { modules as moduleTable } from '../src/content/registry.ts';
 import { SHIP_COMBAT } from '../src/content/balance.ts';
 
 beforeEach(() => {
@@ -192,55 +192,83 @@ describe('outcomes', () => {
   });
 });
 
-describe('aiming', () => {
-  it('starts on the hull and can be re-aimed for free', () => {
+describe('the strike', () => {
+  it('starts unmarked and can be marked and unmarked for free', () => {
     let state = runWith((ship) => ship, 'lance_cutter');
-    expect(state.run!.shipCombat!.target).toBe('hull');
+    expect(state.run!.shipCombat!.strike).toBeNull();
 
-    state = applyAction(state, { kind: 'aimAt', target: 'drive' });
-    expect(state.run!.shipCombat!.target).toBe('drive');
-    // Aiming is not the intervention — the lever is still there.
+    const cell = state.run!.shipCombat!.enemy.grid[0]!;
+    state = applyAction(state, { kind: 'markStrike', cell: { x: cell.x, y: cell.y } });
+    expect(state.run!.shipCombat!.strike).toEqual({ x: cell.x, y: cell.y });
+
+    // Free, and not the intervention — the lever is still there.
     expect(state.run!.shipCombat!.usedIntervention).toBeNull();
+
+    state = applyAction(state, { kind: 'markStrike', cell: { x: cell.x, y: cell.y } });
+    expect(state.run!.shipCombat!.strike, 'clicking it again calls it off').toBeNull();
   });
 
-  it('puts the volley into the part, not the hull', () => {
+  it('knocks the module in that cell offline for the rest of the fight', () => {
     let state = runWith((ship) => ship, 'lance_cutter');
-    state = applyAction(state, { kind: 'aimAt', target: 'drive' });
-    const hullBefore = state.run!.shipCombat!.enemy.hull;
+    const cell = state.run!.shipCombat!.enemy.grid[0]!;
+    const moduleId = cell.moduleId;
 
-    const after = resolveShipTurn(state);
-    const fight = after.run!.shipCombat!;
-    expect(fight.enemy.hull).toBe(hullBefore);
-    expect(fight.enemy.subsystems.find((s) => s.id === 'drive')!.hp).toBeLessThan(
-      fight.enemy.subsystems.find((s) => s.id === 'drive')!.maxHp,
-    );
+    state = applyAction(state, { kind: 'markStrike', cell: { x: cell.x, y: cell.y } });
+    state = resolveShipTurn(state);
+
+    expect(state.run!.shipCombat!.enemy.disabled).toContain(moduleId);
   });
 
-  it('refuses a target that does not exist or is already wrecked', () => {
-    const state = runWith((ship) => ship, 'lance_cutter');
-    expect(applyAction(state, { kind: 'aimAt', target: 'nonsense' })).toBe(state);
+  it('refuses an empty cell and a module that is already offline', () => {
+    let state = runWith((ship) => ship, 'lance_cutter');
+    // Far outside a 3x3 grid.
+    expect(applyAction(state, { kind: 'markStrike', cell: { x: 9, y: 9 } })).toBe(state);
+
+    const cell = state.run!.shipCombat!.enemy.grid[0]!;
+    state = applyAction(state, { kind: 'markStrike', cell: { x: cell.x, y: cell.y } });
+    state = resolveShipTurn(state);
+    // Now offline: marking it again is a wasted click, refused with the same
+    // state object so nothing re-renders.
+    const marked = applyAction(state, { kind: 'markStrike', cell: { x: cell.x, y: cell.y } });
+    expect(marked).toBe(state);
   });
 
-  it('pays off: a wrecked drive makes every later hit land harder', () => {
+  it('pays off: turning off their plating makes every later shot land harder', () => {
+    // The whole point of the decision. Find the module that is soaking damage
+    // and take it out; the same volley then does more.
     let state = runWith((ship) => place(ship, 'mass_driver', 0, 0), 'lance_cutter');
-    state = applyAction(state, { kind: 'aimAt', target: 'drive' });
+    const plating = state.run!.shipCombat!.enemy.grid.find(
+      (entry) => moduleTable.get(entry.moduleId).kind === 'plating',
+    );
+    expect(plating).toBeDefined();
 
-    let guard = 0;
-    while (guard++ < 20 && (state.run!.shipCombat!.enemy.subsystems.find((s) => s.id === 'drive')?.hp ?? 0) > 0) {
-      state = resolveShipTurn(state);
-      if (state.run?.shipCombat === null) return;
-    }
-    expect(subsystemBroken(state, 'drive')).toBe(true);
-
-    // Now aim at the hull and confirm the hit is amplified.
-    state = applyAction(state, { kind: 'aimAt', target: 'hull' });
     const before = state.run!.shipCombat!.enemy.hull;
-    const after = resolveShipTurn(state);
-    if (after.run?.shipCombat === null) return;
-    expect(before - after.run!.shipCombat!.enemy.hull).toBeGreaterThan(0);
+    const bare = resolveShipTurn(state);
+    const dealtWithPlating = before - bare.run!.shipCombat!.enemy.hull;
+
+    let struck = runWith((ship) => place(ship, 'mass_driver', 0, 0), 'lance_cutter');
+    struck = applyAction(struck, {
+      kind: 'markStrike',
+      cell: { x: plating!.x, y: plating!.y },
+    });
+    const hullBefore = struck.run!.shipCombat!.enemy.hull;
+    struck = resolveShipTurn(struck);
+    const dealtWithout = hullBefore - struck.run!.shipCombat!.enemy.hull;
+
+    expect(dealtWithout).toBeGreaterThan(dealtWithPlating);
+  });
+
+  it('is free — it never costs Energy', () => {
+    // The simulator found the Energy gate was never a decision: every build
+    // that could afford a strike made one every turn, and the Void build could
+    // never afford one at all.
+    let state = runWith((ship) => ship, 'lance_cutter');
+    const energyBefore = state.run!.shipCombat!.pools.energy;
+    const cell = state.run!.shipCombat!.enemy.grid[0]!;
+    state = applyAction(state, { kind: 'markStrike', cell: { x: cell.x, y: cell.y } });
+    expect(state.run!.shipCombat!.pools.energy).toBe(energyBefore);
   });
 });
-
 describe('the crash', () => {
   function crashOut(): GameState {
     const opened = applyActions(createInitialState('CRASH-2'), [{ kind: 'beginRun' }]);

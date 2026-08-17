@@ -1035,3 +1035,31 @@ That is the opposite of adding levers to the turn. If SHINWAR's ship fight keeps
 a per-turn decision it is closer to Into the Breach than to Backpack Battles, and
 the honest synthesis is: make the build carry the fight, and keep exactly one
 in-fight decision — which is what the strike is.
+
+## Playtest pass 8 — grid versus grid
+
+The design Robin asked for, built and tuned. `SHIP.md` carries it; this is what
+only showed up in the doing.
+
+**The first tuning pass made the game unwinnable.** Tripling enemy hulls without
+touching enemy damage produced 0% win rates from Act 2 onward for every build.
+The exchange rate is the thing, not either number alone: the cutter's 145 hull,
+the enemy's 95–200, weapon damage, and enemy damage per turn all move together
+or none of them mean anything.
+
+**The simulator was unfair to Act 3 until it grew the build.** It handed every
+act the same four modules, which made Act 3 look impossible when the real
+difference was that a player arriving there has salvaged half a dozen. Three
+parts in Act 1, five in Act 2, seven by Act 3 — and Act 3 went from 0% to
+winnable for three of four builds without a single number changing.
+
+**Extra shots multiply flat damage, and two sources of each is a runaway.** The
+Autoloader Rack granting a shot flat and another on adjacency, stacked with two
+flat-damage modules, had the swarm build ending Act 3 fights in 2.8 turns. The
+adjacency bonus became flat damage instead.
+
+**A build with no offence cannot win by surviving.** The turtle was taking twenty
+turns to finish an Act 1 fight, which is not a slow win, it is a spectator sport.
+Reactive Plating and Mirror Facet each carry a point or two of damage now.
+
+**`subsystemBroken` is gone**, and with it the last of the old aiming model.
