@@ -80,6 +80,8 @@ export function createRunState(seed: string, depth: number): RunState {
     seenEvents: [],
     shop: null,
     forcedTier: null,
+    // Act 1 has no front. `openMap` sets it when the act that does begins.
+    wavefront: null,
     combat: null,
     shipCombat: null,
     outcome: null,

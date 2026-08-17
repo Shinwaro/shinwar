@@ -11,10 +11,12 @@ import type { GameState } from './types.ts';
 import { appendLog, createInitialState, createRunState, withRun } from './state.ts';
 import { normalizeSeed } from './rng.ts';
 import { advanceEnemyTurn, endPlayerTurn, playCard } from './combat/combat.ts';
+import { scanEnemy } from './combat/intents.ts';
 import { aimAt, intervene, resolveShipTurn } from './ship/combat.ts';
 import { moveModule as moveOnGrid, place as placeOnGrid, unplace as unplaceOnGrid } from './ship/grid.ts';
 import { crashLand, repairDrive } from './ship/crash.ts';
 import {
+  advanceAct,
   claimRewardAlloy,
   concludeNode,
   enterNode,
@@ -54,7 +56,10 @@ function settleShipCombat(state: GameState): GameState {
 
   if (fight.outcome === 'won') {
     return appendLog(
-      withRun(state, (run) => ({ ...run, shipCombat: null, screen: 'map' })),
+      // `forcedTier` is cleared here as well as in `concludeNode`: only the
+      // surface path pays a reward, so a tier that reached a ship fight has
+      // nothing to spend it and would otherwise leak into the next fight.
+      withRun(state, (run) => ({ ...run, shipCombat: null, screen: 'map', forcedTier: null })),
       { source: 'system', kind: 'combat', text: 'The other ship stops moving.', detail: null },
     );
   }
@@ -88,14 +93,17 @@ function settleCombat(state: GameState): GameState {
     detail: { outcome: 'won' },
   });
 
-  // The Act 1 boss is the end of the road until Acts 2 and 3 land at M5.
+  // A boss ends the act. Acts 1 and 2 hand over to the next sky; Act 3's boss
+  // is the run. The reward is paid out first either way — the act finale is
+  // where the Mastery comes from, and skipping it would make the boss the one
+  // fight that gives nothing.
   const run = won.run;
   const atBoss = run !== null && run.map !== null && run.position === run.map.bossId;
-  if (atBoss) {
+  if (atBoss && run !== null && run.act >= 3) {
     return {
       ...won,
       phase: 'over',
-      run: run === null ? null : { ...run, outcome: 'won', combat: null },
+      run: { ...run, outcome: 'won', combat: null },
     };
   }
 
@@ -148,6 +156,11 @@ export function applyAction(state: GameState, action: Action): GameState {
     case 'endTurn': {
       if (state.run?.combat?.outcome !== 'ongoing') return state;
       return settleCombat(endPlayerTurn(state));
+    }
+
+    case 'scanEnemy': {
+      if (state.run?.combat?.outcome !== 'ongoing') return state;
+      return scanEnemy(state, action.enemyUid);
     }
 
     case 'advanceEnemies': {
@@ -236,7 +249,12 @@ export function applyAction(state: GameState, action: Action): GameState {
 
     case 'leaveReward': {
       if (state.run?.screen !== 'reward') return state;
-      return leaveReward(state);
+      const settled = leaveReward(state);
+      // The act finale pays out first and moves you on second, so the Mastery
+      // and the module land before the sky changes.
+      const run = settled.run;
+      const atBoss = run !== null && run.map !== null && run.position === run.map.bossId;
+      return atBoss && run !== null && run.act < 3 ? advanceAct(settled) : settled;
     }
 
     case 'safePlanetHeal': {

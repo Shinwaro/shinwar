@@ -15,7 +15,10 @@ import { requireRun } from '../../engine/state.ts';
 import { definitionOf } from '../../engine/combat/combat.ts';
 import { describeCard, describeCost } from '../../engine/combat/describe.ts';
 import { currentDepth, currentSeed, depthRules } from '../../engine/queries.ts';
-import { modules as moduleTable } from '../../content/registry.ts';
+import {
+  masteries as masteryTable,
+  modules as moduleTable,
+} from '../../content/registry.ts';
 import { button, el } from '../dom.ts';
 import { renderManifest } from '../components/manifest.ts';
 
@@ -94,6 +97,26 @@ function build(
             : ` ${run.ship.stored.length} in storage.`),
       ]),
     ]),
+
+    // Masteries rewrite how the whole deck reads, so they belong above the
+    // deck list rather than as a footnote under it.
+    run.pilot.masteries.length === 0
+      ? null
+      : el('section', { class: 'pause-section' }, [
+          el('h2', { class: 'pause-heading' }, ['Stance Masteries']),
+          el(
+            'ul',
+            { class: 'mastery-list' },
+            run.pilot.masteries.map((id) => {
+              const def = masteryTable.find(id);
+              if (def === undefined) return null;
+              return el('li', { class: `mastery-line mastery-line--${def.stance}` }, [
+                el('span', { class: 'mastery-name' }, [def.name]),
+                el('span', { class: 'mastery-text' }, [def.text]),
+              ]);
+            }),
+          ),
+        ]),
 
     renderManifest(state) ??
       el('section', { class: 'pause-section' }, [

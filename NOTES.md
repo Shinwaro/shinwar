@@ -639,3 +639,79 @@ Every number in the events, the threads and `SHOP` is a first guess. Card prices
 modules 90→520 against Act 1 payouts of 15–25 an encounter, which is deliberately tight — but
 nothing here has been near the simulator, and it joins Focus, Heat and ship-fight length on that
 list.
+
+## M5 — environments, three acts, masteries, the front
+
+The biggest milestone by surface area. Four systems, and all four rewrite a rule
+the player has already learned, which is what made the seams the interesting part.
+
+**Environments split into declared rules and hook handlers, and the split is load-bearing.**
+A hook cannot change a number a pipeline is about to produce — it can only react after the fact,
+and a handler that "tops up" a result yields a number that is the sum of a recursion rather than a
+rule. So anything that modifies a calculation the engine is mid-way through is declared in
+`EnvironmentRules` (heat gain, vent multiplier, draw count, a damage multiplier, the stance-change
+cap, hidden intents, the double-act round). Anything that happens *at a moment* is a handler
+(Radiation Belt's tick, the Debris Field's rock). Stellar Corona was the case that settled it: as a
+handler responding to `onHeatGained` by gaining more heat, it re-enters its own hook.
+
+**Chronal Shear queues the enemies twice rather than re-telegraphing.** `advanceEnemyTurn` used to
+clear `intentMoveId` unconditionally; it now clears only when the queue is done with that enemy, so
+the second activation resolves the move that was already on screen. Intents commit at telegraph
+time — a doubling that re-rolled would break that for the one environment most likely to kill you.
+
+**`CombatState.envMemory` is one bag, not six fields.** Two environments need to remember something
+across a round. A field each would be six dead fields in every fight without them. It is plain JSON
+like the rest of state and only `combat/rules.ts` touches it.
+
+**Masteries are a diff against the stance table, never behaviour.** `stanceRulesFor(state, stance)`
+folds every earned Mastery over `STANCES`, and everything that used to read `STANCES[...]` for
+behaviour now reads through it — including the damage pipeline, so a Mastery reaches the preview by
+construction rather than by being remembered. The stance strip reads the same table, because a strip
+still describing the base stance after a Mastery rewrote it is worse than no strip.
+
+**One Mastery per stance, enforced in the roll.** Caught in playtesting: a run held Iron Tide and
+Still Water, both GUARD, and they composed by overwriting each other field by field — the second
+silently undid half the first while the reward screen claimed otherwise. Two on one stance is now
+impossible rather than merely unlikely.
+
+**Masteries are granted, not chosen.** They are the reward for the detour, not a second decision on
+top of it. Every one is a trade: a Mastery that is simply better makes its stance mandatory, and a
+mandatory stance is the axis collapsing into a stat.
+
+**Act 3's counters are declared where they can be previewed.** Chirality Warden's "60% less over 20"
+is a `damageRules` entry read by the pipeline's target-reduction step, so the preview shows the
+reduction. Heat Siphon, Null Prism and the Tessellate Shard's shared plating are hooks, because
+they act at a moment. Null Prism exhausts the first card *after* it resolves rather than negating
+it: a negated card is a turn the player could not have planned.
+
+**Acts carry everything and reset only the sky.** Deck, ship, Alloy, Masteries and outstanding
+Threads all survive `advanceAct`; map, position, shop and the front do not. The boss pays out
+*before* the act turns over, so the act finale is not the one fight that gives nothing.
+
+**The Wavefront is stated, not inferred.** Every node costs 1 time, a Station or a Safe Planet costs
+2, and you only ever advance one row per node — so the doubling *is* the mechanism, and the map says
+so in words. Grace is 4, which is exactly the number of free detours in an act. It never blocks a
+route and never kills: catching up means the next fight starts with 3 Heat and the enemies one
+Strength up. `DESIGN.md` §3 names this as the thing most likely to feel oppressive if tuned badly,
+so it is deliberately generous and deliberately legible.
+
+**Act 1 has no front and opens in Clear Space.** Both for the same reason: the opening act is where
+the stance layer is still being learned, and a modifier on the first fight buries it.
+
+### Two bugs the playtest found
+
+**`healPlayer` wrote to a field that does not exist.** It set `pilot.hull` — not a field on
+`PilotState` — instead of `pilot.health`, so every card with a `heal` op had been doing nothing
+since M1. Excess-property checking does not fire through a spread, so nothing caught it.
+
+**Scan could never reach an enemy.** Enemies are only clickable while a card is selected, so "select
+a contact, then Scan" was an instruction the screen made impossible to follow. Clicking an unread
+contact now scans it directly, and the tray shows the remaining budget rather than pretending to be
+the control.
+
+### Balance, unmeasured
+
+Two acts of enemies, three bosses, eight environments, four masteries and the Wavefront's numbers
+are all first guesses. A crude bot needed roughly sixty seeds to reach Act 2, which says more about
+the bot — it plays every card in hand at the lowest-HP enemy — than about the tuning. Everything
+here joins Focus, Heat, ship-fight length and M4's prices on the list `sim/` settles at M6.

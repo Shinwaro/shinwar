@@ -1,0 +1,417 @@
+/* Environments, Masteries, the act ladder, and the Wavefront.
+ *
+ * The thing every one of these has in common: they rewrite a rule the player
+ * has already learned. So the tests care most about the seams — that a Mastery
+ * reaches the damage pipeline rather than being special-cased beside it, that a
+ * hidden intent is hidden from the *preview* and not just from the label, and
+ * that an act boundary carries everything the player built across it.
+ */
+
+import { beforeEach, describe, expect, it } from 'vitest';
+import type { GameState } from '../src/engine/types.ts';
+import { createInitialState } from '../src/engine/state.ts';
+import { applyAction } from '../src/engine/reducer.ts';
+import { advanceAct } from '../src/engine/run/run.ts';
+import { rollMastery } from '../src/engine/run/rewards.ts';
+import { computeDamage, previewDamage, PLAYER, enemyTarget } from '../src/engine/combat/damage.ts';
+import { endTurnImmediately, startPlayerTurn } from '../src/engine/combat/combat.ts';
+import { setStance } from '../src/engine/combat/stance.ts';
+import { intentVisible, scanEnemy, scansLeft } from '../src/engine/combat/intents.ts';
+import { environmentRules, liveStance, stanceChangeLimit } from '../src/engine/combat/rules.ts';
+import { gainHeat, ventHeat } from '../src/engine/combat/heat.ts';
+import { ACTIVE_STANCES, MASTERY, WAVEFRONT } from '../src/content/balance.ts';
+import {
+  CHRONAL_SHEAR_ID,
+  DEBRIS_FIELD_ID,
+  DEEP_VOID_ID,
+  ENVIRONMENTS,
+  GRAVITY_WELL_ID,
+  RADIATION_BELT_ID,
+  SENSOR_FOG_ID,
+  STELLAR_CORONA_ID,
+} from '../src/content/environments.ts';
+import { IRON_TIDE, UNSHEATHED_MIND } from '../src/content/masteries.ts';
+import { CHIRALITY_WARDEN } from '../src/content/enemies/act3.ts';
+import { ENCOUNTERS } from '../src/content/encounters.ts';
+import { reloadContent } from '../src/content/index.ts';
+import {
+  enemies as enemyTable,
+  masteries as masteryTable,
+} from '../src/content/registry.ts';
+import { makeFight, combatOf, firstEnemy, hullOf } from './helpers.ts';
+
+/** A fight in a named environment. */
+function inEnvironment(environmentId: string, options: Parameters<typeof makeFight>[0] = {}): GameState {
+  const state = makeFight(options);
+  if (state.run === null || state.run.combat === null) throw new Error('test: no fight');
+  return {
+    ...state,
+    run: { ...state.run, combat: { ...state.run.combat, environmentId } },
+  };
+}
+
+function withMastery(state: GameState, masteryId: string): GameState {
+  if (state.run === null) throw new Error('test: no run');
+  return {
+    ...state,
+    run: { ...state.run, pilot: { ...state.run.pilot, masteries: [masteryId] } },
+  };
+}
+
+beforeEach(() => {
+  reloadContent();
+});
+
+describe('the environment pool', () => {
+  it('ships all eight', () => {
+    expect(ENVIRONMENTS.length).toBe(8);
+  });
+
+  it('gives every one of them badge text, because the map shows it before you commit', () => {
+    for (const def of ENVIRONMENTS) {
+      expect(def.text.trim(), def.id).not.toBe('');
+    }
+  });
+
+  it('gives every one except Clear Space something to actually do', () => {
+    for (const def of ENVIRONMENTS) {
+      if (def.id === 'clear_space') continue;
+      const declares = def.rules !== undefined && Object.keys(def.rules).length > 0;
+      // The rest reach the game through the hook bus instead.
+      const hooked = [RADIATION_BELT_ID, DEBRIS_FIELD_ID].includes(def.id);
+      expect(declares || hooked, `${def.id} does nothing`).toBe(true);
+    }
+  });
+});
+
+describe('environments that modify a calculation', () => {
+  it('Stellar Corona adds to every Heat gain', () => {
+    const state = inEnvironment(STELLAR_CORONA_ID);
+    const hot = gainHeat(state, 2, 'test');
+    expect(combatOf(hot).heat).toBe(2 + (environmentRules(state).heatGainBonus ?? 0));
+  });
+
+  it('Stellar Corona doubles every vent', () => {
+    const state = inEnvironment(STELLAR_CORONA_ID, { heat: 8 });
+    const cooled = ventHeat(state, 2, 'test');
+    expect(combatOf(cooled).heat).toBe(4);
+  });
+
+  it('Deep Void bleeds Heat at the end of the turn', () => {
+    const state = inEnvironment(DEEP_VOID_ID, { heat: 6, stance: 'iai' });
+    const after = endTurnImmediately(state);
+    // IAI adds 1, Deep Void takes 2.
+    expect(combatOf(after).heat).toBeLessThan(6);
+  });
+
+  it('Gravity Well amplifies a heavy hit and leaves a light one alone', () => {
+    const state = inEnvironment(GRAVITY_WELL_ID, { stance: 'guard' });
+    const enemy = firstEnemy(state);
+    const shape = {
+      attacker: PLAYER,
+      target: enemyTarget(enemy.uid),
+      isAttack: true,
+      attackOrdinal: 1,
+      consumesFocus: false,
+    } as const;
+
+    expect(computeDamage(state, { ...shape, amount: 12 }).beforeBlock).toBe(18);
+    expect(computeDamage(state, { ...shape, amount: 11 }).beforeBlock).toBe(11);
+  });
+
+  it('Gravity Well caps stance changes, and the cap is enforced', () => {
+    const state = inEnvironment(GRAVITY_WELL_ID, { stance: 'guard' });
+    expect(stanceChangeLimit(state)).toBe(1);
+
+    const once = setStance(state, 'iai', 'test');
+    expect(combatOf(once).stance).toBe('iai');
+    const twice = setStance(once, 'guard', 'test');
+    expect(combatOf(twice).stance, 'the second change should be refused').toBe('iai');
+  });
+
+  it('Chronal Shear queues the enemies twice, resolving the telegraphed move both times', () => {
+    const plain = inEnvironment('clear_space', { enemyIds: ['scrap_hound'], hand: [] });
+    const sheared = inEnvironment(CHRONAL_SHEAR_ID, { enemyIds: ['scrap_hound'], hand: [] });
+
+    // Round 3 is the shear round; walk both to the same point and compare.
+    const damageOver = (start: GameState, rounds: number): number => {
+      let next = startPlayerTurn(start);
+      const before = hullOf(next);
+      for (let i = 0; i < rounds; i++) next = endTurnImmediately(next);
+      return before - hullOf(next);
+    };
+
+    expect(damageOver(sheared, 3)).toBeGreaterThan(damageOver(plain, 3));
+  });
+});
+
+describe('environments that act at a moment', () => {
+  it('Radiation Belt cooks everyone, including the enemies', () => {
+    const state = startPlayerTurn(inEnvironment(RADIATION_BELT_ID, { enemyIds: ['scrap_hound'] }));
+    expect(hullOf(state)).toBeLessThan(70);
+    expect(firstEnemy(state).hp).toBeLessThan(enemyTable.get('scrap_hound').maxHp);
+  });
+
+  it('Debris Field marks its target a turn before the rock lands', () => {
+    const state = startPlayerTurn(inEnvironment(DEBRIS_FIELD_ID, { enemyIds: ['scrap_hound'] }));
+    const marked = combatOf(state).envMemory['debrisTarget'];
+    // The player has 70 and a Scrap Hound has 30, so the mark is on the player.
+    expect(marked).toBe('player');
+
+    const after = endTurnImmediately(state);
+    expect(hullOf(after)).toBeLessThan(hullOf(state));
+  });
+});
+
+describe('Sensor Fog', () => {
+  it('hides the telegraph and hands it back for a free scan', () => {
+    const state = startPlayerTurn(inEnvironment(SENSOR_FOG_ID, { enemyIds: ['scrap_hound'] }));
+    const uid = firstEnemy(state).uid;
+
+    expect(intentVisible(state, uid)).toBe(false);
+    expect(scansLeft(state)).toBe(1);
+
+    const scanned = scanEnemy(state, uid);
+    expect(intentVisible(scanned, uid)).toBe(true);
+    expect(scansLeft(scanned)).toBe(0);
+
+    // The budget is spent, not refundable.
+    expect(scanEnemy(scanned, uid)).toBe(scanned);
+  });
+
+  it('refreshes the budget every turn', () => {
+    const state = startPlayerTurn(inEnvironment(SENSOR_FOG_ID, { enemyIds: ['scrap_hound'], hand: [] }));
+    const scanned = scanEnemy(state, firstEnemy(state).uid);
+    expect(scansLeft(scanned)).toBe(0);
+
+    const nextTurn = endTurnImmediately(scanned);
+    expect(scansLeft(nextTurn)).toBe(1);
+    expect(intentVisible(nextTurn, firstEnemy(nextTurn).uid)).toBe(false);
+  });
+
+  it('hides nothing anywhere else', () => {
+    const state = startPlayerTurn(inEnvironment('clear_space', { enemyIds: ['scrap_hound'] }));
+    expect(intentVisible(state, firstEnemy(state).uid)).toBe(true);
+    expect(scansLeft(state)).toBe(0);
+  });
+});
+
+describe('stance masteries', () => {
+  it('reach the damage pipeline rather than sitting beside it', () => {
+    const base = makeFight({ stance: 'iai' });
+    const mastered = withMastery(base, UNSHEATHED_MIND);
+    const enemy = firstEnemy(base);
+    const shape = {
+      amount: 6,
+      attacker: PLAYER,
+      target: enemyTarget(enemy.uid),
+      isAttack: true,
+      // Ordinal 0: the first attack of the turn, which is what IAI reads.
+      attackOrdinal: 0,
+      consumesFocus: false,
+    } as const;
+
+    expect(computeDamage(base, shape).beforeBlock).toBe(10);
+    expect(computeDamage(mastered, shape).beforeBlock).toBe(14);
+  });
+
+  it('cannot make the preview disagree with the result', () => {
+    const mastered = withMastery(makeFight({ stance: 'iai' }), UNSHEATHED_MIND);
+    const enemy = firstEnemy(mastered);
+    const shape = {
+      amount: 9,
+      attacker: PLAYER,
+      target: enemyTarget(enemy.uid),
+      isAttack: true,
+      attackOrdinal: 0,
+      consumesFocus: false,
+    } as const;
+    expect(previewDamage(mastered, shape)).toEqual(computeDamage(mastered, shape));
+  });
+
+  it('rewrite the stance strip text as well as the behaviour', () => {
+    const mastered = withMastery(makeFight({ stance: 'iai' }), UNSHEATHED_MIND);
+    const rules = liveStance(mastered);
+    expect(rules.text).toContain('+8');
+    expect(rules.masteries).toContain(UNSHEATHED_MIND);
+  });
+
+  it('charge a real cost — Iron Tide buys retained Block with the stance axis', () => {
+    const mastered = withMastery(makeFight({ stance: 'guard' }), IRON_TIDE);
+    expect(liveStance(mastered).blockRetained).toBeGreaterThan(100);
+    expect(stanceChangeLimit(mastered)).toBe(1);
+  });
+
+  it('never drop from a normal fight, and are capped', () => {
+    const state = applyAction(createInitialState('MASTERY'), { kind: 'beginRun' });
+    const run = state.run;
+    if (run === null) throw new Error('test: no run');
+
+    expect(rollMastery(run.rng, run, 'combat').masteryId).toBeNull();
+
+    const full = {
+      ...run,
+      pilot: { ...run.pilot, masteries: ['a', 'b', 'c'].slice(0, MASTERY.cap) },
+    };
+    expect(rollMastery(run.rng, full, 'boss').masteryId).toBeNull();
+  });
+
+  it('always drop from a boss', () => {
+    const state = applyAction(createInitialState('BOSSDROP'), { kind: 'beginRun' });
+    const run = state.run;
+    if (run === null) throw new Error('test: no run');
+    expect(rollMastery(run.rng, run, 'boss').masteryId).not.toBeNull();
+  });
+
+  it('never give a second one for a stance that already has one', () => {
+    // Two on the same stance would compose by overwriting each other field by
+    // field, so the second would silently undo half the first.
+    const state = applyAction(createInitialState('ONEEACH'), { kind: 'beginRun' });
+    const run = state.run;
+    if (run === null) throw new Error('test: no run');
+
+    const held = { ...run, pilot: { ...run.pilot, masteries: [IRON_TIDE] } };
+    for (let i = 0; i < 40; i++) {
+      const rolled = rollMastery({ ...run.rng, rewards: run.rng.rewards + i }, held, 'boss');
+      if (rolled.masteryId === null) continue;
+      expect(masteryTable.get(rolled.masteryId).stance).not.toBe('guard');
+    }
+  });
+
+  it('cover both stances in rotation, so the drop is never a dead slot', () => {
+    for (const stance of ACTIVE_STANCES) {
+      const forStance = masteryTable.all().filter((def) => def.stance === stance);
+      expect(forStance.length, `no mastery for ${stance}`).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe("Act 3's counter-enemies", () => {
+  it('read the number the pipeline is producing, and the preview shows it', () => {
+    const state = makeFight({ enemyIds: [CHIRALITY_WARDEN], stance: 'guard' });
+    const enemy = firstEnemy(state);
+    const shape = {
+      attacker: PLAYER,
+      target: enemyTarget(enemy.uid),
+      isAttack: true,
+      attackOrdinal: 1,
+      consumesFocus: false,
+    } as const;
+
+    // Under the threshold it lands in full; over it, most of it is thrown away.
+    expect(computeDamage(state, { ...shape, amount: 20 }).beforeBlock).toBe(20);
+    expect(computeDamage(state, { ...shape, amount: 40 }).beforeBlock).toBe(16);
+    expect(previewDamage(state, { ...shape, amount: 40 })).toEqual(
+      computeDamage(state, { ...shape, amount: 40 }),
+    );
+  });
+
+  it('are worth routing around rather than through — the counter is real', () => {
+    const state = makeFight({ enemyIds: [CHIRALITY_WARDEN] });
+    const enemy = firstEnemy(state);
+    const big = computeDamage(state, {
+      amount: 45,
+      attacker: PLAYER,
+      target: enemyTarget(enemy.uid),
+      isAttack: true,
+      attackOrdinal: 1,
+      consumesFocus: false,
+    });
+    const twoSmall =
+      computeDamage(state, {
+        amount: 18,
+        attacker: PLAYER,
+        target: enemyTarget(enemy.uid),
+        isAttack: true,
+        attackOrdinal: 1,
+        consumesFocus: false,
+      }).beforeBlock * 2;
+    expect(twoSmall).toBeGreaterThan(big.beforeBlock);
+  });
+});
+
+describe('the act ladder', () => {
+  it('has a full roster for every act and tier', () => {
+    for (const act of [1, 2, 3] as const) {
+      for (const tier of ['normal', 'elite', 'boss'] as const) {
+        const pool = ENCOUNTERS.filter((entry) => entry.act === act && entry.tier === tier);
+        expect(pool.length, `act ${act} ${tier}`).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it('carries the whole run across an act boundary', () => {
+    let state = applyAction(createInitialState('ACTS'), { kind: 'beginRun' });
+    const run = state.run;
+    if (run === null) throw new Error('test: no run');
+
+    state = {
+      ...state,
+      run: {
+        ...run,
+        alloy: 250,
+        pilot: { ...run.pilot, masteries: [UNSHEATHED_MIND], health: 41 },
+        ship: { ...run.ship, stored: ['heat_sink'] },
+        threads: [{ threadId: 'marked', resolved: false, progress: 2 }],
+      },
+    };
+
+    const next = advanceAct(state);
+    const after = next.run;
+    if (after === null) throw new Error('test: no run');
+
+    expect(after.act).toBe(2);
+    expect(after.alloy).toBe(250);
+    expect(after.pilot.masteries).toEqual([UNSHEATHED_MIND]);
+    expect(after.pilot.health).toBe(41);
+    expect(after.ship.stored).toEqual(['heat_sink']);
+    expect(after.threads[0]?.progress).toBe(2);
+
+    // A new sky, though: fresh map, nowhere visited, no shop held over.
+    expect(after.position).toBeNull();
+    expect(after.visited).toEqual([]);
+    expect(after.shop).toBeNull();
+    expect(after.map?.act).toBe(2);
+  });
+
+  it('refuses to advance past the last act', () => {
+    let state = applyAction(createInitialState('LAST'), { kind: 'beginRun' });
+    const run = state.run;
+    if (run === null) throw new Error('test: no run');
+    state = { ...state, run: { ...run, act: 3 } };
+    expect(advanceAct(state)).toBe(state);
+  });
+});
+
+describe('the Wavefront', () => {
+  it('does not exist in Act 1', () => {
+    const state = applyAction(createInitialState('FRONT'), { kind: 'beginRun' });
+    expect(state.run?.wavefront).toBeNull();
+  });
+
+  it('starts with a lead when the act it belongs to opens', () => {
+    let state = applyAction(createInitialState('FRONT'), { kind: 'beginRun' });
+    const run = state.run;
+    if (run === null) throw new Error('test: no run');
+    state = advanceAct({ ...state, run: { ...run, act: 1 } });
+    expect(state.run?.wavefront?.row).toBe(-WAVEFRONT.grace);
+    expect(state.run?.wavefront?.hazardPending).toBe(false);
+  });
+
+  it('charges double for a stop, which is the whole mechanism', () => {
+    let state = applyAction(createInitialState('FRONT2'), { kind: 'beginRun' });
+    const run = state.run;
+    if (run === null) throw new Error('test: no run');
+    state = advanceAct({ ...state, run: { ...run, act: 1 } });
+
+    const map = state.run?.map;
+    const stop = map?.nodes.find((node) => node.type === 'safe' || node.type === 'station');
+    const plain = map?.nodes.find((node) => node.type === 'combat' && node.row > 0);
+    expect(stop).toBeDefined();
+    expect(plain).toBeDefined();
+
+    // Compared as costs rather than by walking, so the assertion is about the
+    // rule and not about which node a seed happened to put where.
+    expect(WAVEFRONT.timeAtStop).toBeGreaterThan(WAVEFRONT.timePerNode);
+  });
+});

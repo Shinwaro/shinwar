@@ -1,0 +1,145 @@
+/* Act 1's elites and its boss.
+ *
+ * Bands from DESIGN.md §8: elites 80-110 HP and 14-20 a turn, the boss 150-180
+ * and 18-26. Act 1's elite is where the first Stance Mastery comes from, so it
+ * has to be beatable with a starting deck plus two or three picks — hard, not a
+ * wall.
+ *
+ * The boss is a culmination of what Act 1 taught: the gauge matters, and a turn
+ * you cannot block has to be planned for rather than absorbed.
+ */
+
+import type { EnemyDef } from '../../engine/types.ts';
+import { STRENGTH, VULNERABLE, WEAK } from '../statuses.ts';
+
+export const KILN_ALPHA = 'kiln_alpha';
+export const MAG_LATHE = 'mag_lathe';
+export const KILN_SOVEREIGN = 'kiln_sovereign';
+
+export const ACT1_ELITES: readonly EnemyDef[] = [
+  {
+    id: KILN_ALPHA,
+    name: 'Kiln Alpha',
+    maxHp: 88,
+    act: 1,
+    tier: 'elite',
+    moves: [
+      {
+        id: 'maul',
+        label: 'Maul',
+        intent: [{ kind: 'attack', amount: 17, times: 1, label: 'Maul' }],
+        effects: [{ op: 'damage', amount: 17, target: 'enemy' }],
+      },
+      {
+        id: 'worry',
+        label: 'Worry',
+        intent: [
+          { kind: 'attack', amount: 6, times: 2, label: 'Worry' },
+          { kind: 'debuff', amount: 1, times: 1, label: 'Vulnerable 1' },
+        ],
+        effects: [
+          { op: 'damage', amount: 6, target: 'enemy', times: 2 },
+          { op: 'applyStatus', status: VULNERABLE, stacks: 1, target: 'enemy' },
+        ],
+      },
+      {
+        id: 'bristle',
+        label: 'Bristle',
+        intent: [
+          { kind: 'block', amount: 10, times: 1, label: 'Plate 10' },
+          { kind: 'buff', amount: 2, times: 1, label: 'Strength +2' },
+        ],
+        effects: [
+          { op: 'block', amount: 10 },
+          { op: 'applyStatus', status: STRENGTH, stacks: 2, target: 'self' },
+        ],
+      },
+    ],
+    script: { kind: 'sequence', moves: ['worry', 'bristle', 'maul'] },
+    flavor: 'The one the others were built from. Nobody built this one.',
+  },
+
+  {
+    id: MAG_LATHE,
+    name: 'Mag-Lathe Warden',
+    maxHp: 102,
+    act: 1,
+    tier: 'elite',
+    moves: [
+      {
+        id: 'spool',
+        label: 'Spool',
+        intent: [
+          { kind: 'block', amount: 14, times: 1, label: 'Plate 14' },
+          { kind: 'debuff', amount: 2, times: 1, label: 'Heat +2' },
+        ],
+        effects: [
+          { op: 'block', amount: 14 },
+          { op: 'gainHeat', amount: 2 },
+        ],
+      },
+      {
+        id: 'cut',
+        label: 'Cut',
+        intent: [{ kind: 'attack', amount: 8, times: 2, label: 'Cut' }],
+        effects: [{ op: 'damage', amount: 8, target: 'enemy', times: 2 }],
+      },
+      {
+        id: 'true',
+        label: 'True',
+        intent: [
+          { kind: 'attack', amount: 19, times: 1, label: 'True' },
+          { kind: 'debuff', amount: 1, times: 1, label: 'Weak 1' },
+        ],
+        effects: [
+          { op: 'damage', amount: 19, target: 'enemy' },
+          { op: 'applyStatus', status: WEAK, stacks: 1, target: 'enemy' },
+        ],
+      },
+    ],
+    script: { kind: 'sequence', moves: ['spool', 'cut', 'true'] },
+    flavor: 'It machines everything to tolerance. You are out of tolerance.',
+  },
+
+  {
+    id: KILN_SOVEREIGN,
+    name: 'Kiln Sovereign',
+    maxHp: 168,
+    act: 1,
+    tier: 'boss',
+    moves: [
+      {
+        id: 'bank_fire',
+        label: 'Bank the Fire',
+        intent: [
+          { kind: 'block', amount: 18, times: 1, label: 'Plate 18' },
+          { kind: 'debuff', amount: 3, times: 1, label: 'Heat +3' },
+        ],
+        effects: [
+          { op: 'block', amount: 18 },
+          { op: 'gainHeat', amount: 3 },
+        ],
+      },
+      {
+        id: 'rake',
+        label: 'Rake',
+        intent: [{ kind: 'attack', amount: 9, times: 2, label: 'Rake' }],
+        effects: [{ op: 'damage', amount: 9, target: 'enemy', times: 2 }],
+      },
+      {
+        id: 'tap_out',
+        label: 'Tap Out',
+        intent: [
+          { kind: 'attack', amount: 24, times: 1, label: 'Tap Out' },
+          { kind: 'buff', amount: 2, times: 1, label: 'Strength +2' },
+        ],
+        effects: [
+          { op: 'damage', amount: 24, target: 'enemy' },
+          { op: 'applyStatus', status: STRENGTH, stacks: 2, target: 'self' },
+        ],
+      },
+    ],
+    script: { kind: 'sequence', moves: ['bank_fire', 'rake', 'tap_out'] },
+    flavor: 'It has been holding this system at working temperature since the sect died.',
+  },
+];

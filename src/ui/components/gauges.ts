@@ -12,16 +12,51 @@
 import type { GameState } from '../../engine/types.ts';
 import { heatStatus } from '../../engine/combat/heat.ts';
 import { requireCombat } from '../../engine/state.ts';
-import { FOCUS_DAMAGE_PER_STACK, HEAT, STANCES } from '../../content/balance.ts';
+import { liveStance, stanceChangeLimit } from '../../engine/combat/rules.ts';
+import { FOCUS_DAMAGE_PER_STACK, HEAT } from '../../content/balance.ts';
+import { CLEAR_SPACE_ID } from '../../content/environments.ts';
+import {
+  environments as environmentTable,
+  masteries as masteryTable,
+} from '../../content/registry.ts';
 import { el } from '../dom.ts';
 
 export function renderStanceStrip(state: GameState): HTMLElement {
   const combat = requireCombat(state);
-  const stance = STANCES[combat.stance];
+  // The live table, so a Stance Mastery is described rather than hidden. A
+  // strip that still reads out the base stance after a Mastery rewrote it is
+  // worse than no strip at all.
+  const stance = liveStance(state);
+  const limit = stanceChangeLimit(state);
+  const held = Number.isFinite(limit) && combat.stanceChangesThisTurn >= limit;
 
-  return el('div', { class: 'stance-strip', 'data-stance': combat.stance }, [
+  return el('div', { class: `stance-strip${held ? ' is-held' : ''}`, 'data-stance': combat.stance }, [
     el('span', { class: 'stance-name' }, [`▶ ${stance.name} ◀`]),
     el('span', { class: 'stance-text' }, [stance.text]),
+    stance.masteries.length === 0
+      ? null
+      : el('span', { class: 'stance-mastery' }, [
+          stance.masteries.map((id) => masteryTable.find(id)?.name ?? id).join(' · '),
+        ]),
+    !Number.isFinite(limit)
+      ? null
+      : el('span', { class: 'stance-limit' }, [
+          held
+            ? 'No stance changes left this turn'
+            : `${limit - combat.stanceChangesThisTurn} stance change${limit - combat.stanceChangesThisTurn === 1 ? '' : 's'} left`,
+        ]),
+  ]);
+}
+
+/** The badge for the fight's environment. Always on screen, never on hover. */
+export function renderEnvironmentBadge(state: GameState): HTMLElement | null {
+  const combat = requireCombat(state);
+  const def = environmentTable.find(combat.environmentId);
+  if (def === undefined || def.id === CLEAR_SPACE_ID) return null;
+
+  return el('div', { class: 'env-badge', 'data-environment': def.id }, [
+    el('span', { class: 'env-name' }, [def.name]),
+    el('span', { class: 'env-text' }, [def.text]),
   ]);
 }
 

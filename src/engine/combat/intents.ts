@@ -17,10 +17,11 @@
  */
 
 import type { EnemyState, GameState, IntentHit } from '../types.ts';
-import { requireCombat, requireRun, withRun } from '../state.ts';
+import { appendLog, requireCombat, requireRun, withRun } from '../state.ts';
 import { enemies as enemyTable } from '../../content/registry.ts';
 import { chooseMove } from './ai.ts';
 import { PLAYER, computeDamage, enemyTarget, livingEnemies } from './damage.ts';
+import { envGetList, envGetNumber, envSet, environmentRules, intentsHidden } from './rules.ts';
 
 /** Commit a move for every living enemy. Runs once, at the start of the player's turn. */
 export function telegraphAll(state: GameState): GameState {
@@ -64,6 +65,46 @@ export function intentOf(state: GameState, enemy: EnemyState): readonly IntentHi
       consumesFocus: false,
     });
     return { ...template, amount: breakdown.beforeBlock };
+  });
+}
+
+/* ---------- Sensor Fog ----------
+   The one environment that takes information away rather than adding a rule.
+   It is survivable because Scan gives it back on your terms and for free: the
+   cost is the attention and the ordering, not a resource. */
+
+export function scansLeft(state: GameState): number {
+  const combat = state.run?.combat;
+  if (combat === undefined || combat === null) return 0;
+  const allowed = environmentRules(state).scansPerTurn ?? 0;
+  return Math.max(0, allowed - envGetNumber(combat, 'scansUsed', 0));
+}
+
+/** Can the player read this enemy's telegraph right now? */
+export function intentVisible(state: GameState, uid: string): boolean {
+  if (!intentsHidden(state)) return true;
+  const combat = state.run?.combat;
+  if (combat === undefined || combat === null) return true;
+  return envGetList(combat, 'revealed').includes(uid);
+}
+
+/** Free, once or twice a turn. Reveals one enemy's telegraph for the rest of the turn. */
+export function scanEnemy(state: GameState, uid: string): GameState {
+  const combat = state.run?.combat;
+  if (combat === undefined || combat === null || combat.outcome !== 'ongoing') return state;
+  if (!intentsHidden(state) || scansLeft(state) <= 0) return state;
+  if (!combat.enemies.some((enemy) => enemy.uid === uid && enemy.hp > 0)) return state;
+  if (envGetList(combat, 'revealed').includes(uid)) return state;
+
+  const revealed = [...envGetList(combat, 'revealed'), uid];
+  const used = envGetNumber(combat, 'scansUsed', 0) + 1;
+  const next = envSet(envSet(state, 'revealed', revealed), 'scansUsed', used);
+
+  return appendLog(next, {
+    source: 'scan',
+    kind: 'combat',
+    text: `Scanned ${enemyTable.find(combat.enemies.find((entry) => entry.uid === uid)?.defId ?? '')?.name ?? 'contact'}.`,
+    detail: { enemy: uid },
   });
 }
 

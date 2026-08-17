@@ -7,8 +7,10 @@
  */
 
 import type { EnemyState, GameState } from '../../engine/types.ts';
-import { describeIntent, intentOf } from '../../engine/combat/intents.ts';
+import { describeIntent, intentOf, intentVisible } from '../../engine/combat/intents.ts';
 import { describeStatus } from '../../engine/combat/keywords.ts';
+import { envGetString } from '../../engine/combat/rules.ts';
+import { requireCombat } from '../../engine/state.ts';
 import { enemies as enemyTable, statuses as statusTable } from '../../content/registry.ts';
 import { el } from '../dom.ts';
 import { setBarFill } from '../anim.ts';
@@ -16,7 +18,14 @@ import { setBarFill } from '../anim.ts';
 export interface EnemyViewOptions {
   readonly targetable: boolean;
   readonly focused: boolean;
-  /** Predicted HP loss from the selected card, or null when nothing is selected. */
+  /**
+   * Sensor Fog: this one is unread and there is budget left to read it.
+   *
+   * Without this the enemy stays disabled whenever no card is selected, and
+   * "select an enemy, then Scan" is an instruction the screen makes impossible
+   * to follow.
+   */
+  readonly scannable: boolean;
   /** This enemy is taking its turn right now. */
   readonly acting: boolean;
   readonly onPick: () => void;
@@ -34,6 +43,7 @@ export function renderEnemy(
 
   const classes = ['enemy'];
   if (dead) classes.push('is-dead');
+  if (options.scannable) classes.push('is-scannable');
   if (options.targetable) classes.push('is-targetable');
   if (options.focused) classes.push('is-focused');
   if (options.acting) classes.push('is-acting');
@@ -49,12 +59,25 @@ export function renderEnemy(
     ),
   );
 
+  // Sensor Fog is the one thing in the game that hides a telegraph, and it
+  // hands it straight back for free — the cost is the attention and the order
+  // you spend it in, never a resource.
+  const visible = intentVisible(state, enemy.uid);
   const intentNode = dead
     ? null
-    : el('div', { class: `intent ${attacking ? 'intent--attack' : 'intent--other'}` }, [
-        el('span', { class: 'intent-icon', 'aria-hidden': 'true' }, [attacking ? '⚔' : '◆']),
-        el('span', { class: 'intent-text' }, [describeIntent(hits)]),
-      ]);
+    : !visible
+      ? el('div', { class: 'intent intent--hidden' }, [
+          el('span', { class: 'intent-icon', 'aria-hidden': 'true' }, ['?']),
+          el('span', { class: 'intent-text' }, ['Sensors fogged']),
+        ])
+      : el('div', { class: `intent ${attacking ? 'intent--attack' : 'intent--other'}` }, [
+          el('span', { class: 'intent-icon', 'aria-hidden': 'true' }, [attacking ? '⚔' : '◆']),
+          el('span', { class: 'intent-text' }, [describeIntent(hits)]),
+        ]);
+
+  // The Debris Field marks its target a full turn ahead. The randomness is in
+  // which rock comes, never in whether the player could have seen it.
+  const marked = !dead && envGetString(requireCombat(state), 'debrisTarget') === enemy.uid;
 
   const hpPct = enemy.maxHp === 0 ? 0 : Math.max(0, (enemy.hp / enemy.maxHp) * 100);
   const hpFill = el('span', { class: 'bar-fill' });
@@ -68,8 +91,9 @@ export function renderEnemy(
       type: 'button',
       class: classes.join(' '),
       'data-uid': enemy.uid,
-      disabled: dead || !options.targetable,
+      disabled: dead || (!options.targetable && !options.scannable),
       'aria-label': `${def.name}, ${enemy.hp} of ${enemy.maxHp} hull`,
+      title: options.scannable && !options.targetable ? 'Scan this contact.' : null,
     },
     [
       el('div', { class: 'enemy-head' }, [
@@ -88,6 +112,12 @@ export function renderEnemy(
       ]),
       hpBar,
       statusRow.length > 0 ? el('div', { class: 'pips' }, statusRow) : null,
+      marked
+        ? el('div', { class: 'debris-mark', title: 'A rock is coming for this one at the end of the round.' }, [
+            el('span', { 'aria-hidden': 'true' }, ['◎']),
+            'Marked',
+          ])
+        : null,
       intentNode,
     ],
   );

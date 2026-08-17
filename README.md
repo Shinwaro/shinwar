@@ -68,11 +68,19 @@ ally, a bill, or a Vareth reprisal that takes the node it lands on; a Manifest t
 screen; and a Station that finally sells cards, modules and a card removal out of the same Alloy
 pool. Events are data — a new one is one file edit, and its rules text is generated from its effects.
 
+**M5 is the whole run.** Three acts with their own rosters and three bosses; all eight environments,
+shown on the node before you commit to the route and changing the rules of that fight for both
+sides; Act 3 enemies that counter *your build* rather than out-stat you; Stance Masteries that
+permanently rewrite a stance and make the deck you already have read differently; and the Wavefront
+from Act 2, which prices every detour to the shop at a row of your lead.
+
 **Next**, in order:
 
-1. **M5** — environments, Acts 2 and 3, bosses, Stance Masteries, the Wavefront.
-2. **M6's simulator** is where the balance problems in `NOTES.md` get settled — Focus is overtuned,
-   Heat never threatens anything, ship fights end in about three turns, and none of M4's prices have
-   been measured. Tuning any of those by hand before the bot exists is guessing.
+1. **M6's simulator** is where the balance problems in `NOTES.md` get settled — Focus is overtuned,
+   Heat never threatens anything, ship fights end in about three turns, and none of M4's prices or
+   M5's two new acts have been measured. Tuning any of that by hand before the bot exists is
+   guessing.
+2. **M7** — feel: animation timings, hit feedback, screen shake, the epilogue generator, the full
+   Depth ladder, the combat-stage background.
 
 Two open design questions sit at the bottom of [SHIP.md](SHIP.md).

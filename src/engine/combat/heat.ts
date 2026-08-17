@@ -19,6 +19,7 @@ import { HEAT } from '../../content/balance.ts';
 import { cards as cardTable } from '../../content/registry.ts';
 import { PLAYER, applyDirectDamage } from './damage.ts';
 import { moveToExhaust, randomFromHand } from './piles.ts';
+import { environmentRules } from './rules.ts';
 
 /** Damage taken this instant if the turn ended now. 0 below the threshold. */
 export function overheatDamageAt(heat: number): number {
@@ -55,10 +56,18 @@ export function heatStatus(state: GameState): {
   };
 }
 
+/**
+ * Both of these apply the environment's modifier *before* anything is written
+ * down, rather than letting a handler top the number up afterwards. A handler
+ * reacting to `onHeatGained` by gaining more heat re-enters its own hook, and
+ * the resulting number is the sum of a recursion rather than a rule — so
+ * Stellar Corona is declared in `EnvironmentRules` and applied here.
+ */
 export function gainHeat(state: GameState, amount: number, source: string): GameState {
   if (amount <= 0) return state;
   const combat = requireCombat(state);
-  const total = Math.min(HEAT.max, combat.heat + amount);
+  const bonus = environmentRules(state).heatGainBonus ?? 0;
+  const total = Math.min(HEAT.max, combat.heat + amount + bonus);
   const gained = total - combat.heat;
   if (gained === 0) return state;
 
@@ -72,7 +81,8 @@ export function gainHeat(state: GameState, amount: number, source: string): Game
 export function ventHeat(state: GameState, amount: number, source: string): GameState {
   if (amount <= 0) return state;
   const combat = requireCombat(state);
-  const total = Math.max(HEAT.min, combat.heat - amount);
+  const multiplier = environmentRules(state).ventMultiplier ?? 1;
+  const total = Math.max(HEAT.min, combat.heat - Math.floor(amount * multiplier));
   const vented = combat.heat - total;
   if (vented === 0) return state;
 

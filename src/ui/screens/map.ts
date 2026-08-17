@@ -12,11 +12,11 @@
  * else is a coloured star, with its detail on hover, focus, or in the readout.
  */
 
-import type { GameState, MapNode, RunMap } from '../../engine/types.ts';
+import type { GameState, MapNode, RunMap, RunState } from '../../engine/types.ts';
 import type { Store } from '../store.ts';
 import { requireRun } from '../../engine/state.ts';
 import { availableMoves, currentNode, describeNode } from '../../engine/map/route.ts';
-import { encountersFor } from '../../content/encounters.ts';
+import { ENCOUNTERS } from '../../content/encounters.ts';
 import { environments } from '../../content/registry.ts';
 import { button, el, fill } from '../dom.ts';
 import { liveScreen } from '../screen.ts';
@@ -45,12 +45,7 @@ function environmentName(node: MapNode): string | null {
 
 function encounterName(node: MapNode): string | null {
   if (node.encounterId === null) return null;
-  const all = [
-    ...encountersFor(1, 'normal'),
-    ...encountersFor(1, 'elite'),
-    ...encountersFor(1, 'boss'),
-  ];
-  return all.find((entry) => entry.id === node.encounterId)?.name ?? null;
+  return ENCOUNTERS.find((entry) => entry.id === node.encounterId)?.name ?? null;
 }
 
 function labelOf(node: MapNode): string {
@@ -215,6 +210,10 @@ function buildMap(
   // carrying is part of reading the route.
   return el('div', { class: 'map-inner' }, [
     renderRunBar(store, state),
+    el('div', { class: 'map-head' }, [
+      el('span', { class: 'map-act' }, [`Act ${map.act}`]),
+      renderWavefront(run),
+    ]),
     readout,
     renderManifest(state, 'Carrying'),
     viewport,
@@ -223,4 +222,33 @@ function buildMap(
 
 function actLabel(map: RunMap): string {
   return `Act ${map.act} star chart`;
+}
+
+/**
+ * The collapse front, in rows of lead.
+ *
+ * It says the rule out loud rather than making the player infer it from a
+ * moving bar: a Station or a Safe Planet costs two rows instead of one, and
+ * that sentence is the entire mechanism. Hiding it would turn a priced decision
+ * into a surprise.
+ */
+function renderWavefront(run: RunState): HTMLElement | null {
+  const front = run.wavefront;
+  if (front === null) return null;
+
+  const here = run.position === null ? 0 : (run.map?.nodes.find((node) => node.id === run.position)?.row ?? 0);
+  const lead = here - front.row;
+  const state = lead <= 0 ? 'on-you' : lead <= 2 ? 'close' : 'clear';
+
+  return el('div', { class: `wavefront is-${state}`, role: 'status', 'aria-live': 'polite' }, [
+    el('span', { class: 'wavefront-label' }, ['WAVEFRONT']),
+    el('span', { class: 'wavefront-value' }, [
+      lead <= 0 ? 'On you' : `${lead} row${lead === 1 ? '' : 's'} behind`,
+    ]),
+    el('span', { class: 'wavefront-hint' }, [
+      lead <= 0
+        ? 'The next fight starts hot, and they start stronger.'
+        : 'A Station or a Safe Planet costs two rows of lead instead of one.',
+    ]),
+  ]);
 }

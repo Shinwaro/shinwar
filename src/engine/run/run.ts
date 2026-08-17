@@ -5,7 +5,7 @@
  * back out to the reducer.
  */
 
-import type { CardId, GameState, MapNode, RunState } from '../types.ts';
+import type { CardId, GameState, MapNode, RunState, WavefrontState } from '../types.ts';
 import { appendLog, requireRun, withRun } from '../state.ts';
 import { fireHook } from '../hooks.ts';
 import { nextIntInclusive, pick, weightedPick } from '../rng.ts';
@@ -20,9 +20,9 @@ import { applyRunEffects } from './effects.ts';
 import { clearEvent, openEvent } from './events.ts';
 import { advanceThreads, dueThreads, resolveThread } from './threads.ts';
 import { stockShop } from './shop.ts';
-import { ECONOMY, PLAYER, TREASURE_ALLOY, UNKNOWN_WEIGHTS } from '../../content/balance.ts';
+import { ECONOMY, PLAYER, TREASURE_ALLOY, UNKNOWN_WEIGHTS, WAVEFRONT } from '../../content/balance.ts';
 import { CLEAR_SPACE_ID } from '../../content/environments.ts';
-import { cards as cardTable, shipEnemies } from '../../content/registry.ts';
+import { cards as cardTable, masteries as masteryTable, shipEnemies } from '../../content/registry.ts';
 
 /* ---------- opening the run ---------- */
 
@@ -36,7 +36,43 @@ export function openMap(state: GameState): GameState {
     position: null,
     visited: [],
     screen: 'map',
+    shop: null,
+    wavefront: startingWavefront(current.act),
   }));
+}
+
+/** The front only exists from Act 2. Act 1 is for learning the stance layer. */
+function startingWavefront(act: 1 | 2 | 3): WavefrontState | null {
+  if (act < WAVEFRONT.firstAct) return null;
+  return { time: 0, row: -WAVEFRONT.grace, hazardPending: false };
+}
+
+/**
+ * The act is over. Move up rather than end the run.
+ *
+ * Everything the player built carries: deck, ship, Alloy, Masteries, and any
+ * Thread still outstanding. What resets is the map, the shop, and the front —
+ * a new act is a new sky, not a new run.
+ */
+export function advanceAct(state: GameState): GameState {
+  const run = requireRun(state);
+  if (run.act >= 3) return state;
+  const act = (run.act + 1) as 1 | 2 | 3;
+
+  const moved = withRun(state, (current) => ({
+    ...current,
+    act,
+    combat: null,
+    pendingReward: null,
+    forcedTier: null,
+  }));
+
+  return appendLog(openMap(moved), {
+    source: 'system',
+    kind: 'run',
+    text: `Act ${act}. The frontier gets thinner from here.`,
+    detail: { act },
+  });
 }
 
 /* ---------- entering a node ---------- */
@@ -73,13 +109,53 @@ export function enterNode(state: GameState, nodeId: string): GameState {
   });
 
   next = fireHook(next, 'onNodeEntered', { nodeId, nodeType: node.type });
+  next = advanceWavefront(next, node);
   next = settleThreads(next, node);
 
   // A Thread that came due with a reprisal takes the node. You never find out
   // what was here, which is exactly what an ambush is.
-  if (requireRun(next).forcedTier !== null) return openCombat(next, { ...node, type: 'combat' });
+  //
+  // Always on foot, whatever the node was. A reprisal is people coming aboard,
+  // and — less romantically — only the surface path pays a reward, so a
+  // reprisal in space would bank a tier that nothing ever spends.
+  if (requireRun(next).forcedTier !== null) {
+    return openCombat(next, { ...node, type: 'combat', arena: 'surface' });
+  }
 
   return resolveNode(next, node);
+}
+
+/**
+ * The collapse front takes a step.
+ *
+ * Every node costs time; a Station or a Safe Planet costs double. Since you
+ * only ever advance one row per node, that doubling is the whole mechanism —
+ * each detour literally hands the front a row of your lead. It never blocks a
+ * route and it never kills you: catching up only means the next fight starts
+ * worse, which keeps it a problem to solve rather than a verdict.
+ */
+function advanceWavefront(state: GameState, node: MapNode): GameState {
+  const run = requireRun(state);
+  const front = run.wavefront;
+  if (front === null) return state;
+
+  const stop = node.type === 'station' || node.type === 'safe';
+  const time = front.time + (stop ? WAVEFRONT.timeAtStop : WAVEFRONT.timePerNode);
+  const row = time - WAVEFRONT.grace;
+  const caught = row >= node.row && node.encounterId !== null;
+
+  const moved = withRun(state, (current) => ({
+    ...current,
+    wavefront: { time, row, hazardPending: caught },
+  }));
+
+  if (!caught) return moved;
+  return appendLog(moved, {
+    source: 'wavefront',
+    kind: 'run',
+    text: 'The front reaches you. Whatever is here is already burning.',
+    detail: { row, node: node.id },
+  });
 }
 
 /**
@@ -220,7 +296,7 @@ export function leaveEvent(state: GameState): GameState {
 
   const node = after.position === null || after.map === null ? undefined : nodeById(after.map, after.position);
   if (node === undefined) return withRun(cleared, (current) => ({ ...current, forcedTier: null }));
-  return openCombat(cleared, { ...node, type: 'combat' });
+  return openCombat(cleared, { ...node, type: 'combat', arena: 'surface' });
 }
 
 /* ---------- finishing a fight ---------- */
@@ -335,19 +411,22 @@ export function leaveReward(state: GameState): GameState {
   const takenModules = offer.takenModules;
 
   if (chosen === undefined || def === undefined) {
-    return appendLog(
-      withRun(state, (current) => ({
-        ...current,
-        ship: { ...current.ship, stored: [...current.ship.stored, ...takenModules] },
-        pendingReward: null,
-        screen: 'map',
-      })),
-      {
-        source: 'reward',
-        kind: 'reward',
-        text: takenModules.length === 0 ? 'Took nothing.' : 'Took the module and nothing else.',
-        detail: null,
-      },
+    return grantMastery(
+      appendLog(
+        withRun(state, (current) => ({
+          ...current,
+          ship: { ...current.ship, stored: [...current.ship.stored, ...takenModules] },
+          pendingReward: null,
+          screen: 'map',
+        })),
+        {
+          source: 'reward',
+          kind: 'reward',
+          text: takenModules.length === 0 ? 'Took nothing.' : 'Took the module and nothing else.',
+          detail: null,
+        },
+      ),
+      offer.masteryId,
     );
   }
 
@@ -361,11 +440,38 @@ export function leaveReward(state: GameState): GameState {
     screen: 'map',
   }));
 
+  return grantMastery(
+    appendLog(next, {
+      source: 'reward',
+      kind: 'reward',
+      text: `Took ${def.name}.`,
+      detail: { card: chosen },
+    }),
+    offer.masteryId,
+  );
+}
+
+/**
+ * Take the Mastery the fight dropped. Granted, never chosen — it is the reward
+ * for the detour, not a second decision stacked on top of one.
+ */
+function grantMastery(state: GameState, masteryId: string | null): GameState {
+  if (masteryId === null) return state;
+  const run = requireRun(state);
+  if (run.pilot.masteries.includes(masteryId)) return state;
+  const def = masteryTable.find(masteryId);
+  if (def === undefined) return state;
+
+  const next = withRun(state, (current) => ({
+    ...current,
+    pilot: { ...current.pilot, masteries: [...current.pilot.masteries, masteryId] },
+  }));
+
   return appendLog(next, {
-    source: 'reward',
+    source: masteryId,
     kind: 'reward',
-    text: `Took ${def.name}.`,
-    detail: { card: chosen },
+    text: `${def.name}. ${def.text}`,
+    detail: { mastery: masteryId },
   });
 }
 

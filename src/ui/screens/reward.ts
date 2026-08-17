@@ -13,7 +13,11 @@ import type { Store } from '../store.ts';
 import { requireRun } from '../../engine/state.ts';
 import { liveScreen } from '../screen.ts';
 import { describeCard } from '../../engine/combat/describe.ts';
-import { cards as cardTable, modules as moduleTable } from '../../content/registry.ts';
+import {
+  cards as cardTable,
+  masteries as masteryTable,
+  modules as moduleTable,
+} from '../../content/registry.ts';
 import { RARITY_LABEL } from '../../content/balance.ts';
 import { button, el, fill, withChildren } from '../dom.ts';
 import { renderRunBar } from '../components/runbar.ts';
@@ -74,6 +78,20 @@ function buildReward(store: Store, state: GameState): HTMLElement {
         : 'Take one card, or take none. A card you did not want dilutes every draw after it.',
     ]),
     alloyRow,
+    // Granted, not chosen. It is the reward for the detour, not a second
+    // decision stacked on top of one — but it is the biggest thing on the
+    // screen, so it says exactly what it will do to the stance it rewrites.
+    offer.masteryId === null
+      ? null
+      : (() => {
+          const def = masteryTable.find(offer.masteryId);
+          if (def === undefined) return null;
+          return el('div', { class: `mastery-drop mastery-drop--${def.stance}` }, [
+            el('span', { class: 'mastery-kicker' }, ['Stance Mastery']),
+            el('span', { class: 'mastery-name' }, [def.name]),
+            el('span', { class: 'mastery-text' }, [def.text]),
+          ]);
+        })(),
     offer.moduleIds.length === 0
       ? null
       : el('div', { class: 'reward-modules' }, [

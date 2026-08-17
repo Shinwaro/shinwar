@@ -16,10 +16,19 @@
  * so a same-column check silently misses most of the cases it exists for.
  */
 
-import type { Arena, EncounterId, MapNode, NodeType, RngState, RunMap } from '../types.ts';
+import type {
+  Arena,
+  EncounterId,
+  EnvironmentId,
+  MapNode,
+  NodeType,
+  RngState,
+  RunMap,
+} from '../types.ts';
 import { nextInt, weightedPick } from '../rng.ts';
 import { MAP, NODE_WEIGHTS } from '../../content/balance.ts';
 import { CLEAR_SPACE_ID } from '../../content/environments.ts';
+import { environments as environmentTable } from '../../content/registry.ts';
 import { encountersFor } from '../../content/encounters.ts';
 
 export interface GeneratedMap {
@@ -261,6 +270,64 @@ function assignEncounters(
   return { encounters, rng: current };
 }
 
+/* ---------- environments ----------
+   The second layer of the route decision. Every combat node carries one and
+   shows it before the player commits, so two players looking at the same fork
+   should genuinely disagree about which way to go.
+
+   Clear Space stays common in Act 1 and thins out after: the opening act is
+   where the stance layer is still being learned, and a modifier on every fight
+   would bury it. */
+
+function environmentPool(act: 1 | 2 | 3): readonly { value: EnvironmentId; weight: number }[] {
+  return environmentTable
+    .all()
+    .filter((def) => def.acts === undefined || def.acts.includes(act))
+    .map((def) => ({
+      value: def.id,
+      weight: def.id === CLEAR_SPACE_ID ? (act === 1 ? 46 : 16) : act === 1 ? 11 : 14,
+    }));
+}
+
+function assignEnvironments(
+  skeleton: Skeleton,
+  types: Map<string, NodeType>,
+  encounters: Map<string, EncounterId>,
+  rng: RngState,
+  rows: number,
+  act: 1 | 2 | 3,
+): { environments: Map<string, EnvironmentId>; rng: RngState } {
+  const assigned = new Map<string, EnvironmentId>();
+  const pool = environmentPool(act);
+  let current = rng;
+
+  for (let row = 0; row < rows; row++) {
+    for (const col of skeleton.cells[row] ?? []) {
+      const id = nodeId(row, col);
+      if (!encounters.has(id)) continue;
+
+      // Act 1 node 1 is always a normal combat in Clear Space, asserted below.
+      if (row === 0 && act === 1) {
+        assigned.set(id, CLEAR_SPACE_ID);
+        continue;
+      }
+      // A space fight is fought by the ship, which does not care about the
+      // stance layer any of these modify. Leaving them Clear keeps the badge
+      // honest rather than promising a rule that will not apply.
+      if (arenaFor(types.get(id) ?? 'combat', row, col) === 'space') {
+        assigned.set(id, CLEAR_SPACE_ID);
+        continue;
+      }
+
+      const rolled = weightedPick(current, 'map', pool);
+      current = rolled.rng;
+      assigned.set(id, rolled.value);
+    }
+  }
+
+  return { environments: assigned, rng: current };
+}
+
 /* ---------- assembly ---------- */
 
 /**
@@ -297,7 +364,15 @@ function assemble(skeleton: Skeleton, act: 1 | 2 | 3, rng: RngState): GeneratedM
   const rows = skeleton.cells.length;
   const typed = assignTypes(skeleton, rng, rows);
   const fought = assignEncounters(skeleton, typed.types, typed.rng, rows, act);
-  let current = fought.rng;
+  const scened = assignEnvironments(
+    skeleton,
+    typed.types,
+    fought.encounters,
+    fought.rng,
+    rows,
+    act,
+  );
+  let current = scened.rng;
 
   const nodes: MapNode[] = [];
   for (let row = 0; row < rows; row++) {
@@ -321,9 +396,7 @@ function assemble(skeleton: Skeleton, act: 1 | 2 | 3, rng: RngState): GeneratedM
         // place so the map, routing and the crash are built once — see SHIP.md.
         arena: arenaFor(type, row, col),
         encounterId,
-        // Real environments arrive at M5. Act 1 node 1 is always Clear Space,
-        // which is trivially true while it is the only one.
-        environmentId: encounterId === null ? null : CLEAR_SPACE_ID,
+        environmentId: encounterId === null ? null : (scened.environments.get(id) ?? CLEAR_SPACE_ID),
         next: outgoing.map((target) => nodeId(row + 1, target)),
       });
     }
@@ -405,13 +478,23 @@ export function mapProblems(map: RunMap): string[] {
     }
   }
 
-  // Act 1 node 1 is always a normal combat, in Clear Space.
+  // Act 1 node 1 is always a normal combat, in Clear Space. Later acts still
+  // open on a fight — you arrive somewhere and something is already there — but
+  // by then an environment on it is information, not noise.
   const first = byId.get(map.startId);
   if (first?.type !== 'combat') {
     problems.push(`the origin is ${first?.type ?? 'missing'}, not combat`);
   }
-  if (first?.environmentId !== CLEAR_SPACE_ID) {
+  if (map.act === 1 && first?.environmentId !== CLEAR_SPACE_ID) {
     problems.push('the origin is not Clear Space');
+  }
+
+  // Every fight carries a badge, or the route decision is missing half its
+  // information at exactly the fork it was supposed to inform.
+  for (const node of map.nodes) {
+    if (node.encounterId !== null && node.environmentId === null) {
+      problems.push(`${node.id} is a fight with no environment`);
+    }
   }
 
   return problems;

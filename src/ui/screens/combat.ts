@@ -20,14 +20,20 @@ import type { GameState } from '../../engine/types.ts';
 import type { Store } from '../store.ts';
 import { requireCombat, requireRun } from '../../engine/state.ts';
 import { canPlay, definitionOf, enemiesPending, needsTarget } from '../../engine/combat/combat.ts';
-import { incomingDamage, intentOf } from '../../engine/combat/intents.ts';
+import { incomingDamage, intentOf, intentVisible, scansLeft } from '../../engine/combat/intents.ts';
 import { livingEnemies } from '../../engine/combat/damage.ts';
 import { currentSeed, healthFraction } from '../../engine/queries.ts';
 import { environments } from '../../content/registry.ts';
 import { button, el } from '../dom.ts';
 import { renderCard } from '../components/card.ts';
 import { renderEnemy } from '../components/enemy.ts';
-import { renderHeatGauge, renderResources, renderStanceStrip } from '../components/gauges.ts';
+import {
+  renderEnvironmentBadge,
+  renderHeatGauge,
+  renderResources,
+  renderStanceStrip,
+} from '../components/gauges.ts';
+import { envGetString, intentsHidden } from '../../engine/combat/rules.ts';
 import { renderLog, scrollLogToEnd } from '../components/log.ts';
 import { bindCombatKeys } from '../input.ts';
 import { clearFloaters, playLogFx, setBarFill } from '../anim.ts';
@@ -231,12 +237,23 @@ function build(store: Store, state: GameState, selection: Selection, rerender: (
     'section',
     { class: 'enemy-row', 'aria-label': 'Enemies' },
     combat.enemies.map((enemy) => {
+      const unread =
+        enemy.hp > 0 && intentsHidden(state) && !intentVisible(state, enemy.uid) && scansLeft(state) > 0;
+
       return renderEnemy(state, enemy, {
         targetable: selection.cardUid !== null && enemy.hp > 0,
         focused: selection.focusUid === enemy.uid,
+        scannable: unread,
         acting: combat.actingUid === enemy.uid,
         onPick: () => {
           if (selection.cardUid === null) {
+            // Nothing in hand is selected and this contact is unread: reading
+            // it is the only thing a click here could mean.
+            if (unread) {
+              selection.focusUid = enemy.uid;
+              store.dispatch({ kind: 'scanEnemy', enemyUid: enemy.uid });
+              return;
+            }
             selection.focusUid = enemy.uid;
             rerender();
             return;
@@ -251,15 +268,33 @@ function build(store: Store, state: GameState, selection: Selection, rerender: (
   );
 
   const incoming = incomingDamage(state);
+  // Under Sensor Fog the total would hand back exactly what the fog took, so
+  // the readout says how many contacts it cannot account for instead of
+  // quietly reporting a number that is missing some of them.
+  const unread = combat.enemies.filter(
+    (enemy) => enemy.hp > 0 && !intentVisible(state, enemy.uid),
+  ).length;
   const threat = el('p', { class: 'threat', role: 'status', 'aria-live': 'polite' }, [
-    incoming > 0
-      ? `Incoming this turn: ${incoming}${combat.block > 0 ? ` · ${combat.block} Block absorbs first` : ''}`
-      : 'Nothing incoming this turn.',
+    unread > 0
+      ? `${unread} contact${unread === 1 ? '' : 's'} unread. Scan, or find out.`
+      : incoming > 0
+        ? `Incoming this turn: ${incoming}${combat.block > 0 ? ` · ${combat.block} Block absorbs first` : ''}`
+        : 'Nothing incoming this turn.',
   ]);
 
   /* ---- the player's row ---- */
 
+  // The Debris Field marks the highest-HP combatant, which early in a fight is
+  // usually the player. A telegraph the player cannot see is not a telegraph.
+  const marked = envGetString(combat, 'debrisTarget') === 'player';
+
   const playerPanel = el('section', { class: 'player-panel', 'aria-label': 'Your state' }, [
+    marked
+      ? el('div', { class: 'debris-mark', role: 'status' }, [
+          el('span', { 'aria-hidden': 'true' }, ['◎']),
+          'A rock is coming for you at the end of this round',
+        ])
+      : null,
     renderStanceStrip(state),
     renderHeatGauge(state),
     renderResources(state),
@@ -324,6 +359,18 @@ function build(store: Store, state: GameState, selection: Selection, rerender: (
       pile('Exhaust', combat.exhaust.length),
     ]),
     el('div', { class: 'tray-actions' }, [
+      // Sensor Fog only, and free. Pick an enemy, then read it — the cost is
+      // the ordering, never a resource.
+      // Not a button that does the scanning — clicking the contact does that.
+      // This is the budget, on screen, so "free once a turn" is a fact rather
+      // than something the player has to discover by trying.
+      !intentsHidden(state)
+        ? null
+        : el('span', { class: 'scan-budget' }, [
+            scansLeft(state) > 0
+              ? `Scan: ${scansLeft(state)} left — click a fogged contact`
+              : 'Scan spent this turn',
+          ]),
       button(selection.logOpen ? 'Hide log' : 'Show log', { class: 'btn btn-quiet', 'aria-keyshortcuts': 'L' }, () => {
         selection.logOpen = !selection.logOpen;
         rerender();
@@ -338,6 +385,7 @@ function build(store: Store, state: GameState, selection: Selection, rerender: (
 
   return el('div', { class: 'combat-inner' }, [
     topBar,
+    renderEnvironmentBadge(state),
     enemyRow,
     threat,
     playerPanel,

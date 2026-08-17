@@ -11,7 +11,7 @@ import { availableMoves, rowsOf } from '../src/engine/map/route.ts';
 import { createRng } from '../src/engine/rng.ts';
 import { createRunState } from '../src/engine/state.ts';
 import { MAP } from '../src/content/balance.ts';
-import { CLEAR_SPACE_ID } from '../src/content/environments.ts';
+import { CLEAR_SPACE_ID, ENVIRONMENTS } from '../src/content/environments.ts';
 
 const SEEDS = Array.from({ length: 1000 }, (_, i) => `MAP-${i}`);
 
@@ -115,12 +115,60 @@ describe('the guarantees, across 1000 seeds', () => {
   });
 
   it('gives every combat node an encounter and a visible environment', () => {
+    const known = new Set(ENVIRONMENTS.map((entry) => entry.id));
     for (const seed of SEEDS.slice(0, 200)) {
-      const { map } = generateMap(createRng(seed), 1);
-      for (const node of map.nodes) {
-        if (node.type !== 'combat' && node.type !== 'elite' && node.type !== 'boss') continue;
-        expect(node.encounterId, `${seed} ${node.id} has no encounter`).not.toBeNull();
-        expect(node.environmentId).toBe(CLEAR_SPACE_ID);
+      for (const act of [1, 2, 3] as const) {
+        const { map } = generateMap(createRng(seed), act);
+        for (const node of map.nodes) {
+          if (node.type !== 'combat' && node.type !== 'elite' && node.type !== 'boss') continue;
+          expect(node.encounterId, `${seed} ${node.id} has no encounter`).not.toBeNull();
+          // The badge is half the route decision, so it can never be missing
+          // and can never name something the registry does not have.
+          expect(known.has(node.environmentId ?? ''), `${seed} ${node.id}`).toBe(true);
+        }
+      }
+    }
+  });
+
+  it('opens Act 1 in Clear Space, and only Act 1', () => {
+    // A modifier on the very first fight would bury the stance layer while it
+    // is still being learned. By Act 2 the badge is information, not noise.
+    let laterActsVary = false;
+    for (const seed of SEEDS.slice(0, 120)) {
+      const act1 = generateMap(createRng(seed), 1).map;
+      const origin = act1.nodes.find((node) => node.id === act1.startId);
+      expect(origin?.environmentId, `${seed} act 1 origin`).toBe(CLEAR_SPACE_ID);
+
+      const act3 = generateMap(createRng(seed), 3).map;
+      const later = act3.nodes.find((node) => node.id === act3.startId);
+      if (later?.environmentId !== CLEAR_SPACE_ID) laterActsVary = true;
+    }
+    expect(laterActsVary, 'no Act 3 origin ever rolled anything but Clear Space').toBe(true);
+  });
+
+  it('only offers an environment where that environment belongs', () => {
+    for (const seed of SEEDS.slice(0, 120)) {
+      for (const act of [1, 2, 3] as const) {
+        const { map } = generateMap(createRng(seed), act);
+        for (const node of map.nodes) {
+          if (node.environmentId === null) continue;
+          const def = ENVIRONMENTS.find((entry) => entry.id === node.environmentId);
+          const acts = def?.acts;
+          if (acts === undefined) continue;
+          expect(acts.includes(act), `${seed} ${node.id}: ${node.environmentId} in act ${act}`).toBe(true);
+        }
+      }
+    }
+  });
+
+  it('leaves ship fights in Clear Space, because the modifiers are for the deck', () => {
+    for (const seed of SEEDS.slice(0, 120)) {
+      for (const act of [1, 2, 3] as const) {
+        const { map } = generateMap(createRng(seed), act);
+        for (const node of map.nodes) {
+          if (node.arena !== 'space' || node.environmentId === null) continue;
+          expect(node.environmentId, `${seed} ${node.id}`).toBe(CLEAR_SPACE_ID);
+        }
       }
     }
   });

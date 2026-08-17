@@ -13,6 +13,7 @@ import type { GameState, StanceId } from '../types.ts';
 import { appendLog, requireCombat, withCombat } from '../state.ts';
 import { fireHook } from '../hooks.ts';
 import { ACTIVE_STANCES, STANCES } from '../../content/balance.ts';
+import { stanceChangeLimit, stanceRulesFor } from './rules.ts';
 
 export function currentStance(state: GameState): StanceId {
   return requireCombat(state).stance;
@@ -37,17 +38,43 @@ export function nextStance(from: StanceId, direction: 1 | -1): StanceId {
   return order[moved] ?? from;
 }
 
+/**
+ * May the stance change again this turn?
+ *
+ * Normally yes, always. Gravity Well and the Iron Tide mastery both buy their
+ * upside by capping it, which is the sharpest cost either could ask for: the
+ * axis is the whole game, and being told you have spent your turn's move on it
+ * changes how the rest of the hand reads.
+ */
+export function canChangeStance(state: GameState): boolean {
+  return requireCombat(state).stanceChangesThisTurn < stanceChangeLimit(state);
+}
+
 /** Set the stance. A no-op when already there — it must not cost a hook firing. */
 export function setStance(state: GameState, to: StanceId, source: string): GameState {
   const combat = requireCombat(state);
   const from = combat.stance;
   if (from === to) return state;
 
-  const changed = withCombat(state, (current) => ({ ...current, stance: to }));
+  if (!canChangeStance(state)) {
+    return appendLog(state, {
+      source,
+      kind: 'stance',
+      text: `Held in ${STANCES[from].name} — no stance changes left this turn.`,
+      detail: { from, to, refused: true },
+    });
+  }
+
+  const rules = stanceRulesFor(state, to);
+  const changed = withCombat(state, (current) => ({
+    ...current,
+    stance: to,
+    stanceChangesThisTurn: current.stanceChangesThisTurn + 1,
+  }));
   const logged = appendLog(changed, {
     source,
     kind: 'stance',
-    text: `${STANCES[from].name} to ${STANCES[to].name}. ${STANCES[to].text}`,
+    text: `${STANCES[from].name} to ${STANCES[to].name}. ${rules.text}`,
     detail: { from, to },
   });
 

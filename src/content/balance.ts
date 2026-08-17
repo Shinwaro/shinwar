@@ -324,6 +324,42 @@ export const REWARDS = {
 
 export const ARCHETYPES: readonly Archetype[] = ['iai', 'guard', 'flow', 'overheat', 'neutral'];
 
+/* ---------- masteries ----------
+   Rare, run-defining, earned only from Elites and bosses. A mastery makes the
+   entire existing deck read differently, so the cap is low on purpose — three
+   is already two rewrites of a two-stance game. */
+
+export const MASTERY = {
+  /** Chance an Elite drops one, rolled on the `rewards` stream. */
+  eliteChance: 0.4,
+  /** A boss always does. */
+  bossGuaranteed: true,
+  cap: 3,
+} as const;
+
+/* ---------- the Wavefront ----------
+   A pursuing hazard, FTL-style. It is the mechanism that produces the
+   "greedy -> threatened" beat at map scale: it puts a price on the detour to
+   the shop.
+
+   `DESIGN.md` §3 warns this is the single thing most likely to make the game
+   feel oppressive if tuned badly, so it is deliberately generous — it only
+   catches a player who takes four detours in an act, and it never blocks a
+   route, it just makes the next fight start worse. */
+
+export const WAVEFRONT = {
+  /** Act 1 is for learning the stance layer. The front arrives after that. */
+  firstAct: 2,
+  timePerNode: 1,
+  /** A Station or a Safe Planet costs double. That is the whole mechanism. */
+  timeAtStop: 2,
+  /** Rows of head start. Equal to the number of free detours in an act. */
+  grace: 4,
+  /** What a fight starts with when the front is on you. */
+  hazardHeat: 3,
+  hazardEnemyStrength: 1,
+} as const;
+
 /* ---------- threads ----------
    Persistent run-scoped flags that resolve within the same run. */
 

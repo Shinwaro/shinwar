@@ -10,13 +10,25 @@ import type { CardDef, CardInstance, GameState, StanceId } from '../types.ts';
 import { appendLog, requireCombat, requireRun, withCombat, withRun } from '../state.ts';
 import { fireHook } from '../hooks.ts';
 import { shuffle } from '../rng.ts';
-import { HEAT, PLAYER as PLAYER_BALANCE, STANCES, STARTING_STANCE } from '../../content/balance.ts';
-import { cards as cardTable, enemies as enemyTable } from '../../content/registry.ts';
+import {
+  HEAT,
+  PLAYER as PLAYER_BALANCE,
+  STARTING_STANCE,
+  WAVEFRONT,
+} from '../../content/balance.ts';
+import {
+  cards as cardTable,
+  enemies as enemyTable,
+  environments as environmentTable,
+} from '../../content/registry.ts';
+import { CLEAR_SPACE_ID } from '../../content/environments.ts';
+import { STRENGTH } from '../../content/statuses.ts';
 import { ENCOUNTERS } from '../../content/encounters.ts';
 import { PLAYER, enemyTarget, livingEnemies } from './damage.ts';
 import { applyEffects, createContext, retireCard } from './effects.ts';
 import { gainHeat, resolveOverheat, ventHeat } from './heat.ts';
-import { decayStatuses } from './keywords.ts';
+import { addStacks, decayStatuses } from './keywords.ts';
+import { environmentRules, liveStance, stanceRulesFor } from './rules.ts';
 import { mintEnemy } from './instances.ts';
 import { discardHand, draw, findInHand, moveToDiscard, narrateDraw } from './piles.ts';
 import { telegraphAll } from './intents.ts';
@@ -80,7 +92,9 @@ export function startCombat(state: GameState, encounterId: string, environmentId
       enemies,
       cardsPlayedThisTurn: 0,
       blockGainedThisTurn: 0,
+      stanceChangesThisTurn: 0,
       attacksThisTurn: 0,
+      envMemory: {},
       energyPenaltyNextTurn: 0,
       pendingEnemies: [],
       actingUid: null,
@@ -88,14 +102,60 @@ export function startCombat(state: GameState, encounterId: string, environmentId
     },
   }));
 
-  const announced = appendLog(seated, {
+  let announced = appendLog(seated, {
     source: 'system',
     kind: 'combat',
     text: `Contact: ${enemies.map((enemy) => enemyTable.get(enemy.defId).name).join(', ')}.`,
     detail: { encounterId, environmentId },
   });
 
+  const environment = environmentTable.find(environmentId);
+  if (environment !== undefined && environment.id !== CLEAR_SPACE_ID) {
+    announced = appendLog(announced, {
+      source: environmentId,
+      kind: 'combat',
+      text: `${environment.name}. ${environment.text}`,
+      detail: { environmentId },
+    });
+  }
+
+  announced = applyWavefrontHazard(announced);
+
   return startPlayerTurn(fireHook(announced, 'onCombatStart', { encounterId, environmentId }));
+}
+
+/**
+ * The collapse front caught you before this fight. You start hot, and whatever
+ * is in front of you is riding the same shock you are.
+ *
+ * It never blocks a route and it never kills you on arrival — it makes the
+ * fight start worse, which is the only shape of pursuit that stays a problem to
+ * solve rather than a verdict.
+ */
+function applyWavefrontHazard(state: GameState): GameState {
+  const front = state.run?.wavefront ?? null;
+  if (front === null || !front.hazardPending) return state;
+
+  let next = withRun(state, (run) => ({
+    ...run,
+    wavefront: run.wavefront === null ? null : { ...run.wavefront, hazardPending: false },
+  }));
+
+  next = appendLog(next, {
+    source: 'wavefront',
+    kind: 'combat',
+    text: 'The front is on top of you. The air is already burning.',
+    detail: null,
+  });
+
+  next = gainHeat(next, WAVEFRONT.hazardHeat, 'wavefront');
+  return withCombat(next, (combat) => ({
+    ...combat,
+    enemies: combat.enemies.map((enemy) => ({
+      ...enemy,
+      statuses: addStacks(enemy.statuses, STRENGTH, WAVEFRONT.hazardEnemyStrength),
+    })),
+  }));
 }
 
 /* ---------- the player's turn ---------- */
@@ -104,7 +164,7 @@ export function startPlayerTurn(state: GameState): GameState {
   const combat = requireCombat(state);
   if (combat.outcome !== 'ongoing') return state;
 
-  const stance = STANCES[combat.stance];
+  const stance = liveStance(state);
   const turn = combat.turn + 1;
 
   // Block is lost at the start of your turn, except what GUARD retains. Energy
@@ -121,6 +181,7 @@ export function startPlayerTurn(state: GameState): GameState {
     cardsPlayedThisTurn: 0,
     blockGainedThisTurn: 0,
     attacksThisTurn: 0,
+    stanceChangesThisTurn: 0,
   }));
 
   next = appendLog(next, {
@@ -142,7 +203,9 @@ export function startPlayerTurn(state: GameState): GameState {
 
 function drawForTurn(state: GameState): GameState {
   const combat = requireCombat(state);
-  const count = PLAYER_BALANCE.drawPerTurn + STANCES[combat.stance].extraDraw;
+  // Deep Void's penalty is turn 1 only: it costs you the opening, not the fight.
+  const penalty = combat.turn === 1 ? (environmentRules(state).firstTurnDrawPenalty ?? 0) : 0;
+  const count = Math.max(0, PLAYER_BALANCE.drawPerTurn + liveStance(state).extraDraw - penalty);
   const run = requireRun(state);
   if (run.combat === null) return state;
 
@@ -260,11 +323,16 @@ export function endPlayerTurn(state: GameState): GameState {
   const combat = requireCombat(state);
   if (combat.outcome !== 'ongoing' || combat.pendingEnemies.length > 0) return state;
 
-  const stance = STANCES[combat.stance];
+  const stance = liveStance(state);
   let next = state;
 
   if (stance.heatAtTurnEnd > 0) next = gainHeat(next, stance.heatAtTurnEnd, stance.name);
   if (stance.ventAtTurnEnd > 0) next = ventHeat(next, stance.ventAtTurnEnd, stance.name);
+
+  // Deep Void bleeds Heat on its own. Declared rather than hooked for the same
+  // reason as the rest: it is a rule about the gauge, not a reaction to it.
+  const decay = environmentRules(next).heatDecayPerTurn ?? 0;
+  if (decay > 0) next = ventHeat(next, decay, environmentTable.get(combat.environmentId).name);
 
   next = fireHook(next, 'onTurnEnd', { turn: requireCombat(next).turn });
   next = resolveOverheat(next);
@@ -276,13 +344,30 @@ export function endPlayerTurn(state: GameState): GameState {
 
   // Queue the enemies rather than running them. The UI steps through this so
   // the enemy turn can be watched instead of arriving all at once.
-  next = withCombat(next, (current) => ({
-    ...current,
-    pendingEnemies: current.enemies
+  //
+  // Chronal Shear queues them twice on its rounds. Building the queue is a
+  // calculation, so it reads a rule rather than a hook — and doubling here
+  // means the extra activation resolves the move that was already telegraphed,
+  // never a fresh roll the player could not have seen.
+  const shear = environmentRules(next).doubleActEvery ?? 0;
+  const rounds = shear > 0 && requireCombat(next).round % shear === 0 ? 2 : 1;
+  if (rounds > 1) {
+    next = appendLog(next, {
+      source: requireCombat(next).environmentId,
+      kind: 'combat',
+      text: 'The shear folds. They move twice.',
+      detail: { round: requireCombat(next).round },
+    });
+  }
+
+  next = withCombat(next, (current) => {
+    const queue = current.enemies
       .filter((enemy) => enemy.hp > 0 && enemy.intentMoveId !== null)
-      .map((enemy) => enemy.uid),
-    actingUid: null,
-  }));
+      .map((enemy) => enemy.uid);
+    const repeated: string[] = [];
+    for (let pass = 0; pass < rounds; pass++) repeated.push(...queue);
+    return { ...current, pendingEnemies: repeated, actingUid: null };
+  });
 
   // Nothing to wait for — no living enemy owes an action — so close the round
   // here rather than leaving the fight parked with an empty queue.
@@ -345,13 +430,18 @@ export function advanceEnemyTurn(state: GameState): GameState {
 
     next = applyEffects(next, move.effects, createContext(uid, enemyTarget(uid), PLAYER)).state;
 
-    // Spent. A cleared intent is also how the UI knows not to draw a stale one.
-    next = withCombat(next, (current) => ({
-      ...current,
-      enemies: current.enemies.map((entry) =>
-        entry.uid === uid ? { ...entry, intentMoveId: null } : entry,
-      ),
-    }));
+    // Spent — unless this enemy still owes another activation, which is what
+    // Chronal Shear does. The second pass has to resolve the move that was
+    // telegraphed, so the intent survives until the queue is done with it.
+    // A cleared intent is also how the UI knows not to draw a stale one.
+    if (!requireCombat(next).pendingEnemies.includes(uid)) {
+      next = withCombat(next, (current) => ({
+        ...current,
+        enemies: current.enemies.map((entry) =>
+          entry.uid === uid ? { ...entry, intentMoveId: null } : entry,
+        ),
+      }));
+    }
   }
 
   next = checkOutcome(next);
@@ -409,7 +499,11 @@ export function concludeCombat(state: GameState): GameState {
   };
 }
 
-/** The stance strip's text, straight from the table. The UI never writes its own. */
-export function stanceText(stance: StanceId): string {
-  return STANCES[stance].text;
+/**
+ * The stance strip's text, straight from the live table — Masteries folded in,
+ * because a strip that describes the base stance after a Mastery rewrote it is
+ * worse than no strip at all. The UI never writes its own.
+ */
+export function stanceText(state: GameState, stance: StanceId): string {
+  return stanceRulesFor(state, stance).text;
 }

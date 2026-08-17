@@ -26,6 +26,7 @@ import type {
   WeaponDef,
 } from '../engine/types.ts';
 import { ACTIVE_STANCES, SCOPE, THREADS } from './balance.ts';
+import { ENCOUNTERS } from './encounters.ts';
 
 interface Table<T extends { readonly id: string }> {
   register(defs: readonly T[]): void;
@@ -336,6 +337,80 @@ function validateStances(issues: ValidationIssue[]): void {
   }
 }
 
+function validateMasteries(issues: ValidationIssue[]): void {
+  const active = new Set(ACTIVE_STANCES);
+
+  for (const mastery of masteries.all()) {
+    const where = `mastery '${mastery.id}'`;
+
+    // A mastery on a dormant stance is a reward that does nothing. Catch it at
+    // load rather than the first time a boss hands one out.
+    if (!active.has(mastery.stance)) {
+      issues.push({ where, problem: `rewrites stance '${mastery.stance}', which is not in rotation` });
+    }
+    if (mastery.text.trim() === '') {
+      issues.push({ where, problem: 'no text — the reward screen shows this' });
+    }
+    if (Object.keys(mastery.overrides).length === 0) {
+      issues.push({ where, problem: 'overrides nothing — a mastery must change the stance' });
+    }
+    // The stance strip must never describe the base stance after a mastery has
+    // rewritten it. A strip that lies is worse than no strip.
+    const changesBehaviour = Object.keys(mastery.overrides).some((key) => key !== 'text');
+    if (changesBehaviour && (mastery.overrides.text ?? '').trim() === '') {
+      issues.push({ where, problem: 'changes behaviour without rewriting the stance strip text' });
+    }
+  }
+}
+
+function validateEnvironments(issues: ValidationIssue[]): void {
+  for (const environment of environments.all()) {
+    const where = `environment '${environment.id}'`;
+    if (environment.text.trim() === '') {
+      issues.push({ where, problem: 'no badge text — the map shows this before the player commits' });
+    }
+    if (environment.acts !== undefined && environment.acts.length === 0) {
+      issues.push({ where, problem: 'appears in no act' });
+    }
+  }
+}
+
+function validateEncounters(issues: ValidationIssue[]): void {
+  const known = new Set(enemies.ids());
+  // Encounters are a static list rather than a registry table, so they are the
+  // one pool that does not empty with `clearAllContent()`. Checking them against
+  // a fixture that registered three cards and no enemies would report the whole
+  // shipped roster as dangling, so the pool checks want a loaded roster.
+  if (known.size === 0) return;
+
+  for (const encounter of ENCOUNTERS) {
+    const where = `encounter '${encounter.id}'`;
+    if (encounter.enemyIds.length === 0) issues.push({ where, problem: 'no enemies' });
+    for (const id of encounter.enemyIds) {
+      if (!known.has(id)) issues.push({ where, problem: `names unknown enemy '${id}'` });
+    }
+    // An encounter whose enemies belong to another act quietly imports that
+    // act's damage band, which is the least visible way to break pacing.
+    for (const id of encounter.enemyIds) {
+      const def = enemies.find(id);
+      if (def !== undefined && def.act !== encounter.act) {
+        issues.push({ where, problem: `${id} is an act ${def.act} enemy in an act ${encounter.act} encounter` });
+      }
+    }
+  }
+
+  // Every act needs every tier. A missing roster used to fall back to the
+  // normal pool, which made an elite a normal fight with elite rewards.
+  for (const act of [1, 2, 3] as const) {
+    for (const tier of ['normal', 'elite', 'boss'] as const) {
+      const pool = ENCOUNTERS.filter((entry) => entry.act === act && entry.tier === tier);
+      if (pool.length === 0) {
+        issues.push({ where: 'encounter pool', problem: `act ${act} has no ${tier} encounters` });
+      }
+    }
+  }
+}
+
 function validateKeywordBudget(issues: ValidationIssue[]): void {
   // Depth comes from stance and heat recontextualising a small vocabulary, not
   // from more nouns. Statuses are the part of the keyword count that grows
@@ -360,6 +435,9 @@ export function validateContent(): readonly ValidationIssue[] {
   validateEnemies(issues);
   validateEvents(issues);
   validateThreads(issues);
+  validateMasteries(issues);
+  validateEnvironments(issues);
+  validateEncounters(issues);
   validateReferences(issues);
   validateKeywordBudget(issues);
   return issues;

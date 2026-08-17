@@ -15,8 +15,13 @@
 import type { CombatState, EnemyState, GameState, StatusStack } from '../types.ts';
 import { appendLog, withCombat, withRun } from '../state.ts';
 import { fireHook } from '../hooks.ts';
-import { FOCUS_DAMAGE_PER_STACK, STANCES } from '../../content/balance.ts';
-import { enemies as enemyTable, statuses as statusTable } from '../../content/registry.ts';
+import { FOCUS_DAMAGE_PER_STACK } from '../../content/balance.ts';
+import {
+  enemies as enemyTable,
+  environments as environmentTable,
+  statuses as statusTable,
+} from '../../content/registry.ts';
+import { environmentRules, stanceRulesFor } from './rules.ts';
 
 export type Combatant = { readonly kind: 'player' } | { readonly kind: 'enemy'; readonly uid: string };
 
@@ -150,7 +155,9 @@ export function computeDamage(state: GameState, input: DamageInput): DamageBreak
   }
 
   if (playerAttacking && input.isAttack) {
-    const stance = STANCES[combat.stance];
+    // Through the live table, not the raw one: a Stance Mastery is a diff
+    // against `STANCES` and must reach the pipeline without a special case.
+    const stance = stanceRulesFor(state, combat.stance);
     if (stance.firstAttackBonus > 0 && input.attackOrdinal === 0) {
       ctx = record(ctx, `${stance.name} first attack`, 'add', ctx.amount + stance.firstAttackBonus);
     }
@@ -169,8 +176,29 @@ export function computeDamage(state: GameState, input: DamageInput): DamageBreak
     ctx = record(ctx, status.name, 'mult', ctx.amount * factor, factor);
   }
 
-  /* 5 — target-side flat reductions: armour, plating. None at M1; the step is
-     here so the module that adds one has an obvious and correct home. */
+  /* 4b — the environment. Gravity Well amplifies anything heavy, which is a
+     rule about the number the pipeline is producing rather than an event a
+     hook could respond to. Attacks only: a rock does not fall harder. */
+  if (input.isAttack) {
+    const rules = environmentRules(state);
+    const threshold = rules.bigHitThreshold;
+    const multiplier = rules.bigHitMultiplier;
+    if (threshold !== undefined && multiplier !== undefined && ctx.amount >= threshold) {
+      const name = environmentName(state);
+      ctx = record(ctx, name, 'mult', ctx.amount * multiplier, multiplier);
+    }
+  }
+
+  /* 5 — target-side reductions. Act 3's counter-enemies live here: reading the
+     player's build means reading the number about to land on them. */
+  const struck = input.target;
+  if (input.isAttack && struck.kind === 'enemy') {
+    const defId = combat.enemies.find((enemy) => enemy.uid === struck.uid)?.defId;
+    const rule = defId === undefined ? undefined : enemyTable.find(defId)?.damageRules;
+    if (rule !== undefined && ctx.amount > rule.overAmount) {
+      ctx = record(ctx, rule.label, 'reduce', ctx.amount * rule.multiplier, rule.multiplier);
+    }
+  }
 
   /* 6 — Block absorbs. Rounded down first: block is always an integer, so
      `floor(x) - b` and `floor(x - b)` agree, and this keeps the number the log
@@ -342,9 +370,15 @@ export function healPlayer(state: GameState, amount: number, source: string): Ga
   const healed = Math.min(run.pilot.maxHealth, run.pilot.health + Math.floor(amount));
   if (healed === run.pilot.health) return state;
   return appendLog(
-    withRun(state, (current) => ({ ...current, pilot: { ...current.pilot, hull: healed } })),
-    { source, kind: 'combat', text: `Hull repaired to ${healed}.`, detail: { hull: healed } },
+    withRun(state, (current) => ({ ...current, pilot: { ...current.pilot, health: healed } })),
+    { source, kind: 'combat', text: `Patched up to ${healed}.`, detail: { health: healed } },
   );
+}
+
+/** The environment's name, for a pipeline step's label. Never a raw id. */
+function environmentName(state: GameState): string {
+  const id = state.run?.combat?.environmentId ?? '';
+  return environmentTable.find(id)?.name ?? id;
 }
 
 /** The log is read by a person. "You takes 9" is not a sentence. */
@@ -395,6 +429,10 @@ export function explainDamage(breakdown: DamageBreakdown): string {
   const parts = breakdown.steps.map((step) => {
     if (step.kind === 'base') return `${step.amount} base`;
     if (step.kind === 'mult') return `x${step.factor ?? 1} ${step.label}`;
+    // A reduction may be either flat or a factor; say which it was.
+    if (step.kind === 'reduce') {
+      return step.factor === null ? `${step.delta} ${step.label}` : `x${step.factor} ${step.label}`;
+    }
     if (step.kind === 'block') return `-${-step.delta} ${step.label}`;
     if (step.kind === 'floor') return null;
     return `${step.delta >= 0 ? '+' : ''}${step.delta} ${step.label}`;

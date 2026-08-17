@@ -314,11 +314,45 @@ export interface ShipCombatState {
   readonly outcome: 'ongoing' | 'won' | 'lost';
 }
 
+/**
+ * A declarative modifier to something the engine computes.
+ *
+ * Environments come in two halves. Anything that *reacts* — a rock at the end
+ * of the round, a radiation tick — is a hook handler, because that is what the
+ * bus is for. Anything that *modifies a calculation the engine is in the middle
+ * of* is declared here instead: a hook cannot change the number a pipeline is
+ * about to produce, only respond after it has. Splitting them this way keeps
+ * one damage pipeline and one heat path rather than two of each.
+ */
+export interface EnvironmentRules {
+  /** Stellar Corona: every Heat gain is this much larger. */
+  readonly heatGainBonus?: number;
+  /** Stellar Corona: every vent is multiplied by this. */
+  readonly ventMultiplier?: number;
+  /** Deep Void: Heat falls on its own at the end of each turn. */
+  readonly heatDecayPerTurn?: number;
+  /** Deep Void: fewer cards on turn 1 only. */
+  readonly firstTurnDrawPenalty?: number;
+  /** Gravity Well: attacks at or above this threshold are multiplied. */
+  readonly bigHitThreshold?: number;
+  readonly bigHitMultiplier?: number;
+  /** Gravity Well: how many stance changes a turn allows. */
+  readonly stanceChangesPerTurn?: number;
+  /** Sensor Fog: intents are hidden until scanned. */
+  readonly hideIntents?: boolean;
+  readonly scansPerTurn?: number;
+  /** Chronal Shear: on every Nth round, the enemy queue is built twice. */
+  readonly doubleActEvery?: number;
+}
+
 export interface EnvironmentDef {
   readonly id: EnvironmentId;
   readonly name: string;
   /** Shown on the map node badge before the player commits to the route. */
   readonly text: string;
+  /** Which acts it can appear in. Absent means all of them. */
+  readonly acts?: readonly (1 | 2 | 3)[];
+  readonly rules?: EnvironmentRules;
 }
 
 /* An enemy's AI is data, not code: a set of named moves plus a script that
@@ -354,6 +388,16 @@ export interface EnemyDef {
   readonly tier: 'normal' | 'elite' | 'boss';
   readonly moves: readonly EnemyMove[];
   readonly script: EnemyScript;
+  /**
+   * A target-side rule in the damage pipeline. Act 3's counter-enemies read the
+   * player's build, and "takes 60% less from anything over 20" is a rule about
+   * a number the pipeline is producing, so it is declared rather than hooked.
+   */
+  readonly damageRules?: {
+    readonly overAmount: number;
+    readonly multiplier: number;
+    readonly label: string;
+  };
   readonly flavor?: string;
 }
 
@@ -457,11 +501,32 @@ export interface ThreadDef {
   readonly cargoModuleId?: ModuleId;
 }
 
+/**
+ * A Stance Mastery permanently rewrites one stance for the rest of the run.
+ *
+ * That is the "one axis, recontextualized" lever: a mastery makes the entire
+ * existing deck read differently without adding a single card. It is expressed
+ * as an override of the stance table rather than as behaviour, so everything
+ * that already reads a stance keeps working and nothing is special-cased.
+ */
 export interface MasteryDef {
   readonly id: MasteryId;
   readonly name: string;
   readonly stance: StanceId;
+  /** Hand-written: the trade, in plain words, for the reward screen. */
   readonly text: string;
+  readonly overrides: {
+    /** Replaces the stance strip's line, which must never lie about behaviour. */
+    readonly text?: string;
+    readonly firstAttackBonus?: number;
+    readonly heatAtTurnEnd?: number;
+    readonly ventAtTurnEnd?: number;
+    readonly blockRetained?: number;
+    readonly extraDraw?: number;
+    readonly attackPenalty?: number;
+    /** Iron Tide's cost: you may only change stance this many times a turn. */
+    readonly stanceChangesPerTurn?: number;
+  };
 }
 
 /* ---------- log ----------
@@ -567,6 +632,18 @@ export interface CombatState {
   readonly enemies: readonly EnemyState[];
   readonly cardsPlayedThisTurn: number;
   readonly blockGainedThisTurn: number;
+  /** Gravity Well and the Iron Tide mastery both cap this. */
+  readonly stanceChangesThisTurn: number;
+  /**
+   * Scratch space owned by the environment's hook handlers and by nothing else.
+   *
+   * Two of the eight environments need to remember something across a round —
+   * which rock is marked, which intents have been scanned. A field per
+   * environment on `CombatState` would be six dead fields in every other fight,
+   * so they share one bag. It is plain JSON like the rest of state, and the
+   * helpers in `combat/environment.ts` are the only things that touch it.
+   */
+  readonly envMemory: { readonly [key: string]: JsonValue };
   /**
    * Damage instances the player has dealt this turn, not cards played. The IAI
    * passive fires on instance 0 only, so a card whose rider adds a second hit
@@ -695,6 +772,25 @@ export interface CrashState {
 export type RunOutcome = 'won' | 'died' | 'abandoned';
 
 /**
+ * The collapse front, chasing you up the act.
+ *
+ * `time` is spent per node entered — more at a Station or a Safe Planet, which
+ * is the whole point. The front sits at `time - grace` rows, so every detour
+ * literally costs you a row of lead, and reaching a fight with the front on top
+ * of you starts that fight already in trouble.
+ *
+ * From Act 2 only. At an hour a run the midgame sags without it; in Act 1 it
+ * would just be noise on top of a player still learning the stance layer.
+ */
+export interface WavefrontState {
+  readonly time: number;
+  /** The row it has reached. Behind you is negative distance, not zero. */
+  readonly row: number;
+  /** Set when you enter a fight with the front on you. Spent by that fight. */
+  readonly hazardPending: boolean;
+}
+
+/**
  * A reward screen. Card choices plus Skip, and Skip is always real — a reward
  * you must take is not a decision, and a bloated deck is its own punishment.
  */
@@ -703,6 +799,12 @@ export interface RewardOffer {
   /** Elites drop a module. Empty on a normal fight. */
   readonly moduleIds: readonly ModuleId[];
   readonly takenModules: readonly ModuleId[];
+  /**
+   * A Stance Mastery, from a boss always and an Elite sometimes. Granted rather
+   * than chosen: it is the reward for the detour, not a second decision on top
+   * of it.
+   */
+  readonly masteryId: MasteryId | null;
   readonly alloy: number;
   /** Cards already taken from this screen. One pick, but the shape allows more. */
   readonly taken: readonly CardId[];
@@ -788,6 +890,8 @@ export interface RunState {
    * the moment it is spent.
    */
   readonly forcedTier: 'combat' | 'elite' | 'boss' | null;
+  /** The collapse front. `null` in Act 1, where it would only be noise. */
+  readonly wavefront: WavefrontState | null;
   readonly combat: CombatState | null;
   /** The other kind of fight. Never live at the same time as `combat`. */
   readonly shipCombat: ShipCombatState | null;

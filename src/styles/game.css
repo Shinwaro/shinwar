@@ -1109,6 +1109,202 @@
   text-wrap: pretty;
 }
 
+/* ---------- environments ----------
+   The badge is on screen for the whole fight, never on hover. It is half the
+   route decision and the player committed to it several nodes ago. */
+
+.env-badge {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.env-name {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.env-text {
+  font-size: 0.82rem;
+  color: var(--muted);
+  text-wrap: pretty;
+}
+
+.env-badge[data-environment='stellar_corona'] { border-left-color: var(--heat-warm); }
+.env-badge[data-environment='deep_void'] { border-left-color: var(--heat-cool); }
+.env-badge[data-environment='gravity_well'] { border-left-color: #b79ae0; }
+.env-badge[data-environment='radiation_belt'] { border-left-color: var(--good); }
+.env-badge[data-environment='debris_field'] { border-left-color: var(--muted); }
+.env-badge[data-environment='sensor_fog'] { border-left-color: var(--guard); }
+.env-badge[data-environment='chronal_shear'] { border-left-color: var(--danger); }
+
+.intent--hidden {
+  border-style: dashed;
+  color: var(--muted);
+}
+
+.enemy.is-scannable {
+  border-color: color-mix(in srgb, var(--guard) 60%, var(--line));
+  cursor: pointer;
+}
+
+.scan-budget {
+  align-self: center;
+  font-size: 0.76rem;
+  color: var(--guard);
+}
+
+.debris-mark {
+  display: inline-flex;
+  gap: 0.3rem;
+  align-items: center;
+  align-self: start;
+  padding: 0.1rem 0.4rem;
+  border: 1px solid color-mix(in srgb, var(--danger) 55%, var(--line));
+  border-radius: 999px;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--danger);
+}
+
+/* ---------- stance masteries ----------
+   A mastery rewrites how the whole deck reads, so it is never a footnote. */
+
+.stance-mastery {
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.stance-limit {
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.stance-strip.is-held .stance-limit {
+  color: var(--danger);
+}
+
+.mastery-drop {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.8rem 1rem;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--surface-solid);
+}
+
+.mastery-drop--iai { border-left-color: var(--iai); }
+.mastery-drop--guard { border-left-color: var(--guard); }
+.mastery-drop--flow { border-left-color: var(--flow); }
+
+.mastery-kicker {
+  font-size: 0.68rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.mastery-name {
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.mastery-text {
+  font-size: 0.85rem;
+  color: var(--muted);
+  text-wrap: pretty;
+}
+
+.mastery-list {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mastery-line {
+  display: grid;
+  gap: 0.1rem;
+  padding-left: 0.7rem;
+  border-left: 3px solid var(--line-strong);
+}
+
+.mastery-line--iai { border-left-color: var(--iai); }
+.mastery-line--guard { border-left-color: var(--guard); }
+.mastery-line--flow { border-left-color: var(--flow); }
+
+/* ---------- the Wavefront ----------
+   States the rule out loud. A priced decision the player has to infer is a
+   surprise, and a pursuing hazard that surprises you is the version of this
+   mechanic that feels oppressive. */
+
+.map-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.map-act {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.wavefront {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: baseline;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 0.78rem;
+}
+
+.wavefront-label {
+  font-size: 0.66rem;
+  letter-spacing: 0.16em;
+  color: var(--muted);
+}
+
+.wavefront-value {
+  font-family: var(--mono);
+}
+
+.wavefront-hint {
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.wavefront.is-close {
+  border-color: color-mix(in srgb, var(--heat-warm) 55%, var(--line));
+}
+
+.wavefront.is-close .wavefront-value { color: var(--heat-warm); }
+
+.wavefront.is-on-you {
+  border-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+}
+
+.wavefront.is-on-you .wavefront-value { color: var(--danger); }
+
 /* ---------- the Manifest ----------
    Always on screen, never behind a hover. Knowing you are Marked is what makes
    the reprisal feel earned instead of random. The tone stripe is the only

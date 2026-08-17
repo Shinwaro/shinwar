@@ -8,10 +8,22 @@
  * not guaranteed. The goal is fewer dead runs, not handing the player a build.
  */
 
-import type { Archetype, CardDef, CardId, RewardOffer, RngState, RunState } from '../types.ts';
-import { weightedPick } from '../rng.ts';
-import { RARITY_WEIGHTS, REWARDS } from '../../content/balance.ts';
-import { cards as cardTable, modules as moduleTable } from '../../content/registry.ts';
+import type {
+  Archetype,
+  CardDef,
+  CardId,
+  MasteryId,
+  RewardOffer,
+  RngState,
+  RunState,
+} from '../types.ts';
+import { nextFloat, pick, weightedPick } from '../rng.ts';
+import { ACTIVE_STANCES, MASTERY, RARITY_WEIGHTS, REWARDS } from '../../content/balance.ts';
+import {
+  cards as cardTable,
+  masteries as masteryTable,
+  modules as moduleTable,
+} from '../../content/registry.ts';
 
 export interface RolledReward {
   readonly offer: RewardOffer;
@@ -112,19 +124,69 @@ export function rollReward(
   const cards = rollCardChoices(rng, run, act, drought);
   // Elites drop a module — guaranteed, per DESIGN.md §3. That is what makes
   // routing toward one a real decision rather than just more Alloy.
-  const withModule = tier === 'elite' ? rollModule(cards.rng, run) : { moduleIds: [], rng: cards.rng };
+  const withModule =
+    tier === 'elite' || tier === 'boss'
+      ? rollModule(cards.rng, run)
+      : { moduleIds: [], rng: cards.rng };
+  const withMastery = rollMastery(withModule.rng, run, tier);
 
   return {
     offer: {
       cardIds: cards.cardIds,
       moduleIds: withModule.moduleIds,
+      masteryId: withMastery.masteryId,
       alloy,
       taken: [],
       takenModules: [],
       alloyClaimed: false,
     },
-    rng: withModule.rng,
+    rng: withMastery.rng,
   };
+}
+
+/**
+ * A Stance Mastery: always from a boss, sometimes from an Elite.
+ *
+ * Never from a normal fight, and capped, because a mastery rewrites how the
+ * whole deck reads. Three is already two rewrites of a two-stance game — past
+ * that they stop being run-defining and start being a stat line.
+ *
+ * Only masteries for stances actually in rotation are eligible: one that
+ * rewrites a dormant stance would be a reward that does nothing.
+ */
+export function rollMastery(
+  rng: RngState,
+  run: RunState,
+  tier: 'combat' | 'elite' | 'boss',
+): { readonly masteryId: MasteryId | null; readonly rng: RngState } {
+  if (tier === 'combat') return { masteryId: null, rng };
+  if (run.pilot.masteries.length >= MASTERY.cap) return { masteryId: null, rng };
+
+  const active = new Set(ACTIVE_STANCES);
+  // One per stance. Two masteries rewriting the same stance would compose by
+  // overwriting each other field by field, so the second would silently undo
+  // half the first — the player would be told they earned something and then
+  // watch the stance strip disagree with it.
+  const taken = new Set(
+    run.pilot.masteries.map((id) => masteryTable.find(id)?.stance).filter((stance) => stance !== undefined),
+  );
+  const pool = masteryTable
+    .all()
+    .filter(
+      (def) =>
+        active.has(def.stance) && !run.pilot.masteries.includes(def.id) && !taken.has(def.stance),
+    );
+  if (pool.length === 0) return { masteryId: null, rng };
+
+  if (tier === 'elite') {
+    const roll = nextFloat(rng, 'rewards');
+    if (roll.value >= MASTERY.eliteChance) return { masteryId: null, rng: roll.rng };
+    const picked = pick(roll.rng, 'rewards', pool);
+    return { masteryId: picked.value.id, rng: picked.rng };
+  }
+
+  const picked = pick(rng, 'rewards', pool);
+  return { masteryId: picked.value.id, rng: picked.rng };
 }
 
 /** One module the player does not already own, weighted by rarity. */

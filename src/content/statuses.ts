@@ -5,7 +5,8 @@
  * a new status is a row, not a branch, so the cost of adding one is visible.
  *
  * Target is <= 14 keywords at 1.0. Counting the ones that need explaining:
- * Block, Heat, Focus, Vulnerable, Weak, Strength, Exhaust, Innate. Eight.
+ * Block, Heat, Focus, Vulnerable, Weak, Strength, Exhaust, Innate, Irradiate.
+ * Nine.
  */
 
 import type { StatusDef } from '../engine/types.ts';
@@ -13,6 +14,7 @@ import type { StatusDef } from '../engine/types.ts';
 export const VULNERABLE = 'vulnerable';
 export const WEAK = 'weak';
 export const STRENGTH = 'strength';
+export const IRRADIATE = 'irradiate';
 
 export const STATUSES: readonly StatusDef[] = [
   {
@@ -38,5 +40,15 @@ export const STATUSES: readonly StatusDef[] = [
     kind: 'buff',
     decay: 'never',
     damageDealtFlat: 1,
+  },
+  /* Irradiate feeds no pipeline field — it is a counter the Radiation Belt
+     reads and turns into unblockable damage. Kept as a status rather than a
+     bespoke number so it shows up wherever statuses already show up. */
+  {
+    id: IRRADIATE,
+    name: 'Irradiate',
+    text: 'Takes 1 damage per stack at the start of each turn. Does not decay.',
+    kind: 'debuff',
+    decay: 'never',
   },
 ];
