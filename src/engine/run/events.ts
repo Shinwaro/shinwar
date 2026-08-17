@@ -26,6 +26,36 @@ export function optionsFor(run: RunState, def: EventDef): readonly EventOption[]
   });
 }
 
+/**
+ * Why this option cannot be taken, or `null` if it can.
+ *
+ * An event never kills you, so costs floor at 1 — which quietly turned a big
+ * price into a free one the moment you were low enough. "Lose 12 hull" with 2
+ * hull left cost two points and read as a bargain. Refusing the option keeps
+ * both halves honest: the floor still holds, and the price is still a price.
+ */
+export function refusalFor(run: RunState, option: EventOption): string | null {
+  for (const effect of option.effects) {
+    if (effect.op === 'alloy' && effect.amount < 0 && run.alloy < -effect.amount) {
+      return `You have ${run.alloy} Alloy. This asks ${-effect.amount}.`;
+    }
+    if (effect.op === 'health' && effect.amount < 0 && run.pilot.health <= -effect.amount) {
+      return `This asks ${-effect.amount} health. You have ${run.pilot.health}.`;
+    }
+    if (effect.op === 'hull' && effect.amount < 0 && run.ship.hull <= -effect.amount) {
+      return `This asks ${-effect.amount} hull. The cutter has ${run.ship.hull}.`;
+    }
+    if (effect.op === 'maxHealth' && effect.amount < 0 && run.pilot.maxHealth <= -effect.amount) {
+      return 'There is not enough of you left to give.';
+    }
+  }
+  return null;
+}
+
+export function canTakeOption(run: RunState, option: EventOption): boolean {
+  return refusalFor(run, option) === null;
+}
+
 function poolFor(run: RunState): readonly EventDef[] {
   const inAct = eventTable.all().filter((def) => def.acts === undefined || def.acts.includes(run.act));
   const unseen = inAct.filter((def) => !run.seenEvents.includes(def.id));
@@ -86,6 +116,9 @@ export function chooseEventOption(state: GameState, optionId: string): GameState
 
   const option = optionsFor(run, def).find((entry) => entry.id === optionId);
   if (option === undefined) return state;
+  // Enforced here, not only in the UI: the reducer is the rule, the screen is
+  // the presentation of it.
+  if (!canTakeOption(run, option)) return state;
 
   const logged = appendLog(state, {
     source: def.id,

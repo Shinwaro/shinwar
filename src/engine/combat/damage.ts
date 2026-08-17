@@ -15,7 +15,6 @@
 import type { CombatState, EnemyState, GameState, StatusStack } from '../types.ts';
 import { appendLog, withCombat, withRun } from '../state.ts';
 import { fireHook } from '../hooks.ts';
-import { FOCUS_DAMAGE_PER_STACK } from '../../content/balance.ts';
 import {
   enemies as enemyTable,
   environments as environmentTable,
@@ -141,9 +140,12 @@ export function computeDamage(state: GameState, input: DamageInput): DamageBreak
   let ctx: Ctx = { amount: 0, steps: [], focusConsumed: 0 };
   ctx = record(ctx, 'base', 'base', input.amount);
 
-  /* 2 — Focus. Attacks only, first instance only, player only. */
-  if (playerAttacking && input.isAttack && input.consumesFocus && combat.focus > 0) {
-    const bonus = combat.focus * FOCUS_DAMAGE_PER_STACK;
+  /* 2 — Focus. Attacks only, first instance only, player only, and only in a
+     stance that spends it. GUARD banks; IAI draws. The stance change is the
+     decision, and the size of the stack is the record of how long you waited. */
+  const live = playerAttacking ? stanceRulesFor(state, combat.stance) : null;
+  if (playerAttacking && input.isAttack && input.consumesFocus && combat.focus > 0 && live?.spendsFocus === true) {
+    const bonus = combat.focus * live.focusPerStack;
     ctx = { ...record(ctx, `Focus ${combat.focus}`, 'add', ctx.amount + bonus), focusConsumed: combat.focus };
   }
 
@@ -154,10 +156,10 @@ export function computeDamage(state: GameState, input: DamageInput): DamageBreak
     ctx = record(ctx, `${status.name} ${status.stacks}`, 'add', ctx.amount + delta);
   }
 
-  if (playerAttacking && input.isAttack) {
+  if (playerAttacking && input.isAttack && live !== null) {
     // Through the live table, not the raw one: a Stance Mastery is a diff
     // against `STANCES` and must reach the pipeline without a special case.
-    const stance = stanceRulesFor(state, combat.stance);
+    const stance = live;
     if (stance.firstAttackBonus > 0 && input.attackOrdinal === 0) {
       ctx = record(ctx, `${stance.name} first attack`, 'add', ctx.amount + stance.firstAttackBonus);
     }

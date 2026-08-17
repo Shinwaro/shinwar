@@ -87,6 +87,7 @@ export function makeFight(options: FightOptions = {}): GameState {
     attacksThisTurn: 0,
     envMemory: {},
     energyPenaltyNextTurn: 0,
+    skipNextTurn: false,
     pendingEnemies: [],
     actingUid: null,
     outcome: 'ongoing',

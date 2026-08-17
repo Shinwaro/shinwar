@@ -524,6 +524,8 @@ export interface MasteryDef {
     readonly blockRetained?: number;
     readonly extraDraw?: number;
     readonly attackPenalty?: number;
+    readonly spendsFocus?: boolean;
+    readonly focusPerStack?: number;
     /** Iron Tide's cost: you may only change stance this many times a turn. */
     readonly stanceChangesPerTurn?: number;
   };
@@ -565,6 +567,19 @@ export interface LogEntry {
 export interface StatusStack {
   readonly status: StatusId;
   readonly stacks: number;
+  /**
+   * Applied since its holder last acted, so the coming decay skips it once.
+   *
+   * Without this, a debuff an enemy puts on you during the enemy phase is
+   * stripped by the decay at the end of that same round — it is applied, logged,
+   * and gone before you ever take a turn under it. Every enemy debuff in the
+   * game was silently doing nothing.
+   *
+   * Cleared when the holder acts: at the start of the player's turn, and when an
+   * enemy takes its action. So a status is always live for exactly one turn of
+   * whoever is carrying it, whichever phase it arrived in.
+   */
+  readonly fresh: boolean;
 }
 
 /** What a move declares. The amount is filled in at display time for attacks. */
@@ -653,6 +668,11 @@ export interface CombatState {
   /** Energy lost next turn, from a critical overheat. */
   readonly energyPenaltyNextTurn: number;
   /**
+   * The reactor cooked and takes your next turn. Set by an overheat, spent at
+   * the start of the turn it costs you.
+   */
+  readonly skipNextTurn: boolean;
+  /**
    * Enemies that still owe an action this round, in order. The player's turn
    * ends by filling this; the round ends when it empties. Stepping one enemy
    * at a time is what lets the UI pace the enemy turn instead of resolving the
@@ -709,6 +729,12 @@ export type NodeType =
 
 export interface MapNode {
   readonly id: string;
+  /**
+   * What the place is called. Generated with the map, so it is part of the
+   * seed. Short on purpose — this exists so a route can be held in your head
+   * and named out loud, which "the third dot from the left" cannot be.
+   */
+  readonly name: string;
   readonly row: number;
   readonly col: number;
   /**

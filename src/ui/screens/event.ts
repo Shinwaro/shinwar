@@ -14,10 +14,10 @@
 import type { EventOption, GameState } from '../../engine/types.ts';
 import type { Store } from '../store.ts';
 import { requireRun } from '../../engine/state.ts';
-import { optionsFor } from '../../engine/run/events.ts';
+import { optionsFor, refusalFor } from '../../engine/run/events.ts';
 import { describeRunEffects } from '../../engine/run/describe.ts';
 import { events as eventTable } from '../../content/registry.ts';
-import { button, el } from '../dom.ts';
+import { button, el, fill } from '../dom.ts';
 import { liveScreen } from '../screen.ts';
 import { renderRunBar } from '../components/runbar.ts';
 import { renderManifest } from '../components/manifest.ts';
@@ -47,21 +47,30 @@ function build(store: Store, state: GameState): HTMLElement | null {
     renderManifest(state),
 
     chosen === null
-      ? el('div', { class: 'anomaly-options' }, options.map((option) => renderOption(store, option)))
+      ? el(
+          'div',
+          { class: 'anomaly-options' },
+          options.map((option) => renderOption(store, option, refusalFor(run, option))),
+        )
       : renderOutcome(store, chosen, pending.outcome),
   ]);
 }
 
-function renderOption(store: Store, option: EventOption): HTMLElement {
+function renderOption(store: Store, option: EventOption, refusal: string | null): HTMLElement {
   const mechanics = describeRunEffects(option.effects);
 
   const node = button(
     '',
-    { class: `anomaly-option${option.isLeave === true ? ' anomaly-option--leave' : ''}` },
+    {
+      class:
+        `anomaly-option${option.isLeave === true ? ' anomaly-option--leave' : ''}` +
+        (refusal === null ? '' : ' is-refused'),
+      disabled: refusal !== null,
+    },
     () => store.dispatch({ kind: 'chooseEventOption', optionId: option.id }),
   );
 
-  node.replaceChildren(
+  fill(node, [
     el('span', { class: 'anomaly-option-label' }, [option.label]),
     el('span', { class: 'anomaly-option-detail' }, [option.detail]),
     // Generated from the effects, never hand-written, so it cannot drift from
@@ -69,11 +78,14 @@ function renderOption(store: Store, option: EventOption): HTMLElement {
     mechanics === ''
       ? el('span', { class: 'anomaly-option-effect is-nothing' }, ['Nothing happens'])
       : el('span', { class: 'anomaly-option-effect' }, [mechanics]),
+    // Refused options stay on screen rather than vanishing: knowing what you
+    // could not afford is part of reading the situation.
+    refusal === null ? null : el('span', { class: 'anomaly-refusal' }, [refusal]),
     el('span', { class: 'anomaly-chips' }, [
       chip('RISK', option.risk),
       chip('PAYOFF', option.payoff),
     ]),
-  );
+  ]);
 
   return node;
 }

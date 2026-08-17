@@ -531,12 +531,16 @@
 
 /* -- hand -- */
 
+/* Wraps to a second row rather than scrolling. A card you have to scroll to
+   find is a card you forget you are holding, and the hand is the one place in
+   the game where seeing everything at once is the whole activity. Mobile keeps
+   the scroll-snap row — see the narrow block near the bottom of this file. */
 .hand {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 0.6rem;
-  overflow-x: auto;
   padding-bottom: 0.3rem;
-  scroll-snap-type: x proximity;
 }
 
 .card {
@@ -807,6 +811,16 @@
   .card {
     width: 11.5rem;
   }
+
+  /* On a phone the desktop's wrapping grid would push the hand off the bottom
+     of the viewport instead of off the side. A horizontal scroll-snap row is
+     the right answer at this width, and only at this width. */
+  .hand {
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+  }
 }
 
 /* ---------- the shared run bar ---------- */
@@ -985,16 +999,34 @@
   top: calc(50% + 0.6rem);
   left: 50%;
   transform: translateX(-50%);
+  display: grid;
+  gap: 0.05rem;
   width: max-content;
   max-width: 8.5rem;
-  font-size: 0.62rem;
   line-height: 1.25;
   letter-spacing: 0.02em;
   text-align: center;
-  color: var(--ink);
   text-shadow: 0 1px 6px rgba(0, 0, 0, 0.95);
   text-wrap: balance;
   pointer-events: none;
+}
+
+/* The name is what you scan for; the type is what you check once you have. */
+.star-name {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.star-detail {
+  font-size: 0.6rem;
+  color: var(--muted);
+}
+
+.star-label--past .star-name {
+  font-size: 0.62rem;
+  font-weight: 400;
+  color: color-mix(in srgb, var(--muted) 70%, transparent);
 }
 
 .star[data-edge='left'] .star-label {
@@ -1148,6 +1180,33 @@
 .intent--hidden {
   border-style: dashed;
   color: var(--muted);
+}
+
+/* The fight, held for a beat after the hit that ended it. Desaturating rather
+   than dimming keeps the last log line and the empty bar readable. */
+.screen.is-dying {
+  filter: saturate(0.45);
+  transition: filter 1.2s ease-out;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .screen.is-dying { transition: none; }
+}
+
+/* Statuses on the player, next to the health they are modifying. */
+.pips--player {
+  margin-top: 0.35rem;
+}
+
+.anomaly-option.is-refused {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.anomaly-refusal {
+  font-size: 0.78rem;
+  color: var(--danger);
 }
 
 .enemy.is-scannable {

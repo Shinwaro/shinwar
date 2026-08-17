@@ -28,15 +28,38 @@ export const PLAYER = {
 export const HEAT = {
   min: 0,
   max: 10,
-  /** At end of player turn, at or above this: take damage and burn a card. */
+  /** At end of player turn, at or above this: the reactor takes the next turn. */
   overheatAt: 8,
-  /** Damage taken is `(heat - overheatDamageOffset) * overheatDamagePerPoint`. */
-  overheatDamageOffset: 7,
-  overheatDamagePerPoint: 3,
-  /** At or above this, additionally lose 1 Energy next turn. */
+  /**
+   * Overheating costs a percentage of MAX health, not a flat number.
+   *
+   * A flat 3 stops mattering the moment the deck is doing 40 a turn, which is
+   * exactly why Heat never became a thing anyone thought about. A fraction of
+   * max scales with the run for free and keeps the threshold as frightening in
+   * Act 3 as it was in Act 1.
+   */
+  overheatDamagePctOfMax: 0.12,
+  /** Per point above the threshold, on top of the base fraction. */
+  overheatDamagePctPerPoint: 0.03,
+  /**
+   * And you lose the turn. This is the change that makes Heat a resource rather
+   * than a tax: the cost is not the damage, it is that the fight continues
+   * without you while the reactor cools.
+   */
+  overheatSkipsTurn: true,
+  /** At or above this, additionally lose 1 Energy the turn after. */
   criticalAt: 10,
   criticalEnergyLoss: 1,
 } as const;
+
+/* ---------- focus ----------
+   A stacking buff, not a fourth resource. It is only SPENT in a stance that
+   spends it — GUARD banks, IAI draws — so the size of the stack is a record of
+   how long you have been patient. Capped so patience is still a decision and
+   not simply the correct answer. */
+
+export const FOCUS_DAMAGE_PER_STACK = 2;
+export const FOCUS_MAX = 12;
 
 /* ---------- stance ----------
    The multiplying axis. Always exactly one. Cards read differently in each. */
@@ -52,30 +75,45 @@ export interface StanceRules {
   readonly blockRetained: number;
   readonly extraDraw: number;
   readonly attackPenalty: number;
+  /**
+   * Whether attacks in this stance spend Focus.
+   *
+   * This is the axis, not a bonus. Focus accumulates in GUARD and is only ever
+   * cashed in IAI, so the stance change *is* the decision: how long do you bank
+   * before you draw, knowing every turn in IAI is 2 more Heat. A flat "+4 on
+   * the first attack" was a number you got for free; this is a rhythm.
+   */
+  readonly spendsFocus: boolean;
+  /** What a stack is worth when it is finally spent. */
+  readonly focusPerStack: number;
 }
 
 export const STANCES: { readonly [K in StanceId]: StanceRules } = {
   iai: {
     id: 'iai',
     name: 'IAI',
-    text: 'First attack each turn +4 · +1 Heat at turn end',
-    firstAttackBonus: 4,
-    heatAtTurnEnd: 1,
+    text: 'Attacks spend Focus · +2 Heat at turn end',
+    firstAttackBonus: 0,
+    heatAtTurnEnd: 2,
     ventAtTurnEnd: 0,
     blockRetained: 0,
     extraDraw: 0,
     attackPenalty: 0,
+    spendsFocus: true,
+    focusPerStack: FOCUS_DAMAGE_PER_STACK,
   },
   guard: {
     id: 'guard',
     name: 'GUARD',
-    text: 'Vent 2 Heat at turn end · Retain 3 Block',
+    text: 'Focus is banked, not spent · Vent 1 Heat at turn end · Retain 3 Block',
     firstAttackBonus: 0,
     heatAtTurnEnd: 0,
-    ventAtTurnEnd: 2,
+    ventAtTurnEnd: 1,
     blockRetained: 3,
     extraDraw: 0,
     attackPenalty: 0,
+    spendsFocus: false,
+    focusPerStack: FOCUS_DAMAGE_PER_STACK,
   },
   flow: {
     id: 'flow',
@@ -87,6 +125,8 @@ export const STANCES: { readonly [K in StanceId]: StanceRules } = {
     blockRetained: 0,
     extraDraw: 1,
     attackPenalty: 2,
+    spendsFocus: true,
+    focusPerStack: FOCUS_DAMAGE_PER_STACK,
   },
 } as const;
 
@@ -106,11 +146,6 @@ export const STANCES: { readonly [K in StanceId]: StanceRules } = {
 export const ACTIVE_STANCES: readonly StanceId[] = ['iai', 'guard'];
 
 export const STARTING_STANCE: StanceId = 'guard';
-
-/* ---------- focus ----------
-   A stacking buff consumed by the next attack, not a fourth resource. */
-
-export const FOCUS_DAMAGE_PER_STACK = 2;
 
 /* ---------- the ship ----------
    Power is the ship's equivalent of deck size: it prevents pure accumulation

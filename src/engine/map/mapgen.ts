@@ -25,8 +25,9 @@ import type {
   RngState,
   RunMap,
 } from '../types.ts';
-import { nextInt, weightedPick } from '../rng.ts';
+import { nextInt, pick, weightedPick } from '../rng.ts';
 import { MAP, NODE_WEIGHTS } from '../../content/balance.ts';
+import { ACT_FINALES, ARRIVAL_NAME, PLACE_DESIGNATIONS, PLACE_STEMS } from '../../content/places.ts';
 import { CLEAR_SPACE_ID } from '../../content/environments.ts';
 import { environments as environmentTable } from '../../content/registry.ts';
 import { encountersFor } from '../../content/encounters.ts';
@@ -328,6 +329,56 @@ function assignEnvironments(
   return { environments: assigned, rng: current };
 }
 
+/* ---------- names ----------
+   Rolled with the rest of the map so a seed draws the same sky with the same
+   places on it. Never repeated inside an act: two "Kessel Deep"s on one chart
+   would undo the only thing the names are for. */
+
+function assignNames(
+  skeleton: Skeleton,
+  rng: RngState,
+  rows: number,
+  act: 1 | 2 | 3,
+): { names: Map<string, string>; rng: RngState } {
+  const names = new Map<string, string>();
+  const used = new Set<string>();
+  let current = rng;
+
+  for (let row = 0; row < rows; row++) {
+    for (const col of skeleton.cells[row] ?? []) {
+      const id = nodeId(row, col);
+
+      // The two landmarks are fixed. Where you come in and what waits at the
+      // end should be the same words every run.
+      if (row === 0) {
+        names.set(id, ARRIVAL_NAME);
+        continue;
+      }
+      if (row === rows - 1) {
+        names.set(id, ACT_FINALES[act]);
+        continue;
+      }
+
+      let picked: string | null = null;
+      // Bounded: after enough tries take whatever came up rather than looping
+      // on a full pool, which on a very wide act is a real possibility.
+      for (let attempt = 0; attempt < 12 && picked === null; attempt++) {
+        const stem = pick(current, 'map', PLACE_STEMS);
+        current = stem.rng;
+        const designation = pick(current, 'map', PLACE_DESIGNATIONS);
+        current = designation.rng;
+        const candidate = `${stem.value} ${designation.value}`;
+        if (!used.has(candidate)) picked = candidate;
+      }
+      const name = picked ?? `Sector ${row}-${col}`;
+      used.add(name);
+      names.set(id, name);
+    }
+  }
+
+  return { names, rng: current };
+}
+
 /* ---------- assembly ---------- */
 
 /**
@@ -372,7 +423,8 @@ function assemble(skeleton: Skeleton, act: 1 | 2 | 3, rng: RngState): GeneratedM
     rows,
     act,
   );
-  let current = scened.rng;
+  const named = assignNames(skeleton, scened.rng, rows, act);
+  let current = named.rng;
 
   const nodes: MapNode[] = [];
   for (let row = 0; row < rows; row++) {
@@ -387,6 +439,7 @@ function assemble(skeleton: Skeleton, act: 1 | 2 | 3, rng: RngState): GeneratedM
 
       nodes.push({
         id,
+        name: named.names.get(id) ?? id,
         row,
         col,
         x: placed.x,

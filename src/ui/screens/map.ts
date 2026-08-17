@@ -48,10 +48,30 @@ function encounterName(node: MapNode): string | null {
   return ENCOUNTERS.find((entry) => entry.id === node.encounterId)?.name ?? null;
 }
 
+/** Everything about a node, for the readout and the accessible name. */
 function labelOf(node: MapNode): string {
-  return [describeNode(node), encounterName(node), environmentName(node)]
-    .filter((part) => part !== null)
+  return [node.name, describeNode(node), encounterName(node), environmentName(node)]
+    .filter((part) => part !== null && part !== '')
     .join(' · ');
+}
+
+/**
+ * What sits under the star.
+ *
+ * The name first and alone on its line, because a name is what a route is made
+ * of — you pick "Kessel Deep, then the Station", not "the second dot". The type
+ * and the environment sit under it in smaller type: needed to decide, but not
+ * what you are scanning for.
+ */
+function captionOf(node: MapNode): HTMLElement {
+  const detail = [describeNode(node), environmentName(node)]
+    .filter((part) => part !== null && part !== '')
+    .join(' · ');
+
+  return el('span', { class: 'star-label' }, [
+    el('span', { class: 'star-name' }, [node.name]),
+    el('span', { class: 'star-detail' }, [detail]),
+  ]);
 }
 
 export function renderMap(store: Store): HTMLElement {
@@ -165,8 +185,15 @@ function buildMap(
     fill(star, [
       el('span', { class: 'star-dot', 'aria-hidden': 'true' }),
       // Only the lanes you are choosing between are captioned. Fifty labels is
-      // the noise; three to six is the decision.
-      isReachable ? el('span', { class: 'star-label' }, [label]) : null,
+      // the noise; three to six is the decision. Visited places keep their name
+      // alone, so the route you took reads back as a route.
+      isReachable
+        ? captionOf(node)
+        : visited.has(node.id)
+          ? el('span', { class: 'star-label star-label--past' }, [
+              el('span', { class: 'star-name' }, [node.name]),
+            ])
+          : null,
     ]);
 
     const show = (): void => setReadout(label);

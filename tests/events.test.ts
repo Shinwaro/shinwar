@@ -13,7 +13,13 @@ import { applyAction } from '../src/engine/reducer.ts';
 import { enterNode } from '../src/engine/run/run.ts';
 import { applyRunEffects } from '../src/engine/run/effects.ts';
 import { describeRunEffects } from '../src/engine/run/describe.ts';
-import { chooseEventOption, openEvent, optionsFor } from '../src/engine/run/events.ts';
+import {
+  canTakeOption,
+  chooseEventOption,
+  openEvent,
+  optionsFor,
+  refusalFor,
+} from '../src/engine/run/events.ts';
 import { activeThreads, advanceThreads, dueThreads, hasThread, setThread } from '../src/engine/run/threads.ts';
 import { buyRemoval, buyShopCard, stockShop } from '../src/engine/run/shop.ts';
 import { stableStringify } from '../src/engine/serialize.ts';
@@ -74,11 +80,48 @@ describe('choosing an option', () => {
     expect(eventId).toBeDefined();
 
     const def = eventTable.get(eventId ?? '');
-    const first = optionsFor(runOf(opened), def).find((option) => option.isLeave !== true);
+    const first = optionsFor(runOf(opened), def).find(
+      (option) => option.isLeave !== true && canTakeOption(runOf(opened), option),
+    );
     const chosen = chooseEventOption(opened, first?.id ?? '');
 
     expect(runOf(chosen).pendingEvent?.chosenOptionId).toBe(first?.id);
     expect(runOf(chosen).pendingEvent?.outcome.length).toBeGreaterThan(0);
+  });
+
+  it('refuses an option the run cannot actually pay for', () => {
+    // The floor that stops an event killing you also made a big price free the
+    // moment you were low enough: "lose 12 hull" with 2 hull left cost two.
+    const state = fresh('BROKE');
+    const poor = {
+      ...state,
+      run: { ...runOf(state), alloy: 10, ship: { ...runOf(state).ship, hull: 2 } },
+    };
+
+    const costly = {
+      id: 'costly',
+      label: 'Sell the plating',
+      detail: 'More than the cutter has.',
+      effects: [{ op: 'hull' as const, amount: -18 }],
+      risk: 'The ship',
+      payoff: 'None',
+    };
+    expect(canTakeOption(runOf(poor), costly)).toBe(false);
+    expect(refusalFor(runOf(poor), costly)).toContain('18');
+
+    const affordable = { ...costly, id: 'small', effects: [{ op: 'hull' as const, amount: -1 }] };
+    expect(canTakeOption(runOf(poor), affordable)).toBe(true);
+  });
+
+  it('will not let a refused option through the reducer either', () => {
+    // The rule lives in the engine; the disabled button is the presentation.
+    const opened = openEvent(fresh('BROKE2'));
+    const def = eventTable.get(runOf(opened).pendingEvent?.eventId ?? '');
+    const unpayable = optionsFor(runOf(opened), def).find(
+      (option) => !canTakeOption(runOf(opened), option),
+    );
+    if (unpayable === undefined) return;
+    expect(chooseEventOption(opened, unpayable.id)).toBe(opened);
   });
 
   it('refuses a second choice on the same anomaly', () => {

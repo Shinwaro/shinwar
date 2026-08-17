@@ -30,6 +30,7 @@ import { addStacks, stacksOf } from './keywords.ts';
 import { setStance, cycleStance } from './stance.ts';
 import { draw, moveToExhaust, narrateDraw, randomFromHand } from './piles.ts';
 import { mintCard } from './instances.ts';
+import { FOCUS_MAX } from '../../content/balance.ts';
 
 export interface EffectContext {
   /** A card id, an enemy uid, a module id — whatever is answerable in the log. */
@@ -279,7 +280,13 @@ function applyOp(state: GameState, op: EffectOp, context: EffectContext): Effect
 
     case 'gainFocus': {
       if (op.amount === 0) return keep(state);
-      const next = withCombat(state, (combat) => ({ ...combat, focus: Math.max(0, combat.focus + op.amount) }));
+      // Capped: Focus is banked in GUARD now, so without a ceiling the correct
+      // play would always be "sit in GUARD until the stack is enormous", and
+      // patience would stop being a decision.
+      const next = withCombat(state, (combat) => ({
+        ...combat,
+        focus: Math.max(0, Math.min(FOCUS_MAX, combat.focus + op.amount)),
+      }));
       return keep(
         appendLog(next, {
           source: context.source,

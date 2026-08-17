@@ -13,7 +13,7 @@ import type { GameState } from '../../engine/types.ts';
 import { heatStatus } from '../../engine/combat/heat.ts';
 import { requireCombat } from '../../engine/state.ts';
 import { liveStance, stanceChangeLimit } from '../../engine/combat/rules.ts';
-import { FOCUS_DAMAGE_PER_STACK, HEAT } from '../../content/balance.ts';
+import { FOCUS_MAX, HEAT } from '../../content/balance.ts';
 import { CLEAR_SPACE_ID } from '../../content/environments.ts';
 import {
   environments as environmentTable,
@@ -94,23 +94,33 @@ export function renderResources(state: GameState): HTMLElement {
     el('span', { class: `energy-pip${index < combat.energy ? ' is-full' : ''}`, 'aria-hidden': 'true' }),
   );
 
+  // Which stance you are standing in decides whether Focus is a bank or a
+  // payload, so the readout has to say which it is right now. This is the one
+  // number on screen whose meaning changes with the axis.
+  const stance = liveStance(state);
+  const worth = combat.focus * stance.focusPerStack;
+
   // Block is not here: it lives beside the hull bar, next to the thing it
   // protects. Repeating it would be two numbers to keep in sync on screen.
   return el('div', { class: 'resources' }, [
     el(
       'span',
       {
-        class: 'resource resource--info',
+        class: `resource resource--info${stance.spendsFocus ? ' is-armed' : ' is-banking'}`,
         tabindex: '0',
-        title: `Focus: your next attack deals ${FOCUS_DAMAGE_PER_STACK} more damage per stack, then Focus resets to 0. It is not spendable — the next attack takes all of it.`,
+        title: stance.spendsFocus
+          ? `Focus: your next attack takes the whole stack and deals ${stance.focusPerStack} more damage per stack. Stances that bank Focus keep it instead.`
+          : `Focus: banked in ${stance.name} and spent nowhere. Change to a stance that spends it to cash the stack. Caps at ${FOCUS_MAX}.`,
       },
       [
         el('span', { class: 'resource-label' }, ['Focus']),
-        el('span', { class: 'resource-value' }, [String(combat.focus)]),
+        el('span', { class: 'resource-value' }, [`${combat.focus}${combat.focus >= FOCUS_MAX ? ' (max)' : ''}`]),
         el('span', { class: 'resource-hint' }, [
-          combat.focus > 0
-            ? `next attack +${combat.focus * FOCUS_DAMAGE_PER_STACK}`
-            : `+${FOCUS_DAMAGE_PER_STACK} per stack`,
+          combat.focus === 0
+            ? `+${stance.focusPerStack} per stack when spent`
+            : stance.spendsFocus
+              ? `next attack +${worth}, then spent`
+              : `banked · worth +${worth} in a stance that spends it`,
         ]),
       ],
     ),

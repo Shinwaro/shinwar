@@ -715,3 +715,75 @@ Two acts of enemies, three bosses, eight environments, four masteries and the Wa
 are all first guesses. A crude bot needed roughly sixty seeds to reach Act 2, which says more about
 the bot — it plays every card in hand at the lowest-HP enemy — than about the tuning. Everything
 here joins Focus, Heat, ship-fight length and M4's prices on the list `sim/` settles at M6.
+
+## Playtest pass 1 — the debuff bug, and Heat as a real resource
+
+Robin played it and came back with a long list. This is the first half of it.
+
+### The bug behind "mob debuffs don't work"
+
+They didn't. `decayStatuses` ran in `closeRound`, which happens *after* the enemies act, so a
+debuff an enemy applied during the enemy phase was stripped in the same breath — applied, logged,
+and gone before the player ever took a turn under it. Every enemy debuff in the game had been doing
+nothing since M1, and the log line said otherwise.
+
+The fix is a `fresh` flag on `StatusStack`, cleared at the two moments a holder acts: the start of
+the player's turn, and the moment an enemy takes its action. Decay skips anything still fresh. That
+gives the rule the status table always claimed — one stack falls off at the end of the holder's
+turn — for both sides, whichever phase the status arrived in. Subtracting never sets the flag, or a
+two-stack debuff would decay forever.
+
+**And they were invisible anyway.** `combat.statuses` had zero references anywhere in `src/ui`.
+Enemies had shown their statuses since M1; the player's were rendered nowhere at all, so an enemy
+applying Weak was indistinguishable from an enemy doing nothing. Pips now sit under the health bar,
+next to the thing they modify.
+
+### Heat and the stances
+
+Robin's read was that Heat never mattered and the stances were too strong. Both were true, and they
+were the same problem: IAI handed out +4 on the first attack for free, and the only thing it cost
+was 1 Heat that GUARD vented 2 of.
+
+- **IAI's passive is now "attacks spend Focus"**, and GUARD banks it instead. Focus accumulates
+  while you hold, and only ever cashes when you change stance — so the axis is a rhythm rather than
+  a number, and the stance change *is* the decision. Capped at 12, or the correct play would always
+  be to sit in GUARD forever.
+- **IAI gains 2 Heat a turn, GUARD vents 1.** The gauge now climbs.
+- **Overheat costs a percentage of MAX health and takes your next turn.** A flat 3 stops mattering
+  the moment the deck is doing forty a turn, which is exactly why it never registered; a fraction
+  scales with the run for free. The lost turn is the real cost — damage heals.
+- **The gauge blows to zero on the skipped turn.** Otherwise an overheat at 10 in IAI walks straight
+  into another one with no turn in between to do anything about it, and a spiral you cannot act on
+  is a death sentence rather than a price. The skipped turn does *not* absorb the critical Energy
+  penalty either, which would have refunded half the punishment for the worst overheat there is.
+- **Six new Focus cards** so the mechanic has something to stand on, and the IAI masteries were
+  rewritten around Focus — Unsheathed Mind doubles what a stack is worth, Banked Fire trades stack
+  value for no Heat at all.
+
+### The rest of the list
+
+**An event option you cannot pay for is refused.** The floor that stops an event killing you also
+made a big price free the moment you were low enough: "lose 12 hull" with 2 hull left cost two
+points and read as a bargain. Options that would take more than you have are now disabled with the
+reason on the card, enforced in the reducer rather than only in the UI.
+
+**The hand wraps to a second row** instead of scrolling. A card you have to scroll to find is a card
+you forget you are holding. Mobile keeps the scroll-snap row — at 375px a wrapping grid pushes the
+hand off the bottom instead of off the side, which is worse.
+
+**Death holds for 2.2 seconds** on the killing blow before the run-over screen. The engine ends the
+run the instant health hits zero, so the result used to replace the cause in the same frame. It is
+presentation only — the run is already over in state. The first version of this deferred the swap
+*forever*: the timer's own re-render walked straight back into the branch that scheduled it, since
+every condition was still true.
+
+**Every place on the chart has a short name**, generated with the map and part of the seed. This is
+navigational, not flavour: "Kessel Deep, then the Station" is a route you can hold in your head and
+"the third dot from the left" is not. Two landmarks are fixed — Arrival, and the act finale.
+
+### Still open from that list
+
+Ship modules are still all verbs and no passives; they want crit, flat damage, damage reduction and
+parry, scaling off Heat mid-fight, rotation, more shapes, and adjacency synergies. There is no relic
+system, so there is still nothing that permanently raises Energy or draw. Enemy scaling within an
+act is untouched. All of that is the next pass.

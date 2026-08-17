@@ -27,7 +27,7 @@ import { ENCOUNTERS } from '../../content/encounters.ts';
 import { PLAYER, enemyTarget, livingEnemies } from './damage.ts';
 import { applyEffects, createContext, retireCard } from './effects.ts';
 import { gainHeat, resolveOverheat, ventHeat } from './heat.ts';
-import { addStacks, decayStatuses } from './keywords.ts';
+import { addStacks, clearFresh, decayStatuses } from './keywords.ts';
 import { environmentRules, liveStance, stanceRulesFor } from './rules.ts';
 import { mintEnemy } from './instances.ts';
 import { discardHand, draw, findInHand, moveToDiscard, narrateDraw } from './piles.ts';
@@ -96,6 +96,7 @@ export function startCombat(state: GameState, encounterId: string, environmentId
       attacksThisTurn: 0,
       envMemory: {},
       energyPenaltyNextTurn: 0,
+      skipNextTurn: false,
       pendingEnemies: [],
       actingUid: null,
       outcome: 'ongoing',
@@ -169,7 +170,15 @@ export function startPlayerTurn(state: GameState): GameState {
 
   // Block is lost at the start of your turn, except what GUARD retains. Energy
   // is refilled, less anything a critical overheat took.
-  const energy = Math.max(0, PLAYER_BALANCE.energyPerTurn - combat.energyPenaltyNextTurn);
+  //
+  // A turn the reactor takes does not spend the penalty: an overheat at 10
+  // costs a turn AND the Energy, and letting the skipped turn absorb the Energy
+  // loss would quietly refund half the punishment for the worst overheat there
+  // is.
+  const skipping = combat.skipNextTurn;
+  const energy = skipping
+    ? 0
+    : Math.max(0, PLAYER_BALANCE.energyPerTurn - combat.energyPenaltyNextTurn);
 
   let next = withCombat(state, (current) => ({
     ...current,
@@ -177,11 +186,14 @@ export function startPlayerTurn(state: GameState): GameState {
     round: current.round + 1,
     block: Math.min(current.block, stance.blockRetained),
     energy,
-    energyPenaltyNextTurn: 0,
+    energyPenaltyNextTurn: skipping ? current.energyPenaltyNextTurn : 0,
     cardsPlayedThisTurn: 0,
     blockGainedThisTurn: 0,
     attacksThisTurn: 0,
     stanceChangesThisTurn: 0,
+    // You are acting, so nothing on you is new any more. Whatever the enemies
+    // put on you last phase is live for this turn and decays at the end of it.
+    statuses: clearFresh(current.statuses),
   }));
 
   next = appendLog(next, {
@@ -198,7 +210,68 @@ export function startPlayerTurn(state: GameState): GameState {
   next = fireHook(next, 'onRoundStart', { round: requireCombat(next).round });
   next = fireHook(next, 'onTurnStart', { turn });
 
+  /*
+   * The reactor took this one.
+   *
+   * Heat blows down to zero with it — otherwise an overheat at 10 in IAI walks
+   * straight into another overheat with no turn in between to do anything about
+   * it, and a spiral you cannot act on is a death sentence rather than a cost.
+   * So the cycle is legible: ride the gauge up, pay a turn and a chunk of max
+   * health, come out cold.
+   */
+  if (combat.skipNextTurn) {
+    next = withCombat(next, (current) => ({ ...current, skipNextTurn: false, heat: HEAT.min }));
+    next = appendLog(next, {
+      source: 'heat',
+      kind: 'heat',
+      text: 'Venting hard. You lose the turn and the gauge falls to zero.',
+      detail: { turn },
+    });
+    return queueEnemyTurn(withCombat(next, discardHand));
+  }
+
   return drawForTurn(next);
+}
+
+/**
+ * Hand the round over to the enemies.
+ *
+ * Queued rather than resolved, so the UI can step through the enemy turn on a
+ * timer instead of it arriving in a single frame. Shared by the normal end of
+ * turn and by a turn the reactor took, which must reach the enemies by exactly
+ * the same path or the two diverge the first time one of them changes.
+ */
+function queueEnemyTurn(state: GameState): GameState {
+  // Chronal Shear queues them twice on its rounds. Building the queue is a
+  // calculation, so it reads a rule rather than a hook — and doubling here
+  // means the extra activation resolves the move that was already telegraphed,
+  // never a fresh roll the player could not have seen.
+  const shear = environmentRules(state).doubleActEvery ?? 0;
+  const rounds = shear > 0 && requireCombat(state).round % shear === 0 ? 2 : 1;
+
+  let next = state;
+  if (rounds > 1) {
+    next = appendLog(next, {
+      source: requireCombat(next).environmentId,
+      kind: 'combat',
+      text: 'The shear folds. They move twice.',
+      detail: { round: requireCombat(next).round },
+    });
+  }
+
+  next = withCombat(next, (current) => {
+    const queue = current.enemies
+      .filter((enemy) => enemy.hp > 0 && enemy.intentMoveId !== null)
+      .map((enemy) => enemy.uid);
+    const repeated: string[] = [];
+    for (let pass = 0; pass < rounds; pass++) repeated.push(...queue);
+    return { ...current, pendingEnemies: repeated, actingUid: null };
+  });
+
+  // Nothing to wait for — no living enemy owes an action — so close the round
+  // here rather than leaving the fight parked with an empty queue.
+  if (requireCombat(next).pendingEnemies.length === 0) return closeRound(next);
+  return next;
 }
 
 function drawForTurn(state: GameState): GameState {
@@ -341,38 +414,7 @@ export function endPlayerTurn(state: GameState): GameState {
   if (requireCombat(next).outcome !== 'ongoing') return next;
 
   next = withCombat(next, discardHand);
-
-  // Queue the enemies rather than running them. The UI steps through this so
-  // the enemy turn can be watched instead of arriving all at once.
-  //
-  // Chronal Shear queues them twice on its rounds. Building the queue is a
-  // calculation, so it reads a rule rather than a hook — and doubling here
-  // means the extra activation resolves the move that was already telegraphed,
-  // never a fresh roll the player could not have seen.
-  const shear = environmentRules(next).doubleActEvery ?? 0;
-  const rounds = shear > 0 && requireCombat(next).round % shear === 0 ? 2 : 1;
-  if (rounds > 1) {
-    next = appendLog(next, {
-      source: requireCombat(next).environmentId,
-      kind: 'combat',
-      text: 'The shear folds. They move twice.',
-      detail: { round: requireCombat(next).round },
-    });
-  }
-
-  next = withCombat(next, (current) => {
-    const queue = current.enemies
-      .filter((enemy) => enemy.hp > 0 && enemy.intentMoveId !== null)
-      .map((enemy) => enemy.uid);
-    const repeated: string[] = [];
-    for (let pass = 0; pass < rounds; pass++) repeated.push(...queue);
-    return { ...current, pendingEnemies: repeated, actingUid: null };
-  });
-
-  // Nothing to wait for — no living enemy owes an action — so close the round
-  // here rather than leaving the fight parked with an empty queue.
-  if (requireCombat(next).pendingEnemies.length === 0) return closeRound(next);
-  return next;
+  return queueEnemyTurn(next);
 }
 
 /** Decay statuses, fire `onRoundEnd`, and open the next player turn. */
@@ -415,10 +457,14 @@ export function advanceEnemyTurn(state: GameState): GameState {
   const move = def?.moves.find((entry) => entry.id === enemy?.intentMoveId);
 
   if (enemy !== undefined && def !== undefined && move !== undefined && enemy.hp > 0) {
-    // Enemy Block, like the player's, is gone by the time it acts again.
+    // Enemy Block, like the player's, is gone by the time it acts again. This
+    // is also where the enemy's own statuses stop being new — it has now had a
+    // turn under whatever the player put on it.
     next = withCombat(next, (current) => ({
       ...current,
-      enemies: current.enemies.map((entry) => (entry.uid === uid ? { ...entry, block: 0 } : entry)),
+      enemies: current.enemies.map((entry) =>
+        entry.uid === uid ? { ...entry, block: 0, statuses: clearFresh(entry.statuses) } : entry,
+      ),
     }));
 
     next = appendLog(next, {

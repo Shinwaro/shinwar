@@ -7,7 +7,7 @@
  * the most common cause of a game feeling unfair. Flavor text is separate and
  * hand-written.
  *
- * 28 cards: 4 basic, 20 offerable across the four archetypes and the rarity
+ * 34 cards: 4 basic, 26 offerable across the four archetypes and the rarity
  * ladder, and 4 that only an Anomaly or a Thread can hand you. The pool scales
  * to ~85 at M6.
  */
@@ -15,6 +15,7 @@
 import type { CardDef } from '../../engine/types.ts';
 import { BASIC_CARDS } from './basic.ts';
 import { EVENT_CARDS } from './events.ts';
+import { FOCUS_CARDS } from './focus.ts';
 import { GUARD_CARDS } from './guard.ts';
 import { IAI_CARDS } from './iai.ts';
 import { NEUTRAL_CARDS } from './neutral.ts';
@@ -26,6 +27,7 @@ export const CARDS: readonly CardDef[] = [
   ...GUARD_CARDS,
   ...OVERHEAT_CARDS,
   ...NEUTRAL_CARDS,
+  ...FOCUS_CARDS,
   ...EVENT_CARDS,
 ];
 

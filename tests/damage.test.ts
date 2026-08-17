@@ -20,14 +20,14 @@ const STANCE_IDS: readonly StanceId[] = ['iai', 'guard', 'flow'];
 
 const STATUS_CASES: readonly { readonly name: string; readonly player: readonly StatusStack[]; readonly enemy: readonly StatusStack[] }[] = [
   { name: 'clean', player: [], enemy: [] },
-  { name: 'enemy Vulnerable 1', player: [], enemy: [{ status: VULNERABLE, stacks: 1 }] },
-  { name: 'enemy Vulnerable 2', player: [], enemy: [{ status: VULNERABLE, stacks: 2 }] },
-  { name: 'player Weak', player: [{ status: WEAK, stacks: 1 }], enemy: [] },
-  { name: 'player Strength 3', player: [{ status: STRENGTH, stacks: 3 }], enemy: [] },
+  { name: 'enemy Vulnerable 1', player: [], enemy: [{ status: VULNERABLE, stacks: 1, fresh: false }] },
+  { name: 'enemy Vulnerable 2', player: [], enemy: [{ status: VULNERABLE, stacks: 2, fresh: false }] },
+  { name: 'player Weak', player: [{ status: WEAK, stacks: 1, fresh: false }], enemy: [] },
+  { name: 'player Strength 3', player: [{ status: STRENGTH, stacks: 3, fresh: false }], enemy: [] },
   {
     name: 'Weak and Vulnerable together',
-    player: [{ status: WEAK, stacks: 1 }],
-    enemy: [{ status: VULNERABLE, stacks: 1 }],
+    player: [{ status: WEAK, stacks: 1, fresh: false }],
+    enemy: [{ status: VULNERABLE, stacks: 1, fresh: false }],
   },
 ];
 
@@ -63,7 +63,7 @@ describe('preview equals resolution', () => {
   }
 
   it('holds for an enemy attacking through Block', () => {
-    const state = makeFight({ block: 5, playerStatuses: [{ status: VULNERABLE, stacks: 1 }] });
+    const state = makeFight({ block: 5, playerStatuses: [{ status: VULNERABLE, stacks: 1, fresh: false }] });
     const enemy = firstEnemy(state);
     const input = {
       amount: 9,
@@ -86,7 +86,7 @@ describe('the ordered steps', () => {
     const state = makeFight({
       stance: 'iai',
       focus: 2,
-      enemyStatuses: [{ status: VULNERABLE, stacks: 1 }],
+      enemyStatuses: [{ status: VULNERABLE, stacks: 1, fresh: false }],
       enemyHp: 999,
     });
     const enemy = firstEnemy(state);
@@ -99,14 +99,15 @@ describe('the ordered steps', () => {
       consumesFocus: true,
     });
 
-    // 6 base, +4 Focus (2 x 2), +4 IAI first attack, x1.5 Vulnerable = 21.
-    expect(breakdown.toHull).toBe(21);
-    expect(breakdown.steps.map((step) => step.kind)).toEqual(['base', 'add', 'add', 'mult', 'floor']);
+    // 6 base, +4 Focus (2 x 2), x1.5 Vulnerable = 15. IAI has no flat bonus of
+    // its own any more — what it has is permission to spend the stack.
+    expect(breakdown.toHull).toBe(15);
+    expect(breakdown.steps.map((step) => step.kind)).toEqual(['base', 'add', 'mult', 'floor']);
     expect(breakdown.focusConsumed).toBe(2);
   });
 
   it('rounds down rather than up', () => {
-    const state = makeFight({ enemyStatuses: [{ status: VULNERABLE, stacks: 1 }], enemyHp: 999 });
+    const state = makeFight({ enemyStatuses: [{ status: VULNERABLE, stacks: 1, fresh: false }], enemyHp: 999 });
     const enemy = firstEnemy(state);
     // 5 x 1.5 = 7.5 -> 7, never 8.
     expect(
@@ -137,7 +138,7 @@ describe('the ordered steps', () => {
   });
 
   it('compounds Vulnerable per stack', () => {
-    const state = makeFight({ enemyStatuses: [{ status: VULNERABLE, stacks: 2 }], enemyHp: 999 });
+    const state = makeFight({ enemyStatuses: [{ status: VULNERABLE, stacks: 2, fresh: false }], enemyHp: 999 });
     const enemy = firstEnemy(state);
     // 8 x 1.5 x 1.5 = 18.
     expect(
@@ -154,25 +155,45 @@ describe('the ordered steps', () => {
 });
 
 describe('the stance passives', () => {
-  it('gives IAI its bonus once per turn, not once per damage op', () => {
-    // DESIGN.md §1: 6 base + 4 rider + 4 stance = 14, and the passive fires
-    // once even though the card deals damage twice.
-    const state = makeFight({ stance: 'iai', hand: [IAI_SLASH], enemyHp: 999 });
-    const card = handCard(state, 0);
-    const enemy = firstEnemy(state);
-    const after = playCard(state, card.uid, enemy.uid);
-    expect(enemy.hp - (combatOf(after).enemies[0]?.hp ?? 0)).toBe(14);
+  it('spends Focus in IAI and banks it in GUARD', () => {
+    // The whole axis: the same card, the same stack, and the only difference
+    // is which stance you are standing in when you swing.
+    const shape = {
+      amount: 6,
+      isAttack: true,
+      attackOrdinal: 0,
+      consumesFocus: true,
+    } as const;
+
+    const banking = makeFight({ stance: 'guard', focus: 3, enemyHp: 999 });
+    const bankEnemy = firstEnemy(banking);
+    const banked = computeDamage(banking, {
+      ...shape,
+      attacker: PLAYER,
+      target: enemyTarget(bankEnemy.uid),
+    });
+    expect(banked.toHull, 'GUARD must not spend the stack').toBe(6);
+    expect(banked.focusConsumed).toBe(0);
+
+    const drawing = makeFight({ stance: 'iai', focus: 3, enemyHp: 999 });
+    const drawEnemy = firstEnemy(drawing);
+    const drawn = computeDamage(drawing, {
+      ...shape,
+      attacker: PLAYER,
+      target: enemyTarget(drawEnemy.uid),
+    });
+    expect(drawn.toHull).toBe(6 + 3 * FOCUS_DAMAGE_PER_STACK);
+    expect(drawn.focusConsumed).toBe(3);
   });
 
-  it('does not give it again on the second attack of the turn', () => {
-    const state = makeFight({ stance: 'iai', hand: [IAI_SLASH, IAI_SLASH], enemyHp: 999 });
+  it('leaves the stack alone across a whole turn in GUARD', () => {
+    const state = makeFight({ stance: 'guard', focus: 4, hand: [IAI_SLASH], enemyHp: 999 });
     const enemy = firstEnemy(state);
-    const first = playCard(state, handCard(state, 0).uid, enemy.uid);
-    const second = playCard(first, handCard(first, 0).uid, enemy.uid);
-    const hpAfterFirst = combatOf(first).enemies[0]?.hp ?? 0;
-    const hpAfterSecond = combatOf(second).enemies[0]?.hp ?? 0;
-    expect(enemy.hp - hpAfterFirst).toBe(14);
-    expect(hpAfterFirst - hpAfterSecond).toBe(10);
+    const after = playCard(state, handCard(state, 0).uid, enemy.uid);
+    // Iai Slash's rider is IAI-only, so in GUARD this is the bare 6 and the
+    // bank is untouched.
+    expect(enemy.hp - (combatOf(after).enemies[0]?.hp ?? 0)).toBe(6);
+    expect(combatOf(after).focus).toBe(4);
   });
 
   it('takes FLOW’s penalty off every instance', () => {
@@ -187,8 +208,8 @@ describe('the stance passives', () => {
     const state = makeFight({ stance: 'iai', focus: 3, hand: [IAI_SLASH], enemyHp: 999 });
     const enemy = firstEnemy(state);
     const after = playCard(state, handCard(state, 0).uid, enemy.uid);
-    // 6 +6 Focus +4 IAI = 16, then the rider's 4 with no Focus left to spend.
-    expect(enemy.hp - (combatOf(after).enemies[0]?.hp ?? 0)).toBe(16 + 4);
+    // 6 +6 Focus = 12, then the rider's 4 with no Focus left to spend.
+    expect(enemy.hp - (combatOf(after).enemies[0]?.hp ?? 0)).toBe(12 + 4);
     expect(3 * FOCUS_DAMAGE_PER_STACK).toBe(6);
     // The old stack is spent by the first instance and the rider then grants a
     // fresh one — which is the IAI engine: every slash pays for the next.

@@ -25,6 +25,15 @@ import { el } from './dom.ts';
 /** What is on screen right now: the phase, or the run's inner screen. */
 type View = Phase | `run:${RunScreen}`;
 
+/**
+ * How long the fight stays on screen after the hit that ended it.
+ *
+ * Long enough to read the last log line and watch the bar empty, short enough
+ * that it does not feel like the game has hung. Not shortened under
+ * reduced-motion: this is a pause, not a tween.
+ */
+const DEATH_HOLD_MS = 2200;
+
 function viewOf(state: GameState): View {
   if (state.phase !== 'run' || state.run === null) return state.phase;
   return `run:${state.run.screen}`;
@@ -75,6 +84,16 @@ export function mountApp(root: HTMLElement, store: Store): void {
   let mountedView: View | null = null;
   let mounted: HTMLElement | null = null;
   let paused = false;
+  /** Set while the killing blow is being held on screen. */
+  let deathHold: ReturnType<typeof setTimeout> | null = null;
+  /**
+   * The hold has already been served for this death.
+   *
+   * Without it the timer's own re-render walks straight back into the branch
+   * that scheduled it — the conditions are all still true — and the game-over
+   * screen is deferred forever, one hold at a time.
+   */
+  let deathHeld = false;
 
   function closePause(): void {
     paused = false;
@@ -100,6 +119,33 @@ export function mountApp(root: HTMLElement, store: Store): void {
 
     const view = viewOf(state);
     if (view === mountedView) return;
+
+    /*
+     * Hold on the killing blow.
+     *
+     * The engine ends the run the instant health hits zero, so without this the
+     * game-over screen replaces the fight in the same frame as the hit that
+     * caused it — the player sees the result and never sees the cause. The hold
+     * is presentation only: the run is already over in state, and nothing here
+     * can change that. Anything that arrives during the hold (there is nothing
+     * the player can dispatch) still lands, because this only defers the swap.
+     */
+    if (view === 'over' && mountedView === 'run:combat' && state.run?.outcome === 'died' && !deathHeld) {
+      if (deathHold !== null) return;
+      mounted?.classList.add('is-dying');
+      deathHold = setTimeout(() => {
+        deathHold = null;
+        deathHeld = true;
+        render(store.getState());
+      }, DEATH_HOLD_MS);
+      return;
+    }
+    if (deathHold !== null) {
+      clearTimeout(deathHold);
+      deathHold = null;
+    }
+    // A new run gets its own hold.
+    if (view === 'title' || view === 'run:map') deathHeld = false;
 
     // Let the outgoing screen drop anything it bound outside its own subtree —
     // the combat screen owns a window-level keydown listener.

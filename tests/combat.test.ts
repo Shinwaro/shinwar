@@ -20,6 +20,8 @@ import { definitionOf } from '../src/engine/combat/combat.ts';
 import { intentOf, telegraphAll } from '../src/engine/combat/intents.ts';
 import { nextStance } from '../src/engine/combat/stance.ts';
 import { overheatDamageAt } from '../src/engine/combat/heat.ts';
+import { addStacks, clearFresh, decayStatuses } from '../src/engine/combat/keywords.ts';
+import { WEAK } from '../src/content/statuses.ts';
 import { ACTIVE_STANCES, HEAT, PLAYER, STANCES } from '../src/content/balance.ts';
 import { IAI_SLASH, SEVER, SOLAR_PARRY, VECTOR_STEP } from '../src/content/cards/basic.ts';
 import { VULNERABLE } from '../src/content/statuses.ts';
@@ -82,7 +84,7 @@ describe('intents', () => {
     // exactly how "it said 7" happens.
     const clean = telegraphAll(makeFight({ enemyIds: ['lathe_drone'] }));
     const vulnerable = telegraphAll(
-      makeFight({ enemyIds: ['lathe_drone'], playerStatuses: [{ status: VULNERABLE, stacks: 1 }] }),
+      makeFight({ enemyIds: ['lathe_drone'], playerStatuses: [{ status: VULNERABLE, stacks: 1, fresh: false }] }),
     );
 
     expect(intentOf(clean, firstEnemy(clean))[0]?.amount).toBe(7);
@@ -262,13 +264,19 @@ describe('stance', () => {
 });
 
 describe('overheat', () => {
-  it('computes its damage from the threshold', () => {
-    expect(overheatDamageAt(7)).toBe(0);
-    expect(overheatDamageAt(8)).toBe(3);
-    expect(overheatDamageAt(10)).toBe(9);
+  it('scales its damage with max health rather than a flat number', () => {
+    // A flat 3 stops mattering the moment the deck is doing forty a turn,
+    // which is why the gauge was never something to think about.
+    expect(overheatDamageAt(HEAT.overheatAt - 1, 70)).toBe(0);
+    expect(overheatDamageAt(HEAT.overheatAt, 70)).toBeGreaterThan(0);
+    // Twice the max health, twice the bite (give or take the rounding).
+    expect(overheatDamageAt(HEAT.overheatAt, 140)).toBeGreaterThan(
+      overheatDamageAt(HEAT.overheatAt, 70),
+    );
+    expect(overheatDamageAt(HEAT.max, 70)).toBeGreaterThan(overheatDamageAt(HEAT.overheatAt, 70));
   });
 
-  it('burns a card and takes hull at the threshold', () => {
+  it('burns a card and takes health at the threshold', () => {
     const state = makeFight({
       stance: 'guard',
       heat: HEAT.overheatAt + STANCES.guard.ventAtTurnEnd,
@@ -281,8 +289,23 @@ describe('overheat', () => {
     expect(combatOf(after).exhaust.length).toBe(1);
   });
 
-  it('costs energy next turn at critical', () => {
-    // GUARD vents 2 at end of turn, so start at 12 to land on 10.
+  it('takes the next turn, and blows the gauge back to zero doing it', () => {
+    // The turn is the real cost. The reset is what stops an overheat at 10 in
+    // IAI walking straight into another one with no turn in between.
+    const state = makeFight({
+      stance: 'guard',
+      heat: HEAT.overheatAt + STANCES.guard.ventAtTurnEnd,
+      hand: [IAI_SLASH],
+      drawPile: [SOLAR_PARRY, IAI_SLASH, IAI_SLASH, IAI_SLASH, IAI_SLASH, IAI_SLASH],
+      hull: 500,
+    });
+    const after = endTurnImmediately(state);
+    expect(combatOf(after).heat).toBe(HEAT.min);
+    // The skipped turn is spent by the time control comes back.
+    expect(combatOf(after).skipNextTurn).toBe(false);
+  });
+
+  it('costs energy after the skipped turn at critical', () => {
     const state = makeFight({
       stance: 'guard',
       heat: HEAT.criticalAt + STANCES.guard.ventAtTurnEnd,
@@ -290,19 +313,75 @@ describe('overheat', () => {
       drawPile: [SOLAR_PARRY, IAI_SLASH, IAI_SLASH, IAI_SLASH, IAI_SLASH, IAI_SLASH],
       hull: 500,
     });
-    expect(combatOf(endTurnImmediately(state)).energy).toBe(
-      PLAYER.energyPerTurn - HEAT.criticalEnergyLoss,
-    );
+    const after = endTurnImmediately(state);
+    expect(combatOf(after).energy).toBe(PLAYER.energyPerTurn - HEAT.criticalEnergyLoss);
   });
 
   it('lets IAI’s own passive tip you over', () => {
-    // At 7 you are safe. IAI's +1 at end of turn puts you at 8, and the check
+    // At 7 you are safe. IAI's Heat at end of turn puts you over, and the check
     // runs after the passive — that is the bargain IAI offers.
-    const state = makeFight({ stance: 'iai', heat: 7, hand: [IAI_SLASH], drawPile: [SOLAR_PARRY] });
-    const before = hullOf(state);
-    const after = endTurnImmediately(state);
-    expect(combatOf(after).heat).toBe(8);
-    expect(hullOf(after)).toBe(before - overheatDamageAt(8));
+    const cool = makeFight({ stance: 'iai', heat: 0, hand: [IAI_SLASH], drawPile: [SOLAR_PARRY], hull: 500 });
+    const hot = makeFight({ stance: 'iai', heat: 7, hand: [IAI_SLASH], drawPile: [SOLAR_PARRY], hull: 500 });
+
+    const settledCool = endTurnImmediately(cool);
+    const settledHot = endTurnImmediately(hot);
+
+    // The hot run pays on both counts: the overheat itself, and then a whole
+    // extra enemy turn taken while the reactor vents. That second cost is why
+    // the difference here is larger than the damage number alone.
+    const coolLost = hullOf(cool) - hullOf(settledCool);
+    const hotLost = hullOf(hot) - hullOf(settledHot);
+    expect(hotLost).toBeGreaterThanOrEqual(
+      coolLost + overheatDamageAt(7 + STANCES.iai.heatAtTurnEnd, 70),
+    );
+    // And it comes out the far side cold, rather than straight into another one.
+    expect(combatOf(settledHot).heat).toBe(HEAT.min);
+  });
+});
+
+describe('statuses across the round boundary', () => {
+  it('gives an enemy debuff on the player a turn to actually matter', () => {
+    // The bug this exists to stop: decay runs at the end of the round, after
+    // the enemies have moved, so a debuff applied during the enemy phase used
+    // to be stripped in the same breath. It was applied, logged, and gone
+    // before the player took a single turn under it — every enemy debuff in
+    // the game was doing nothing.
+    //
+    // The Lathe Drone runs a fixed strike/plate/sap cycle, and Sap is Weak.
+    let next = makeFight({ enemyIds: ['lathe_drone'], enemyHp: 999, hull: 999 });
+    let landed = false;
+
+    for (let round = 0; round < 6 && !landed; round++) {
+      next = endTurnImmediately(next);
+      landed = combatOf(next).statuses.some((held) => held.status === WEAK);
+    }
+
+    expect(landed, 'Sap never landed').toBe(true);
+    // And it is still there when control comes back, which is the whole point.
+    expect(combatOf(next).statuses.find((held) => held.status === WEAK)?.stacks).toBe(1);
+  });
+
+  it('clears the stack once the holder has had its turn', () => {
+    const held = addStacks([], WEAK, 1);
+    expect(held[0]?.fresh, 'a new stack is fresh').toBe(true);
+
+    // Fresh survives one decay — that is the round it was applied in.
+    expect(decayStatuses(held)[0]?.stacks).toBe(1);
+
+    // Once the holder acts it is no longer new, and the next decay takes it.
+    const acted = clearFresh(held);
+    expect(acted[0]?.fresh).toBe(false);
+    expect(decayStatuses(acted)).toEqual([]);
+  });
+
+  it('does not let a decay refresh its own target', () => {
+    // Subtracting must never mark the entry fresh, or a two-stack debuff would
+    // never finish decaying.
+    const two = clearFresh(addStacks([], WEAK, 2));
+    const once = decayStatuses(two);
+    expect(once[0]?.stacks).toBe(1);
+    expect(once[0]?.fresh).toBe(false);
+    expect(decayStatuses(once)).toEqual([]);
   });
 });
 

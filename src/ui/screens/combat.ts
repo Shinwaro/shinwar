@@ -22,8 +22,9 @@ import { requireCombat, requireRun } from '../../engine/state.ts';
 import { canPlay, definitionOf, enemiesPending, needsTarget } from '../../engine/combat/combat.ts';
 import { incomingDamage, intentOf, intentVisible, scansLeft } from '../../engine/combat/intents.ts';
 import { livingEnemies } from '../../engine/combat/damage.ts';
+import { describeStatus } from '../../engine/combat/keywords.ts';
 import { currentSeed, healthFraction } from '../../engine/queries.ts';
-import { environments } from '../../content/registry.ts';
+import { environments, statuses as statusTable } from '../../content/registry.ts';
 import { button, el } from '../dom.ts';
 import { renderCard } from '../components/card.ts';
 import { renderEnemy } from '../components/enemy.ts';
@@ -216,6 +217,27 @@ function build(store: Store, state: GameState, selection: Selection, rerender: (
         ),
       ]),
       healthBar,
+      // What is on YOU. Enemies have shown their statuses since M1 and the
+      // player's were rendered nowhere at all, so an enemy applying Weak was
+      // indistinguishable from an enemy doing nothing.
+      combat.statuses.length === 0
+        ? null
+        : el(
+            'div',
+            { class: 'pips pips--player', 'aria-label': 'Statuses on you' },
+            combat.statuses.map((held) => {
+              const def = statusTable.find(held.status);
+              return el(
+                'span',
+                {
+                  class: `pip pip--${def?.kind ?? 'debuff'}`,
+                  tabindex: '0',
+                  title: def?.text ?? held.status,
+                },
+                [describeStatus(held.status, held.stacks)],
+              );
+            }),
+          ),
     ]),
     el('div', { class: 'stat' }, [
       el('span', { class: 'stat-label' }, ['ALLOY']),

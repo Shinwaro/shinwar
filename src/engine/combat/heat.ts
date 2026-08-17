@@ -21,10 +21,18 @@ import { PLAYER, applyDirectDamage } from './damage.ts';
 import { moveToExhaust, randomFromHand } from './piles.ts';
 import { environmentRules } from './rules.ts';
 
-/** Damage taken this instant if the turn ended now. 0 below the threshold. */
-export function overheatDamageAt(heat: number): number {
+/**
+ * Damage taken this instant if the turn ended now. 0 below the threshold.
+ *
+ * A fraction of MAX health, not a flat number: a flat 3 stops mattering the
+ * moment the deck is doing forty a turn, which is exactly why Heat was never
+ * something anyone had to think about. A fraction scales with the run for free.
+ */
+export function overheatDamageAt(heat: number, maxHealth: number): number {
   if (heat < HEAT.overheatAt) return 0;
-  return (heat - HEAT.overheatDamageOffset) * HEAT.overheatDamagePerPoint;
+  const over = heat - HEAT.overheatAt;
+  const pct = HEAT.overheatDamagePctOfMax + over * HEAT.overheatDamagePctPerPoint;
+  return Math.max(1, Math.round(maxHealth * pct));
 }
 
 /** Everything a Heat gauge needs to state its own consequences. Queried, never recomputed in the UI. */
@@ -38,8 +46,11 @@ export function heatStatus(state: GameState): {
   readonly consequence: string;
 } {
   const combat = requireCombat(state);
-  const damage = overheatDamageAt(combat.heat);
+  const maxHealth = state.run?.pilot.maxHealth ?? 1;
+  const damage = overheatDamageAt(combat.heat, maxHealth);
+  const atThreshold = overheatDamageAt(HEAT.overheatAt, maxHealth);
   const critical = combat.heat >= HEAT.criticalAt;
+  const lostTurn = HEAT.overheatSkipsTurn ? ', lose your next turn' : '';
   return {
     heat: combat.heat,
     max: HEAT.max,
@@ -49,10 +60,10 @@ export function heatStatus(state: GameState): {
     damageIfTurnEnded: damage,
     consequence:
       damage === 0
-        ? `Overheat at ${HEAT.overheatAt} — ${(HEAT.overheatAt - HEAT.overheatDamageOffset) * HEAT.overheatDamagePerPoint} damage and burn a card`
+        ? `Overheat at ${HEAT.overheatAt} — ${atThreshold} damage${lostTurn}, and burn a card`
         : critical
-          ? `${damage} damage, burn a card, and -${HEAT.criticalEnergyLoss} Energy next turn`
-          : `${damage} damage and burn a card`,
+          ? `${damage} damage${lostTurn}, burn a card, and -${HEAT.criticalEnergyLoss} Energy after`
+          : `${damage} damage${lostTurn}, and burn a card`,
   };
 }
 
@@ -99,7 +110,7 @@ export function ventHeat(state: GameState, amount: number, source: string): Game
  */
 export function resolveOverheat(state: GameState): GameState {
   const combat = requireCombat(state);
-  const damage = overheatDamageAt(combat.heat);
+  const damage = overheatDamageAt(combat.heat, state.run?.pilot.maxHealth ?? 1);
   if (damage === 0) return state;
 
   const heat = combat.heat;
@@ -109,6 +120,16 @@ export function resolveOverheat(state: GameState): GameState {
     text: `Overheat at ${heat}.`,
     detail: { heat, damage },
   });
+
+  // The turn is the real cost. Damage you can heal; a turn spent watching the
+  // fight happen without you is what makes the gauge something to plan around
+  // rather than a tax you pay at the end of a good turn.
+  if (HEAT.overheatSkipsTurn) {
+    next = appendLog(
+      withCombat(next, (current) => ({ ...current, skipNextTurn: true })),
+      { source: 'heat', kind: 'heat', text: 'The reactor takes the next turn.', detail: null },
+    );
+  }
 
   next = fireHook(next, 'onOverheat', { heat, damage });
   next = applyDirectDamage(next, PLAYER, damage, 'heat', `overheat at ${heat}`);

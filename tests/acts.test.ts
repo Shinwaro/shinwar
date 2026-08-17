@@ -98,10 +98,14 @@ describe('environments that modify a calculation', () => {
   });
 
   it('Deep Void bleeds Heat at the end of the turn', () => {
-    const state = inEnvironment(DEEP_VOID_ID, { heat: 6, stance: 'iai' });
-    const after = endTurnImmediately(state);
-    // IAI adds 1, Deep Void takes 2.
-    expect(combatOf(after).heat).toBeLessThan(6);
+    // Measured against the same turn in Clear Space rather than against a raw
+    // number, so the stance's own contribution cancels out of both sides. Well
+    // clear of the threshold, so neither side trips an overheat and resets.
+    const plain = endTurnImmediately(inEnvironment('clear_space', { heat: 3, stance: 'iai' }));
+    const void_ = endTurnImmediately(inEnvironment(DEEP_VOID_ID, { heat: 3, stance: 'iai' }));
+    expect(combatOf(void_).heat).toBe(
+      combatOf(plain).heat - (environmentRules(void_).heatDecayPerTurn ?? 0),
+    );
   });
 
   it('Gravity Well amplifies a heavy hit and leaves a light one alone', () => {
@@ -198,7 +202,9 @@ describe('Sensor Fog', () => {
 
 describe('stance masteries', () => {
   it('reach the damage pipeline rather than sitting beside it', () => {
-    const base = makeFight({ stance: 'iai' });
+    // Unsheathed Mind doubles what a stack of Focus is worth. The pipeline has
+    // to see that, or the preview and the result disagree.
+    const base = makeFight({ stance: 'iai', focus: 3 });
     const mastered = withMastery(base, UNSHEATHED_MIND);
     const enemy = firstEnemy(base);
     const shape = {
@@ -206,17 +212,16 @@ describe('stance masteries', () => {
       attacker: PLAYER,
       target: enemyTarget(enemy.uid),
       isAttack: true,
-      // Ordinal 0: the first attack of the turn, which is what IAI reads.
       attackOrdinal: 0,
-      consumesFocus: false,
+      consumesFocus: true,
     } as const;
 
-    expect(computeDamage(base, shape).beforeBlock).toBe(10);
-    expect(computeDamage(mastered, shape).beforeBlock).toBe(14);
+    expect(computeDamage(base, shape).beforeBlock).toBe(6 + 3 * 2);
+    expect(computeDamage(mastered, shape).beforeBlock).toBe(6 + 3 * 4);
   });
 
   it('cannot make the preview disagree with the result', () => {
-    const mastered = withMastery(makeFight({ stance: 'iai' }), UNSHEATHED_MIND);
+    const mastered = withMastery(makeFight({ stance: 'iai', focus: 2 }), UNSHEATHED_MIND);
     const enemy = firstEnemy(mastered);
     const shape = {
       amount: 9,
@@ -232,7 +237,8 @@ describe('stance masteries', () => {
   it('rewrite the stance strip text as well as the behaviour', () => {
     const mastered = withMastery(makeFight({ stance: 'iai' }), UNSHEATHED_MIND);
     const rules = liveStance(mastered);
-    expect(rules.text).toContain('+8');
+    expect(rules.focusPerStack).toBe(4);
+    expect(rules.text).toContain('4');
     expect(rules.masteries).toContain(UNSHEATHED_MIND);
   });
 
