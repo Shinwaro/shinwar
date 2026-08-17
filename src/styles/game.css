@@ -1023,10 +1023,20 @@
   color: var(--muted);
 }
 
-.star-label--past .star-name {
-  font-size: 0.62rem;
+/* Named everywhere, but only loud where you are choosing. Places behind you and
+   places you cannot reach yet stay legible and stop competing for attention. */
+.star-label--past .star-name,
+.star-label--far .star-name {
+  font-size: 0.6rem;
   font-weight: 400;
-  color: color-mix(in srgb, var(--muted) 70%, transparent);
+}
+
+.star-label--past .star-name {
+  color: color-mix(in srgb, var(--muted) 65%, transparent);
+}
+
+.star-label--far .star-name {
+  color: color-mix(in srgb, var(--muted) 85%, transparent);
 }
 
 .star[data-edge='left'] .star-label {

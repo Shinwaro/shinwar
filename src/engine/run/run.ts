@@ -272,7 +272,11 @@ function openCombat(state: GameState, node: MapNode): GameState {
 /** Pick an enemy ship on the map stream and hand over to the grid. */
 function openShipCombat(state: GameState, node: MapNode): GameState {
   const run = requireRun(state);
-  const pool = shipEnemies.all().filter((entry) => entry.act === run.act);
+  // Falls back down the acts rather than returning to the map. Act 2 and 3 had
+  // no ship roster at all, so every space node in them silently did nothing —
+  // the player walked onto it, nothing happened, and the node was spent.
+  const exact = shipEnemies.all().filter((entry) => entry.act === run.act);
+  const pool = exact.length > 0 ? exact : shipEnemies.all();
   if (pool.length === 0) return withRun(state, (current) => ({ ...current, screen: 'map' }));
   const rolled = pick(run.rng, 'map', pool);
   const spun = withRun(state, (current) => ({ ...current, rng: rolled.rng }));

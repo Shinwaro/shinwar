@@ -184,16 +184,24 @@ function buildMap(
 
     fill(star, [
       el('span', { class: 'star-dot', 'aria-hidden': 'true' }),
-      // Only the lanes you are choosing between are captioned. Fifty labels is
-      // the noise; three to six is the decision. Visited places keep their name
-      // alone, so the route you took reads back as a route.
+      /*
+       * Every place is named, all the time.
+       *
+       * The earlier version captioned only the lanes you could reach, on the
+       * theory that fifty labels is noise — but a chart where most of the sky
+       * is anonymous cannot be read ahead, and reading ahead is the entire
+       * point of showing three columns of it. So the NAME is always on; the
+       * type and environment ride under it only where you are actually choosing.
+       */
       isReachable
         ? captionOf(node)
-        : visited.has(node.id)
-          ? el('span', { class: 'star-label star-label--past' }, [
-              el('span', { class: 'star-name' }, [node.name]),
-            ])
-          : null,
+        : el(
+            'span',
+            {
+              class: `star-label star-label--${visited.has(node.id) ? 'past' : 'far'}`,
+            },
+            [el('span', { class: 'star-name' }, [node.name])],
+          ),
     ]);
 
     const show = (): void => setReadout(label);

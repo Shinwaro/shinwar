@@ -276,8 +276,24 @@ export const MAP = {
   rows: { 1: 15, 2: 18, 3: 13 },
   /** Width of the lane the paths wander in. */
   columns: 7,
-  /** Path walks through the act. They merge and cross on the way up. */
-  paths: 6,
+  /**
+   * Path walks through the act. They merge and cross on the way up.
+   *
+   * Nine rather than six: at six the routes converged almost immediately and
+   * most rows offered two ways forward, which is a corridor with a kink in it
+   * rather than a decision surface.
+   */
+  paths: 9,
+  /**
+   * Chance a node also links to a neighbouring column on the next row.
+   *
+   * The walks alone only branch where two of them happen to diverge, so the map
+   * read as a few parallel lines. This weaves them: it is the difference
+   * between "which lane am I in" and "which way do I go from here".
+   */
+  weaveChance: 0.34,
+  /** Never let a node fan out past this — a star with five lanes is noise. */
+  maxBranchesPerNode: 3,
   /**
    * Lanes out of the origin. Always the same starting point, always a real
    * fan of choices out of it — three is a decision, six is a decision, one is
@@ -289,6 +305,20 @@ export const MAP = {
   /** The row before the boss is always a Safe Planet. StS's rest-before-boss. */
   restBeforeBoss: true,
 } as const;
+
+/**
+ * How often a fight is fought by the ship rather than the ronin.
+ *
+ * Deterministic from the position rather than rolled, so the mix is even and a
+ * seed's route reads the same every time.
+ *
+ * Four in ten. The old figure was one in three and produced about two ship
+ * fights across five runs — partly because the routes were narrow enough that
+ * most space nodes sat on lanes nobody took, and partly because Acts 2 and 3
+ * had no enemy ships at all, so every space node in them silently did nothing.
+ * Both of those are fixed; this is the honest rate on top of it.
+ */
+export const SPACE_SHARE_IN_TEN = 4;
 
 /**
  * Node weights, rolled per row on the `map` stream. Combat is the floor the

@@ -26,7 +26,7 @@ import type {
   RunMap,
 } from '../types.ts';
 import { nextInt, pick, weightedPick } from '../rng.ts';
-import { MAP, NODE_WEIGHTS } from '../../content/balance.ts';
+import { MAP, NODE_WEIGHTS, SPACE_SHARE_IN_TEN } from '../../content/balance.ts';
 import { ACT_FINALES, ARRIVAL_NAME, PLACE_DESIGNATIONS, PLACE_STEMS } from '../../content/places.ts';
 import { CLEAR_SPACE_ID } from '../../content/environments.ts';
 import { environments as environmentTable } from '../../content/registry.ts';
@@ -48,7 +48,9 @@ export interface GeneratedMap {
 function arenaFor(type: NodeType, row: number, col: number): Arena {
   if (type !== 'combat' && type !== 'elite') return 'surface';
   if (row === 0) return 'surface';
-  return (row + col) % 3 === 0 ? 'space' : 'surface';
+  // A spread pattern rather than a plain modulus: `(row + col) % n` puts every
+  // space node on the same diagonal, which reads as a stripe across the chart.
+  return ((row * 7 + col * 3) % 10) < SPACE_SHARE_IN_TEN ? 'space' : 'surface';
 }
 
 function nodeId(row: number, col: number): string {
@@ -134,6 +136,29 @@ function buildSkeleton(rng: RngState, rows: number): { skeleton: Skeleton; rng: 
       occupy(row + 1, next);
       connect(row, col, next);
       col = next;
+    }
+  }
+
+  /* Weave. The walks alone only branch where two of them diverge, which left
+     the map reading as a few parallel lines you picked between once. This adds
+     sideways links between what is already there, so a row is a decision rather
+     than a lane — capped, because a star with five lanes out of it is noise. */
+  for (let row = 1; row < rows - 2; row++) {
+    const out = forward[row];
+    const here = cells[row] ?? [];
+    for (const col of here) {
+      const targets = out?.get(col);
+      if (targets === undefined) continue;
+      for (const drift of [-1, 1]) {
+        if (targets.size >= MAP.maxBranchesPerNode) break;
+        const candidate = col + drift;
+        if (!(cells[row + 1] ?? []).includes(candidate)) continue;
+        if (targets.has(candidate)) continue;
+        const roll = nextInt(current, 'map', 0, 100);
+        current = roll.rng;
+        if (roll.value >= MAP.weaveChance * 100) continue;
+        connect(row, col, candidate);
+      }
     }
   }
 

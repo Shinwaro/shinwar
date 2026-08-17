@@ -826,3 +826,38 @@ next number the pipeline produces.
 The ship module rework — passives instead of verbs, crit and parry and flat reduction, scaling off
 Heat mid-fight, rotation, more shapes, adjacency synergies, and the pop-and-glow when a module
 triggers. That is the next pass, and it is the last of Robin's list.
+
+## Playtest pass 3 — the map, the ship roster, and the long turn
+
+**Acts 2 and 3 had no enemy ships at all.** Every `ShipEnemyDef` was `act: 1`, so `openShipCombat`
+filtered the roster down to nothing and quietly returned to the map — the player walked onto a space
+node, nothing happened, and the node was spent. That is most of why ship fights felt rare. Four new
+enemy ships for Acts 2 and 3, and the lookup now falls back down the acts rather than falling
+through to nothing.
+
+**The map was a set of parallel lines.** Six path walks over seven columns with a one-column drift
+converge almost immediately, so most rows offered two ways forward and the "choice" was which lane
+you happened to be in. Now nine walks plus a weave pass that adds sideways links between what is
+already there, capped at three exits so a star never becomes noise. Measured across 600 maps: 45% of
+nodes now offer a real choice, up from a map where the number was mostly one.
+
+**Space fights are four in ten**, spread by `(row * 7 + col * 3) % 10` rather than a plain modulus —
+`(row + col) % n` puts every space node on the same diagonal, which draws a stripe across the chart
+rather than a mix.
+
+**Every place is named, all the time.** The name was previously drawn only on nodes you could reach,
+on the theory that fifty labels is noise. But a chart where most of the sky is anonymous cannot be
+read ahead, and reading ahead is the whole reason three columns of it are on screen. The name is
+always on; the type and environment ride underneath only where you are actually choosing.
+
+**Seven tempo cards** for the long turn: Heat that buys Energy, draw that pays for itself, and two
+payoff cards that scale on how much the turn has already done. They are meant to chain — Pressure
+Release into Open the Line into Long Form is a turn you build rather than a hand you play. This is
+the first content in the pool that makes riding the Heat gauge upward a plan rather than a mistake.
+
+### Still open
+
+The ship module rework, which is now the whole of what is left: cell-mask footprints and rotation,
+a passive stat vocabulary (crit, parry, flat reduction, pierce and more) with scaling off the
+in-fight pools, adjacency synergies between kinds, grid growth bought during the run, and the
+pop-and-glow when a module fires.
