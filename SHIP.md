@@ -217,3 +217,56 @@ Fewer than there were. These still block implementation.
   It will be **replaced** by the grid, not extended.
 
 Nothing else.
+
+---
+
+## The rework (playtest pass 4)
+
+The grid was a stacking problem with a button on every tile. It is now a packing
+problem with a build on it.
+
+**Shapes and rotation.** `Footprint` carries an optional row-major `mask` — `#`
+filled, `.` empty — so L, T, S and ring shapes exist, and `PlacedModule.rot`
+carries quarter turns. Everything in `grid.ts` works on CELL SETS rather than
+bounding boxes, because a box gets both packing and adjacency wrong the moment a
+shape has a notch in it: it refuses a 1×1 that belongs in an L's elbow, and it
+pays an adjacency bonus for two shapes whose filled cells never actually meet.
+
+Rotation is refused rather than nudged. A rotate that slid the module somewhere
+else to make itself fit would undo the packing the player just did around it.
+
+**Passives, not verbs.** Most modules now contribute `ShipStats` — crit chance
+and crit damage, flat damage, damage reduction, parry, pierce, shield, lifesteal
+and extra shots — and only a handful still grant an intervention. A grid full of
+buttons is a grid where the build does nothing until you press something; a grid
+of passives is already working, and the one verb a turn is a lever on top of it.
+
+**Scaling is where the builds come from.** A `ShipScaling` entry reads a pool and
+turns it into a stat, capped per entry. That makes the fight a curve rather than
+a number: a lens that turns Heat into crit is a different ship on turn one than
+on turn five, and the weapon that cooks the reactor is what moves it along.
+Aggregation happens *after* the producers and converters have run, so the chain
+closes inside a single resolve.
+
+The chains the pool is built around, so a new module can be checked against
+something rather than eyeballed:
+
+| Build | Chain |
+|---|---|
+| **Heat** | Plasma Cannon → Pyrometric Lens (Heat into crit) → Kiln Coupler (crit hits harder) |
+| **Void** | Gravity Manipulator (Energy into Singularity) → Singularity Core (Singularity into damage) → Collapse Ring (pierce) |
+| **Turtle** | Reactive Plating + Ablative Wedge + Mirror Facet: reduction, parry, lifesteal |
+| **Swarm** | Autoloader Rack (extra shots) + Whetstone Array (damage per shot) |
+
+**Crit is rolled once per volley, not per shot.** A swarm build would otherwise
+crit somewhere every single turn and the stat would stop being a spike and start
+being an average.
+
+**The grid grows during the run.** A Station sells a bay extension — width
+first, then height, up to `SHIP.targetEndGrid`. That is what makes the bigger
+shapes worth rolling at all: a module that will not fit today is a reason to come
+back rather than a reason it was worthless.
+
+**`ShipCombatState.triggered` is presentation data in state, deliberately.** The
+screen replays the resolver's own firing order to stagger the pop-and-glow, and
+it has to be the real order rather than something the UI infers from the grid.

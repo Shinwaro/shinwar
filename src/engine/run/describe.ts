@@ -57,6 +57,9 @@ export function describeRunEffect(effect: RunEffect): string {
       return def === undefined ? 'Close a thread' : `${def.name} resolves`;
     }
 
+    case 'grid':
+      return `Extend the bay by ${effect.w > 0 ? `${effect.w} column${effect.w === 1 ? '' : 's'}` : ''}${effect.w > 0 && effect.h > 0 ? ' and ' : ''}${effect.h > 0 ? `${effect.h} row${effect.h === 1 ? '' : 's'}` : ''}`;
+
     case 'ambush':
       return effect.tier === 'elite' ? 'A hard fight, now' : 'A fight, now';
 

@@ -1,15 +1,33 @@
-/* Ship modules. Data, and rectangles.
+/* Ship modules. Data, shapes, and mostly passives.
  *
- * Modules are not stat sticks — they produce and consume resources, and the
- * interesting builds are chains where one module's output is another's input.
- * The worked example from SHIP.md, which these implement:
+ * The rework, in one sentence: a module's job is to change what the ship *is*,
+ * not to add a button. The old pool was nearly all verbs, which meant the grid
+ * did nothing until you pressed something and every ship played the same. Now
+ * almost everything here is a passive stat, and the handful of verbs left are a
+ * lever on top of a build that is already working.
  *
- *   Plasma Cannon generates Heat -> Thermal Converter turns Heat into Energy
- *   -> Gravity Manipulator spends Energy for Singularity -> Singularity makes
- *   the Plasma Cannon hit harder.
+ * Three things make builds out of that:
  *
- * Adjacency is a bonus for touching, never a requirement to function. A badly
- * packed ship is weaker; it is never broken.
+ *   1. **Scaling.** A stat that climbs with a pool turns the fight into a curve.
+ *      Heat into crit, Singularity into flat damage, Energy into pierce — and a
+ *      weapon that generates Heat is what moves you along the first of those.
+ *   2. **Adjacency.** Bonuses are keyed to KINDS, so packing is a second puzzle
+ *      on top of fitting. Always a bonus for touching, never a requirement.
+ *   3. **Shapes.** Real footprints — L, T, S, bars — so the grid is a packing
+ *      problem and rotation is a skill rather than an arithmetic check.
+ *
+ * The chains this pool is built around, so a new module can be checked against
+ * something rather than eyeballed:
+ *
+ *   HEAT     Plasma Cannon -> Pyrometric Lens (Heat into crit) -> Kiln Coupler
+ *            (crit hits harder). Runs hot on purpose and wants the overheat line.
+ *   VOID     Gravity Manipulator (Energy into Singularity) -> Singularity Core
+ *            (Singularity into flat damage) -> Collapse Ring (pierce). Slow, and
+ *            unanswerable by turn four.
+ *   TURTLE   Reactive Plating + Ablative Wedge + Mirror Facet: reduction, parry
+ *            and lifesteal. Wins by still being there.
+ *   SWARM    Autoloader Rack (extra shots) + Whetstone Array (flat damage per
+ *            shot). Hates shields, adores a broken shield mount.
  */
 
 import type { ModuleDef, WeaponDef } from '../../engine/types.ts';
@@ -29,14 +47,27 @@ export const MODULES: readonly ModuleDef[] = [
     id: 'overclock_core',
     name: 'Overclock Core',
     kind: 'reactor',
+    // An L. It gives more than anything else in the pool and it is a nuisance
+    // to place, which is the trade being made in cells rather than in numbers.
     rarity: 'rare',
-    footprint: { w: 2, h: 3 },
+    footprint: { w: 2, h: 3, mask: ['##', '#.', '##'] },
     effects: [
       { kind: 'produce', resource: 'energy', amount: 6 },
-      // Capacity is itself a trade-off — DESIGN.md §2.
       { kind: 'produce', resource: 'heat', amount: 2 },
     ],
+    stats: { flatDamage: 1 },
     flavor: 'More of everything, including the parts you did not want more of.',
+  },
+  {
+    id: 'trickle_cell',
+    name: 'Trickle Cell',
+    kind: 'reactor',
+    rarity: 'common',
+    footprint: { w: 1, h: 2 },
+    effects: [{ kind: 'produce', resource: 'energy', amount: 2 }],
+    adjacentTo: ['reactor', 'converter'],
+    adjacencyStats: { shieldPerTurn: 3 },
+    flavor: 'Meant to start something bigger. Perfectly happy not to.',
   },
 
   /* ---- converters: turn a drawback into an input ---- */
@@ -58,7 +89,36 @@ export const MODULES: readonly ModuleDef[] = [
     rarity: 'common',
     footprint: { w: 1, h: 1 },
     effects: [{ kind: 'convert', from: 'heat', to: 'energy', rate: 1, cap: 1 }],
+    stats: { damageReduction: 1 },
     flavor: 'A cheap loop of pipe doing an expensive job badly.',
+  },
+  {
+    id: 'pyrometric_lens',
+    name: 'Pyrometric Lens',
+    kind: 'sensor',
+    rarity: 'uncommon',
+    // A T. Wants to sit in the middle of things, which is also what it is for.
+    footprint: { w: 3, h: 2, mask: ['###', '.#.'] },
+    effects: [],
+    stats: {
+      critChance: 0.05,
+      scaling: [{ resource: 'heat', stat: 'critChance', per: 0.04, cap: 0.4 }],
+    },
+    adjacentTo: ['emitter', 'reactor'],
+    adjacencyStats: { critBonus: 0.3 },
+    flavor: 'Reads the bloom off your own reactor and tells the gun where to be.',
+  },
+  {
+    id: 'kiln_coupler',
+    name: 'Kiln Coupler',
+    kind: 'converter',
+    rarity: 'rare',
+    footprint: { w: 2, h: 2, mask: ['#.', '##'] },
+    effects: [{ kind: 'produce', resource: 'heat', amount: 2 }],
+    stats: { critBonus: 0.6 },
+    adjacentTo: ['sensor'],
+    adjacencyStats: { critChance: 0.1 },
+    flavor: 'It does not aim better. It makes being right matter more.',
   },
 
   /* ---- emitters: the Singularity chain ---- */
@@ -79,12 +139,29 @@ export const MODULES: readonly ModuleDef[] = [
     rarity: 'rare',
     footprint: { w: 2, h: 2 },
     effects: [{ kind: 'amplify', amount: 0, perResource: 'singularity', per: 1 }],
+    stats: { scaling: [{ resource: 'singularity', stat: 'flatDamage', per: 1, cap: 8 }] },
     adjacentTo: ['emitter'],
-    adjacencyEffects: [{ kind: 'amplify', amount: 0, perResource: 'singularity', per: 1 }],
+    adjacencyStats: { scaling: [{ resource: 'singularity', stat: 'pierce', per: 1, cap: 6 }] },
     flavor: 'It is not a weapon. It is an argument the weapon gets to make twice.',
   },
+  {
+    id: 'collapse_ring',
+    name: 'Collapse Ring',
+    kind: 'emitter',
+    rarity: 'epic',
+    // A ring: hollow centre, and something else can live in the hole.
+    footprint: { w: 3, h: 3, mask: ['###', '#.#', '###'] },
+    effects: [],
+    stats: {
+      pierce: 4,
+      scaling: [{ resource: 'singularity', stat: 'critChance', per: 0.03, cap: 0.25 }],
+    },
+    adjacentTo: ['emitter', 'sensor'],
+    adjacencyStats: { pierce: 4 },
+    flavor: 'Shields are a shape. This is an opinion about shapes.',
+  },
 
-  /* ---- plating and utility ---- */
+  /* ---- plating: the turtle ---- */
   {
     id: 'reactive_plating',
     name: 'Reactive Plating',
@@ -92,8 +169,34 @@ export const MODULES: readonly ModuleDef[] = [
     rarity: 'common',
     footprint: { w: 1, h: 2 },
     effects: [{ kind: 'shield', amount: 4 }],
+    stats: { damageReduction: 2 },
     grants: 'brace',
     flavor: 'Layered so the outer sheet dies first and loudly.',
+  },
+  {
+    id: 'ablative_wedge',
+    name: 'Ablative Wedge',
+    kind: 'plating',
+    rarity: 'uncommon',
+    // An S. Awkward on purpose — the turtle build has to earn its packing.
+    footprint: { w: 3, h: 2, mask: ['##.', '.##'] },
+    effects: [],
+    stats: { damageReduction: 3, parryChance: 0.1 },
+    adjacentTo: ['plating'],
+    adjacencyStats: { parryChance: 0.15 },
+    flavor: 'Boils away a layer at a time. There are a lot of layers.',
+  },
+  {
+    id: 'mirror_facet',
+    name: 'Mirror Facet',
+    kind: 'plating',
+    rarity: 'rare',
+    footprint: { w: 2, h: 1 },
+    effects: [],
+    stats: { parryChance: 0.18, lifesteal: 2 },
+    adjacentTo: ['plating', 'sensor'],
+    adjacencyStats: { lifesteal: 3 },
+    flavor: 'Half of what reaches it goes back the way it came, slightly annoyed.',
   },
   {
     id: 'heat_sink',
@@ -102,8 +205,35 @@ export const MODULES: readonly ModuleDef[] = [
     rarity: 'common',
     footprint: { w: 1, h: 1 },
     effects: [],
+    stats: { damageReduction: 1 },
     grants: 'vent',
     flavor: 'A block of dumb metal that will take one problem off your hands.',
+  },
+
+  /* ---- the swarm ---- */
+  {
+    id: 'autoloader_rack',
+    name: 'Autoloader Rack',
+    kind: 'emitter',
+    rarity: 'rare',
+    footprint: { w: 3, h: 2, mask: ['###', '#..'] },
+    effects: [],
+    stats: { extraShots: 1 },
+    adjacentTo: ['reactor'],
+    adjacencyStats: { extraShots: 1 },
+    flavor: 'Feeds faster than the barrel would like. The barrel is outvoted.',
+  },
+  {
+    id: 'whetstone_array',
+    name: 'Whetstone Array',
+    kind: 'sensor',
+    rarity: 'uncommon',
+    footprint: { w: 1, h: 3 },
+    effects: [],
+    stats: { flatDamage: 2 },
+    adjacentTo: ['emitter'],
+    adjacencyStats: { flatDamage: 2 },
+    flavor: 'Every shot leaves a little sharper than it arrived.',
   },
   {
     id: 'mass_driver',
@@ -112,10 +242,13 @@ export const MODULES: readonly ModuleDef[] = [
     rarity: 'uncommon',
     footprint: { w: 3, h: 1 },
     effects: [{ kind: 'damage', amount: 6 }],
+    stats: { pierce: 2 },
     adjacentTo: ['reactor'],
     adjacencyEffects: [{ kind: 'damage', amount: 4 }],
     flavor: 'No charge, no beam, no elegance. A rock, very fast.',
   },
+
+  /* ---- sensors and utility ---- */
   {
     id: 'predictive_array',
     name: 'Predictive Array',
@@ -123,8 +256,21 @@ export const MODULES: readonly ModuleDef[] = [
     rarity: 'uncommon',
     footprint: { w: 1, h: 1 },
     effects: [{ kind: 'amplify', amount: 2 }],
+    stats: { critChance: 0.12 },
     grants: 'overcharge',
     flavor: 'It has already watched this fight. It does not enjoy telling you.',
+  },
+  {
+    id: 'ranging_spine',
+    name: 'Ranging Spine',
+    kind: 'sensor',
+    rarity: 'common',
+    footprint: { w: 1, h: 2 },
+    effects: [],
+    stats: { critChance: 0.06, flatDamage: 1 },
+    adjacentTo: ['emitter', 'sensor'],
+    adjacencyStats: { critChance: 0.06 },
+    flavor: 'A metre of very opinionated aerial.',
   },
   {
     id: 'gravitic_anchor',
@@ -133,14 +279,27 @@ export const MODULES: readonly ModuleDef[] = [
     rarity: 'common',
     footprint: { w: 1, h: 1 },
     effects: [],
+    stats: { damageReduction: 1, parryChance: 0.06 },
     grants: 'reposition',
     flavor: 'Hold still. Let the grid move instead.',
   },
+  {
+    id: 'siphon_web',
+    name: 'Siphon Web',
+    kind: 'drive',
+    rarity: 'epic',
+    footprint: { w: 3, h: 3, mask: ['#.#', '###', '#.#'] },
+    effects: [],
+    stats: {
+      lifesteal: 3,
+      scaling: [{ resource: 'energy', stat: 'pierce', per: 0.5, cap: 5 }],
+    },
+    adjacentTo: ['reactor', 'converter', 'emitter', 'plating', 'sensor', 'drive'],
+    adjacencyStats: { lifesteal: 2 },
+    flavor: 'Touches everything. Takes a little from all of it, including them.',
+  },
 
-  /* ---- cargo: does nothing, costs room ----
-     A Thread's price, expressed spatially. `basic` rarity keeps it out of every
-     reward and shop roll — the only way onto your grid is to have agreed to
-     carry it. */
+  /* ---- cargo: does nothing, costs room ---- */
   {
     id: 'clutch_egg',
     name: 'Vareth Clutch',
@@ -187,4 +346,4 @@ export const WEAPONS: readonly WeaponDef[] = [
 export const STARTING_WEAPON = 'rail_repeater';
 /** One module, already bolted in. The cutter is salvage, not a kit. */
 export const STARTING_MODULES: readonly string[] = ['core_reactor'];
-export const STARTING_PLACEMENT = { moduleId: 'core_reactor', x: 0, y: 0 } as const;
+export const STARTING_PLACEMENT = { moduleId: 'core_reactor', x: 0, y: 0, rot: 0 } as const;

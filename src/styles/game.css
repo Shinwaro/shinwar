@@ -2285,3 +2285,95 @@ button.grid-tile {
   width: 100%;
   max-width: 32rem;
 }
+
+/* ---------- the grid, as a build ----------
+   Modules fire in the order the resolver ran them, staggered off `--fire-delay`
+   so the chain reads as a chain rather than the whole board flashing at once.
+   `data-fired` carries the turn number, so a re-render on the same turn does
+   not replay the animation and a new turn does. */
+
+@keyframes module-fire {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.12); }
+  100% { transform: scale(1); }
+}
+
+.grid-tile[data-fired] {
+  animation: module-fire 420ms ease-out var(--fire-delay, 0ms) both;
+  box-shadow: 0 0 0 0 transparent;
+}
+
+.grid-tile[data-fired]::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  animation: module-glow 620ms ease-out var(--fire-delay, 0ms) both;
+}
+
+@keyframes module-glow {
+  0% { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 90%, transparent); opacity: 1; }
+  100% { box-shadow: inset 0 0 14px 2px color-mix(in srgb, var(--accent) 55%, transparent); opacity: 0; }
+}
+
+.grid-tile {
+  position: relative;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .grid-tile[data-fired],
+  .grid-tile[data-fired]::after {
+    animation: none;
+  }
+}
+
+/* The build's current numbers. Scaling stats move with the pools, which is the
+   entire reason they are worth building around, so they cannot be hidden. */
+.ship-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.ship-stats:empty {
+  display: none;
+}
+
+.ship-stat {
+  display: inline-flex;
+  gap: 0.35rem;
+  align-items: baseline;
+  padding: 0.15rem 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 0.75rem;
+}
+
+.ship-stat-value {
+  font-family: var(--mono);
+  color: var(--accent);
+}
+
+/* The Ship button asking for attention: something unfitted, or a hull low
+   enough that the next space fight is a coin flip. */
+.btn.is-attention {
+  border-color: color-mix(in srgb, var(--accent) 65%, var(--line));
+  color: var(--accent);
+}
+
+.btn.is-hurt {
+  border-color: color-mix(in srgb, var(--danger) 70%, var(--line));
+  color: var(--danger);
+}
+
+.loadout-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+/* A masked shape draws one tile per cell, so only the first carries a label. */
+.grid-tile .tile-name {
+  white-space: nowrap;
+}

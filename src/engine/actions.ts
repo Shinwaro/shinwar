@@ -31,9 +31,23 @@ export type Action =
   | { readonly kind: 'resolveShipTurn' }
   /** Aim the volley. Free — the decision you always get. */
   | { readonly kind: 'aimAt'; readonly target: string }
-  | { readonly kind: 'moveModule'; readonly moduleId: string; readonly x: number; readonly y: number }
-  | { readonly kind: 'placeModule'; readonly moduleId: string; readonly x: number; readonly y: number }
+  | {
+      readonly kind: 'moveModule';
+      readonly moduleId: string;
+      readonly x: number;
+      readonly y: number;
+      readonly rot?: import('./types.ts').Rotation;
+    }
+  | {
+      readonly kind: 'placeModule';
+      readonly moduleId: string;
+      readonly x: number;
+      readonly y: number;
+      readonly rot?: import('./types.ts').Rotation;
+    }
   | { readonly kind: 'unplaceModule'; readonly moduleId: string }
+  /** Turn a module where it stands. Refused if the new orientation will not fit. */
+  | { readonly kind: 'rotateModule'; readonly moduleId: string }
   | { readonly kind: 'openLoadout' }
   | { readonly kind: 'repairDrive' }
   | { readonly kind: 'takeRewardModule'; readonly moduleId: string }
@@ -60,6 +74,7 @@ export type Action =
   | { readonly kind: 'buyShopModule'; readonly moduleId: string }
   | { readonly kind: 'buyRemoval'; readonly cardUid: string }
   | { readonly kind: 'buyMastery'; readonly masteryId: string }
+  | { readonly kind: 'buyGrid' }
   | { readonly kind: 'leaveNode' }
   /* -- run -- */
   | { readonly kind: 'abandonRun' }

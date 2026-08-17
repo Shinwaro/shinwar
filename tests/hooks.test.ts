@@ -22,7 +22,7 @@ function stateWithModules(moduleIds: readonly string[]): GameState {
       ...run,
       ship: {
         ...run.ship,
-        placed: moduleIds.map((moduleId, index) => ({ moduleId, x: index, y: 0 })),
+        placed: moduleIds.map((moduleId, index) => ({ moduleId, x: index, y: 0, rot: 0 as const })),
       },
     },
   };

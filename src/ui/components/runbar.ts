@@ -12,6 +12,9 @@ import { requireRun } from '../../engine/state.ts';
 import { currentSeed, healthFraction } from '../../engine/queries.ts';
 import { button, el } from '../dom.ts';
 
+/** Below this fraction of max hull the Ship button starts asking for attention. */
+const SHIP_ATTENTION_HULL = 0.25;
+
 export function renderRunBar(store: Store, state: GameState): HTMLElement {
   const run = requireRun(state);
 
@@ -37,11 +40,30 @@ export function renderRunBar(store: Store, state: GameState): HTMLElement {
       el('span', { class: 'stat-label' }, ['SEED']),
       el('span', { class: 'stat-value stat-value--mono' }, [currentSeed(state)]),
     ]),
-    // The loadout is reachable from anywhere between fights.
+    // The loadout is reachable from anywhere between fights, and says when it
+    // wants attention: something unfitted in storage, or a hull low enough that
+    // the next space fight is a coin flip. Both are things a player only finds
+    // out at the worst moment otherwise.
     state.run?.combat === null && state.run?.shipCombat === null
-      ? button('Ship', { class: 'btn btn-quiet' }, () => {
-          store.dispatch({ kind: 'openLoadout' });
-        })
+      ? (() => {
+          const stored = run.ship.stored.length;
+          const hurt = run.ship.hull / Math.max(1, run.ship.maxHull) < SHIP_ATTENTION_HULL;
+          const wants = stored > 0 || hurt;
+          const node = button(
+            stored > 0 ? `Ship (${stored})` : 'Ship',
+            {
+              class: `btn btn-quiet${wants ? ' is-attention' : ''}${hurt ? ' is-hurt' : ''}`,
+              title: [
+                stored > 0 ? `${stored} module${stored === 1 ? '' : 's'} unfitted in storage.` : null,
+                hurt ? `Hull at ${Math.round((run.ship.hull / run.ship.maxHull) * 100)}%.` : null,
+              ]
+                .filter((part) => part !== null)
+                .join(' ') || null,
+            },
+            () => store.dispatch({ kind: 'openLoadout' }),
+          );
+          return node;
+        })()
       : null,
     // Asks the app shell to open the overlay rather than owning it — the
     // pause screen sits above every run screen, so it cannot belong to one.

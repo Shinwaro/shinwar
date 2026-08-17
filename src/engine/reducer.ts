@@ -13,7 +13,12 @@ import { normalizeSeed } from './rng.ts';
 import { advanceEnemyTurn, endPlayerTurn, playCard } from './combat/combat.ts';
 import { scanEnemy } from './combat/intents.ts';
 import { aimAt, intervene, resolveShipTurn } from './ship/combat.ts';
-import { moveModule as moveOnGrid, place as placeOnGrid, unplace as unplaceOnGrid } from './ship/grid.ts';
+import {
+  moveModule as moveOnGrid,
+  place as placeOnGrid,
+  rotateModule as rotateOnGrid,
+  unplace as unplaceOnGrid,
+} from './ship/grid.ts';
 import { crashLand, repairDrive } from './ship/crash.ts';
 import {
   advanceAct,
@@ -34,7 +39,14 @@ import {
   takeRewardRelic,
 } from './run/run.ts';
 import { chooseEventOption } from './run/events.ts';
-import { buyMastery, buyRemoval, buyShopCard, buyShopModule, repairShip } from './run/shop.ts';
+import {
+  buyGrid,
+  buyMastery,
+  buyRemoval,
+  buyShopCard,
+  buyShopModule,
+  repairShip,
+} from './run/shop.ts';
 import { MAX_DEPTH } from '../content/balance.ts';
 
 export function clampDepth(depth: number): number {
@@ -189,7 +201,7 @@ export function applyAction(state: GameState, action: Action): GameState {
       if (run === null) return state;
       // In a fight, moving costs the turn's lever; between fights it is free.
       if (run.shipCombat !== null && run.shipCombat.usedIntervention !== null) return state;
-      const ship = moveOnGrid(run.ship, action.moduleId, action.x, action.y);
+      const ship = moveOnGrid(run.ship, action.moduleId, action.x, action.y, action.rot);
       if (ship === run.ship) return state;
       const moved = withRun(state, (current) => ({ ...current, ship }));
       if (run.shipCombat === null) return moved;
@@ -209,7 +221,14 @@ export function applyAction(state: GameState, action: Action): GameState {
      */
     case 'placeModule': {
       if (state.run === null) return state;
-      const ship = placeOnGrid(state.run.ship, action.moduleId, action.x, action.y);
+      const ship = placeOnGrid(state.run.ship, action.moduleId, action.x, action.y, action.rot ?? 0);
+      if (ship === state.run.ship) return state;
+      return withRun(state, (current) => ({ ...current, ship }));
+    }
+
+    case 'rotateModule': {
+      if (state.run === null) return state;
+      const ship = rotateOnGrid(state.run.ship, action.moduleId);
       if (ship === state.run.ship) return state;
       return withRun(state, (current) => ({ ...current, ship }));
     }
@@ -317,6 +336,11 @@ export function applyAction(state: GameState, action: Action): GameState {
     case 'buyRemoval': {
       if (state.run?.screen !== 'station') return state;
       return buyRemoval(state, action.cardUid);
+    }
+
+    case 'buyGrid': {
+      if (state.run?.screen !== 'station') return state;
+      return buyGrid(state);
     }
 
     case 'buyMastery': {

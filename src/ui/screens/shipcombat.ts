@@ -18,7 +18,8 @@ import {
   requireShipCombat,
   shipIntent,
 } from '../../engine/ship/combat.ts';
-import { adjacencyActive, footprintOf } from '../../engine/ship/grid.ts';
+import { adjacencyActive, cellsOf } from '../../engine/ship/grid.ts';
+import { shipStats } from '../../engine/ship/stats.ts';
 import { hullFraction } from '../../engine/queries.ts';
 import { SHIP_COMBAT } from '../../content/balance.ts';
 import { modules as moduleTable, shipEnemies, weapons } from '../../content/registry.ts';
@@ -27,6 +28,7 @@ import { liveScreen } from '../screen.ts';
 import { renderRunBar } from '../components/runbar.ts';
 import { renderLog, scrollLogToEnd } from '../components/log.ts';
 import { setBarFill } from '../anim.ts';
+import { moduleTip } from '../components/moduletip.ts';
 
 export function renderShipCombat(store: Store): HTMLElement {
   return liveScreen(store, 'shipfight screen', (state) => {
@@ -108,21 +110,32 @@ function build(store: Store, state: GameState): HTMLElement {
     }
   }
 
-  const tiles = ship.placed.map((placed) => {
+  // One tile per occupied cell: with real shapes on the grid, a span across a
+  // bounding box would paint over the notch an L leaves behind.
+  const tiles = ship.placed.flatMap((placed) => {
     const def = moduleTable.get(placed.moduleId);
-    const size = footprintOf(placed.moduleId);
     const bonus = adjacencyActive(ship, placed.moduleId);
-    return el(
-      'div',
-      {
-        class: `grid-tile grid-tile--${def.kind}${bonus ? ' is-linked' : ''}`,
-        style: `grid-column:${placed.x + 1}/span ${size.w};grid-row:${placed.y + 1}/span ${size.h}`,
-        title: `${def.name}${bonus ? ' — linked' : ''}`,
-      },
-      [
-        el('span', { class: 'tile-name' }, [def.name]),
-        bonus ? el('span', { class: 'tile-link', 'aria-hidden': 'true' }, ['⚯']) : null,
-      ],
+    const order = fight.triggered.indexOf(placed.moduleId);
+
+    return cellsOf(placed).map((cell, index) =>
+      el(
+        'div',
+        {
+          class: `grid-tile grid-tile--${def.kind}${bonus ? ' is-linked' : ''}`,
+          style:
+            `grid-column:${cell.x + 1};grid-row:${cell.y + 1}` +
+            // Staggered off the resolver's own firing order, so the chain
+            // lights up in the order it actually resolved rather than in
+            // whatever order the array happens to be in.
+            (order >= 0 ? `;--fire-delay:${order * 110}ms` : ''),
+          title: moduleTip(placed.moduleId, ship),
+          'data-fired': order >= 0 ? String(fight.turn) : null,
+        },
+        [
+          index === 0 ? el('span', { class: 'tile-name' }, [def.name]) : null,
+          index === 0 && bonus ? el('span', { class: 'tile-link', 'aria-hidden': 'true' }, ['⚯']) : null,
+        ],
+      ),
     );
   });
 
@@ -135,6 +148,25 @@ function build(store: Store, state: GameState): HTMLElement {
     },
     [...cells, ...tiles],
   );
+
+  /* -- what the grid currently adds up to --
+     The build is doing something every turn whether or not you press anything,
+     so it has to be on screen. Scaling stats move as the pools move, which is
+     the whole reason they are worth having. */
+  const stats = shipStats(ship, fight.pools);
+  const statRow = el('div', { class: 'ship-stats' }, [
+    stats.critChance > 0
+      ? statChip('CRIT', `${Math.round(stats.critChance * 100)}%`, `x${(1.5 + stats.critBonus).toFixed(2)} when it lands`)
+      : null,
+    stats.flatDamage > 0 ? statChip('DMG', `+${Math.round(stats.flatDamage)}`, 'per shot') : null,
+    stats.extraShots > 0 ? statChip('SHOTS', `+${Math.round(stats.extraShots)}`, 'per volley') : null,
+    stats.pierce > 0 ? statChip('PIERCE', String(Math.round(stats.pierce)), 'ignores this much shield') : null,
+    stats.damageReduction > 0
+      ? statChip('SOAK', `-${Math.round(stats.damageReduction)}`, 'off every hit taken')
+      : null,
+    stats.parryChance > 0 ? statChip('PARRY', `${Math.round(stats.parryChance * 100)}%`, 'to turn a volley aside') : null,
+    stats.lifesteal > 0 ? statChip('SIPHON', `+${Math.round(stats.lifesteal)}`, 'hull a turn') : null,
+  ]);
 
   /* -- pools -- */
   const pools = el('div', { class: 'pools' }, [
@@ -177,6 +209,7 @@ function build(store: Store, state: GameState): HTMLElement {
     ]),
     enemyPanel,
     grid,
+    statRow,
     pools,
     el('p', { class: 'ship-note' }, [
       spent
@@ -211,6 +244,13 @@ function aimButton(
     },
     () => store.dispatch({ kind: 'aimAt', target }),
   );
+}
+
+function statChip(label: string, value: string, hint: string): HTMLElement {
+  return el('span', { class: 'ship-stat', title: hint }, [
+    el('span', { class: 'stat-label' }, [label]),
+    el('span', { class: 'ship-stat-value' }, [value]),
+  ]);
 }
 
 function pool(label: string, value: number, hint: string, hot: boolean): HTMLElement {

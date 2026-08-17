@@ -165,10 +165,27 @@ export type ModuleKind =
   | 'drive'
   | 'cargo';
 
-/** A rectangle of grid cells, in cells. */
+/**
+ * The shape a module occupies, as a bounding box plus an optional mask.
+ *
+ * `mask` is row-major, `h` strings of `w` characters, `#` occupied and `.`
+ * empty. Absent means the full rectangle. Real shapes — L, T, S — are what turn
+ * the grid from a stacking problem into a packing one, and rotation is what
+ * makes packing a skill rather than an arithmetic check.
+ */
 export interface Footprint {
   readonly w: number;
   readonly h: number;
+  readonly mask?: readonly string[];
+}
+
+/** Quarter turns clockwise. */
+export type Rotation = 0 | 1 | 2 | 3;
+
+/** A cell offset inside a shape, or an absolute cell on the grid. */
+export interface Cell {
+  readonly x: number;
+  readonly y: number;
 }
 
 /**
@@ -196,6 +213,51 @@ export type ModuleEffect =
     }
   | { readonly kind: 'shield'; readonly amount: number };
 
+/**
+ * A passive combat stat a module contributes.
+ *
+ * Most of what a module does should be this rather than a verb. A grid full of
+ * buttons is a grid where the build does nothing until you press something;
+ * a grid full of passives is a build that is *already* doing something, and the
+ * one verb you still get is a lever on top of it rather than the whole game.
+ *
+ * Declared rather than hooked, for the reason everything else in this codebase
+ * is: these modify numbers the resolver is in the middle of producing.
+ */
+export type ShipStat =
+  | 'critChance'
+  | 'critBonus'
+  | 'flatDamage'
+  | 'damageReduction'
+  | 'parryChance'
+  | 'pierce'
+  | 'shieldPerTurn'
+  | 'lifesteal'
+  | 'extraShots';
+
+/**
+ * A stat that climbs with a pool during the fight.
+ *
+ * This is where the builds come from. A module that turns Heat into crit and a
+ * weapon that generates Heat are a different ship from the same two parts on a
+ * grid that also converts Heat into Energy — the parts have not changed, the
+ * curve has.
+ */
+export interface ShipScaling {
+  readonly resource: ShipResource;
+  readonly stat: ShipStat;
+  /** Stat gained per point of the pool. */
+  readonly per: number;
+  /** Most this scaling will ever contribute. */
+  readonly cap: number;
+}
+
+export type ShipStats = {
+  readonly [K in ShipStat]?: number;
+} & {
+  readonly scaling?: readonly ShipScaling[];
+};
+
 export interface ModuleDef {
   readonly id: ModuleId;
   readonly name: string;
@@ -203,6 +265,10 @@ export interface ModuleDef {
   readonly rarity: Rarity;
   readonly footprint: Footprint;
   readonly effects: readonly ModuleEffect[];
+  /** Passive stats, always on while the module is on the grid. */
+  readonly stats?: ShipStats;
+  /** Extra stats granted only while it touches one of `adjacentTo`. */
+  readonly adjacencyStats?: ShipStats;
   /**
    * Extra effects granted only while this module touches one of `adjacentTo`.
    * A bonus for good packing, never a requirement — a badly packed ship is
@@ -230,11 +296,12 @@ export interface WeaponDef {
   readonly flavor?: string;
 }
 
-/** A module sitting on the grid at a position. */
+/** A module sitting on the grid at a position, turned some number of quarters. */
 export interface PlacedModule {
   readonly moduleId: ModuleId;
   readonly x: number;
   readonly y: number;
+  readonly rot: Rotation;
 }
 
 /* ---------- ship combat ----------
@@ -312,6 +379,16 @@ export interface ShipCombatState {
    * the build gave you.
    */
   readonly target: string;
+  /**
+   * Module ids that fired on the last resolve, in the order they fired.
+   *
+   * Presentation data in state on purpose: the screen animates the chain by
+   * replaying this, and it has to be the resolver's real order rather than
+   * something the UI guesses from the grid. Empty before the first turn.
+   */
+  readonly triggered: readonly ModuleId[];
+  /** The last volley crit. Drives the flash, and says so in the log. */
+  readonly crit: boolean;
   readonly outcome: 'ongoing' | 'won' | 'lost';
 }
 
@@ -447,7 +524,9 @@ export type RunEffect =
   | { readonly op: 'setThread'; readonly threadId: ThreadId }
   | { readonly op: 'resolveThread'; readonly threadId: ThreadId }
   /** A fight that arrives instead of whatever the node was going to be. */
-  | { readonly op: 'ambush'; readonly tier: 'combat' | 'elite' };
+  | { readonly op: 'ambush'; readonly tier: 'combat' | 'elite' }
+  /** More room on the ship grid. The ship path's equivalent of a card slot. */
+  | { readonly op: 'grid'; readonly w: number; readonly h: number };
 
 export interface EventOption {
   readonly id: string;
@@ -927,6 +1006,13 @@ export interface ShopState {
   readonly masteryId: MasteryId | null;
   readonly masteryPrice: number;
   readonly masterySold: boolean;
+  /**
+   * A bay extension. The grid grows during the run rather than starting large,
+   * so a shape that will not fit today is a reason to come back rather than a
+   * reason the module was worthless.
+   */
+  readonly gridPrice: number;
+  readonly gridSold: boolean;
 }
 
 /** What the player is looking at between fights. */

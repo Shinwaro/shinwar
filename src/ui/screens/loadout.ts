@@ -6,24 +6,34 @@
  * space. Un-fitting is always free.
  */
 
-import type { GameState, ModuleDef, ModuleId } from '../../engine/types.ts';
+import type { GameState, ModuleId, Rotation } from '../../engine/types.ts';
 import type { Store } from '../store.ts';
 import { requireRun } from '../../engine/state.ts';
-import { adjacencyActive, canPlace, footprintOf, freeCells } from '../../engine/ship/grid.ts';
+import {
+  adjacencyActive,
+  canPlace,
+  cellsOf,
+  distinctRotations,
+  freeCells,
+  nextRotation,
+} from '../../engine/ship/grid.ts';
 import { availableInterventions, VERB_LABEL, VERB_TEXT } from '../../engine/ship/combat.ts';
 import { modules as moduleTable, weapons } from '../../content/registry.ts';
 import { button, el, withChildren } from '../dom.ts';
 import { liveScreen } from '../screen.ts';
 import { renderRunBar } from '../components/runbar.ts';
+import { moduleLines, moduleTip } from '../components/moduletip.ts';
 
 interface Local {
   /** The module the player has picked up, waiting for a cell. */
   held: ModuleId | null;
+  /** Which way round it is going down. Turning is free until you commit. */
+  heldRot: Rotation;
   reason: string | null;
 }
 
 export function renderLoadout(store: Store): HTMLElement {
-  const local: Local = { held: null, reason: null };
+  const local: Local = { held: null, heldRot: 0, reason: null };
   let host: HTMLElement | null = null;
 
   const redraw = (): void => {
@@ -49,7 +59,8 @@ function build(store: Store, state: GameState, local: Local, redraw: () => void)
   const cells: HTMLElement[] = [];
   for (let y = 0; y < ship.gridH; y++) {
     for (let x = 0; x < ship.gridW; x++) {
-      const legal = local.held === null ? null : canPlace(ship, local.held, x, y, local.held);
+      const legal =
+        local.held === null ? null : canPlace(ship, local.held, x, y, local.heldRot, local.held);
       const cell = button(
         '',
         {
@@ -61,7 +72,7 @@ function build(store: Store, state: GameState, local: Local, redraw: () => void)
         () => {
           const held = local.held;
           if (held === null) return;
-          const check = canPlace(ship, held, x, y, held);
+          const check = canPlace(ship, held, x, y, local.heldRot, held);
           if (!check.ok) {
             local.reason = check.reason;
             redraw();
@@ -70,10 +81,11 @@ function build(store: Store, state: GameState, local: Local, redraw: () => void)
           const onGrid = ship.placed.some((entry) => entry.moduleId === held);
           store.dispatch(
             onGrid
-              ? { kind: 'moveModule', moduleId: held, x, y }
-              : { kind: 'placeModule', moduleId: held, x, y },
+              ? { kind: 'moveModule', moduleId: held, x, y, rot: local.heldRot }
+              : { kind: 'placeModule', moduleId: held, x, y, rot: local.heldRot },
           );
           local.held = null;
+          local.heldRot = 0;
           local.reason = null;
         },
       );
@@ -81,29 +93,38 @@ function build(store: Store, state: GameState, local: Local, redraw: () => void)
     }
   }
 
-  const tiles = ship.placed.map((placed) => {
+  // Real shapes need real cells: one tile per occupied cell rather than one
+  // span across a bounding box, or an L would paint over the notch it leaves.
+  const tiles = ship.placed.flatMap((placed) => {
     const def = moduleTable.get(placed.moduleId);
-    const size = footprintOf(placed.moduleId);
     const linked = adjacencyActive(ship, placed.moduleId);
     const held = local.held === placed.moduleId;
+    const cells = cellsOf(placed);
 
-    const node = button(
-      '',
-      {
-        class: `grid-tile grid-tile--${def.kind}${linked ? ' is-linked' : ''}${held ? ' is-held' : ''}`,
-        style: `grid-column:${placed.x + 1}/span ${size.w};grid-row:${placed.y + 1}/span ${size.h}`,
-        title: describeModule(def, linked),
-      },
-      () => {
-        local.held = held ? null : placed.moduleId;
-        local.reason = null;
-        redraw();
-      },
-    );
-    return withChildren(node, [
-      el('span', { class: 'tile-name' }, [def.name]),
-      linked ? el('span', { class: 'tile-link', 'aria-hidden': 'true' }, ['⚯']) : null,
-    ]);
+    return cells.map((cell, index) => {
+      const node = button(
+        '',
+        {
+          class:
+            `grid-tile grid-tile--${def.kind}` +
+            `${linked ? ' is-linked' : ''}${held ? ' is-held' : ''}` +
+            `${index === 0 ? ' is-label' : ''}`,
+          style: `grid-column:${cell.x + 1};grid-row:${cell.y + 1}`,
+          title: moduleTip(placed.moduleId, ship),
+          'data-module': placed.moduleId,
+        },
+        () => {
+          local.held = held ? null : placed.moduleId;
+          local.heldRot = held ? 0 : placed.rot;
+          local.reason = null;
+          redraw();
+        },
+      );
+      return withChildren(node, [
+        index === 0 ? el('span', { class: 'tile-name' }, [def.name]) : null,
+        index === 0 && linked ? el('span', { class: 'tile-link', 'aria-hidden': 'true' }, ['⚯']) : null,
+      ]);
+    });
   });
 
   const grid = el(
@@ -131,7 +152,7 @@ function build(store: Store, state: GameState, local: Local, redraw: () => void)
               '',
               {
                 class: `store-item${held ? ' is-held' : ''}`,
-                title: describeModule(def, false),
+                title: moduleTip(id),
                 'aria-pressed': held ? 'true' : 'false',
                 'data-index': String(index),
               },
@@ -144,6 +165,7 @@ function build(store: Store, state: GameState, local: Local, redraw: () => void)
             return withChildren(node, [
               el('span', { class: 'store-name' }, [def.name]),
               el('span', { class: 'store-size' }, [`${size.w}×${size.h}`]),
+              el('span', { class: 'store-hint' }, [moduleLines(id).join(' · ')]),
             ]);
           }),
         );
@@ -159,6 +181,22 @@ function build(store: Store, state: GameState, local: Local, redraw: () => void)
         : el('p', { class: 'ship-note' }, [
             `${moduleTable.get(local.held).name} — pick a cell, or click it again to put it down.`,
           ]);
+
+  const rotations = local.held === null ? [] : distinctRotations(local.held);
+  const rotate =
+    local.held === null || rotations.length < 2
+      ? null
+      : button(
+          `Rotate (${rotations.indexOf(local.heldRot) + 1}/${rotations.length})`,
+          { class: 'btn', 'aria-keyshortcuts': 'R' },
+          () => {
+            const held = local.held;
+            if (held === null) return;
+            local.heldRot = nextRotation(held, local.heldRot);
+            local.reason = null;
+            redraw();
+          },
+        );
 
   const pullOff =
     local.held !== null && ship.placed.some((entry) => entry.moduleId === local.held)
@@ -188,7 +226,7 @@ function build(store: Store, state: GameState, local: Local, redraw: () => void)
     grid,
     el('h2', { class: 'pause-heading' }, ['Storage']),
     storeRow,
-    pullOff,
+    el('div', { class: 'loadout-actions' }, [rotate, pullOff]),
     verbs.length === 0
       ? el('p', { class: 'ship-note' }, [
           'No module here grants a verb, so a space fight would run without you. A heat sink, a sensor array or an anchor each give you something to spend.',
@@ -215,36 +253,4 @@ function fact(label: string, value: string): HTMLElement {
     el('span', { class: 'fact-label' }, [label]),
     el('span', { class: 'fact-value' }, [value]),
   ]);
-}
-
-function describeModule(def: ModuleDef, linked: boolean): string {
-  const parts = def.effects.map(describeEffect);
-  if (def.adjacentTo !== undefined && def.adjacencyEffects !== undefined) {
-    parts.push(
-      `Touching a ${def.adjacentTo.join(' or ')}: ${def.adjacencyEffects.map(describeEffect).join(', ')}${linked ? ' (live)' : ''}`,
-    );
-  }
-  if (def.grants !== undefined) parts.push(`Grants ${VERB_LABEL[def.grants]}.`);
-  return `${def.name} — ${parts.join(' ')}`;
-}
-
-function describeEffect(effect: ModuleDef['effects'][number]): string {
-  switch (effect.kind) {
-    case 'produce':
-      return `+${effect.amount} ${effect.resource} a turn.`;
-    case 'convert':
-      return `Turns up to ${effect.cap} ${effect.from} into ${effect.to} each turn.`;
-    case 'damage':
-      return `+${effect.amount} damage a turn.`;
-    case 'shield':
-      return `+${effect.amount} shield a turn.`;
-    case 'amplify':
-      return effect.perResource === undefined
-        ? `Every shot hits for ${effect.amount} more.`
-        : `Every shot hits for ${effect.per} more per ${effect.perResource}.`;
-    default: {
-      const unreachable: never = effect;
-      return unreachable;
-    }
-  }
 }

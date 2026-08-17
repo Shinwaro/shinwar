@@ -20,7 +20,7 @@ import { nextInt } from '../rng.ts';
 import { mintCard } from '../combat/instances.ts';
 import { gainAlloy, spendAlloy } from './economy.ts';
 import { resolveThread, setThread } from './threads.ts';
-import { SHOP } from '../../content/balance.ts';
+import { SHIP, SHOP } from '../../content/balance.ts';
 import { cards as cardTable, modules as moduleTable } from '../../content/registry.ts';
 
 export interface RunEffectResult {
@@ -217,6 +217,22 @@ function applyOne(state: GameState, effect: RunEffect, source: string): Single {
       const next = resolveThread(state, effect.threadId);
       if (next === state) return { state, line: null };
       return { state: next, line: 'A thread closes.' };
+    }
+
+    case 'grid': {
+      const gridW = Math.min(SHIP.targetEndGrid.w, run.ship.gridW + effect.w);
+      const gridH = Math.min(SHIP.targetEndGrid.h, run.ship.gridH + effect.h);
+      if (gridW === run.ship.gridW && gridH === run.ship.gridH) {
+        return { state, line: 'The bay is already as big as the frame allows.' };
+      }
+      return {
+        state: logged(
+          withRun(state, (current) => ({ ...current, ship: { ...current.ship, gridW, gridH } })),
+          source,
+          `Bay extended to ${gridW}x${gridH}.`,
+        ),
+        line: `The bay is ${gridW}x${gridH} now.`,
+      };
     }
 
     case 'ambush': {

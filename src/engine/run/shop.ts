@@ -20,7 +20,7 @@ import { fireHook } from '../hooks.ts';
 import { mintCard } from '../combat/instances.ts';
 import { removalCost, spendAlloy } from './economy.ts';
 import { offerableCards, rollMastery } from './rewards.ts';
-import { ECONOMY, MASTERY, RARITY_WEIGHTS, SHOP } from '../../content/balance.ts';
+import { ECONOMY, MASTERY, RARITY_WEIGHTS, SHIP, SHOP } from '../../content/balance.ts';
 import {
   cards as cardTable,
   masteries as masteryTable,
@@ -96,6 +96,8 @@ export function stockShop(state: GameState, nodeId: string): GameState {
     masteryId: mastery.masteryId,
     masteryPrice: MASTERY.price,
     masterySold: false,
+    gridPrice: SHOP.gridPrice,
+    gridSold: false,
   };
 
   const next = withRun(state, (current) => ({ ...current, rng, shop }));
@@ -204,6 +206,48 @@ export function buyRemoval(state: GameState, cardUid: string): GameState {
     text: `Stripped ${name} for ${shop.removalPrice} Alloy.`,
     detail: { card: card.defId, cost: shop.removalPrice },
   });
+}
+
+/**
+ * Buy a bay extension.
+ *
+ * Width first, then height. Growing the grid is what makes the bigger shapes
+ * worth rolling at all, and it is the ship path's answer to "I found a great
+ * module and have nowhere to put it".
+ */
+export function buyGrid(state: GameState): GameState {
+  const run = requireRun(state);
+  const shop = run.shop;
+  if (shop === null || shop.gridSold || run.alloy < shop.gridPrice) return state;
+
+  const widen = run.ship.gridW < SHIP.targetEndGrid.w;
+  const heighten = !widen && run.ship.gridH < SHIP.targetEndGrid.h;
+  if (!widen && !heighten) return state;
+
+  const paid = spendAlloy(state, shop.gridPrice, 'station');
+  const next = withRun(paid, (current) => ({
+    ...current,
+    ship: {
+      ...current.ship,
+      gridW: current.ship.gridW + (widen ? 1 : 0),
+      gridH: current.ship.gridH + (heighten ? 1 : 0),
+    },
+    shop: current.shop === null ? null : { ...current.shop, gridSold: true },
+  }));
+
+  const grown = requireRun(next).ship;
+  return appendLog(next, {
+    source: 'station',
+    kind: 'run',
+    text: `Bay extended to ${grown.gridW}x${grown.gridH} for ${shop.gridPrice} Alloy.`,
+    detail: { gridW: grown.gridW, gridH: grown.gridH, cost: shop.gridPrice },
+  });
+}
+
+/** Can the bay grow any further at all? */
+export function canGrowGrid(state: GameState): boolean {
+  const ship = requireRun(state).ship;
+  return ship.gridW < SHIP.targetEndGrid.w || ship.gridH < SHIP.targetEndGrid.h;
 }
 
 /**

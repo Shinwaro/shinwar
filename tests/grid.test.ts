@@ -86,17 +86,16 @@ describe('placement', () => {
 
   it('finds the first free spot, or reports that there is none', () => {
     let ship = emptyShip();
-    expect(firstFit(ship, 'core_reactor')).toEqual({ x: 0, y: 0 });
+    expect(firstFit(ship, 'core_reactor')).toEqual({ x: 0, y: 0, rot: 0 });
 
-    // Fill the board with 1x1s.
-    for (let y = 0; y < ship.gridH; y++) {
-      for (let x = 0; x < ship.gridW; x++) {
-        ship = { ...ship, placed: [...ship.placed, { moduleId: `filler${x}_${y}`, x, y }] };
-      }
-    }
-    // `filler` ids do not exist, so use a real one against a full board.
-    const full = { ...emptyShip(), placed: [{ moduleId: 'overclock_core', x: 0, y: 0 }] };
-    expect(firstFit(full, 'overclock_core')).toEqual({ x: 2, y: 0 });
+    // A shape that only fits one way round, on a board that already has one.
+    const full: ShipState = {
+      ...emptyShip(),
+      placed: [{ moduleId: 'overclock_core', x: 0, y: 0, rot: 0 }],
+    };
+    const spot = firstFit(full, 'overclock_core');
+    expect(spot).not.toBeNull();
+    expect(canPlace(full, 'overclock_core', spot?.x ?? 0, spot?.y ?? 0, spot?.rot ?? 0).ok).toBe(true);
   });
 });
 
@@ -132,19 +131,39 @@ describe('adjacency', () => {
 });
 
 describe('the module pool', () => {
-  it('gives every module a footprint that fits the starting grid', () => {
+  it('gives every module a shape that fits the grid it can reach', () => {
+    // Against the END grid, not the starting one: the grid grows during a run,
+    // and a module that only fits an upgraded ship is a legitimate reward.
     for (const def of moduleTable.all()) {
       expect(def.footprint.w, def.id).toBeGreaterThan(0);
       expect(def.footprint.h, def.id).toBeGreaterThan(0);
-      expect(def.footprint.w, `${def.id} is wider than the starting grid`).toBeLessThanOrEqual(SHIP.gridW);
-      expect(def.footprint.h, `${def.id} is taller than the starting grid`).toBeLessThanOrEqual(SHIP.gridH);
+      expect(def.footprint.w, `${def.id} is wider than any grid`).toBeLessThanOrEqual(SHIP.targetEndGrid.w);
+      expect(def.footprint.h, `${def.id} is taller than any grid`).toBeLessThanOrEqual(SHIP.targetEndGrid.h);
+    }
+  });
+
+  it('gives every masked shape a mask that matches its box', () => {
+    for (const def of moduleTable.all()) {
+      const mask = def.footprint.mask;
+      if (mask === undefined) continue;
+      expect(mask.length, `${def.id} mask has the wrong number of rows`).toBe(def.footprint.h);
+      for (const row of mask) {
+        expect(row.length, `${def.id} mask row is the wrong width`).toBe(def.footprint.w);
+      }
+      expect(
+        mask.some((row) => row.includes('#')),
+        `${def.id} mask is empty`,
+      ).toBe(true);
     }
   });
 
   it('gives every module something to do — except cargo, whose job is to be in the way', () => {
     for (const def of moduleTable.all()) {
       if (def.kind === 'cargo') continue;
-      const does = def.effects.length > 0 || def.grants !== undefined;
+      const does =
+        def.effects.length > 0 ||
+        def.grants !== undefined ||
+        Object.keys(def.stats ?? {}).length > 0;
       expect(does, `${def.id} has no effects and grants no verb`).toBe(true);
     }
   });

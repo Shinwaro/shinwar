@@ -225,6 +225,15 @@ export const ECONOMY = {
 
 export const SHOP = {
   cardSlots: 4,
+  /**
+   * A bay extension: one more column, or one more row once the width is done.
+   *
+   * The grid grows during the run rather than starting large, so a shape that
+   * will not fit today is a reason to come back rather than a reason the module
+   * was worthless. Priced above a rare module — it is worth more than any single
+   * thing you would put in it.
+   */
+  gridPrice: 260,
   moduleSlots: 2,
   cardPrice: {
     common: 50,

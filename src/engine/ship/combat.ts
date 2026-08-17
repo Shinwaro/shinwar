@@ -21,10 +21,11 @@ import type {
   ShipState,
 } from '../types.ts';
 import { appendLog, requireRun, withRun } from '../state.ts';
-import { weightedPick } from '../rng.ts';
+import { nextFloat, weightedPick } from '../rng.ts';
 import { modules as moduleTable, shipEnemies, weapons } from '../../content/registry.ts';
 import { SHIP_COMBAT } from '../../content/balance.ts';
 import { adjacencyActive } from './grid.ts';
+import { orderedModules, shipStats } from './stats.ts';
 
 const EMPTY_POOLS: ShipPools = { heat: 0, energy: 0, singularity: 0 };
 
@@ -89,6 +90,8 @@ export function startShipCombat(state: GameState, enemyId: string): GameState {
       pools: EMPTY_POOLS,
       shield: 0,
       amplify: 0,
+      triggered: [],
+      crit: false,
       enemy: {
         defId: def.id,
         hull: def.maxHull,
@@ -370,23 +373,70 @@ export function resolveShipTurn(state: GameState): GameState {
     }
   }
 
-  const weapon = weapons.get(ship.weaponId);
-  const perShot = Math.max(0, weapon.damage + amplify);
-  const weaponDamage = perShot * weapon.shots;
-  pools = clampPools({ ...pools, heat: pools.heat + weapon.heat * weapon.shots });
+  /*
+   * The grid, as a build.
+   *
+   * Read AFTER the producers and converters have run, so scaling sees the pools
+   * this turn actually has rather than last turn's. That ordering is the whole
+   * Heat-into-crit chain: the cannon cooks the reactor, the converter reads the
+   * heat, and the lens turns it into a crit chance — all inside one resolve.
+   */
+  const stats = shipStats(ship, pools);
+  shield += stats.shieldPerTurn;
 
+  const weapon = weapons.get(ship.weaponId);
+  const shots = Math.max(1, weapon.shots + Math.round(stats.extraShots));
+  const perShot = Math.max(0, weapon.damage + amplify + stats.flatDamage);
+  pools = clampPools({ ...pools, heat: pools.heat + weapon.heat * shots });
+
+  // Crit is rolled once for the volley rather than per shot: a swarm build
+  // would otherwise crit somewhere every single turn and the stat would stop
+  // being a spike and start being an average.
+  const critChance = Math.min(0.85, stats.critChance);
+  const rolled = nextFloat(requireRun(state).rng, 'combat');
+  const crit = critChance > 0 && rolled.value < critChance;
+  const critMultiplier = 1.5 + stats.critBonus;
+
+  const weaponDamage = Math.round(perShot * shots * (crit ? critMultiplier : 1));
   const total = weaponDamage + moduleDamage;
 
-  let next = withShip(state, (current) => ({ ...current, pools, shield, amplify }));
+  let next = withRun(state, (current) => ({ ...current, rng: rolled.rng }));
+  next = withShip(next, (current) => ({
+    ...current,
+    pools,
+    shield,
+    amplify,
+    // What fired, for the screen to light up in order.
+    triggered: orderedModules(ship).map((placed) => placed.moduleId),
+    crit,
+  }));
 
   next = appendLog(next, {
     source: 'ship',
     kind: 'combat',
-    text: `${weapon.name}: ${weapon.shots} x ${perShot}${moduleDamage > 0 ? ` +${moduleDamage} from the grid` : ''}.`,
-    detail: { damage: total },
+    text:
+      `${weapon.name}: ${shots} x ${perShot}` +
+      `${crit ? ` — CRIT x${critMultiplier.toFixed(2)}` : ''}` +
+      `${moduleDamage > 0 ? ` +${moduleDamage} from the grid` : ''}.`,
+    detail: { damage: total, crit },
   });
 
-  next = damageEnemy(next, total);
+  next = damageEnemy(next, total, stats.pierce);
+
+  // Lifesteal comes off what actually landed, not off what was rolled.
+  if (stats.lifesteal > 0) {
+    const healed = Math.round(stats.lifesteal);
+    next = appendLog(
+      withRun(next, (current) => ({
+        ...current,
+        ship: {
+          ...current.ship,
+          hull: Math.min(current.ship.maxHull, current.ship.hull + healed),
+        },
+      })),
+      { source: 'ship', kind: 'combat', text: `Siphoned ${healed} back into the hull.`, detail: null },
+    );
+  }
   next = checkShipOutcome(next);
   if (requireShipCombat(next).outcome !== 'ongoing') return next;
 
@@ -431,7 +481,7 @@ export function subsystemBroken(state: GameState, disables: 'guns' | 'shields' |
  * always get at the parts, which is what keeps aiming a live option rather
  * than something only worth doing on turn one.
  */
-function damageEnemy(state: GameState, amount: number): GameState {
+function damageEnemy(state: GameState, amount: number, pierce = 0): GameState {
   if (amount <= 0) return state;
   const fight = requireShipCombat(state);
   const def = shipEnemies.get(fight.enemy.defId);
@@ -472,7 +522,9 @@ function damageEnemy(state: GameState, amount: number): GameState {
     });
   }
 
-  const absorbed = Math.min(fight.enemy.shield, total);
+  // Pierce eats the shield before the shield eats the shot.
+  const shielded = Math.max(0, fight.enemy.shield - Math.round(pierce));
+  const absorbed = Math.min(shielded, total);
   const toHull = total - absorbed;
 
   const next = withShip(state, (current) => ({
@@ -487,7 +539,11 @@ function damageEnemy(state: GameState, amount: number): GameState {
   return appendLog(next, {
     source: 'ship',
     kind: 'damage',
-    text: `${name} takes ${toHull}${absorbed > 0 ? ` (${absorbed} shielded)` : ''}${exposed ? ' — drive is gone' : ''}.`,
+    text:
+      `${name} takes ${toHull}` +
+      `${absorbed > 0 ? ` (${absorbed} shielded)` : ''}` +
+      `${pierce > 0 && fight.enemy.shield > 0 ? ` — ${Math.round(pierce)} pierced` : ''}` +
+      `${exposed ? ' — drive is gone' : ''}.`,
     detail: { to: 'enemy', toHull, blocked: absorbed },
   });
 }
@@ -507,8 +563,22 @@ export function aimAt(state: GameState, target: string): GameState {
 function damageShip(state: GameState, amount: number, ignoreShield = false): GameState {
   if (amount <= 0) return state;
   const fight = requireShipCombat(state);
-  const absorbed = ignoreShield ? 0 : Math.min(fight.shield, amount);
-  const toHull = amount - absorbed;
+  // Reduction is plating, so it does not apply to the reactor cooking you from
+  // the inside — that is what `ignoreShield` already marks.
+  const reduction = ignoreShield
+    ? 0
+    : Math.round(shipStats(requireRun(state).ship, fight.pools).damageReduction);
+  const incoming = Math.max(0, amount - reduction);
+  if (incoming === 0) {
+    return appendLog(state, {
+      source: 'ship',
+      kind: 'damage',
+      text: 'Plating turns it aside entirely.',
+      detail: { to: 'player', toHull: 0, blocked: amount },
+    });
+  }
+  const absorbed = ignoreShield ? 0 : Math.min(fight.shield, incoming);
+  const toHull = incoming - absorbed;
 
   let next = withShip(state, (current) => ({ ...current, shield: current.shield - absorbed }));
   next = withRun(next, (current) => ({

@@ -15,7 +15,7 @@ import type { Store } from '../store.ts';
 import { requireRun } from '../../engine/state.ts';
 import { definitionOf } from '../../engine/combat/combat.ts';
 import { describeCard, describeCost } from '../../engine/combat/describe.ts';
-import { ECONOMY, RARITY_LABEL } from '../../content/balance.ts';
+import { ECONOMY, RARITY_LABEL, SHIP } from '../../content/balance.ts';
 import {
   cards as cardTable,
   masteries as masteryTable,
@@ -26,6 +26,8 @@ import { liveScreen } from '../screen.ts';
 import { renderRunBar } from '../components/runbar.ts';
 import { renderCardFace } from '../components/card.ts';
 import { renderManifest } from '../components/manifest.ts';
+import { moduleLines } from '../components/moduletip.ts';
+import { canGrowGrid } from '../../engine/run/shop.ts';
 
 interface Local {
   /** The removal picker is open. UI state — it changes nothing about the world. */
@@ -121,7 +123,9 @@ function build(store: Store, state: GameState, local: Local, redraw: () => void)
                       RARITY_LABEL[def.rarity],
                     ]),
                   ]),
-                  el('p', { class: 'card-text' }, [describeModule(stock.moduleId)]),
+                  ...moduleLines(stock.moduleId, run.ship).map((line) =>
+                    el('p', { class: 'card-text' }, [line]),
+                  ),
                   def.flavor === undefined ? null : el('p', { class: 'card-flavor' }, [def.flavor]),
                 ]),
                 stock.sold
@@ -164,6 +168,19 @@ function build(store: Store, state: GameState, local: Local, redraw: () => void)
     el('section', { class: 'shop-section' }, [
       el('h2', { class: 'shop-heading' }, ['Services']),
       el('div', { class: 'safe-options' }, [
+        shop === null || !canGrowGrid(state)
+          ? null
+          : serviceOption(
+              shop.gridSold ? 'Bay extended' : 'Extend the bay',
+              `${shop.gridPrice} Alloy for another ${run.ship.gridW < SHIP.targetEndGrid.w ? 'column' : 'row'}.`,
+              shop.gridSold
+                ? 'This yard has done its one.'
+                : run.alloy < shop.gridPrice
+                  ? 'Not enough Alloy.'
+                  : `The grid is ${run.ship.gridW}x${run.ship.gridH}. Bigger shapes need bigger bays.`,
+              shop.gridSold || run.alloy < shop.gridPrice,
+              () => store.dispatch({ kind: 'buyGrid' }),
+            ),
         shop === null
           ? null
           : serviceOption(
@@ -217,36 +234,6 @@ function build(store: Store, state: GameState, local: Local, redraw: () => void)
 
     button('Leave', { class: 'btn btn-primary' }, () => store.dispatch({ kind: 'leaveNode' })),
   ]);
-}
-
-/** Plain words for what a module does. Generated, like everything mechanical. */
-function describeModule(moduleId: string): string {
-  const def = moduleTable.get(moduleId);
-  const lines = def.effects.map((effect) => {
-    switch (effect.kind) {
-      case 'produce':
-        return `+${effect.amount} ${effect.resource} a turn`;
-      case 'convert':
-        return `turns ${effect.from} into ${effect.to} at ${effect.rate}:1, up to ${effect.cap}`;
-      case 'damage':
-        return `${effect.amount} damage a turn`;
-      case 'amplify':
-        return effect.perResource === undefined
-          ? `+${effect.amount} to every shot`
-          : `+${effect.per ?? 1} to every shot per ${effect.perResource}`;
-      case 'shield':
-        return `${effect.amount} shield a turn`;
-      default: {
-        const unreachable: never = effect;
-        return unreachable;
-      }
-    }
-  });
-  if (def.grants !== undefined) lines.push(`grants ${def.grants}`);
-  if (def.adjacentTo !== undefined && def.adjacentTo.length > 0) {
-    lines.push(`bonus when touching ${def.adjacentTo.join(' or ')}`);
-  }
-  return lines.length === 0 ? 'Takes up room.' : `${lines.join(' · ')}.`;
 }
 
 function serviceOption(
