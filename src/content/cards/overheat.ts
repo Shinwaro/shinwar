@@ -16,8 +16,8 @@ export const OVERHEAT_CARDS: readonly CardDef[] = [
     rarity: 'common',
     archetype: 'overheat',
     cost: 0,
-    effects: [{ op: 'ventHeat', amount: 3 }],
-    upgrade: { name: 'Purge Cycle+', effects: [{ op: 'ventHeat', amount: 5 }] },
+    effects: [{ op: 'ventHeat', amount: 5 }],
+    upgrade: { name: 'Purge Cycle+', effects: [{ op: 'ventHeat', amount: 8 }] },
     flavor: 'Open every port and let the dark have it.',
   },
 
@@ -33,7 +33,7 @@ export const OVERHEAT_CARDS: readonly CardDef[] = [
       {
         op: 'scaleWith',
         source: 'currentHeat',
-        per: 2,
+        per: 3,
         then: [{ op: 'damage', amount: 2, target: 'enemy' }],
       },
     ],
@@ -44,7 +44,7 @@ export const OVERHEAT_CARDS: readonly CardDef[] = [
         {
           op: 'scaleWith',
           source: 'currentHeat',
-          per: 2,
+          per: 3,
           then: [{ op: 'damage', amount: 2, target: 'enemy' }],
         },
       ],
@@ -62,7 +62,7 @@ export const OVERHEAT_CARDS: readonly CardDef[] = [
     effects: [
       {
         op: 'conditional',
-        when: { kind: 'heatAtLeast', value: 6 },
+        when: { kind: 'heatAtLeast', value: 10 },
         then: [{ op: 'damage', amount: 24, target: 'enemy' }],
         else: [{ op: 'damage', amount: 10, target: 'enemy' }],
       },
@@ -72,7 +72,7 @@ export const OVERHEAT_CARDS: readonly CardDef[] = [
       effects: [
         {
           op: 'conditional',
-          when: { kind: 'heatAtLeast', value: 6 },
+          when: { kind: 'heatAtLeast', value: 10 },
           then: [{ op: 'damage', amount: 30, target: 'enemy' }],
           else: [{ op: 'damage', amount: 13, target: 'enemy' }],
         },
@@ -90,10 +90,10 @@ export const OVERHEAT_CARDS: readonly CardDef[] = [
     cost: 1,
     effects: [
       { op: 'damage', amount: 8, target: 'allEnemies' },
-      { op: 'gainHeat', amount: 3 },
+      { op: 'gainHeat', amount: 5 },
       {
         op: 'conditional',
-        when: { kind: 'heatAtLeast', value: 8 },
+        when: { kind: 'heatAtLeast', value: 13 },
         then: [{ op: 'damage', amount: 10, target: 'allEnemies' }],
       },
     ],
@@ -101,10 +101,10 @@ export const OVERHEAT_CARDS: readonly CardDef[] = [
       name: 'Runaway Bloom+',
       effects: [
         { op: 'damage', amount: 10, target: 'allEnemies' },
-        { op: 'gainHeat', amount: 3 },
+        { op: 'gainHeat', amount: 5 },
         {
           op: 'conditional',
-          when: { kind: 'heatAtLeast', value: 8 },
+          when: { kind: 'heatAtLeast', value: 13 },
           then: [{ op: 'damage', amount: 13, target: 'allEnemies' }],
         },
       ],

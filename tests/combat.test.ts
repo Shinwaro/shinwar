@@ -320,10 +320,10 @@ describe('overheat', () => {
   });
 
   it('lets IAI’s own passive tip you over', () => {
-    // At 7 you are safe. IAI's Heat at end of turn puts you over, and the check
+    // At 9 you are safe. IAI's Heat at end of turn puts you over, and the check
     // runs after the passive — that is the bargain IAI offers.
     const cool = makeFight({ stance: 'iai', heat: 0, hand: [IAI_SLASH], drawPile: [SOLAR_PARRY], hull: 500 });
-    const hot = makeFight({ stance: 'iai', heat: 7, hand: [IAI_SLASH], drawPile: [SOLAR_PARRY], hull: 500 });
+    const hot = makeFight({ stance: 'iai', heat: 9, hand: [IAI_SLASH], drawPile: [SOLAR_PARRY], hull: 500 });
 
     const settledCool = endTurnImmediately(cool);
     const settledHot = endTurnImmediately(hot);
@@ -334,7 +334,7 @@ describe('overheat', () => {
     const coolLost = hullOf(cool) - hullOf(settledCool);
     const hotLost = hullOf(hot) - hullOf(settledHot);
     expect(hotLost).toBeGreaterThanOrEqual(
-      coolLost + overheatDamageAt(7 + STANCES.iai.heatAtTurnEnd, 70),
+      coolLost + overheatDamageAt(9 + STANCES.iai.heatAtTurnEnd, 70),
     );
     // And it comes out the far side cold, rather than straight into another one.
     expect(combatOf(settledHot).heat).toBe(HEAT.min);

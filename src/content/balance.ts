@@ -35,6 +35,17 @@ export const HEAT = {
    * threshold unless you set out to. A longer gauge with the line in the middle
    * of it means the top half is a place you can choose to live in, which is the
    * "safe -> greedy -> threatened" arc the mechanic was always for.
+   *
+   * The gauge is only half of it, and the first version got the other half
+   * wrong. Doubling the scale while leaving the CARDS on the old one moved every
+   * source of Heat onto the stance clock: IAI cooked 4 a turn, so you crossed
+   * the line on turn three whatever you played, and the cards' own 2s and 3s
+   * barely moved a 20-point bar. That is pressure applied TO the player rather
+   * than pressure the player chose, and it reads as the stance being broken.
+   *
+   * So the clock is small and the cards are hot. IAI charges 2 a turn for
+   * standing there; the swing that actually cooks you is the one you play. Heat
+   * is meant to be the bill for greed, and a bill you cannot decline is a tax.
    */
   max: 20,
   /** Strictly above this at the end of your turn. 10 is safe; 11 is not. */
@@ -106,9 +117,9 @@ export const STANCES: { readonly [K in StanceId]: StanceRules } = {
   iai: {
     id: 'iai',
     name: 'IAI',
-    text: 'Attacks spend Focus · +4 Heat at turn end',
+    text: 'Attacks spend Focus · +2 Heat at turn end',
     firstAttackBonus: 0,
-    heatAtTurnEnd: 4,
+    heatAtTurnEnd: 2,
     ventAtTurnEnd: 0,
     blockRetained: 0,
     extraDraw: 0,
@@ -119,10 +130,10 @@ export const STANCES: { readonly [K in StanceId]: StanceRules } = {
   guard: {
     id: 'guard',
     name: 'GUARD',
-    text: 'Focus is banked, not spent · Vent 2 Heat at turn end · Retain 3 Block',
+    text: 'Focus is banked, not spent · Vent 1 Heat at turn end · Retain 3 Block',
     firstAttackBonus: 0,
     heatAtTurnEnd: 0,
-    ventAtTurnEnd: 2,
+    ventAtTurnEnd: 1,
     blockRetained: 3,
     extraDraw: 0,
     attackPenalty: 0,
@@ -544,7 +555,7 @@ export const DEPTH_RULES: readonly DepthRule[] = [
   { depth: 1, text: 'Elites are harder.' },
   { depth: 2, text: 'Shops cost more.' },
   { depth: 3, text: 'Fewer Safe Planets.' },
-  { depth: 4, text: 'Overheat threshold drops to 7.' },
+  { depth: 4, text: 'Overheat threshold drops to 8.' },
   { depth: 5, text: 'Bosses gain a second phase.' },
   { depth: 6, text: null },
   { depth: 7, text: null },

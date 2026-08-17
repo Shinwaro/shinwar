@@ -38,7 +38,7 @@ export const FOCUS_CARDS: readonly CardDef[] = [
       { op: 'block', amount: 7 },
       { op: 'gainFocus', amount: 1 },
     ],
-    stanceRider: { stance: 'guard', effects: [{ op: 'ventHeat', amount: 1 }] },
+    stanceRider: { stance: 'guard', effects: [{ op: 'ventHeat', amount: 2 }] },
     upgrade: {
       name: 'Held Breath+',
       effects: [
@@ -135,7 +135,7 @@ export const FOCUS_CARDS: readonly CardDef[] = [
     cost: 1,
     effects: [
       { op: 'block', amount: 5 },
-      { op: 'ventHeat', amount: 2 },
+      { op: 'ventHeat', amount: 3 },
       { op: 'gainFocus', amount: 1 },
     ],
     stanceRider: {
@@ -146,7 +146,7 @@ export const FOCUS_CARDS: readonly CardDef[] = [
       name: 'Stillwater Guard+',
       effects: [
         { op: 'block', amount: 8 },
-        { op: 'ventHeat', amount: 3 },
+        { op: 'ventHeat', amount: 5 },
         { op: 'gainFocus', amount: 1 },
       ],
     },

@@ -33,9 +33,9 @@ export const TEMPO_CARDS: readonly CardDef[] = [
     effects: [
       {
         op: 'conditional',
-        when: { kind: 'heatAtLeast', value: 5 },
+        when: { kind: 'heatAtLeast', value: 8 },
         then: [{ op: 'gainEnergy', amount: 1 }],
-        else: [{ op: 'gainHeat', amount: 2 }],
+        else: [{ op: 'gainHeat', amount: 3 }],
       },
     ],
     upgrade: {
@@ -43,9 +43,9 @@ export const TEMPO_CARDS: readonly CardDef[] = [
       effects: [
         {
           op: 'conditional',
-          when: { kind: 'heatAtLeast', value: 4 },
+          when: { kind: 'heatAtLeast', value: 7 },
           then: [{ op: 'gainEnergy', amount: 2 }],
-          else: [{ op: 'gainHeat', amount: 2 }],
+          else: [{ op: 'gainHeat', amount: 3 }],
         },
       ],
     },
@@ -61,14 +61,14 @@ export const TEMPO_CARDS: readonly CardDef[] = [
     cost: 0,
     effects: [
       { op: 'gainEnergy', amount: 2 },
-      { op: 'gainHeat', amount: 3 },
+      { op: 'gainHeat', amount: 5 },
       { op: 'draw', amount: 1 },
     ],
     upgrade: {
       name: 'Runaway Intake+',
       effects: [
         { op: 'gainEnergy', amount: 3 },
-        { op: 'gainHeat', amount: 3 },
+        { op: 'gainHeat', amount: 5 },
         { op: 'draw', amount: 1 },
       ],
     },
@@ -191,11 +191,11 @@ export const TEMPO_CARDS: readonly CardDef[] = [
       {
         op: 'scaleWith',
         source: 'currentHeat',
-        per: 1,
+        per: 2,
         then: [{ op: 'damage', amount: 3, target: 'enemy' }],
       },
       { op: 'applyStatus', status: VULNERABLE, stacks: 1, target: 'enemy' },
-      { op: 'ventHeat', amount: 5 },
+      { op: 'ventHeat', amount: 8 },
     ],
     upgrade: {
       name: 'Flashpoint+',
@@ -204,11 +204,11 @@ export const TEMPO_CARDS: readonly CardDef[] = [
         {
           op: 'scaleWith',
           source: 'currentHeat',
-          per: 1,
+          per: 2,
           then: [{ op: 'damage', amount: 4, target: 'enemy' }],
         },
         { op: 'applyStatus', status: VULNERABLE, stacks: 2, target: 'enemy' },
-        { op: 'ventHeat', amount: 5 },
+        { op: 'ventHeat', amount: 8 },
       ],
     },
     flavor: 'Spend the whole reactor through the edge and start again cold.',

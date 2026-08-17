@@ -45,13 +45,13 @@ export const GUARD_CARDS: readonly CardDef[] = [
     cost: 2,
     effects: [
       { op: 'block', amount: 12 },
-      { op: 'ventHeat', amount: 2 },
+      { op: 'ventHeat', amount: 3 },
     ],
     upgrade: {
       name: 'Iron Wake+',
       effects: [
         { op: 'block', amount: 16 },
-        { op: 'ventHeat', amount: 3 },
+        { op: 'ventHeat', amount: 5 },
       ],
     },
     flavor: 'Drift, and let the hull do the arguing.',
