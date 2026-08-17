@@ -3,8 +3,7 @@
 A space-themed roguelike deckbuilder at [shinwar.se](https://shinwar.se).
 
 You are a ronin of a dead orbital sect, flying a salvaged cutter through a collapsing star
-frontier. Card combat with a stance layer, a branching star map, and two progression paths — the
-pilot and the ship.
+frontier. Card combat with a stance layer, a branching star map, and a deck you build as you go.
 
 **Nothing is saved.** No accounts, no scores, no local storage. A run is about an hour and it is
 meant to be a single sitting. The seed is visible and copyable everywhere, which is the only thing
@@ -44,7 +43,8 @@ technical contract and milestone order. `NOTES.md` records decisions taken along
 
 Read `NOTES.md` first — every decision that is not obvious from the code is in there, newest
 milestone last, including the design rulings from playtesting and the balance problems parked for
-M6. `SHIP.md` holds the ship-combat design and the two questions still open at the bottom of it.
+M6. The ship-combat subsystem was cut in playtest pass 9; `SHIP.md` and the code are in git history
+if it ever comes back.
 
 ## Status
 
@@ -57,16 +57,17 @@ Before it: **M1** put a fight underneath — stance and heat, the damage pipelin
 cannot disagree with the result, telegraphed intents, and three Act 1 enemies. **M0** laid the
 ground — seeded RNG with named streams, the hook bus, the pure reducer, and the content registry.
 
-**M3 is in too — both kinds of combat now exist.** Space nodes open the ship grid instead of the
-deckbuilder: modules are rectangles you pack, adjacency pays a bonus for touching, the turn
-autoresolves, and you spend one verb plus one aiming decision. Losing a ship fight crashes you rather
-than killing you. Plus the loadout screen, elite module drops, and the animation pass.
+**M3 built the ship — and playtest pass 9 cut it.** Space nodes, the module grid, the packing
+puzzle, the crash, the loadout screen and grid-versus-grid ship combat all existed and all came out:
+it was a second ruleset you met four times in an hour-long run, and three reworks each made it a
+better version of a thing that should not have been separate. What survives from M3 is the animation
+pass. There is one combat system now, and it is the deck.
 
 **M4 gave the run a memory.** Ten Anomalies, each three real options plus a "leave" that is
 validated to be worthless; six Threads that come due four or five nodes later and can hand you an
 ally, a bill, or a Vareth reprisal that takes the node it lands on; a Manifest that is always on
-screen; and a Station that finally sells cards, modules and a card removal out of the same Alloy
-pool. Events are data — a new one is one file edit, and its rules text is generated from its effects.
+screen; and a Station that finally sells cards, a Stance Mastery and a card removal out of the same
+Alloy pool. Events are data — a new one is one file edit, and its rules text is generated from its effects.
 
 **M5 is the whole run.** Three acts with their own rosters and three bosses; all eight environments,
 shown on the node before you commit to the route and changing the rules of that fight for both
@@ -76,11 +77,9 @@ from Act 2, which prices every detour to the shop at a row of your lead.
 
 **Next**, in order:
 
-1. **M6's simulator** is where the balance problems in `NOTES.md` get settled — Focus is overtuned,
-   Heat never threatens anything, ship fights end in about three turns, and none of M4's prices or
-   M5's two new acts have been measured. Tuning any of that by hand before the bot exists is
-   guessing.
+1. **M6's simulator** is where the balance problems in `NOTES.md` get settled — Focus is
+   overtuned, Heat still does not threaten a GUARD deck, and none of M4's prices or M5's two new
+   acts have been measured. Tuning any of that by hand before the bot exists is guessing. It is
+   also where the question of whether Energy earns its place gets answered with data.
 2. **M7** — feel: animation timings, hit feedback, screen shake, the epilogue generator, the full
    Depth ladder, the combat-stage background.
-
-Two open design questions sit at the bottom of [SHIP.md](SHIP.md).

@@ -27,11 +27,10 @@ export const THREAD_DEFS: readonly ThreadDef[] = [
   {
     id: 'the_clutch',
     name: 'The Clutch',
-    description: 'You are carrying the last viable egg of a dying species. It takes a cell on the grid.',
+    description: 'You are carrying the last viable egg of a dying species.',
     tone: 'mixed',
     omen: 'It is warm, and it is counting down to something.',
     trigger: { kind: 'nodes', count: 5 },
-    cargoModuleId: 'clutch_egg',
     payoff: [
       { op: 'card', cardId: 'vareth_hatchling' },
       { op: 'health', amount: 15 },
@@ -45,8 +44,8 @@ export const THREAD_DEFS: readonly ThreadDef[] = [
     omen: 'It will fail somewhere. What it takes with it is the question.',
     trigger: { kind: 'nodes', count: 4 },
     payoff: [
-      { op: 'hull', amount: -14 },
-      { op: 'module', moduleId: 'coolant_lattice' },
+      { op: 'health', amount: -7 },
+      { op: 'alloy', amount: 140 },
     ],
   },
 
@@ -78,7 +77,7 @@ export const THREAD_DEFS: readonly ThreadDef[] = [
   {
     id: 'marked',
     name: 'Marked',
-    description: 'The Vareth know your hull. They are slower than you and they do not stop.',
+    description: 'The Vareth know your ship. They are slower than you and they do not stop.',
     tone: 'costly',
     omen: 'Something is following your heading.',
     trigger: { kind: 'nodes', count: 4 },

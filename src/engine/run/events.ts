@@ -30,9 +30,9 @@ export function optionsFor(run: RunState, def: EventDef): readonly EventOption[]
  * Why this option cannot be taken, or `null` if it can.
  *
  * An event never kills you, so costs floor at 1 — which quietly turned a big
- * price into a free one the moment you were low enough. "Lose 12 hull" with 2
- * hull left cost two points and read as a bargain. Refusing the option keeps
- * both halves honest: the floor still holds, and the price is still a price.
+ * price into a free one the moment you were low enough. "Lose 12 health" with 2
+ * left cost two points and read as a bargain. Refusing the option keeps both
+ * halves honest: the floor still holds, and the price is still a price.
  */
 export function refusalFor(run: RunState, option: EventOption): string | null {
   for (const effect of option.effects) {
@@ -41,9 +41,6 @@ export function refusalFor(run: RunState, option: EventOption): string | null {
     }
     if (effect.op === 'health' && effect.amount < 0 && run.pilot.health <= -effect.amount) {
       return `This asks ${-effect.amount} health. You have ${run.pilot.health}.`;
-    }
-    if (effect.op === 'hull' && effect.amount < 0 && run.ship.hull <= -effect.amount) {
-      return `This asks ${-effect.amount} hull. The cutter has ${run.ship.hull}.`;
     }
     if (effect.op === 'maxHealth' && effect.amount < 0 && run.pilot.maxHealth <= -effect.amount) {
       return 'There is not enough of you left to give.';

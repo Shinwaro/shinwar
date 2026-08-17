@@ -1063,3 +1063,74 @@ turns to finish an Act 1 fight, which is not a slow win, it is a spectator sport
 Reactive Plating and Mirror Facet each carry a point or two of damage now.
 
 **`subsystemBroken` is gone**, and with it the last of the old aiming model.
+
+## Playtest pass 9 — the gauge goes back, and the ship comes out
+
+Two decisions from one session, and they are connected: both are about a system
+that grew past what it was earning.
+
+### Heat: move the line, not the scale
+
+The gauge went to 20 because Robin asked to "only overheat past 10", and 11 is
+unreachable on a ten-point bar. Granting that by doubling the scale was the
+mistake. The stance clock doubled with it — IAI 2 -> 4 a turn, GUARD's vent
+1 -> 2 — but the **cards did not**. They still gained 2 and 3, and their payoffs
+still tested `heatAtLeast` 4, 5, 6 and 8, every one of those written against a
+0-10 bar.
+
+So every source of Heat collapsed onto the stance clock. IAI at 4 a turn crossed
+the line on turn three whatever you played, and the bill was a zeroed turn plus
+~10 health plus a burned card. Robin's report was that overheating went from
+"never happens" to "impossible", and both halves of that are correct: it was
+unavoidable in IAI and unreachable in GUARD, and in neither case was it a
+decision.
+
+Rescaling the cards to match was tried first and reverted at Robin's call. The
+gauge is 0-10 again, tripping at 8, with IAI at 2 and GUARD venting 1 — the
+numbers from before the change. **The lesson is the general one:** when a
+threshold is in the wrong place, move the threshold. Moving the scale underneath
+it silently re-points every number that was calibrated against it, and the ones
+that break loudest are not the ones that break worst.
+
+Two runaways the doubling had created quietly, worth recording because neither
+would have shown up as an error: **Flashpoint** scaled +3 damage *per point* of
+Heat, so on a 20-point bar it was a sixty-damage one-cost, and **Reactor Lance**
+the same at a smaller ratio. Anything reading a resource as an unbounded input
+has to be re-derived when that resource's ceiling moves.
+
+### The ship: one combat system
+
+Cut entirely. Space nodes, the module grid, shapes and rotation, adjacency
+synergies, the loadout, the crash, salvage, ship hull, and the grid-versus-grid
+fight from pass 8 — all of it.
+
+It was not bad. Pass 8's version simulated cleanly: every real build cleared
+Acts 1-2, three of four cleared Act 3, and a grid nobody built lost from Act 2,
+which is exactly the shape a build system should have. The problem was never the
+tuning. **It was a second ruleset inside a 45-70 minute run, met about four
+times.** Three reworks each produced a better version of a thing that should not
+have been separate, and that pattern — each pass improving something that keeps
+coming back unsatisfying — is the signal that the frame is wrong rather than the
+numbers.
+
+What the deletion bought, concretely:
+
+- **One health pool.** The cutter's 145 hull and the ronin's 70 were two
+  attrition tracks with two repair economies competing for one Alloy pool. Every
+  heal, rest and repair now points at one number.
+- **`arena` is gone.** A `space` node and a `surface` node played identically the
+  moment the ship fight left, so the distinction was a label with no mechanics
+  under it. `NodeType` lost `crash` and `wreck` with it — both were unreachable
+  already, expressed as "space nodes refuse you" rather than as injected nodes.
+- **Elites and Anomalies pay in Alloy and cards** where they used to pay in
+  modules. Event options that cost hull cost health at half the number, since the
+  cutter had roughly double the pool.
+- **The Station sells three things** instead of five.
+
+Two things worth knowing if it ever comes back. `activeHookSources` gated hook
+firing on installed modules, so the hook-ordering tests used the grid purely to
+make handlers live — they now ride as unresolved Threads, and the test says so.
+And the reward screen already had "pick one of N modules" in it, which is why
+salvage folded into it without ceremony rather than needing its own screen.
+
+`SHIP.md` and every deleted file are in git history at `4837c1f`.

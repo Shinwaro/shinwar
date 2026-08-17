@@ -80,10 +80,6 @@ export function describeNode(node: MapNode): string {
       return 'Safe Planet';
     case 'unknown':
       return 'Unknown';
-    case 'crash':
-      return 'Crash Site';
-    case 'wreck':
-      return 'Wreck';
     default: {
       const unreachable: never = node.type;
       return unreachable;

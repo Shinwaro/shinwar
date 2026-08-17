@@ -7,9 +7,8 @@
 import type { CombatState, GameState, LogEntry, RunState, TitleState } from './types.ts';
 import { createRng } from './rng.ts';
 import { buildDeck } from './combat/instances.ts';
-import { PLAYER, SHIP } from '../content/balance.ts';
+import { PLAYER } from '../content/balance.ts';
 import { STARTING_DECK } from '../content/cards/index.ts';
-import { STARTING_PLACEMENT, STARTING_STORAGE, STARTING_WEAPON } from '../content/modules/index.ts';
 
 /** Bumped when the shape of `GameState` changes, so a pasted dump identifies itself. */
 export const SCHEMA_VERSION = 1;
@@ -42,10 +41,6 @@ export function createInitialState(seed: string, depth = 0): GameState {
 /**
  * A fresh run. Everything derives from the seed and the depth — hand these two
  * numbers to this function anywhere and you get the identical run.
- *
- * The deck and the ship's default modules are empty here at M0 because no
- * content exists to reference yet; the starting deck lands with the cards at
- * M1 and the default modules with the ship at M3.
  */
 export function createRunState(seed: string, depth: number): RunState {
   const built = buildDeck(0, STARTING_DECK);
@@ -67,30 +62,18 @@ export function createRunState(seed: string, depth: number): RunState {
       masteries: [],
       relics: [],
     },
-    ship: {
-      hull: SHIP.startingHull,
-      maxHull: SHIP.startingHull,
-      gridW: SHIP.gridW,
-      gridH: SHIP.gridH,
-      placed: [STARTING_PLACEMENT],
-      weaponId: STARTING_WEAPON,
-      stored: [...STARTING_STORAGE],
-    },
     threads: [],
     pendingEvent: null,
     seenEvents: [],
     shop: null,
-    pendingSalvage: null,
     forcedTier: null,
     // Act 1 has no front. `openMap` sets it when the act that does begins.
     wavefront: null,
     combat: null,
-    shipCombat: null,
     outcome: null,
     uidCounter: built.uidCounter,
     rewardDrought: 0,
     removalsPurchased: 0,
-    crash: null,
   };
 }
 

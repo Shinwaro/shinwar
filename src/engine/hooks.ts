@@ -157,9 +157,9 @@ function collectStatusIds(statuses: readonly { readonly status: StatusId }[]): s
 }
 
 /**
- * Every source id whose handlers are live for this state: installed modules,
- * the current environment, earned masteries, unresolved threads, and every
- * status in play on either side.
+ * Every source id whose handlers are live for this state: the current
+ * environment, earned masteries, unresolved threads, and every status in play
+ * on either side.
  */
 export function activeHookSources(state: GameState): readonly string[] {
   const run = state.run;
@@ -167,7 +167,6 @@ export function activeHookSources(state: GameState): readonly string[] {
 
   const sources: string[] = [];
 
-  for (const placed of run.ship.placed) sources.push(placed.moduleId);
   for (const masteryId of run.pilot.masteries) sources.push(masteryId);
   for (const thread of run.threads) {
     if (!thread.resolved) sources.push(thread.threadId);

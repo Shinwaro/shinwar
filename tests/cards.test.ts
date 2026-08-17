@@ -57,7 +57,7 @@ describe('generated rules text', () => {
     expect(describeCard(def(IAI_SLASH))).toBe('Deal 6 damage.');
     expect(describeCard(def(SOLAR_PARRY))).toBe('Gain 6 Block.');
     expect(describeCard(def(VECTOR_STEP))).toBe('Change stance. Draw 1 card.');
-    expect(describeCard(def(SEVER))).toBe('Deal 14 damage. Gain 4 Heat.');
+    expect(describeCard(def(SEVER))).toBe('Deal 14 damage. Gain 3 Heat.');
   });
 
   it('derives the rider separately, so the UI can grey it', () => {

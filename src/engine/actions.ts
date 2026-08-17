@@ -24,38 +24,6 @@ export type Action =
   /** Resolve one enemy. The UI dispatches these on a timer so the enemy turn
       can be watched rather than arriving in a single frame. */
   | { readonly kind: 'advanceEnemies' }
-  /* -- ship combat: one lever a turn, then the turn resolves -- */
-  | { readonly kind: 'intervene'; readonly verb: import('./types.ts').InterventionId }
-  | { readonly kind: 'resolveShipTurn' }
-  /**
-   * Mark a cell on the enemy grid to strike. Free, one a turn, changeable until
-   * the turn resolves. `null` clears it.
-   */
-  | { readonly kind: 'markStrike'; readonly cell: import('./types.ts').Cell | null }
-  | {
-      readonly kind: 'moveModule';
-      readonly moduleId: string;
-      readonly x: number;
-      readonly y: number;
-      readonly rot?: import('./types.ts').Rotation;
-    }
-  | {
-      readonly kind: 'placeModule';
-      readonly moduleId: string;
-      readonly x: number;
-      readonly y: number;
-      readonly rot?: import('./types.ts').Rotation;
-    }
-  | { readonly kind: 'unplaceModule'; readonly moduleId: string }
-  /** Turn a module where it stands. Refused if the new orientation will not fit. */
-  | { readonly kind: 'rotateModule'; readonly moduleId: string }
-  | { readonly kind: 'openLoadout' }
-  /* -- salvage: three parts off the wreck, take one -- */
-  | { readonly kind: 'takeSalvage'; readonly moduleId: string }
-  | { readonly kind: 'leaveSalvage' }
-  | { readonly kind: 'backToSalvage' }
-  | { readonly kind: 'repairDrive' }
-  | { readonly kind: 'takeRewardModule'; readonly moduleId: string }
   /* -- the map -- */
   | { readonly kind: 'moveToNode'; readonly nodeId: string }
   /* -- rewards -- */
@@ -74,12 +42,9 @@ export type Action =
   | { readonly kind: 'leaveEvent' }
   /* -- station -- */
   | { readonly kind: 'stationRepair'; readonly amount: number }
-  | { readonly kind: 'repairShip'; readonly amount: number }
   | { readonly kind: 'buyShopCard'; readonly cardId: string }
-  | { readonly kind: 'buyShopModule'; readonly moduleId: string }
   | { readonly kind: 'buyRemoval'; readonly cardUid: string }
   | { readonly kind: 'buyMastery'; readonly masteryId: string }
-  | { readonly kind: 'buyGrid' }
   | { readonly kind: 'leaveNode' }
   /* -- run -- */
   | { readonly kind: 'abandonRun' }

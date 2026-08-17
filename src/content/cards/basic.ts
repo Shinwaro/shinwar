@@ -105,17 +105,17 @@ export const BASIC_CARDS: readonly CardDef[] = [
     cost: 2,
     effects: [
       { op: 'damage', amount: 14, target: 'enemy' },
-      { op: 'gainHeat', amount: 4 },
+      { op: 'gainHeat', amount: 3 },
     ],
     stanceRider: {
       stance: 'guard',
-      effects: [{ op: 'ventHeat', amount: 3 }],
+      effects: [{ op: 'ventHeat', amount: 2 }],
     },
     upgrade: {
       name: 'Sever+',
       effects: [
         { op: 'damage', amount: 18, target: 'enemy' },
-        { op: 'gainHeat', amount: 4 },
+        { op: 'gainHeat', amount: 3 },
       ],
     },
     flavor: 'Everything the reactor has, spent in one line. It has to go somewhere.',

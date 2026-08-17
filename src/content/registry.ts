@@ -18,13 +18,10 @@ import type {
   EnvironmentDef,
   EventDef,
   MasteryDef,
-  ModuleDef,
   RelicDef,
   RunEffect,
-  ShipEnemyDef,
   StatusDef,
   ThreadDef,
-  WeaponDef,
 } from '../engine/types.ts';
 import { isRegistered } from '../engine/hooks.ts';
 import { ACTIVE_STANCES, SCOPE, THREADS } from './balance.ts';
@@ -75,19 +72,16 @@ function createTable<T extends { readonly id: string }>(label: string): Table<T>
 
 export const cards = createTable<CardDef>('card');
 export const enemies = createTable<EnemyDef>('enemy');
-export const modules = createTable<ModuleDef>('module');
 export const events = createTable<EventDef>('event');
 export const environments = createTable<EnvironmentDef>('environment');
 export const masteries = createTable<MasteryDef>('mastery');
 export const relics = createTable<RelicDef>('relic');
 export const threads = createTable<ThreadDef>('thread');
 export const statuses = createTable<StatusDef>('status');
-export const weapons = createTable<WeaponDef>('weapon');
-export const shipEnemies = createTable<ShipEnemyDef>('ship enemy');
 
 /** Tests only. The game registers once at import and never clears. */
 export function clearAllContent(): void {
-  for (const table of [cards, enemies, modules, events, environments, masteries, relics, threads, statuses, weapons, shipEnemies]) {
+  for (const table of [cards, enemies, events, environments, masteries, relics, threads, statuses]) {
     table.clear();
   }
 }
@@ -130,9 +124,6 @@ function walkRunEffects(where: string, effects: readonly RunEffect[], issues: Va
   for (const effect of effects) {
     if (effect.op === 'card' && !cards.has(effect.cardId)) {
       issues.push({ where, problem: `references unknown card '${effect.cardId}'` });
-    }
-    if (effect.op === 'module' && !modules.has(effect.moduleId)) {
-      issues.push({ where, problem: `references unknown module '${effect.moduleId}'` });
     }
     if ((effect.op === 'setThread' || effect.op === 'resolveThread') && !threads.has(effect.threadId)) {
       issues.push({ where, problem: `references unknown thread '${effect.threadId}'` });
@@ -215,9 +206,6 @@ function validateThreads(issues: ValidationIssue[]): void {
     }
     if (thread.payoff.length === 0) {
       issues.push({ where, problem: 'no payoff — a Thread that resolves into nothing is a lie' });
-    }
-    if (thread.cargoModuleId !== undefined && !modules.has(thread.cargoModuleId)) {
-      issues.push({ where, problem: `cargo names unknown module '${thread.cargoModuleId}'` });
     }
     walkRunEffects(where, thread.payoff, issues);
   }
@@ -468,14 +456,11 @@ export function contentCounts(): Readonly<Record<string, number>> {
   return {
     cards: cards.all().length,
     enemies: enemies.all().length,
-    modules: modules.all().length,
     events: events.all().length,
     environments: environments.all().length,
     masteries: masteries.all().length,
     relics: relics.all().length,
     threads: threads.all().length,
     statuses: statuses.all().length,
-    weapons: weapons.all().length,
-    shipEnemies: shipEnemies.all().length,
   };
 }

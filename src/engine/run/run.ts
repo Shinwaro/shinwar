@@ -8,34 +8,20 @@
 import type { CardId, GameState, MapNode, RunState, WavefrontState } from '../types.ts';
 import { appendLog, requireRun, withRun } from '../state.ts';
 import { fireHook } from '../hooks.ts';
-import { nextIntInclusive, pick, weightedPick } from '../rng.ts';
+import { nextIntInclusive, weightedPick } from '../rng.ts';
 import { generateMap } from '../map/mapgen.ts';
 import { canMoveTo, nodeById } from '../map/route.ts';
 import { startCombat } from '../combat/combat.ts';
-import { startShipCombat } from '../ship/combat.ts';
 import { mintCard } from '../combat/instances.ts';
 import { gainAlloy, removalCost, rollAlloy, spendAlloy } from './economy.ts';
-import { offerMatchesLean, rollModules, rollReward } from './rewards.ts';
+import { offerMatchesLean, rollReward } from './rewards.ts';
 import { applyRunEffects } from './effects.ts';
 import { clearEvent, openEvent } from './events.ts';
 import { advanceThreads, dueThreads, resolveThread } from './threads.ts';
 import { stockShop } from './shop.ts';
-import {
-  DERELICT_MODULE_CHANCE,
-  ECONOMY,
-  PLAYER,
-  SALVAGE,
-  TREASURE_ALLOY,
-  UNKNOWN_WEIGHTS,
-  WAVEFRONT,
-} from '../../content/balance.ts';
+import { ECONOMY, PLAYER, TREASURE_ALLOY, UNKNOWN_WEIGHTS, WAVEFRONT } from '../../content/balance.ts';
 import { CLEAR_SPACE_ID } from '../../content/environments.ts';
-import {
-  cards as cardTable,
-  modules as moduleTable,
-  relics as relicTable,
-  shipEnemies,
-} from '../../content/registry.ts';
+import { cards as cardTable, relics as relicTable } from '../../content/registry.ts';
 
 /* ---------- opening the run ---------- */
 
@@ -98,16 +84,6 @@ export function enterNode(state: GameState, nodeId: string): GameState {
   const node = map === null ? undefined : nodeById(map, nodeId);
   if (node === undefined) return state;
 
-  // The drive is dead. You are not flying anywhere until it is paid for.
-  if (run.crash !== null && node.arena === 'space') {
-    return appendLog(state, {
-      source: 'crash',
-      kind: 'run',
-      text: 'The drive is dead. Repair it before taking anything in open space.',
-      detail: null,
-    });
-  }
-
   let next = withRun(state, (current) => ({
     ...current,
     position: nodeId,
@@ -127,12 +103,8 @@ export function enterNode(state: GameState, nodeId: string): GameState {
 
   // A Thread that came due with a reprisal takes the node. You never find out
   // what was here, which is exactly what an ambush is.
-  //
-  // Always on foot, whatever the node was. A reprisal is people coming aboard,
-  // and — less romantically — only the surface path pays a reward, so a
-  // reprisal in space would bank a tier that nothing ever spends.
   if (requireRun(next).forcedTier !== null) {
-    return openCombat(next, { ...node, type: 'combat', arena: 'surface' });
+    return openCombat(next, { ...node, type: 'combat' });
   }
 
   return resolveNode(next, node);
@@ -213,12 +185,6 @@ function resolveNode(state: GameState, node: MapNode): GameState {
     case 'event':
       return openEvent(state);
 
-    // The crash pocket is expressed as "space nodes refuse you" rather than by
-    // injecting nodes, so these two never generate. See SHIP.md.
-    case 'crash':
-    case 'wreck':
-      return withRun(state, (run) => ({ ...run, screen: 'map' }));
-
     default: {
       const unreachable: never = node.type;
       return unreachable;
@@ -242,37 +208,6 @@ function resolveUnknown(state: GameState, node: MapNode): GameState {
   if (rolled.value === 'event') return openEvent(spun);
 
   if (rolled.value === 'treasure') {
-    /*
-     * A derelict is where the early ship supply comes from.
-     *
-     * The grid starts nearly bare and Elites are the only other module source,
-     * so without this the first space fight of a run is fought with one reactor
-     * and nothing else. A `?` is exactly the right place for it: it is already
-     * the node that might be anything, and finding a part in a hulk needs no
-     * explaining.
-     */
-    const wreck = nextIntInclusive(requireRun(spun).rng, 'rewards', 0, 99);
-    if (wreck.value < DERELICT_MODULE_CHANCE * 100) {
-      const found = rollModules(wreck.rng, requireRun(spun), 1);
-      const module = found.moduleIds[0];
-      const spunAgain = withRun(spun, (current) => ({ ...current, rng: found.rng }));
-      if (module !== undefined) {
-        return appendLog(
-          withRun(spunAgain, (current) => ({
-            ...current,
-            screen: 'map',
-            ship: { ...current.ship, stored: [...current.ship.stored, module] },
-          })),
-          {
-            source: 'derelict',
-            kind: 'reward',
-            text: `A derelict, stripped but for the ${moduleTable.get(module).name}.`,
-            detail: { module },
-          },
-        );
-      }
-    }
-
     const amount = nextIntInclusive(
       requireRun(spun).rng,
       'rewards',
@@ -297,8 +232,6 @@ function resolveUnknown(state: GameState, node: MapNode): GameState {
 }
 
 function openCombat(state: GameState, node: MapNode): GameState {
-  if (node.arena === 'space') return openShipCombat(state, node);
-
   const run = requireRun(state);
   const encounterId = node.encounterId ?? fallbackEncounter(run);
   if (encounterId === null) {
@@ -307,96 +240,6 @@ function openCombat(state: GameState, node: MapNode): GameState {
   }
   const staged = withRun(state, (current) => ({ ...current, screen: 'combat' }));
   return startCombat(staged, encounterId, node.environmentId ?? CLEAR_SPACE_ID);
-}
-
-/** Pick an enemy ship on the map stream and hand over to the grid. */
-function openShipCombat(state: GameState, node: MapNode): GameState {
-  const run = requireRun(state);
-  // Falls back down the acts rather than returning to the map. Act 2 and 3 had
-  // no ship roster at all, so every space node in them silently did nothing —
-  // the player walked onto it, nothing happened, and the node was spent.
-  const exact = shipEnemies.all().filter((entry) => entry.act === run.act);
-  const pool = exact.length > 0 ? exact : shipEnemies.all();
-  if (pool.length === 0) return withRun(state, (current) => ({ ...current, screen: 'map' }));
-  const rolled = pick(run.rng, 'map', pool);
-  const spun = withRun(state, (current) => ({ ...current, rng: rolled.rng }));
-  void node;
-  return startShipCombat(spun, rolled.value.id);
-}
-
-/**
- * Open the wreck. Three parts, take one.
- *
- * After the fight rather than before it. A module handed out on the approach to
- * every space battle arrived on a schedule, and a reward on a schedule is not a
- * reward — it also meant the grid filled without the player choosing what went
- * on it. Here it is a decision about the run, made knowing what the fight cost.
- */
-export function openSalvage(state: GameState, enemyId: string): GameState {
-  const run = requireRun(state);
-  const rolled = rollModules(run.rng, run, SALVAGE.choices);
-  const spun = withRun(state, (current) => ({ ...current, rng: rolled.rng }));
-  if (rolled.moduleIds.length === 0) {
-    return withRun(spun, (current) => ({ ...current, screen: 'map' }));
-  }
-
-  return appendLog(
-    withRun(spun, (current) => ({
-      ...current,
-      screen: 'salvage',
-      pendingSalvage: { moduleIds: rolled.moduleIds, taken: null, enemyId },
-    })),
-    {
-      source: 'salvage',
-      kind: 'reward',
-      text: 'The wreck is still warm. Take what you can carry.',
-      detail: { enemy: enemyId },
-    },
-  );
-}
-
-/** Pick a part off the wreck, or change your mind. Nothing is spent until you leave. */
-export function takeSalvage(state: GameState, moduleId: string): GameState {
-  const run = requireRun(state);
-  const salvage = run.pendingSalvage;
-  if (salvage === null || !salvage.moduleIds.includes(moduleId)) return state;
-  const already = salvage.taken === moduleId;
-  return withRun(state, (current) => ({
-    ...current,
-    pendingSalvage:
-      current.pendingSalvage === null
-        ? null
-        : { ...current.pendingSalvage, taken: already ? null : moduleId },
-  }));
-}
-
-/** Leave the wreck. Whatever was taken goes into storage. */
-export function leaveSalvage(state: GameState): GameState {
-  const run = requireRun(state);
-  const salvage = run.pendingSalvage;
-  if (salvage === null) return state;
-
-  const cleared = withRun(state, (current) => ({
-    ...current,
-    pendingSalvage: null,
-    screen: 'map',
-  }));
-
-  const taken = salvage.taken;
-  if (taken === null) return cleared;
-
-  return appendLog(
-    withRun(cleared, (current) => ({
-      ...current,
-      ship: { ...current.ship, stored: [...current.ship.stored, taken] },
-    })),
-    {
-      source: 'salvage',
-      kind: 'reward',
-      text: `Cut ${moduleTable.get(taken).name} out of the wreck.`,
-      detail: { module: taken },
-    },
-  );
 }
 
 function fallbackEncounter(run: RunState): string | null {
@@ -419,7 +262,7 @@ export function leaveEvent(state: GameState): GameState {
 
   const node = after.position === null || after.map === null ? undefined : nodeById(after.map, after.position);
   if (node === undefined) return withRun(cleared, (current) => ({ ...current, forcedTier: null }));
-  return openCombat(cleared, { ...node, type: 'combat', arena: 'surface' });
+  return openCombat(cleared, { ...node, type: 'combat' });
 }
 
 /* ---------- finishing a fight ---------- */
@@ -493,22 +336,6 @@ export function takeRewardCard(state: GameState, cardId: CardId): GameState {
   }));
 }
 
-/** Take the elite's module. Changeable until you leave, like the card. */
-export function takeRewardModule(state: GameState, moduleId: string): GameState {
-  const run = requireRun(state);
-  const offer = run.pendingReward;
-  if (offer === null || !offer.moduleIds.includes(moduleId)) return state;
-
-  const already = offer.takenModules.includes(moduleId);
-  return withRun(state, (current) => ({
-    ...current,
-    pendingReward:
-      current.pendingReward === null
-        ? null
-        : { ...current.pendingReward, takenModules: already ? [] : [moduleId] },
-  }));
-}
-
 export function claimRewardAlloy(state: GameState): GameState {
   const run = requireRun(state);
   const offer = run.pendingReward;
@@ -531,23 +358,12 @@ export function leaveReward(state: GameState): GameState {
 
   const chosen = offer.taken[0];
   const def = chosen === undefined ? undefined : cardTable.find(chosen);
-  const takenModules = offer.takenModules;
 
   if (chosen === undefined || def === undefined) {
     return grantRelic(
       appendLog(
-        withRun(state, (current) => ({
-          ...current,
-          ship: { ...current.ship, stored: [...current.ship.stored, ...takenModules] },
-          pendingReward: null,
-          screen: 'map',
-        })),
-        {
-          source: 'reward',
-          kind: 'reward',
-          text: takenModules.length === 0 ? 'Took nothing.' : 'Took the module and nothing else.',
-          detail: null,
-        },
+        withRun(state, (current) => ({ ...current, pendingReward: null, screen: 'map' })),
+        { source: 'reward', kind: 'reward', text: 'Took nothing.', detail: null },
       ),
       offer.takenRelic,
     );
@@ -558,7 +374,6 @@ export function leaveReward(state: GameState): GameState {
     ...current,
     uidCounter: minted.uidCounter,
     pilot: { ...current.pilot, deck: [...current.pilot.deck, minted.value] },
-    ship: { ...current.ship, stored: [...current.ship.stored, ...takenModules] },
     pendingReward: null,
     screen: 'map',
   }));

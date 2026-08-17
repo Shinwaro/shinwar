@@ -2,7 +2,7 @@
 
 A space-themed roguelike deckbuilder. You play a ronin of a dead orbital sect, flying a salvaged
 cutter through a collapsing star frontier. Card combat with a stance layer, a branching star map,
-and two progression paths — the pilot and the ship.
+and a deck you build as you go.
 
 **The repo is the game.** shinwar.se serves nothing else. `DESIGN.md` holds the design rationale;
 read it before changing anything mechanical.
@@ -72,10 +72,9 @@ src/
     rng.ts state.ts actions.ts reducer.ts queries.ts hooks.ts types.ts
     combat/    combat stance heat effects damage keywords intents ai
     map/       mapgen environments route
-    ship/      ship power modules
     run/       rewards economy threads difficulty
   content/           PURE DATA + registry validation
-    cards/ enemies/ modules/ events/
+    cards/ enemies/ events/
     encounters.ts environments.ts masteries.ts balance.ts
   ui/                DOM only
     store.ts app.ts screens/ components/ input.ts anim.ts a11y.ts
@@ -100,10 +99,10 @@ The whole point of the architecture. Each of these is one file edit.
 drifts from behaviour the moment you tune a number, and drifted text is the most common cause of a
 game feeling unfair. Flavor text is separate and hand-written.
 
-**A ship module, an enemy, an event, an environment** — same pattern, own file, plus a hook handler
-if it needs ongoing behaviour.
+**An enemy, an event, an environment** — same pattern, own file, plus a hook handler if it needs
+ongoing behaviour.
 
-Everything extensible hangs off the **hook bus** (`src/engine/hooks.ts`). A module is data plus a
+Everything extensible hangs off the **hook bus** (`src/engine/hooks.ts`). A relic is data plus a
 handler. So is a mastery, a status, an environment. Handlers are pure `(state, payload) => state`,
 sorted by explicit `priority` then a stable key — **never** by insertion order or object identity,
 or determinism breaks in ways that take a day to find.

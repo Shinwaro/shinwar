@@ -67,13 +67,13 @@ export const EVENT_CARDS: readonly CardDef[] = [
     exclusive: true,
     effects: [
       { op: 'draw', amount: 2 },
-      { op: 'ventHeat', amount: 3 },
+      { op: 'ventHeat', amount: 2 },
     ],
     upgrade: {
       name: 'Dead Reckoning+',
       effects: [
         { op: 'draw', amount: 3 },
-        { op: 'ventHeat', amount: 3 },
+        { op: 'ventHeat', amount: 2 },
       ],
     },
     flavor: 'No beacons, no chart. Speed, heading, and the nerve to trust both.',

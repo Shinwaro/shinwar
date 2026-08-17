@@ -6,7 +6,7 @@
  *
  * Two invariants that are not negotiable:
  *
- *   - An event never kills you. Health and hull floor at 1. Dying to a menu is
+ *   - An event never kills you. Health floors at 1. Dying to a menu is
  *     the single most resented thing a roguelike can do, and there is no fight
  *     to have played better.
  *   - Every effect leaves a line. The lines are what the outcome panel shows
@@ -20,8 +20,7 @@ import { nextInt } from '../rng.ts';
 import { mintCard } from '../combat/instances.ts';
 import { gainAlloy, spendAlloy } from './economy.ts';
 import { resolveThread, setThread } from './threads.ts';
-import { SHIP, SHOP } from '../../content/balance.ts';
-import { cards as cardTable, modules as moduleTable } from '../../content/registry.ts';
+import { cards as cardTable } from '../../content/registry.ts';
 
 export interface RunEffectResult {
   readonly state: GameState;
@@ -94,21 +93,6 @@ function applyOne(state: GameState, effect: RunEffect, source: string): Single {
       };
     }
 
-    case 'hull': {
-      if (effect.amount === 0) return { state, line: null };
-      const hull = Math.max(1, Math.min(run.ship.maxHull, run.ship.hull + effect.amount));
-      const delta = hull - run.ship.hull;
-      if (delta === 0) return { state, line: null };
-      return {
-        state: logged(
-          withRun(state, (current) => ({ ...current, ship: { ...current.ship, hull } })),
-          source,
-          `Cutter hull ${delta > 0 ? '+' : ''}${delta} (${hull}/${run.ship.maxHull}).`,
-        ),
-        line: `Cutter hull ${delta > 0 ? '+' : ''}${delta}.`,
-      };
-    }
-
     case 'card': {
       const def = cardTable.find(effect.cardId);
       if (def === undefined) return { state, line: null };
@@ -124,37 +108,6 @@ function applyOne(state: GameState, effect: RunEffect, source: string): Single {
           `Took ${def.name}.`,
         ),
         line: `${def.name} joins the deck.`,
-      };
-    }
-
-    case 'module': {
-      const def = moduleTable.find(effect.moduleId);
-      if (def === undefined) return { state, line: null };
-
-      // The grid identifies a module by its id, so a second copy of one you
-      // already own has nowhere to go. Pay it out instead of handing over a
-      // duplicate that cannot be fitted — a dead option is worse than money.
-      const owned =
-        run.ship.stored.includes(effect.moduleId) ||
-        run.ship.placed.some((entry) => entry.moduleId === effect.moduleId);
-      if (owned) {
-        const value = SHOP.modulePrice[def.rarity === 'basic' ? 'common' : def.rarity];
-        return {
-          state: gainAlloy(state, value, source),
-          line: `You already run a ${def.name}. Sold on for ${value} Alloy.`,
-        };
-      }
-
-      return {
-        state: logged(
-          withRun(state, (current) => ({
-            ...current,
-            ship: { ...current.ship, stored: [...current.ship.stored, effect.moduleId] },
-          })),
-          source,
-          `${def.name} into storage.`,
-        ),
-        line: `${def.name} — fit it from the loadout.`,
       };
     }
 
@@ -217,22 +170,6 @@ function applyOne(state: GameState, effect: RunEffect, source: string): Single {
       const next = resolveThread(state, effect.threadId);
       if (next === state) return { state, line: null };
       return { state: next, line: 'A thread closes.' };
-    }
-
-    case 'grid': {
-      const gridW = Math.min(SHIP.targetEndGrid.w, run.ship.gridW + effect.w);
-      const gridH = Math.min(SHIP.targetEndGrid.h, run.ship.gridH + effect.h);
-      if (gridW === run.ship.gridW && gridH === run.ship.gridH) {
-        return { state, line: 'The bay is already as big as the frame allows.' };
-      }
-      return {
-        state: logged(
-          withRun(state, (current) => ({ ...current, ship: { ...current.ship, gridW, gridH } })),
-          source,
-          `Bay extended to ${gridW}x${gridH}.`,
-        ),
-        line: `The bay is ${gridW}x${gridH} now.`,
-      };
     }
 
     case 'ambush': {

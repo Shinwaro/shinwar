@@ -20,7 +20,7 @@ import {
   optionsFor,
   refusalFor,
 } from '../src/engine/run/events.ts';
-import { activeThreads, advanceThreads, dueThreads, hasThread, setThread } from '../src/engine/run/threads.ts';
+import { activeThreads, setThread } from '../src/engine/run/threads.ts';
 import { buyRemoval, buyShopCard, stockShop } from '../src/engine/run/shop.ts';
 import { stableStringify } from '../src/engine/serialize.ts';
 import { THREADS } from '../src/content/balance.ts';
@@ -91,25 +91,25 @@ describe('choosing an option', () => {
 
   it('refuses an option the run cannot actually pay for', () => {
     // The floor that stops an event killing you also made a big price free the
-    // moment you were low enough: "lose 12 hull" with 2 hull left cost two.
+    // moment you were low enough: "lose 12 health" with 2 left cost two.
     const state = fresh('BROKE');
     const poor = {
       ...state,
-      run: { ...runOf(state), alloy: 10, ship: { ...runOf(state).ship, hull: 2 } },
+      run: { ...runOf(state), alloy: 10, pilot: { ...runOf(state).pilot, health: 2 } },
     };
 
     const costly = {
       id: 'costly',
-      label: 'Sell the plating',
-      detail: 'More than the cutter has.',
-      effects: [{ op: 'hull' as const, amount: -18 }],
-      risk: 'The ship',
+      label: 'Take the wound',
+      detail: 'More than you have left.',
+      effects: [{ op: 'health' as const, amount: -18 }],
+      risk: 'The body',
       payoff: 'None',
     };
     expect(canTakeOption(runOf(poor), costly)).toBe(false);
     expect(refusalFor(runOf(poor), costly)).toContain('18');
 
-    const affordable = { ...costly, id: 'small', effects: [{ op: 'hull' as const, amount: -1 }] };
+    const affordable = { ...costly, id: 'small', effects: [{ op: 'health' as const, amount: -1 }] };
     expect(canTakeOption(runOf(poor), affordable)).toBe(true);
   });
 
@@ -156,28 +156,12 @@ describe('run effects', () => {
     expect(runOf(after.state).pilot.health).toBe(1);
   });
 
-  it('never takes the last point of hull', () => {
-    const state = fresh();
-    const hurt = { ...state, run: { ...runOf(state), ship: { ...runOf(state).ship, hull: 4 } } };
-    const after = applyRunEffects(hurt, [{ op: 'hull', amount: -90 }], 'test');
-    expect(runOf(after.state).ship.hull).toBe(1);
-  });
-
   it('takes what it can when the bill is bigger than the account', () => {
     const state = fresh();
     const poor = { ...state, run: { ...runOf(state), alloy: 30 } };
     const after = applyRunEffects(poor, [{ op: 'alloy', amount: -110 }], 'test');
     expect(runOf(after.state).alloy).toBe(0);
     expect(after.lines[0]).toContain('30');
-  });
-
-  it('pays out a module you already carry instead of handing over a duplicate', () => {
-    // The grid identifies a module by its id, so a second copy has nowhere to
-    // go. Money is the honest fallback; a dead option is not.
-    const state = fresh();
-    const after = applyRunEffects(state, [{ op: 'module', moduleId: 'core_reactor' }], 'test');
-    expect(runOf(after.state).alloy).toBeGreaterThan(0);
-    expect(runOf(after.state).ship.stored).not.toContain('core_reactor');
   });
 
   it('leaves a line for everything it does', () => {
@@ -219,21 +203,6 @@ describe('threads', () => {
     expect(runOf(twice).threads.filter((entry) => entry.threadId === 'marked')).toHaveLength(1);
   });
 
-  it('puts the clutch on the grid, and takes it off again when it hatches', () => {
-    const carrying = setThread(fresh(), 'the_clutch');
-    expect(runOf(carrying).ship.placed.some((entry) => entry.moduleId === 'clutch_egg')).toBe(true);
-
-    let state = carrying;
-    const count = threadTable.get('the_clutch').trigger.count;
-    for (let i = 0; i < count; i++) state = advanceThreads(state);
-    expect(dueThreads(runOf(state)).map((def) => def.id)).toContain('the_clutch');
-
-    // Walking a node is what actually resolves it, through the real path.
-    const walked = walkNodes(fresh(), 'the_clutch');
-    expect(runOf(walked).ship.placed.some((entry) => entry.moduleId === 'clutch_egg')).toBe(false);
-    expect(runOf(walked).ship.stored).not.toContain('clutch_egg');
-  });
-
   it('always comes due inside the run', () => {
     for (const def of threadTable.all()) {
       // Act 1 is 15 rows; anything that needs more than a dozen nodes would
@@ -244,41 +213,6 @@ describe('threads', () => {
   });
 });
 
-/** Take a thread on and walk the map until it fires. Uses the real actions. */
-function walkNodes(state: GameState, threadId: string): GameState {
-  let next = applyAction(state, { kind: 'beginRun' });
-  next = { ...next, run: { ...runOf(next), seed: runOf(next).seed } };
-  next = setThread(next, threadId);
-
-  let guard = 0;
-  while (guard++ < 30 && hasThread(runOf(next), threadId)) {
-    const carried = runOf(next).threads.find((entry) => entry.threadId === threadId);
-    if (carried?.resolved === true) break;
-    next = advanceThreads(next);
-  }
-  // Resolve it the way `enterNode` would, so the cargo comes off.
-  for (const def of dueThreads(runOf(next))) {
-    next = applyRunEffects(
-      { ...next, run: { ...runOf(next), threads: runOf(next).threads.map((entry) =>
-        entry.threadId === def.id ? { ...entry, resolved: true } : entry) } },
-      def.payoff,
-      def.id,
-    ).state;
-    next = {
-      ...next,
-      run: {
-        ...runOf(next),
-        ship: {
-          ...runOf(next).ship,
-          placed: runOf(next).ship.placed.filter((entry) => entry.moduleId !== def.cargoModuleId),
-          stored: runOf(next).ship.stored.filter((id) => id !== def.cargoModuleId),
-        },
-      },
-    };
-  }
-  return next;
-}
-
 /*
  * Walking the map for real would mean winning five fights, which is a combat
  * test wearing a thread test's clothes. `enterNode` is where the clock lives,
@@ -288,7 +222,7 @@ function walkNodes(state: GameState, threadId: string): GameState {
 function stepInto(state: GameState, nodeId: string): GameState {
   const entered = enterNode(state, nodeId);
   if (entered.run === null) return entered;
-  return { ...entered, run: { ...entered.run, screen: 'map', combat: null, shipCombat: null } };
+  return { ...entered, run: { ...entered.run, screen: 'map', combat: null } };
 }
 
 function walkForward(state: GameState, steps: number): GameState {
@@ -369,11 +303,10 @@ describe('threads on the real path', () => {
 });
 
 describe('the station', () => {
-  it('stocks cards, modules and exactly one removal', () => {
+  it('stocks cards and exactly one removal', () => {
     const stocked = stockShop(fresh('SHOP'), 'n4_2');
     const shop = runOf(stocked).shop;
     expect(shop?.cards.length).toBeGreaterThan(0);
-    expect(shop?.modules.length).toBeGreaterThan(0);
     expect(shop?.removalUsed).toBe(false);
     expect(shop?.removalPrice).toBeGreaterThan(0);
   });

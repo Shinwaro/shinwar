@@ -1,7 +1,7 @@
 /* The Station.
  *
- * One Alloy pool, four things to spend it on: cards for the pilot, modules for
- * the ship, a removal, and repairs to either body or hull. That shared scarcity
+ * One Alloy pool, three things to spend it on: cards, a Mastery, a removal,
+ * and patching the ronin up. That shared scarcity
  * is what makes the dual progression generate decisions instead of just
  * doubling the reward stream — the card you want and the module you want cost
  * the same money.
@@ -15,19 +15,16 @@ import type { Store } from '../store.ts';
 import { requireRun } from '../../engine/state.ts';
 import { definitionOf } from '../../engine/combat/combat.ts';
 import { describeCard, describeCost } from '../../engine/combat/describe.ts';
-import { ECONOMY, RARITY_LABEL, SHIP } from '../../content/balance.ts';
+import { ECONOMY, RARITY_LABEL } from '../../content/balance.ts';
 import {
   cards as cardTable,
   masteries as masteryTable,
-  modules as moduleTable,
 } from '../../content/registry.ts';
 import { button, el } from '../dom.ts';
 import { liveScreen } from '../screen.ts';
 import { renderRunBar } from '../components/runbar.ts';
 import { renderCardFace } from '../components/card.ts';
 import { renderManifest } from '../components/manifest.ts';
-import { moduleLines } from '../components/moduletip.ts';
-import { canGrowGrid } from '../../engine/run/shop.ts';
 
 interface Local {
   /** The removal picker is open. UI state — it changes nothing about the world. */
@@ -60,8 +57,6 @@ function build(store: Store, state: GameState, local: Local, redraw: () => void)
 
   const bodyMissing = run.pilot.maxHealth - run.pilot.health;
   const bodyAffordable = Math.min(bodyMissing, Math.floor(run.alloy / ECONOMY.hullRepairPerPoint));
-  const hullMissing = run.ship.maxHull - run.ship.hull;
-  const hullAffordable = Math.min(hullMissing, Math.floor(run.alloy / ECONOMY.shipRepairPerPoint));
 
   return el('div', { class: 'station-inner' }, [
     renderRunBar(store, state),
@@ -102,44 +97,6 @@ function build(store: Store, state: GameState, local: Local, redraw: () => void)
           ),
         ]),
 
-    shop === null || shop.modules.length === 0
-      ? null
-      : el('section', { class: 'shop-section' }, [
-          el('h2', { class: 'shop-heading' }, ['Modules']),
-          el(
-            'div',
-            { class: 'shop-shelf shop-shelf--modules' },
-            shop.modules.map((stock) => {
-              const def = moduleTable.find(stock.moduleId);
-              if (def === undefined) return null;
-              const broke = run.alloy < stock.price;
-
-              return el('div', { class: `shop-lot${stock.sold ? ' is-sold' : ''}` }, [
-                el('div', { class: `shop-module shop-module--${def.kind}` }, [
-                  el('div', { class: 'card-head' }, [
-                    el('span', { class: 'card-cost' }, [`${def.footprint.w}x${def.footprint.h}`]),
-                    el('span', { class: 'card-name' }, [def.name]),
-                    el('span', { class: `card-badge card-badge--${def.rarity}` }, [
-                      RARITY_LABEL[def.rarity],
-                    ]),
-                  ]),
-                  ...moduleLines(stock.moduleId, run.ship).map((line) =>
-                    el('p', { class: 'card-text' }, [line]),
-                  ),
-                  def.flavor === undefined ? null : el('p', { class: 'card-flavor' }, [def.flavor]),
-                ]),
-                stock.sold
-                  ? el('span', { class: 'shop-sold' }, ['Bought'])
-                  : button(
-                      `${stock.price} Alloy`,
-                      { class: `btn btn-buy${broke ? ' is-disabled' : ''}`, disabled: broke },
-                      () => store.dispatch({ kind: 'buyShopModule', moduleId: stock.moduleId }),
-                    ),
-              ]);
-            }),
-          ),
-        ]),
-
     shop === null || shop.masteryId === null
       ? null
       : (() => {
@@ -168,19 +125,6 @@ function build(store: Store, state: GameState, local: Local, redraw: () => void)
     el('section', { class: 'shop-section' }, [
       el('h2', { class: 'shop-heading' }, ['Services']),
       el('div', { class: 'safe-options' }, [
-        shop === null || !canGrowGrid(state)
-          ? null
-          : serviceOption(
-              shop.gridSold ? 'Bay extended' : 'Extend the bay',
-              `${shop.gridPrice} Alloy for another ${run.ship.gridW < SHIP.targetEndGrid.w ? 'column' : 'row'}.`,
-              shop.gridSold
-                ? 'This yard has done its one.'
-                : run.alloy < shop.gridPrice
-                  ? 'Not enough Alloy.'
-                  : `The grid is ${run.ship.gridW}x${run.ship.gridH}. Bigger shapes need bigger bays.`,
-              shop.gridSold || run.alloy < shop.gridPrice,
-              () => store.dispatch({ kind: 'buyGrid' }),
-            ),
         shop === null
           ? null
           : serviceOption(
@@ -209,26 +153,6 @@ function build(store: Store, state: GameState, local: Local, redraw: () => void)
           bodyAffordable === 0,
           () => store.dispatch({ kind: 'stationRepair', amount: bodyAffordable }),
         ),
-        serviceOption(
-          'Weld the cutter',
-          hullAffordable === 0
-            ? hullMissing === 0
-              ? 'The hull is sound.'
-              : 'Not enough Alloy.'
-            : `Repair ${hullAffordable} hull for ${hullAffordable * ECONOMY.shipRepairPerPoint} Alloy.`,
-          `The cutter is down ${hullMissing}.`,
-          hullAffordable === 0,
-          () => store.dispatch({ kind: 'repairShip', amount: hullAffordable }),
-        ),
-        run.crash === null
-          ? null
-          : serviceOption(
-              'Repair the drive',
-              `${run.crash.repairCost} Alloy to fly again.`,
-              run.alloy < run.crash.repairCost ? 'Not enough Alloy yet.' : 'Space nodes reopen.',
-              run.alloy < run.crash.repairCost,
-              () => store.dispatch({ kind: 'repairDrive' }),
-            ),
       ]),
     ]),
 

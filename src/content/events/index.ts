@@ -38,7 +38,7 @@ export const EVENTS: readonly EventDef[] = [
       {
         id: 'escort',
         label: 'Escort it',
-        detail: 'Nothing now. It takes a cell on the grid until it matters.',
+        detail: 'Nothing now. It will ask for something later.',
         effects: [{ op: 'setThread', threadId: 'the_clutch' }],
         risk: 'Unknown',
         payoff: 'Unknown',
@@ -100,7 +100,7 @@ export const EVENTS: readonly EventDef[] = [
         label: 'Sell them your spare plating',
         detail: 'The cutter flies lighter. It also flies thinner.',
         effects: [
-          { op: 'hull', amount: -18 },
+          { op: 'health', amount: -9 },
           { op: 'alloy', amount: 75 },
         ],
         risk: 'The ship',
@@ -162,9 +162,9 @@ export const EVENTS: readonly EventDef[] = [
       {
         id: 'core',
         label: 'Take the drive core',
-        detail: 'They cannot use it. You can. They watch you take it.',
+        detail: 'They cannot use it. Someone down the line will pay for it.',
         effects: [
-          { op: 'module', moduleId: 'gravitic_anchor' },
+          { op: 'alloy', amount: 190 },
           { op: 'health', amount: -6 },
         ],
         risk: 'Moral',
@@ -242,10 +242,10 @@ export const EVENTS: readonly EventDef[] = [
       {
         id: 'reactor',
         label: 'Cut out the reactor',
-        detail: 'It is better than yours. Fitting it means butchering your own cooling loop.',
+        detail: 'It is worth more than the ship it came out of. Cutting it free costs you.',
         effects: [
-          { op: 'module', moduleId: 'overclock_core' },
-          { op: 'hull', amount: -12 },
+          { op: 'alloy', amount: 210 },
+          { op: 'health', amount: -6 },
           { op: 'setThread', threadId: 'coolant_leak' },
         ],
         risk: 'The ship',
@@ -294,7 +294,7 @@ export const EVENTS: readonly EventDef[] = [
         label: 'Run it hot',
         detail: 'Straight through, grabbing what the grapples can hold.',
         effects: [
-          { op: 'hull', amount: -16 },
+          { op: 'health', amount: -8 },
           { op: 'alloy', amount: 90 },
         ],
         risk: 'The ship',
@@ -446,9 +446,9 @@ export const EVENTS: readonly EventDef[] = [
       {
         id: 'credit',
         label: 'Buy on credit',
-        detail: 'The array is worth more than they are asking. That is the tell.',
+        detail: 'They are selling below value and smiling about it. That is the tell.',
         effects: [
-          { op: 'module', moduleId: 'predictive_array' },
+          { op: 'alloy', amount: 160 },
           { op: 'setThread', threadId: 'yard_debt' },
         ],
         risk: 'Deferred',
@@ -459,7 +459,7 @@ export const EVENTS: readonly EventDef[] = [
         label: 'Sell your spare plating',
         detail: 'A thinner hull and a heavier account.',
         effects: [
-          { op: 'hull', amount: -15 },
+          { op: 'health', amount: -8 },
           { op: 'alloy', amount: 80 },
         ],
         risk: 'The ship',
@@ -500,7 +500,7 @@ export const EVENTS: readonly EventDef[] = [
         label: 'Burn ahead of it',
         detail: 'You reach the next field before anyone else does. It costs the drive.',
         effects: [
-          { op: 'hull', amount: -18 },
+          { op: 'health', amount: -9 },
           { op: 'health', amount: -6 },
           { op: 'alloy', amount: 130 },
         ],

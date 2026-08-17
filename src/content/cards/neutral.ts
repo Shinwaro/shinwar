@@ -117,14 +117,14 @@ export const NEUTRAL_CARDS: readonly CardDef[] = [
     effects: [
       { op: 'damage', amount: 12, target: 'allEnemies' },
       { op: 'applyStatus', status: VULNERABLE, stacks: 2, target: 'allEnemies' },
-      { op: 'gainHeat', amount: 4 },
+      { op: 'gainHeat', amount: 3 },
     ],
     upgrade: {
       name: 'Starfall+',
       effects: [
         { op: 'damage', amount: 16, target: 'allEnemies' },
         { op: 'applyStatus', status: VULNERABLE, stacks: 2, target: 'allEnemies' },
-        { op: 'gainHeat', amount: 4 },
+        { op: 'gainHeat', amount: 3 },
       ],
     },
     flavor: 'The sect had one of these. The sect used it once.',
@@ -141,14 +141,14 @@ export const NEUTRAL_CARDS: readonly CardDef[] = [
     effects: [
       { op: 'applyStatus', status: STRENGTH, stacks: 2, target: 'self' },
       { op: 'draw', amount: 2 },
-      { op: 'ventHeat', amount: 6 },
+      { op: 'ventHeat', amount: 4 },
     ],
     upgrade: {
       name: 'The Dead Sect+',
       effects: [
         { op: 'applyStatus', status: STRENGTH, stacks: 3, target: 'self' },
         { op: 'draw', amount: 2 },
-        { op: 'ventHeat', amount: 6 },
+        { op: 'ventHeat', amount: 4 },
       ],
     },
     flavor: 'Every name you were taught, spoken once, in order, to nobody.',

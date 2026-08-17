@@ -11,7 +11,7 @@
  */
 
 import type { RunEffect } from '../types.ts';
-import { cards as cardTable, modules as moduleTable, threads as threadTable } from '../../content/registry.ts';
+import { cards as cardTable, threads as threadTable } from '../../content/registry.ts';
 
 export function describeRunEffect(effect: RunEffect): string {
   switch (effect.op) {
@@ -26,19 +26,9 @@ export function describeRunEffect(effect: RunEffect): string {
         ? `Gain ${effect.amount} max health`
         : `Lose ${-effect.amount} max health`;
 
-    case 'hull':
-      return effect.amount >= 0
-        ? `Repair ${effect.amount} cutter hull`
-        : `Lose ${-effect.amount} cutter hull`;
-
     case 'card': {
       const name = cardTable.find(effect.cardId)?.name ?? effect.cardId;
       return `Gain ${name}${effect.upgraded === true ? ' (forged)' : ''}`;
-    }
-
-    case 'module': {
-      const name = moduleTable.find(effect.moduleId)?.name ?? effect.moduleId;
-      return `Gain the ${name} module`;
     }
 
     case 'upgradeRandomCard':
@@ -56,9 +46,6 @@ export function describeRunEffect(effect: RunEffect): string {
       const def = threadTable.find(effect.threadId);
       return def === undefined ? 'Close a thread' : `${def.name} resolves`;
     }
-
-    case 'grid':
-      return `Extend the bay by ${effect.w > 0 ? `${effect.w} column${effect.w === 1 ? '' : 's'}` : ''}${effect.w > 0 && effect.h > 0 ? ' and ' : ''}${effect.h > 0 ? `${effect.h} row${effect.h === 1 ? '' : 's'}` : ''}`;
 
     case 'ambush':
       return effect.tier === 'elite' ? 'A hard fight, now' : 'A fight, now';

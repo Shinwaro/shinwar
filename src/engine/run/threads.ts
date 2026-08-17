@@ -22,7 +22,6 @@
 import type { GameState, RunState, ThreadDef, ThreadId, ThreadState } from '../types.ts';
 import { appendLog, requireRun, withRun } from '../state.ts';
 import { fireHook } from '../hooks.ts';
-import { firstFit, place, unplace } from '../ship/grid.ts';
 import { THREADS } from '../../content/balance.ts';
 import { threads as threadTable } from '../../content/registry.ts';
 
@@ -49,12 +48,7 @@ export function canSetThread(run: RunState, threadId: ThreadId): boolean {
 
 /* ---------- setting ---------- */
 
-/**
- * Take one on. Cargo, if the thread carries any, goes onto the grid — the
- * spatial version of DESIGN.md's "-1 Power". If there is no room for it, it
- * rides in storage instead: a full grid should cost you the bonus, not the
- * story.
- */
+/** Take one on. The omen names the category of what is coming, never the payoff. */
 export function setThread(state: GameState, threadId: ThreadId): GameState {
   const run = requireRun(state);
   if (!canSetThread(run, threadId)) return state;
@@ -72,26 +66,12 @@ export function setThread(state: GameState, threadId: ThreadId): GameState {
     detail: { thread: threadId, tone: def.tone },
   });
 
-  const cargoId = def.cargoModuleId;
-  if (cargoId !== undefined) {
-    next = withRun(next, (current) => {
-      const spot = firstFit(current.ship, cargoId);
-      if (spot === null) {
-        return { ...current, ship: { ...current.ship, stored: [...current.ship.stored, cargoId] } };
-      }
-      return {
-        ...current,
-        ship: place({ ...current.ship, stored: [...current.ship.stored, cargoId] }, cargoId, spot.x, spot.y),
-      };
-    });
-  }
-
   return fireHook(next, 'onThreadSet', { threadId });
 }
 
 /* ---------- resolving ---------- */
 
-/** Mark it done and drop its cargo. The payoff itself is the caller's business. */
+/** Mark it done. The payoff itself is the caller's business. */
 export function resolveThread(state: GameState, threadId: ThreadId): GameState {
   const run = requireRun(state);
   const entry = threadState(run, threadId);
@@ -104,17 +84,6 @@ export function resolveThread(state: GameState, threadId: ThreadId): GameState {
       thread.threadId === threadId ? { ...thread, resolved: true } : thread,
     ),
   }));
-
-  const cargoId = def.cargoModuleId;
-  if (cargoId !== undefined) {
-    next = withRun(next, (current) => {
-      const off = unplace(current.ship, cargoId);
-      return {
-        ...current,
-        ship: { ...off, stored: off.stored.filter((id) => id !== cargoId) },
-      };
-    });
-  }
 
   next = appendLog(next, {
     source: threadId,

@@ -247,7 +247,7 @@ describe('heat as a cost', () => {
   it('charges Sever its Heat', () => {
     const state = makeFight({ hand: [SEVER], stance: 'iai', enemyHp: 999 });
     const after = playCard(state, handCard(state, 0).uid, firstEnemy(state).uid);
-    expect(combatOf(after).heat).toBe(4);
+    expect(combatOf(after).heat).toBe(3);
   });
 
   it('lets the GUARD rider give some of it back', () => {

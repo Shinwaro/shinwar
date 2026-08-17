@@ -28,28 +28,22 @@ export const PLAYER = {
 export const HEAT = {
   min: 0,
   /**
-   * The gauge runs to 20 and overheats above 10.
+   * The gauge runs to 10 and overheats at 8.
    *
-   * At a 10-point gauge that tripped at 8 the whole thing was decoration: GUARD
-   * vented more than most turns generated, so you never arrived at the
-   * threshold unless you set out to. A longer gauge with the line in the middle
-   * of it means the top half is a place you can choose to live in, which is the
-   * "safe -> greedy -> threatened" arc the mechanic was always for.
+   * It was briefly 20, tripping above 10, because a request to "only overheat
+   * past 10" is unreachable on a ten-point bar. Doubling it was the wrong way to
+   * grant that: the cards stayed on the old scale, so every source of Heat
+   * collapsed onto the stance clock and IAI crossed the line on turn three no
+   * matter what you played. Pressure the player cannot decline is a tax, not a
+   * decision.
    *
-   * The gauge is only half of it, and the first version got the other half
-   * wrong. Doubling the scale while leaving the CARDS on the old one moved every
-   * source of Heat onto the stance clock: IAI cooked 4 a turn, so you crossed
-   * the line on turn three whatever you played, and the cards' own 2s and 3s
-   * barely moved a 20-point bar. That is pressure applied TO the player rather
-   * than pressure the player chose, and it reads as the stance being broken.
-   *
-   * So the clock is small and the cards are hot. IAI charges 2 a turn for
-   * standing there; the swing that actually cooks you is the one you play. Heat
-   * is meant to be the bill for greed, and a bill you cannot decline is a tax.
+   * Back on the original scale, where the numbers on the cards and the numbers
+   * on the gauge are the same size. If the line needs to move, move the line —
+   * not the whole scale underneath it.
    */
-  max: 20,
-  /** Strictly above this at the end of your turn. 10 is safe; 11 is not. */
-  overheatAt: 11,
+  max: 10,
+  /** At or above this at the end of your turn. */
+  overheatAt: 8,
   /**
    * Overheating costs a percentage of MAX health, not a flat number.
    *
@@ -73,7 +67,7 @@ export const HEAT = {
    */
   overheatSkipsTurn: true,
   /** At or above this, additionally lose 1 Energy the turn after. */
-  criticalAt: 17,
+  criticalAt: 10,
   criticalEnergyLoss: 1,
 } as const;
 
@@ -172,59 +166,6 @@ export const ACTIVE_STANCES: readonly StanceId[] = ['iai', 'guard'];
 
 export const STARTING_STANCE: StanceId = 'guard';
 
-/* ---------- the ship ----------
-   Power is the ship's equivalent of deck size: it prevents pure accumulation
-   and turns "I found a great module" into a real decision. */
-
-export const SHIP = {
-  /**
-   * The cutter's own pool, spent in space combat. Repairable with Alloy,
-   * unlike the ronin.
-   *
-   * 70 was the ronin's number borrowed, and at 70 a ship fight lasted three
-   * turns because an enemy volley is a volley. The simulator wants both sides
-   * standing for eight to ten turns; this is that, from the player's side.
-   */
-  startingHull: 145,
-  /** Grid size in cells. Growing it is the ship path's equivalent of a card slot. */
-  gridW: 5,
-  gridH: 3,
-  targetEndGrid: { w: 7, h: 4 },
-  /** A finished run should land here — enough that you had to choose. */
-  targetEndModules: { min: 5, max: 7 },
-} as const;
-
-
-/* ---------- ship combat ----------
-   Autoresolve numbers. Heat carries between turns and is the thing that
-   punishes a greedy build; Energy resets so every turn is a fresh decision. */
-
-export const SHIP_COMBAT = {
-  maxHeat: 12,
-  /** At or above this at the end of a turn, the reactor cooks the hull. */
-  overheatAt: 10,
-  overheatDamage: 6,
-  overchargeDamage: 5,
-  overchargeHeat: 3,
-  ventAmount: 5,
-  divertEnergy: 3,
-  braceShield: 8,
-} as const;
-
-/* ---------- crashing ----------
-   You always survive; the escalation is in what you lose. */
-
-export const CRASH = {
-  /** Fraction of max hull the cutter is left with. */
-  hullLeftPct: 0.1,
-  roninDamage: { min: 8, max: 16 },
-  modulesKnockedLoose: 1,
-  repairBase: 70,
-  repairIncrement: 50,
-  /** Surface fights while stranded roll from this tier instead of normal. */
-  strandedTier: 'elite',
-} as const;
-
 /* ---------- economy ---------- */
 
 export const ECONOMY = {
@@ -235,53 +176,22 @@ export const ECONOMY = {
   cardRemovalBase: 60,
   cardRemovalIncrement: 15,
   hullRepairPerPoint: 1,
-  /** Station: patch the cutter, not the ronin. */
-  shipRepairPerPoint: 1,
-  /** Safe Planet: trade hull for Alloy. */
+  /** Safe Planet: trade health for Alloy. */
   refuelHullCost: 8,
   refuelAlloyGain: 60,
   safePlanetHealPct: 0.3,
 } as const;
 
-/* ---------- salvage ----------
-   Three parts off every wreck, take one. After the fight rather than before it:
-   a module that arrives on a schedule is not a reward, and handing one out on
-   every approach filled the grid without the player choosing what went on it. */
-
-export const SALVAGE = {
-  choices: 3,
-} as const;
-
-/**
- * Chance a `?` derelict holds a module rather than Alloy.
- *
- * This is the early ship supply. The grid starts nearly bare and Elites are the
- * only other source, so without it the first space fight of a run is one
- * reactor and nothing else — and a `?` is already the node that might be
- * anything, so a part in a hulk needs no explaining.
- */
-export const DERELICT_MODULE_CHANCE = 0.45;
-
 /* ---------- the Station ----------
-   The shop is where Alloy stops being a score and becomes a decision. It
-   stocks both paths — cards for the pilot, modules for the ship — out of the
-   one pool, so every purchase is "pilot or ship, now or later".
+   The shop is where Alloy stops being a score and becomes a decision. Cards,
+   a Mastery and a removal all come out of one pool, so every purchase is
+   "this, or the thing you were saving for".
 
    Prices ladder by rarity. The top three tiers are priced so that seeing one is
    an event in itself: you will usually have to give something up for it. */
 
 export const SHOP = {
   cardSlots: 4,
-  /**
-   * A bay extension: one more column, or one more row once the width is done.
-   *
-   * The grid grows during the run rather than starting large, so a shape that
-   * will not fit today is a reason to come back rather than a reason the module
-   * was worthless. Priced above a rare module — it is worth more than any single
-   * thing you would put in it.
-   */
-  gridPrice: 260,
-  moduleSlots: 2,
   cardPrice: {
     common: 50,
     uncommon: 80,
@@ -289,14 +199,6 @@ export const SHOP = {
     epic: 190,
     legendary: 260,
     artifact: 340,
-  },
-  modulePrice: {
-    common: 90,
-    uncommon: 140,
-    rare: 210,
-    epic: 300,
-    legendary: 400,
-    artifact: 520,
   },
 } as const;
 
@@ -361,20 +263,6 @@ export const MAP = {
   /** The row before the boss is always a Safe Planet. StS's rest-before-boss. */
   restBeforeBoss: true,
 } as const;
-
-/**
- * How often a fight is fought by the ship rather than the ronin.
- *
- * Deterministic from the position rather than rolled, so the mix is even and a
- * seed's route reads the same every time.
- *
- * Four in ten. The old figure was one in three and produced about two ship
- * fights across five runs — partly because the routes were narrow enough that
- * most space nodes sat on lanes nobody took, and partly because Acts 2 and 3
- * had no enemy ships at all, so every space node in them silently did nothing.
- * Both of those are fixed; this is the honest rate on top of it.
- */
-export const SPACE_SHARE_IN_TEN = 4;
 
 /**
  * Node weights, rolled per row on the `map` stream. Combat is the floor the
@@ -523,7 +411,7 @@ export const HOOK_PRIORITY = {
 export const SCOPE = {
   /** Depth comes from stance and heat recontextualising a small vocabulary. */
   keywordCap: 14,
-  targets: { cards: 85, modules: 30, enemies: 28, elites: 9, bosses: 3, events: 35, environments: 8 },
+  targets: { cards: 85, enemies: 28, elites: 9, bosses: 3, events: 35, environments: 8 },
 } as const;
 
 /* ---------- run length and win rate ----------
@@ -555,7 +443,7 @@ export const DEPTH_RULES: readonly DepthRule[] = [
   { depth: 1, text: 'Elites are harder.' },
   { depth: 2, text: 'Shops cost more.' },
   { depth: 3, text: 'Fewer Safe Planets.' },
-  { depth: 4, text: 'Overheat threshold drops to 8.' },
+  { depth: 4, text: 'Overheat threshold drops to 7.' },
   { depth: 5, text: 'Bosses gain a second phase.' },
   { depth: 6, text: null },
   { depth: 7, text: null },

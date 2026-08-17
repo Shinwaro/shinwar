@@ -17,7 +17,6 @@
  */
 
 import type {
-  Arena,
   EncounterId,
   EnvironmentId,
   MapNode,
@@ -26,7 +25,7 @@ import type {
   RunMap,
 } from '../types.ts';
 import { nextInt, pick, weightedPick } from '../rng.ts';
-import { MAP, NODE_WEIGHTS, SPACE_SHARE_IN_TEN } from '../../content/balance.ts';
+import { MAP, NODE_WEIGHTS } from '../../content/balance.ts';
 import { ACT_FINALES, ARRIVAL_NAME, PLACE_DESIGNATIONS, PLACE_STEMS } from '../../content/places.ts';
 import { CLEAR_SPACE_ID } from '../../content/environments.ts';
 import { environments as environmentTable } from '../../content/registry.ts';
@@ -35,22 +34,6 @@ import { encountersFor } from '../../content/encounters.ts';
 export interface GeneratedMap {
   readonly map: RunMap;
   readonly rng: RngState;
-}
-
-/**
- * Which system a fight uses. Space nodes are the ship grid; surface nodes are
- * the deckbuilder. Deterministic from the position rather than rolled, so the
- * mix is even and a seed's route reads the same every time.
- *
- * Never the origin — Act 1 node 1 is always a normal fight in Clear Space —
- * and never the boss, which is on foot until ship bosses exist.
- */
-function arenaFor(type: NodeType, row: number, col: number): Arena {
-  if (type !== 'combat' && type !== 'elite') return 'surface';
-  if (row === 0) return 'surface';
-  // A spread pattern rather than a plain modulus: `(row + col) % n` puts every
-  // space node on the same diagonal, which reads as a stripe across the chart.
-  return ((row * 7 + col * 3) % 10) < SPACE_SHARE_IN_TEN ? 'space' : 'surface';
 }
 
 function nodeId(row: number, col: number): string {
@@ -317,7 +300,6 @@ function environmentPool(act: 1 | 2 | 3): readonly { value: EnvironmentId; weigh
 
 function assignEnvironments(
   skeleton: Skeleton,
-  types: Map<string, NodeType>,
   encounters: Map<string, EncounterId>,
   rng: RngState,
   rows: number,
@@ -337,14 +319,6 @@ function assignEnvironments(
         assigned.set(id, CLEAR_SPACE_ID);
         continue;
       }
-      // A space fight is fought by the ship, which does not care about the
-      // stance layer any of these modify. Leaving them Clear keeps the badge
-      // honest rather than promising a rule that will not apply.
-      if (arenaFor(types.get(id) ?? 'combat', row, col) === 'space') {
-        assigned.set(id, CLEAR_SPACE_ID);
-        continue;
-      }
-
       const rolled = weightedPick(current, 'map', pool);
       current = rolled.rng;
       assigned.set(id, rolled.value);
@@ -442,7 +416,6 @@ function assemble(skeleton: Skeleton, act: 1 | 2 | 3, rng: RngState): GeneratedM
   const fought = assignEncounters(skeleton, typed.types, typed.rng, rows, act);
   const scened = assignEnvironments(
     skeleton,
-    typed.types,
     fought.encounters,
     fought.rng,
     rows,
@@ -472,7 +445,6 @@ function assemble(skeleton: Skeleton, act: 1 | 2 | 3, rng: RngState): GeneratedM
         type,
         // Everything is on foot until ship combat exists. The vocabulary is in
         // place so the map, routing and the crash are built once — see SHIP.md.
-        arena: arenaFor(type, row, col),
         encounterId,
         environmentId: encounterId === null ? null : (scened.environments.get(id) ?? CLEAR_SPACE_ID),
         next: outgoing.map((target) => nodeId(row + 1, target)),

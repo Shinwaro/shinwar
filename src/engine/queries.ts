@@ -53,8 +53,3 @@ export function healthFraction(run: RunState): number {
   return Math.max(0, Math.min(1, run.pilot.health / run.pilot.maxHealth));
 }
 
-/** The cutter's hull, spent in space combat. Repairable with Alloy; a body is not. */
-export function hullFraction(run: RunState): number {
-  if (run.ship.maxHull <= 0) return 0;
-  return Math.max(0, Math.min(1, run.ship.hull / run.ship.maxHull));
-}

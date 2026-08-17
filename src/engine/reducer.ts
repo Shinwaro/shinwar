@@ -8,17 +8,9 @@
 
 import type { Action, ActionLog } from './actions.ts';
 import type { GameState } from './types.ts';
-import { appendLog, createInitialState, createRunState, withRun } from './state.ts';
+import { appendLog, createInitialState, createRunState } from './state.ts';
 import { normalizeSeed } from './rng.ts';
 import { advanceEnemyTurn, endPlayerTurn, playCard } from './combat/combat.ts';
-import { intervene, markStrike, resolveShipTurn } from './ship/combat.ts';
-import {
-  moveModule as moveOnGrid,
-  place as placeOnGrid,
-  rotateModule as rotateOnGrid,
-  unplace as unplaceOnGrid,
-} from './ship/grid.ts';
-import { crashLand, repairDrive } from './ship/crash.ts';
 import {
   advanceAct,
   claimRewardAlloy,
@@ -33,22 +25,11 @@ import {
   safePlanetTrade,
   safePlanetUpgrade,
   stationRepair,
-  leaveSalvage,
-  openSalvage,
   takeRewardCard,
-  takeSalvage,
-  takeRewardModule,
   takeRewardRelic,
 } from './run/run.ts';
 import { chooseEventOption } from './run/events.ts';
-import {
-  buyGrid,
-  buyMastery,
-  buyRemoval,
-  buyShopCard,
-  buyShopModule,
-  repairShip,
-} from './run/shop.ts';
+import { buyMastery, buyRemoval, buyShopCard } from './run/shop.ts';
 import { MAX_DEPTH } from '../content/balance.ts';
 
 export function clampDepth(depth: number): number {
@@ -59,36 +40,9 @@ export function clampDepth(depth: number): number {
 /**
  * Settle a combat that has just resolved.
  *
- * A loss ends the run — on foot, the ronin's death is final. A win hands over
- * to the run loop for the reward. Losing a *space* battle will crash rather
- * than kill (see SHIP.md), which is why this branch is about the arena and not
- * about combat in general.
+ * A loss ends the run — the ronin's death is final. A win hands over to the run
+ * loop for the reward.
  */
-/** Close out a ship fight. Losing crashes rather than kills — see SHIP.md. */
-function settleShipCombat(state: GameState): GameState {
-  const fight = state.run?.shipCombat ?? null;
-  if (fight === null || fight.outcome === 'ongoing') return state;
-
-  if (fight.outcome === 'won') {
-    // Every win opens the wreck. A ship fight that paid nothing was a fight with
-    // no reason to route toward it, and space nodes are four in ten of the map.
-    const enemyId = fight.enemy.defId;
-    return openSalvage(
-      appendLog(
-        // `forcedTier` is cleared here as well as in `concludeNode`: only the
-        // surface path pays a reward, so a tier that reached a ship fight has
-        // nothing to spend it and would otherwise leak into the next fight.
-        withRun(state, (run) => ({ ...run, shipCombat: null, screen: 'map', forcedTier: null })),
-        { source: 'system', kind: 'combat', text: 'The other ship stops moving.', detail: null },
-      ),
-      enemyId,
-    );
-  }
-
-  // You cannot die in space. Losing crashes you back onto the map.
-  return crashLand(state);
-}
-
 function settleCombat(state: GameState): GameState {
   const combat = state.run?.combat ?? null;
   if (combat === null || combat.outcome === 'ongoing') return state;
@@ -184,98 +138,6 @@ export function applyAction(state: GameState, action: Action): GameState {
       return settleCombat(advanceEnemyTurn(state));
     }
 
-    case 'intervene': {
-      if (state.run?.shipCombat?.outcome !== 'ongoing') return state;
-      return intervene(state, action.verb);
-    }
-
-    case 'markStrike': {
-      if (state.run?.shipCombat?.outcome !== 'ongoing') return state;
-      return markStrike(state, action.cell);
-    }
-
-    case 'resolveShipTurn': {
-      if (state.run?.shipCombat?.outcome !== 'ongoing') return state;
-      return settleShipCombat(resolveShipTurn(state));
-    }
-
-    case 'moveModule': {
-      const run = state.run;
-      if (run === null) return state;
-      // In a fight, moving costs the turn's lever; between fights it is free.
-      if (run.shipCombat !== null && run.shipCombat.usedIntervention !== null) return state;
-      const ship = moveOnGrid(run.ship, action.moduleId, action.x, action.y, action.rot);
-      if (ship === run.ship) return state;
-      const moved = withRun(state, (current) => ({ ...current, ship }));
-      if (run.shipCombat === null) return moved;
-      return withRun(moved, (current) => ({
-        ...current,
-        shipCombat:
-          current.shipCombat === null ? null : { ...current.shipCombat, usedIntervention: 'reposition' },
-      }));
-    }
-
-    /*
-     * The grid helpers return the ship unchanged when the move is refused, so
-     * the reducer has to hand back the *same state object* rather than a fresh
-     * wrapper around identical data. The store skips notifying on reference
-     * equality, and a "nothing happened" that still re-renders is how a
-     * rejected placement ends up flashing the whole screen.
-     */
-    case 'placeModule': {
-      if (state.run === null) return state;
-      const ship = placeOnGrid(state.run.ship, action.moduleId, action.x, action.y, action.rot ?? 0);
-      if (ship === state.run.ship) return state;
-      return withRun(state, (current) => ({ ...current, ship }));
-    }
-
-    case 'rotateModule': {
-      if (state.run === null) return state;
-      const ship = rotateOnGrid(state.run.ship, action.moduleId);
-      if (ship === state.run.ship) return state;
-      return withRun(state, (current) => ({ ...current, ship }));
-    }
-
-    case 'unplaceModule': {
-      if (state.run === null) return state;
-      const ship = unplaceOnGrid(state.run.ship, action.moduleId);
-      if (ship === state.run.ship) return state;
-      return withRun(state, (current) => ({ ...current, ship }));
-    }
-
-    case 'takeSalvage': {
-      if (state.run?.screen !== 'salvage') return state;
-      return takeSalvage(state, action.moduleId);
-    }
-
-    case 'leaveSalvage': {
-      if (state.run?.screen !== 'salvage') return state;
-      return leaveSalvage(state);
-    }
-
-    case 'backToSalvage': {
-      if (state.run === null || state.run.pendingSalvage === null) return state;
-      return withRun(state, (run) => ({ ...run, screen: 'salvage' }));
-    }
-
-    case 'openLoadout': {
-      // Only between fights: mid-combat the grid is edited through Reposition,
-      // which costs the turn's lever. The refit is a legitimate place to open
-      // it from — that is the whole point of being offered parts first.
-      if (state.run === null || state.run.combat !== null || state.run.shipCombat !== null) return state;
-      return withRun(state, (current) => ({ ...current, screen: 'ship' }));
-    }
-
-    case 'repairDrive': {
-      if (state.run === null) return state;
-      return repairDrive(state);
-    }
-
-    case 'takeRewardModule': {
-      if (state.run?.screen !== 'reward') return state;
-      return takeRewardModule(state, action.moduleId);
-    }
-
     case 'takeRewardCard': {
       if (state.run?.screen !== 'reward') return state;
       return takeRewardCard(state, action.cardId);
@@ -337,29 +199,14 @@ export function applyAction(state: GameState, action: Action): GameState {
       return stationRepair(state, action.amount);
     }
 
-    case 'repairShip': {
-      if (state.run?.screen !== 'station') return state;
-      return repairShip(state, action.amount);
-    }
-
     case 'buyShopCard': {
       if (state.run?.screen !== 'station') return state;
       return buyShopCard(state, action.cardId);
     }
 
-    case 'buyShopModule': {
-      if (state.run?.screen !== 'station') return state;
-      return buyShopModule(state, action.moduleId);
-    }
-
     case 'buyRemoval': {
       if (state.run?.screen !== 'station') return state;
       return buyRemoval(state, action.cardUid);
-    }
-
-    case 'buyGrid': {
-      if (state.run?.screen !== 'station') return state;
-      return buyGrid(state);
     }
 
     case 'buyMastery': {

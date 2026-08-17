@@ -346,7 +346,6 @@ describe('the act ladder', () => {
         ...run,
         alloy: 250,
         pilot: { ...run.pilot, masteries: [UNSHEATHED_MIND], health: 41 },
-        ship: { ...run.ship, stored: ['heat_sink'] },
         threads: [{ threadId: 'marked', resolved: false, progress: 2 }],
       },
     };
@@ -359,7 +358,6 @@ describe('the act ladder', () => {
     expect(after.alloy).toBe(250);
     expect(after.pilot.masteries).toEqual([UNSHEATHED_MIND]);
     expect(after.pilot.health).toBe(41);
-    expect(after.ship.stored).toEqual(['heat_sink']);
     expect(after.threads[0]?.progress).toBe(2);
 
     // A new sky, though: fresh map, nowhere visited, no shop held over.

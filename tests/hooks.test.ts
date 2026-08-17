@@ -11,8 +11,15 @@ import { defineHook, fireHook, handlersFor, registerHooks, resetHooks } from '..
 import { appendLog, createInitialState, requireRun } from '../src/engine/state.ts';
 import { applyAction } from '../src/engine/reducer.ts';
 
-/** A state mid-run with the given module ids installed, so their hooks are live. */
-function stateWithModules(moduleIds: readonly string[]): GameState {
+/**
+ * A state mid-run carrying the given hook sources, so their handlers are live.
+ *
+ * They ride as unresolved Threads. `activeHookSources` gates firing on what the
+ * run is actually carrying, so a test that registers a handler also has to give
+ * the run something that owns it — the kind of source hardly matters, only that
+ * the bus can see it.
+ */
+function stateWithModules(sourceIds: readonly string[]): GameState {
   const started = applyAction(createInitialState('HOOKS'), { kind: 'beginRun' });
   const run = requireRun(started);
   return {
@@ -20,10 +27,7 @@ function stateWithModules(moduleIds: readonly string[]): GameState {
     log: [],
     run: {
       ...run,
-      ship: {
-        ...run.ship,
-        placed: moduleIds.map((moduleId, index) => ({ moduleId, x: index, y: 0, rot: 0 as const })),
-      },
+      threads: sourceIds.map((threadId) => ({ threadId, resolved: false, progress: 0 })),
     },
   };
 }

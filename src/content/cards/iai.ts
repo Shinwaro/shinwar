@@ -1,9 +1,8 @@
 /* IAI cards — the draw-cut. Burst, Focus, and one decisive strike.
  *
  * The archetype's bargain: everything here wants you standing in IAI, and IAI
- * cooks you 2 Heat every turn you stay — but the cards are where the gauge
- * really climbs, which is what keeps riding it a decision. Rules text is
- * generated from the ops below; only `flavor` is written by hand.
+ * cooks you a point of Heat every turn you stay. Rules text is generated from
+ * the ops below; only `flavor` is written by hand.
  */
 
 import type { CardDef } from '../../engine/types.ts';
@@ -19,7 +18,7 @@ export const IAI_CARDS: readonly CardDef[] = [
     cost: 2,
     effects: [
       { op: 'damage', amount: 12, target: 'enemy' },
-      { op: 'gainHeat', amount: 3 },
+      { op: 'gainHeat', amount: 2 },
     ],
     stanceRider: {
       stance: 'iai',
@@ -32,7 +31,7 @@ export const IAI_CARDS: readonly CardDef[] = [
       name: 'Meridian Cut+',
       effects: [
         { op: 'damage', amount: 16, target: 'enemy' },
-        { op: 'gainHeat', amount: 3 },
+        { op: 'gainHeat', amount: 2 },
       ],
     },
     flavor: 'One line, drawn through the middle of a thing that used to be whole.',
@@ -64,7 +63,7 @@ export const IAI_CARDS: readonly CardDef[] = [
       effects: [
         {
           op: 'conditional',
-          when: { kind: 'heatAtLeast', value: 7 },
+          when: { kind: 'heatAtLeast', value: 4 },
           then: [{ op: 'damage', amount: 8, target: 'enemy' }],
         },
       ],
@@ -76,7 +75,7 @@ export const IAI_CARDS: readonly CardDef[] = [
         effects: [
           {
             op: 'conditional',
-            when: { kind: 'heatAtLeast', value: 7 },
+            when: { kind: 'heatAtLeast', value: 4 },
             then: [{ op: 'damage', amount: 11, target: 'enemy' }],
           },
         ],
@@ -95,14 +94,14 @@ export const IAI_CARDS: readonly CardDef[] = [
     exhaust: true,
     effects: [
       { op: 'damage', amount: 20, target: 'enemy' },
-      { op: 'gainHeat', amount: 5 },
+      { op: 'gainHeat', amount: 3 },
     ],
     stanceRider: { stance: 'iai', effects: [{ op: 'gainFocus', amount: 2 }] },
     upgrade: {
       name: 'Unsheathed Mind+',
       effects: [
         { op: 'damage', amount: 26, target: 'enemy' },
-        { op: 'gainHeat', amount: 5 },
+        { op: 'gainHeat', amount: 3 },
       ],
     },
     flavor: 'The sect trained forty years to spend a single second exactly once.',

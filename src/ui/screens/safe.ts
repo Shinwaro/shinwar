@@ -95,21 +95,12 @@ function build(store: Store, state: GameState, local: Local, redraw: () => void)
         run.pilot.deck.length <= 1,
         () => openPicker('remove'),
       ),
-      run.crash === null
-        ? null
-        : option(
-            'Repair the drive',
-            `${run.crash.repairCost} Alloy to fly again.`,
-            run.alloy < run.crash.repairCost ? 'Not enough Alloy yet.' : 'Space nodes reopen.',
-            run.alloy < run.crash.repairCost,
-            () => store.dispatch({ kind: 'repairDrive' }),
-          ),
       option(
         'Bleed',
         `Trade ${ECONOMY.refuelHullCost} health for ${ECONOMY.refuelAlloyGain} Alloy.`,
         run.pilot.health <= ECONOMY.refuelHullCost
           ? 'Not enough left to spare.'
-          : 'Alloy buys both paths.',
+          : 'Alloy buys cards and Masteries.',
         run.pilot.health <= ECONOMY.refuelHullCost,
         () => store.dispatch({ kind: 'safePlanetTrade' }),
       ),

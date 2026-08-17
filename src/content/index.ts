@@ -8,8 +8,6 @@
 import { CARDS } from './cards/index.ts';
 import { ENEMIES } from './enemies/index.ts';
 import { EVENTS } from './events/index.ts';
-import { MODULES, WEAPONS } from './modules/index.ts';
-import { SHIP_ENEMIES } from './ships/index.ts';
 import { ENVIRONMENTS, RADIATION_BELT_ID, registerEnvironmentHooks } from './environments.ts';
 import { registerEnemyHooks } from './enemies/index.ts';
 import { isRegistered } from '../engine/hooks.ts';
@@ -24,11 +22,8 @@ import {
   environments,
   events,
   masteries,
-  modules,
   relics,
-  shipEnemies,
   statuses,
-  weapons,
   threads,
 } from './registry.ts';
 
@@ -40,9 +35,6 @@ export function loadContent(): void {
   statuses.register(STATUSES);
   cards.register(CARDS);
   enemies.register(ENEMIES);
-  modules.register(MODULES);
-  weapons.register(WEAPONS);
-  shipEnemies.register(SHIP_ENEMIES);
   events.register(EVENTS);
   environments.register(ENVIRONMENTS);
   masteries.register(MASTERIES);

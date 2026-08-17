@@ -1,9 +1,8 @@
 /* The Station.
  *
- * One Alloy pool feeds both progression paths, so the shop is where the dual
- * structure actually generates decisions instead of just doubling the reward
- * stream: the card you want and the module you want cost the same money, and
- * the removal you should probably buy costs it too.
+ * One Alloy pool feeds everything, so the shop is where scarcity actually
+ * generates decisions: the card you want, the Mastery you want and the removal
+ * you should probably buy all cost the same money.
  *
  * Stock is rolled once on arrival and kept in state. A shop that re-rolls
  * between two renders is a shop the player cannot plan against, and planning
@@ -20,19 +19,11 @@ import { fireHook } from '../hooks.ts';
 import { mintCard } from '../combat/instances.ts';
 import { removalCost, spendAlloy } from './economy.ts';
 import { offerableCards, rollMastery } from './rewards.ts';
-import { ECONOMY, MASTERY, RARITY_WEIGHTS, SHIP, SHOP } from '../../content/balance.ts';
-import {
-  cards as cardTable,
-  masteries as masteryTable,
-  modules as moduleTable,
-} from '../../content/registry.ts';
+import { MASTERY, RARITY_WEIGHTS, SHOP } from '../../content/balance.ts';
+import { cards as cardTable, masteries as masteryTable } from '../../content/registry.ts';
 
 export function cardPrice(rarity: Rarity): number {
   return rarity === 'basic' ? SHOP.cardPrice.common : SHOP.cardPrice[rarity];
-}
-
-export function modulePrice(rarity: Rarity): number {
-  return rarity === 'basic' ? SHOP.modulePrice.common : SHOP.modulePrice[rarity];
 }
 
 /* ---------- stocking ---------- */
@@ -63,25 +54,6 @@ export function stockShop(state: GameState, nodeId: string): GameState {
     cards.push({ cardId: rolled.value, price: cardPrice(cardTable.get(rolled.value).rarity), sold: false });
   }
 
-  const owned = new Set([...run.ship.stored, ...run.ship.placed.map((entry) => entry.moduleId)]);
-  const modulePool = moduleTable.all().filter((def) => def.rarity !== 'basic' && !owned.has(def.id));
-  const modules: { moduleId: string; price: number; sold: boolean }[] = [];
-  for (let slot = 0; slot < SHOP.moduleSlots; slot++) {
-    const candidates = modulePool.filter((def) => !modules.some((entry) => entry.moduleId === def.id));
-    if (candidates.length === 0) break;
-    const rolled = weightedPick(
-      rng,
-      'shop',
-      candidates.map((def) => ({ value: def.id, weight: rarityWeights[def.rarity as Exclude<Rarity, 'basic'>] })),
-    );
-    rng = rolled.rng;
-    modules.push({
-      moduleId: rolled.value,
-      price: modulePrice(moduleTable.get(rolled.value).rarity),
-      sold: false,
-    });
-  }
-
   // A Mastery, sometimes. Rolled here so the shelf is fixed on arrival like
   // everything else on it.
   const mastery = rollMastery(rng, run, 'shop');
@@ -90,14 +62,11 @@ export function stockShop(state: GameState, nodeId: string): GameState {
   const shop: ShopState = {
     nodeId,
     cards,
-    modules,
     removalPrice: removalCost(run.removalsPurchased),
     removalUsed: false,
     masteryId: mastery.masteryId,
     masteryPrice: MASTERY.price,
     masterySold: false,
-    gridPrice: SHOP.gridPrice,
-    gridSold: false,
   };
 
   const next = withRun(state, (current) => ({ ...current, rng, shop }));
@@ -145,41 +114,6 @@ export function buyShopCard(state: GameState, cardId: string): GameState {
   });
 }
 
-export function buyShopModule(state: GameState, moduleId: string): GameState {
-  const run = requireRun(state);
-  const shop = run.shop;
-  if (shop === null) return state;
-
-  const stock = shop.modules.find((entry) => entry.moduleId === moduleId && !entry.sold);
-  if (stock === undefined || run.alloy < stock.price) return state;
-
-  const def = moduleTable.get(moduleId);
-  const paid = spendAlloy(state, stock.price, 'station');
-
-  const next = withRun(paid, (current) => ({
-    ...current,
-    // Into storage, never straight onto the grid. Where it goes is a decision
-    // in its own right, and it is made on the loadout screen.
-    ship: { ...current.ship, stored: [...current.ship.stored, moduleId] },
-    shop:
-      current.shop === null
-        ? null
-        : {
-            ...current.shop,
-            modules: current.shop.modules.map((entry) =>
-              entry.moduleId === moduleId ? { ...entry, sold: true } : entry,
-            ),
-          },
-  }));
-
-  return appendLog(next, {
-    source: 'station',
-    kind: 'run',
-    text: `Bought ${def.name} for ${stock.price} Alloy.`,
-    detail: { module: moduleId, cost: stock.price },
-  });
-}
-
 /** The one removal. Priced from `removalsPurchased`, so it rises across the run. */
 export function buyRemoval(state: GameState, cardUid: string): GameState {
   const run = requireRun(state);
@@ -206,48 +140,6 @@ export function buyRemoval(state: GameState, cardUid: string): GameState {
     text: `Stripped ${name} for ${shop.removalPrice} Alloy.`,
     detail: { card: card.defId, cost: shop.removalPrice },
   });
-}
-
-/**
- * Buy a bay extension.
- *
- * Width first, then height. Growing the grid is what makes the bigger shapes
- * worth rolling at all, and it is the ship path's answer to "I found a great
- * module and have nowhere to put it".
- */
-export function buyGrid(state: GameState): GameState {
-  const run = requireRun(state);
-  const shop = run.shop;
-  if (shop === null || shop.gridSold || run.alloy < shop.gridPrice) return state;
-
-  const widen = run.ship.gridW < SHIP.targetEndGrid.w;
-  const heighten = !widen && run.ship.gridH < SHIP.targetEndGrid.h;
-  if (!widen && !heighten) return state;
-
-  const paid = spendAlloy(state, shop.gridPrice, 'station');
-  const next = withRun(paid, (current) => ({
-    ...current,
-    ship: {
-      ...current.ship,
-      gridW: current.ship.gridW + (widen ? 1 : 0),
-      gridH: current.ship.gridH + (heighten ? 1 : 0),
-    },
-    shop: current.shop === null ? null : { ...current.shop, gridSold: true },
-  }));
-
-  const grown = requireRun(next).ship;
-  return appendLog(next, {
-    source: 'station',
-    kind: 'run',
-    text: `Bay extended to ${grown.gridW}x${grown.gridH} for ${shop.gridPrice} Alloy.`,
-    detail: { gridW: grown.gridW, gridH: grown.gridH, cost: shop.gridPrice },
-  });
-}
-
-/** Can the bay grow any further at all? */
-export function canGrowGrid(state: GameState): boolean {
-  const ship = requireRun(state).ship;
-  return ship.gridW < SHIP.targetEndGrid.w || ship.gridH < SHIP.targetEndGrid.h;
 }
 
 /**
@@ -279,26 +171,5 @@ export function buyMastery(state: GameState, masteryId: string): GameState {
     kind: 'run',
     text: `${def.name} for ${shop.masteryPrice} Alloy. ${def.text}`,
     detail: { mastery: masteryId, cost: shop.masteryPrice },
-  });
-}
-
-/** Patch the cutter. The ronin is repaired separately — two attrition tracks. */
-export function repairShip(state: GameState, amount: number): GameState {
-  const run = requireRun(state);
-  const wanted = Math.max(0, Math.min(amount, run.ship.maxHull - run.ship.hull));
-  const cost = wanted * ECONOMY.shipRepairPerPoint;
-  if (wanted === 0 || run.alloy < cost) return state;
-
-  const paid = spendAlloy(state, cost, 'station');
-  const next = withRun(paid, (current) => ({
-    ...current,
-    ship: { ...current.ship, hull: current.ship.hull + wanted },
-  }));
-
-  return appendLog(next, {
-    source: 'station',
-    kind: 'run',
-    text: `Welded ${wanted} onto the cutter for ${cost} Alloy.`,
-    detail: { repaired: wanted, cost },
   });
 }

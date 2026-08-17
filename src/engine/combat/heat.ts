@@ -1,6 +1,6 @@
 /* Heat — the pressure valve.
  *
- * Per-combat, 0-20, starts at 0. It does not decay. You must vent.
+ * Per-combat, 0-10, starts at 0. It does not decay. You must vent.
  *
  * This is "solutions never fully solve problems" made systemic: your best
  * cards actively build toward your death, which manufactures the arc safe ->
@@ -9,12 +9,13 @@
  * The emphasis is on CARDS. A stance that cooks you on a timer produces the
  * same number without the decision, and the player correctly reads that as the
  * game taking a turn off them. The gauge should climb because of what you
- * chose to play, so IAI charges a modest 2 a turn and the swings are hot.
+ * chose to play, so IAI charges a modest 2 a turn and the swings are what
+ * actually cook you.
  *
  * It is also fully visible and fully deterministic. The player always knows
- * exactly how hot they are and exactly what happens above 10 — Darkest
- * Dungeon's lesson was that hiding the number added confusion, not tension.
- * Every surface that shows Heat shows the threshold and the consequence.
+ * exactly how hot they are and exactly what happens at 8 — Darkest Dungeon's
+ * lesson was that hiding the number added confusion, not tension. Every
+ * surface that shows Heat shows the threshold and the consequence with it.
  */
 
 import type { GameState } from '../types.ts';

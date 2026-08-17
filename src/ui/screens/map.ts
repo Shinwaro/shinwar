@@ -50,8 +50,7 @@ function encounterName(node: MapNode): string | null {
 
 /** Everything about a node, for the readout and the accessible name. */
 function labelOf(node: MapNode): string {
-  const arena = node.encounterId === null ? null : node.arena === 'space' ? 'ship fight' : 'on foot';
-  return [node.name, describeNode(node), arena, encounterName(node), environmentName(node)]
+  return [node.name, describeNode(node), encounterName(node), environmentName(node)]
     .filter((part) => part !== null && part !== '')
     .join(' · ');
 }
@@ -67,13 +66,9 @@ function labelOf(node: MapNode): string {
 function captionOf(node: MapNode): HTMLElement {
   const environment = environmentName(node);
   const encounter = encounterName(node);
-  const space = node.arena === 'space' && node.encounterId !== null;
-
   return el('span', { class: 'star-label' }, [
     el('span', { class: 'star-name' }, [node.name]),
-    el('span', { class: 'star-detail' }, [
-      space ? `${describeNode(node)} · SHIP` : describeNode(node),
-    ]),
+    el('span', { class: 'star-detail' }, [describeNode(node)]),
     // What you are walking into, on its own line and in its own colour. These
     // are the two facts the route decision is actually made on, and folding
     // them into one grey run of text with the node type buried them.
@@ -174,7 +169,6 @@ function buildMap(
     // A space fight is a different game with a different build behind it, so it
     // has to be legible from across the chart — you route toward or away from
     // one several nodes out, not when you arrive at it.
-    if (node.arena === 'space' && node.encounterId !== null) classes.push('star--space');
     if (isReachable) classes.push('is-reachable');
     if (isHere) classes.push('is-here');
     if (visited.has(node.id)) classes.push('is-visited');

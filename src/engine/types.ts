@@ -20,7 +20,6 @@
 
 export type CardId = string;
 export type EnemyId = string;
-export type ModuleId = string;
 export type EventId = string;
 export type EncounterId = string;
 export type EnvironmentId = string;
@@ -140,275 +139,6 @@ export interface CardDef {
   readonly exclusive?: boolean;
   /** Hand-written. Rules text is NOT — `describeCard()` generates that. */
   readonly flavor?: string;
-}
-
-/* ---------- the ship ----------
-   Modules occupy rectangles on a grid. Space is the constraint — it replaces
-   the Power budget from DESIGN.md §2 entirely, because a rectangle that will
-   not fit is legible at a glance in a way a number you are under is not.
-   See SHIP.md. */
-
-export type ShipResource = 'heat' | 'energy' | 'singularity';
-
-/**
- * What a module family does, for grouping and for adjacency rules.
- *
- * `cargo` is the odd one: it does nothing and grants nothing. It exists so a
- * Thread can charge you grid space for carrying something — see `ThreadDef`.
- */
-export type ModuleKind =
-  | 'reactor'
-  | 'converter'
-  | 'emitter'
-  | 'plating'
-  | 'sensor'
-  | 'drive'
-  | 'cargo';
-
-/**
- * The shape a module occupies, as a bounding box plus an optional mask.
- *
- * `mask` is row-major, `h` strings of `w` characters, `#` occupied and `.`
- * empty. Absent means the full rectangle. Real shapes — L, T, S — are what turn
- * the grid from a stacking problem into a packing one, and rotation is what
- * makes packing a skill rather than an arithmetic check.
- */
-export interface Footprint {
-  readonly w: number;
-  readonly h: number;
-  readonly mask?: readonly string[];
-}
-
-/** Quarter turns clockwise. */
-export type Rotation = 0 | 1 | 2 | 3;
-
-/** A cell offset inside a shape, or an absolute cell on the grid. */
-export interface Cell {
-  readonly x: number;
-  readonly y: number;
-}
-
-/**
- * What a module does each ship-combat turn. Deliberately a tiny vocabulary:
- * produce a resource, convert one into another, or add damage. The interesting
- * builds are chains of these, not any one of them.
- */
-export type ModuleEffect =
-  | { readonly kind: 'produce'; readonly resource: ShipResource; readonly amount: number }
-  | {
-      readonly kind: 'convert';
-      readonly from: ShipResource;
-      readonly to: ShipResource;
-      readonly rate: number;
-      /** Most it will convert in one turn. */
-      readonly cap: number;
-    }
-  | { readonly kind: 'damage'; readonly amount: number }
-  /** Adds to every weapon shot: `amount` plus `perResource` of the named pool. */
-  | {
-      readonly kind: 'amplify';
-      readonly amount: number;
-      readonly perResource?: ShipResource;
-      readonly per?: number;
-    }
-  | { readonly kind: 'shield'; readonly amount: number };
-
-/**
- * A passive combat stat a module contributes.
- *
- * Most of what a module does should be this rather than a verb. A grid full of
- * buttons is a grid where the build does nothing until you press something;
- * a grid full of passives is a build that is *already* doing something, and the
- * one verb you still get is a lever on top of it rather than the whole game.
- *
- * Declared rather than hooked, for the reason everything else in this codebase
- * is: these modify numbers the resolver is in the middle of producing.
- */
-export type ShipStat =
-  | 'critChance'
-  | 'critBonus'
-  | 'flatDamage'
-  | 'damageReduction'
-  | 'parryChance'
-  | 'pierce'
-  | 'shieldPerTurn'
-  | 'lifesteal'
-  | 'extraShots';
-
-/**
- * A stat that climbs with a pool during the fight.
- *
- * This is where the builds come from. A module that turns Heat into crit and a
- * weapon that generates Heat are a different ship from the same two parts on a
- * grid that also converts Heat into Energy — the parts have not changed, the
- * curve has.
- */
-export interface ShipScaling {
-  readonly resource: ShipResource;
-  readonly stat: ShipStat;
-  /** Stat gained per point of the pool. */
-  readonly per: number;
-  /** Most this scaling will ever contribute. */
-  readonly cap: number;
-}
-
-export type ShipStats = {
-  readonly [K in ShipStat]?: number;
-} & {
-  readonly scaling?: readonly ShipScaling[];
-};
-
-export interface ModuleDef {
-  readonly id: ModuleId;
-  readonly name: string;
-  readonly kind: ModuleKind;
-  readonly rarity: Rarity;
-  readonly footprint: Footprint;
-  readonly effects: readonly ModuleEffect[];
-  /** Passive stats, always on while the module is on the grid. */
-  readonly stats?: ShipStats;
-  /** Extra stats granted only while it touches one of `adjacentTo`. */
-  readonly adjacencyStats?: ShipStats;
-  /**
-   * Extra effects granted only while this module touches one of `adjacentTo`.
-   * A bonus for good packing, never a requirement — a badly packed ship is
-   * weaker and never broken.
-   */
-  readonly adjacentTo?: readonly ModuleKind[];
-  readonly adjacencyEffects?: readonly ModuleEffect[];
-  /** A verb this module grants in combat. Modules grant verbs, not just numbers. */
-  readonly grants?: InterventionId;
-  readonly flavor?: string;
-}
-
-/** The small set of things a player may do on a ship-combat turn. */
-export type InterventionId = 'overcharge' | 'vent' | 'divert' | 'brace' | 'reposition';
-
-export interface WeaponDef {
-  readonly id: ModuleId;
-  readonly name: string;
-  readonly rarity: Rarity;
-  /** Base damage per shot. */
-  readonly damage: number;
-  readonly shots: number;
-  /** Heat generated per shot. The cannon's drawback is the converter's input. */
-  readonly heat: number;
-  readonly flavor?: string;
-}
-
-/** A module sitting on the grid at a position, turned some number of quarters. */
-export interface PlacedModule {
-  readonly moduleId: ModuleId;
-  readonly x: number;
-  readonly y: number;
-  readonly rot: Rotation;
-}
-
-/* ---------- ship combat ----------
-   Autoresolve with one high-leverage decision a turn. The build is the
-   strategy; the turn is where you spend the one lever the build gave you. */
-
-export interface ShipEnemyMove {
-  readonly id: string;
-  readonly label: string;
-  readonly damage: number;
-  readonly shots: number;
-  readonly shield: number;
-  /**
-   * Knocks one of YOUR modules offline for the rest of the fight.
-   *
-   * A telegraphed move rather than a background tax. The simulator found that
-   * an enemy chipping at your grid every turn changed win rates by a couple of
-   * points and mostly just added noise; as something you can see coming a turn
-   * ahead, it is a reason to have packed a spare.
-   */
-  readonly disables?: boolean;
-}
-
-export interface ShipEnemyDef {
-  readonly id: EnemyId;
-  readonly name: string;
-  readonly maxHull: number;
-  readonly act: 1 | 2 | 3;
-  readonly moves: readonly ShipEnemyMove[];
-  readonly script: EnemyScript;
-  /**
-   * Its grid, and the whole reason a space fight is a fight.
-   *
-   * The enemy runs the same module pool the player does, so what it is doing to
-   * you is legible by looking at it rather than by reading a stat block — and
-   * knocking a cell out changes its build the same way losing one changes
-   * yours. Packed first-fit at combat start, so a seed always draws the same
-   * ship in the same arrangement.
-   */
-  readonly modules: readonly ModuleId[];
-  readonly gridW: number;
-  readonly gridH: number;
-  readonly flavor?: string;
-}
-
-export interface ShipEnemyState {
-  readonly defId: EnemyId;
-  readonly hull: number;
-  readonly maxHull: number;
-  readonly shield: number;
-  /** Committed at telegraph time, exactly like a card-combat intent. */
-  readonly intentMoveId: string | null;
-  readonly ai: EnemyAiState;
-  /** Where its modules sit. Fully visible — you are targeting a schematic. */
-  readonly grid: readonly PlacedModule[];
-  /**
-   * Knocked offline for the rest of this fight.
-   *
-   * Not for a few turns: the simulator was unambiguous that a disable which
-   * wears off barely moves a win rate, while one that lasts turns the fight
-   * around — and it self-limits, because you run out of targets worth hitting
-   * after three or four. Nothing is permanent past the fight; a wreck is a
-   * wreck and your own grid is repaired on the way out.
-   */
-  readonly disabled: readonly ModuleId[];
-}
-
-export type ShipPools = { readonly [K in ShipResource]: number };
-
-/** A cell on the enemy grid, or `null` for "no strike this turn". */
-export type StrikeTarget = Cell | null;
-
-export interface ShipCombatState {
-  readonly turn: number;
-  readonly pools: ShipPools;
-  readonly shield: number;
-  /** Damage added to every shot this turn, from Overcharge and amplifiers. */
-  readonly amplify: number;
-  readonly enemy: ShipEnemyState;
-  /** One a turn.  means the player has not spent it yet. */
-  readonly usedIntervention: InterventionId | null;
-  /**
-   * The cell you are striking this turn, or `null`.
-   *
-   * Free, one a turn, and it does not cost Energy. The simulator found the
-   * Energy gate was never a decision: every build that could afford a strike
-   * made one every single turn, and the Void build — whose converter eats the
-   * whole pool before anything else sees it — could never afford one at all.
-   * A cost that is either zero or infinite is not a cost.
-   *
-   * The volley itself always goes at the hull. This is the separate decision:
-   * end the fight sooner, or make the rest of it cheaper.
-   */
-  readonly strike: StrikeTarget;
-  /** Your own modules knocked offline for this fight. Repaired on the way out. */
-  readonly playerDisabled: readonly ModuleId[];
-  /**
-   * Module ids that fired on the last resolve, in the order they fired.
-   *
-   * Presentation data in state on purpose: the screen animates the chain by
-   * replaying this, and it has to be the resolver's real order rather than
-   * something the UI guesses from the grid. Empty before the first turn.
-   */
-  readonly triggered: readonly ModuleId[];
-  /** The last volley crit. Drives the flash, and says so in the log. */
-  readonly crit: boolean;
-  readonly outcome: 'ongoing' | 'won' | 'lost';
 }
 
 /**
@@ -533,18 +263,13 @@ export type RunEffect =
   /** The ronin. Negative can never take the last point — an event is not a death. */
   | { readonly op: 'health'; readonly amount: number }
   | { readonly op: 'maxHealth'; readonly amount: number }
-  /** The cutter. Repairable with Alloy, unlike a body. */
-  | { readonly op: 'hull'; readonly amount: number }
   | { readonly op: 'card'; readonly cardId: CardId; readonly upgraded?: boolean }
-  | { readonly op: 'module'; readonly moduleId: ModuleId }
   | { readonly op: 'upgradeRandomCard' }
   | { readonly op: 'removeRandomCard' }
   | { readonly op: 'setThread'; readonly threadId: ThreadId }
   | { readonly op: 'resolveThread'; readonly threadId: ThreadId }
   /** A fight that arrives instead of whatever the node was going to be. */
-  | { readonly op: 'ambush'; readonly tier: 'combat' | 'elite' }
-  /** More room on the ship grid. The ship path's equivalent of a card slot. */
-  | { readonly op: 'grid'; readonly w: number; readonly h: number };
+  | { readonly op: 'ambush'; readonly tier: 'combat' | 'elite' };
 
 export interface EventOption {
   readonly id: string;
@@ -591,12 +316,6 @@ export interface ThreadDef {
   readonly omen: string;
   readonly trigger: ThreadTrigger;
   readonly payoff: readonly RunEffect[];
-  /**
-   * Cargo the thread occupies on the ship grid while it is unresolved. The
-   * spatial version of DESIGN.md's "-1 Power": you are carrying something, and
-   * the room it takes is the price.
-   */
-  readonly cargoModuleId?: ModuleId;
 }
 
 /**
@@ -693,7 +412,7 @@ export type LogKind =
 export interface LogEntry {
   readonly turn: number;
   readonly round: number;
-  /** Who caused it: a card id, enemy id, module id, `'player'`, `'system'`. */
+  /** Who caused it: a card id, enemy id, `'player'`, `'system'`. */
   readonly source: string;
   readonly kind: LogKind;
   readonly text: string;
@@ -824,35 +543,9 @@ export interface CombatState {
   readonly outcome: 'ongoing' | 'won' | 'lost';
 }
 
-/* ---------- ship ---------- */
-
-export interface ShipState {
-  /** The cutter's own health. Spent in space combat, repaired with Alloy. */
-  readonly hull: number;
-  readonly maxHull: number;
-  /** Grid size in cells. Growing this is the ship-path equivalent of a card slot. */
-  readonly gridW: number;
-  readonly gridH: number;
-  readonly placed: readonly PlacedModule[];
-  /** Mounted separately — weapons are not part of the grid. */
-  readonly weaponId: ModuleId;
-  /** Owned but not fitted. The grid is the constraint, not ownership. */
-  readonly stored: readonly ModuleId[];
-}
-
 /* ---------- the map ----------
    A DAG of rows. Every node knows only which nodes in the next row it leads
    to, which is all routing needs and all the renderer needs. */
-
-/**
- * Combat happens in two entirely different systems, and a node declares which.
- * `surface` is the deckbuilder and risks the ronin; `space` is the module grid
- * and risks the cutter. See SHIP.md.
- *
- * Only `surface` is playable today — `space` exists in the vocabulary so the
- * map, routing and the crash can be built once rather than retrofitted.
- */
-export type Arena = 'surface' | 'space';
 
 export type NodeType =
   | 'combat'
@@ -861,11 +554,7 @@ export type NodeType =
   | 'event'
   | 'station'
   | 'safe'
-  | 'unknown'
-  /** Injected by a crash. Elite-band encounters, and the way off the rock. */
-  | 'crash'
-  /** The repair node that ends a crash pocket. */
-  | 'wreck';
+  | 'unknown';
 
 export interface MapNode {
   readonly id: string;
@@ -886,7 +575,6 @@ export interface MapNode {
   readonly x: number;
   readonly y: number;
   readonly type: NodeType;
-  readonly arena: Arena;
   /** Combat nodes only. */
   readonly encounterId: EncounterId | null;
   /** Shown on the badge before the player commits to the route. */
@@ -916,11 +604,7 @@ export interface ThreadState {
   readonly progress: number;
 }
 
-/**
- * The ronin themself. Separate from the ship on purpose: Alloy repairs the
- * cutter but not a body, so the two attrition tracks price differently and a
- * surface fight costs something a space fight cannot.
- */
+/** The ronin themself: health, deck, and the two kinds of permanent upgrade. */
 export interface PilotState {
   readonly health: number;
   readonly maxHealth: number;
@@ -928,13 +612,6 @@ export interface PilotState {
   readonly masteries: readonly MasteryId[];
   /** Passive items. The only thing in the game that raises Energy or draw. */
   readonly relics: readonly RelicId[];
-}
-
-/** Stranded after a crash. The drive is dead until it is paid for. */
-export interface CrashState {
-  readonly repairCost: number;
-  /** Modules shaken off the grid by the hit. They are in storage, not lost. */
-  readonly knockedLoose: readonly ModuleId[];
 }
 
 export type RunOutcome = 'won' | 'died' | 'abandoned';
@@ -964,9 +641,6 @@ export interface WavefrontState {
  */
 export interface RewardOffer {
   readonly cardIds: readonly CardId[];
-  /** Elites drop a module. Empty on a normal fight. */
-  readonly moduleIds: readonly ModuleId[];
-  readonly takenModules: readonly ModuleId[];
   /**
    * Relics on offer, from a boss. Three of them, and you take one — an act
    * finale should hand you a decision about what the rest of the run is, not a
@@ -993,30 +667,8 @@ export interface PendingEvent {
   readonly outcome: readonly string[];
 }
 
-/**
- * The wreck, after a space battle.
- *
- * Three parts, take one. Handing a module out before every fight made them
- * weightless — a thing that arrives on a schedule is not a reward — and it meant
- * the grid filled up without the player ever choosing what went on it. Salvage
- * lands after the fight instead, where it is a decision about the run rather
- * than a top-up before a fight you had not had yet.
- */
-export interface PendingSalvage {
-  readonly moduleIds: readonly ModuleId[];
-  readonly taken: ModuleId | null;
-  /** What you just took it apart. */
-  readonly enemyId: EnemyId;
-}
-
 export interface ShopCardStock {
   readonly cardId: CardId;
-  readonly price: number;
-  readonly sold: boolean;
-}
-
-export interface ShopModuleStock {
-  readonly moduleId: ModuleId;
   readonly price: number;
   readonly sold: boolean;
 }
@@ -1028,7 +680,6 @@ export interface ShopModuleStock {
 export interface ShopState {
   readonly nodeId: string;
   readonly cards: readonly ShopCardStock[];
-  readonly modules: readonly ShopModuleStock[];
   /** Every Station stocks exactly one removal. The price rises per purchase. */
   readonly removalPrice: number;
   readonly removalUsed: boolean;
@@ -1040,28 +691,16 @@ export interface ShopState {
   readonly masteryId: MasteryId | null;
   readonly masteryPrice: number;
   readonly masterySold: boolean;
-  /**
-   * A bay extension. The grid grows during the run rather than starting large,
-   * so a shape that will not fit today is a reason to come back rather than a
-   * reason the module was worthless.
-   */
-  readonly gridPrice: number;
-  readonly gridSold: boolean;
 }
 
 /** What the player is looking at between fights. */
 export type RunScreen =
   | 'map'
   | 'combat'
-  | 'shipCombat'
   | 'reward'
   | 'safe'
   | 'station'
-  | 'event'
-  /** Picking over the wreck of a ship you just beat. */
-  | 'salvage'
-  /** The loadout: the grid, out of combat. */
-  | 'ship';
+  | 'event';
 
 export interface RunState {
   /** Copyable, re-enterable. Not persistence — a number you can write down. */
@@ -1078,7 +717,6 @@ export interface RunState {
   readonly pendingReward: RewardOffer | null;
   readonly alloy: number;
   readonly pilot: PilotState;
-  readonly ship: ShipState;
   readonly threads: readonly ThreadState[];
   /** The Anomaly on screen, if one is. */
   readonly pendingEvent: PendingEvent | null;
@@ -1086,8 +724,6 @@ export interface RunState {
   readonly seenEvents: readonly EventId[];
   /** The Station's stock, kept from arrival so it cannot reshuffle mid-visit. */
   readonly shop: ShopState | null;
-  /** The wreck to pick over, after a space battle. */
-  readonly pendingSalvage: PendingSalvage | null;
   /**
    * Set when a Thread throws a fight at you. The reward screen reads it instead
    * of the node's type, so a reprisal pays what a reprisal is worth. Cleared
@@ -1097,8 +733,6 @@ export interface RunState {
   /** The collapse front. `null` in Act 1, where it would only be noise. */
   readonly wavefront: WavefrontState | null;
   readonly combat: CombatState | null;
-  /** The other kind of fight. Never live at the same time as `combat`. */
-  readonly shipCombat: ShipCombatState | null;
   readonly outcome: RunOutcome | null;
   /** Monotonic source of instance uids. See `combat/instances.ts`. */
   readonly uidCounter: number;
@@ -1106,12 +740,6 @@ export interface RunState {
   readonly rewardDrought: number;
   /** Card removals bought so far. The price rises with each one. */
   readonly removalsPurchased: number;
-  /**
-   * Set when a ship fight is lost. You always survive a crash — what you lose
-   * is the drive, some modules, a bite out of the ronin, and the Alloy it
-   * takes to fly again. See SHIP.md.
-   */
-  readonly crash: CrashState | null;
 }
 
 /* ---------- rng ---------- */

@@ -161,17 +161,6 @@ describe('the guarantees, across 1000 seeds', () => {
     }
   });
 
-  it('leaves ship fights in Clear Space, because the modifiers are for the deck', () => {
-    for (const seed of SEEDS.slice(0, 120)) {
-      for (const act of [1, 2, 3] as const) {
-        const { map } = generateMap(createRng(seed), act);
-        for (const node of map.nodes) {
-          if (node.arena !== 'space' || node.environmentId === null) continue;
-          expect(node.environmentId, `${seed} ${node.id}`).toBe(CLEAR_SPACE_ID);
-        }
-      }
-    }
-  });
 });
 
 describe('determinism', () => {

@@ -24,7 +24,6 @@ import { ACTIVE_STANCES, MASTERY, RARITY_WEIGHTS, REWARDS } from '../../content/
 import {
   cards as cardTable,
   masteries as masteryTable,
-  modules as moduleTable,
   relics as relicTable,
 } from '../../content/registry.ts';
 
@@ -125,23 +124,15 @@ export function rollReward(
   tier: 'combat' | 'elite' | 'boss' = 'combat',
 ): RolledReward {
   const cards = rollCardChoices(rng, run, act, drought);
-  // Elites drop a module — guaranteed, per DESIGN.md §3. That is what makes
-  // routing toward one a real decision rather than just more Alloy.
-  const withModule =
-    tier === 'elite' || tier === 'boss'
-      ? rollModules(cards.rng, run)
-      : { moduleIds: [], rng: cards.rng };
-  const withRelics = rollRelics(withModule.rng, run, tier);
+  const withRelics = rollRelics(cards.rng, run, tier);
 
   return {
     offer: {
       cardIds: cards.cardIds,
-      moduleIds: withModule.moduleIds,
       relicIds: withRelics.relicIds,
       takenRelic: null,
       alloy,
       taken: [],
-      takenModules: [],
       alloyClaimed: false,
     },
     rng: withRelics.rng,
@@ -232,46 +223,6 @@ export function rollMastery(
   const picked = pick(rng, 'rewards', pool);
   return { masteryId: picked.value.id, rng: picked.rng };
 }
-
-/**
- * `count` modules the player does not already own, weighted by rarity.
- *
- * The grid identifies a module by its id, so a duplicate has nowhere to go —
- * owned ones are excluded rather than offered and then refused.
- */
-export function rollModules(
-  rng: RngState,
-  run: RunState,
-  count = 1,
-): { readonly moduleIds: readonly string[]; readonly rng: RngState } {
-  const owned = new Set([...run.ship.stored, ...run.ship.placed.map((entry) => entry.moduleId)]);
-  const pool = moduleTable.all().filter((def) => def.rarity !== 'basic' && !owned.has(def.id));
-  if (pool.length === 0) return { moduleIds: [], rng };
-
-  const chosen: string[] = [];
-  let current = rng;
-  for (let slot = 0; slot < count; slot++) {
-    const candidates = pool.filter((def) => !chosen.includes(def.id));
-    if (candidates.length === 0) break;
-    const rolled = weightedPick(
-      current,
-      'rewards',
-      candidates.map((def) => ({ value: def.id, weight: MODULE_WEIGHTS[def.rarity] ?? 1 })),
-    );
-    current = rolled.rng;
-    chosen.push(rolled.value);
-  }
-  return { moduleIds: chosen, rng: current };
-}
-
-const MODULE_WEIGHTS: Readonly<Record<string, number>> = {
-  common: 50,
-  uncommon: 32,
-  rare: 14,
-  epic: 3,
-  legendary: 0.9,
-  artifact: 0.1,
-};
 
 /** Did this screen offer anything matching the deck's lean? Feeds the drought counter. */
 export function offerMatchesLean(offer: RewardOffer, run: RunState): boolean {

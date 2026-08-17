@@ -1,7 +1,7 @@
 /* The pause screen.
  *
  * Load-bearing at an hour a run: the player needs to look up their deck, their
- * loadout and their Threads mid-fight without leaving combat. §6's information
+ * deck and their Threads mid-fight without leaving combat. §6's information
  * rules apply here — everything present, nothing hidden.
  *
  * An in-page dialog, never a browser one — those block the whole tab, cannot
@@ -17,7 +17,6 @@ import { describeCard, describeCost } from '../../engine/combat/describe.ts';
 import { currentDepth, currentSeed, depthRules } from '../../engine/queries.ts';
 import {
   masteries as masteryTable,
-  modules as moduleTable,
   relics as relicTable,
 } from '../../content/registry.ts';
 import { button, el } from '../dom.ts';
@@ -84,19 +83,6 @@ function build(
       fact('Alloy', String(run.alloy)),
       fact('Deck', String(run.pilot.deck.length)),
       fact('Act', String(run.act)),
-    ]),
-
-    el('section', { class: 'pause-section' }, [
-      el('h2', { class: 'pause-heading' }, ['Ship']),
-      el('p', { class: 'pause-empty' }, [
-        `Hull ${run.ship.hull}/${run.ship.maxHull}. ` +
-          (run.ship.placed.length === 0
-            ? 'Nothing on the grid.'
-            : `${run.ship.placed.map((entry) => moduleTable.get(entry.moduleId).name).join(', ')} fitted.`) +
-          (run.ship.stored.length === 0
-            ? ''
-            : ` ${run.ship.stored.length} in storage.`),
-      ]),
     ]),
 
     // Relics are the run's power curve. They belong high on the panel, not

@@ -15,7 +15,6 @@ import { liveScreen } from '../screen.ts';
 import { describeCard } from '../../engine/combat/describe.ts';
 import {
   cards as cardTable,
-  modules as moduleTable,
   relics as relicTable,
 } from '../../content/registry.ts';
 import { RARITY_LABEL } from '../../content/balance.ts';
@@ -114,29 +113,35 @@ function buildReward(store: Store, state: GameState): HTMLElement {
             }),
           ),
         ]),
-    offer.moduleIds.length === 0
+    offer.relicIds.length === 0
       ? null
-      : el('div', { class: 'reward-modules' }, [
-          el('h2', { class: 'pause-heading' }, ['Salvaged module']),
+      : el('div', { class: 'reward-relics' }, [
+          el('h2', { class: 'pause-heading' }, ['Take one relic']),
           el(
             'div',
-            { class: 'store-row' },
-            offer.moduleIds.map((moduleId) => {
-              const def = moduleTable.get(moduleId);
-              const taken = offer.takenModules.includes(moduleId);
+            { class: 'relic-row' },
+            offer.relicIds.map((relicId) => {
+              const def = relicTable.find(relicId);
+              if (def === undefined) return null;
+              const taken = offer.takenRelic === relicId;
               const node = button(
                 '',
                 {
-                  class: `store-item${taken ? ' is-held' : ''}`,
+                  class: `relic-card${taken ? ' is-selected' : ''}`,
                   'data-rarity': def.rarity,
                   'aria-pressed': taken ? 'true' : 'false',
                 },
-                () => store.dispatch({ kind: 'takeRewardModule', moduleId }),
+                () => store.dispatch({ kind: 'takeRewardRelic', relicId }),
               );
               return withChildren(node, [
-                el('span', { class: 'store-name' }, [def.name]),
-                el('span', { class: 'store-size' }, [`${def.footprint.w}×${def.footprint.h}`]),
-                el('span', { class: 'store-hint' }, [def.flavor ?? '']),
+                el('div', { class: 'card-head' }, [
+                  el('span', { class: 'card-name' }, [def.name]),
+                  el('span', { class: `card-badge card-badge--${def.rarity}` }, [
+                    RARITY_LABEL[def.rarity],
+                  ]),
+                ]),
+                el('p', { class: 'card-text' }, [def.text]),
+                def.flavor === undefined ? null : el('p', { class: 'card-flavor' }, [def.flavor]),
               ]);
             }),
           ),
