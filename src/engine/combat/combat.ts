@@ -28,7 +28,7 @@ import { ENCOUNTERS } from '../../content/encounters.ts';
 import { PLAYER, enemyTarget, livingEnemies } from './damage.ts';
 import { applyEffects, createContext, retireCard } from './effects.ts';
 import { gainHeat, resolveOverheat, ventHeat } from './heat.ts';
-import { addStacks, clearFresh, decayStatuses } from './keywords.ts';
+import { addStacks, clearFresh, decayStatuses, tickStatuses } from './keywords.ts';
 import { environmentRules, liveStance, pilotRules, stanceRulesFor } from './rules.ts';
 import { mintEnemy } from './instances.ts';
 import { discardHand, draw, findInHand, moveToDiscard, narrateDraw } from './piles.ts';
@@ -213,6 +213,13 @@ export function startPlayerTurn(state: GameState): GameState {
   next = telegraphAll(next);
 
   if (!skipping && relics.ventPerTurn > 0) next = ventHeat(next, relics.ventPerTurn, 'relics');
+
+  // Poison and Scald tick here: after the hand is dealt and the intents are
+  // committed, so the player sees the damage and the Heat *before* deciding
+  // what to spend the turn on. A clock you only find out about after acting is
+  // not a clock, it is an ambush.
+  next = tickStatuses(next, PLAYER);
+  if (next.run?.combat?.outcome !== 'ongoing') return next;
 
   next = fireHook(next, 'onRoundStart', { round: requireCombat(next).round });
   next = fireHook(next, 'onTurnStart', { turn });
@@ -480,6 +487,11 @@ export function advanceEnemyTurn(state: GameState): GameState {
         entry.uid === uid ? { ...entry, block: 0, statuses: clearFresh(entry.statuses) } : entry,
       ),
     }));
+
+    // Whatever is eating this enemy eats it before it swings, so a poison that
+    // kills it means the move never lands.
+    next = tickStatuses(next, enemyTarget(uid));
+    if (next.run?.combat?.enemies.find((entry) => entry.uid === uid)?.hp === 0) return next;
 
     next = appendLog(next, {
       source: uid,

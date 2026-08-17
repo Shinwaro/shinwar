@@ -77,8 +77,8 @@ export const IMPLANTS: readonly ImplantDef[] = [
   {
     id: 'breath_governor',
     name: 'Breath Governor',
-    rarity: 'uncommon',
-    price: 130,
+    rarity: 'common',
+    price: 95,
     maxStacks: 2,
     passive: { focusPerTurn: 1 },
     flavor: 'It counts for you, so you do not have to.',

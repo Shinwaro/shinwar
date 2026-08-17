@@ -4,8 +4,10 @@
  * damage pipeline. What lives here is only the bookkeeping: add, read, decay.
  */
 
-import type { StatusStack, StatusId } from '../types.ts';
+import type { GameState, StatusStack, StatusId } from '../types.ts';
 import { statuses as statusTable } from '../../content/registry.ts';
+import { applyDirectDamage, type Combatant } from './damage.ts';
+import { gainHeat } from './heat.ts';
 
 export function stacksOf(held: readonly StatusStack[], status: StatusId): number {
   return held.find((entry) => entry.status === status)?.stacks ?? 0;
@@ -77,4 +79,44 @@ export function clearFresh(held: readonly StatusStack[]): readonly StatusStack[]
 export function describeStatus(status: StatusId, stacks: number): string {
   const def = statusTable.find(status);
   return `${def?.name ?? status} ${stacks}`;
+}
+
+/**
+ * Everything a status does *per turn*, for one holder.
+ *
+ * One tick, in one place, driven by `damagePerTurn` and `heatPerTurn` on the
+ * status row. A poison is therefore a line of data rather than a handler, and
+ * the day a second poison-like status arrives it gets the same tick for free
+ * instead of a second copy of this that drifts.
+ *
+ * Unblockable on purpose: Block is the answer to nearly everything else, so the
+ * pressure worth adding is the kind that walks past it.
+ */
+export function tickStatuses(state: GameState, who: Combatant): GameState {
+  const combat = state.run?.combat;
+  if (combat === undefined || combat === null) return state;
+
+  const held =
+    who.kind === 'player'
+      ? combat.statuses
+      : (combat.enemies.find((enemy) => enemy.uid === who.uid)?.statuses ?? []);
+
+  let next = state;
+  for (const stack of held) {
+    const def = statusTable.find(stack.status);
+    if (def === undefined) continue;
+
+    const damage = (def.damagePerTurn ?? 0) * stack.stacks;
+    if (damage > 0) {
+      next = applyDirectDamage(next, who, damage, stack.status, def.name.toLowerCase());
+    }
+
+    // Enemies have no gauge, so a Scald on one is inert rather than a special
+    // case — the field simply does nothing off the player.
+    const heat = (def.heatPerTurn ?? 0) * stack.stacks;
+    if (heat > 0 && who.kind === 'player') {
+      next = gainHeat(next, heat, stack.status);
+    }
+  }
+  return next;
 }

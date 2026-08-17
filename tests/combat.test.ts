@@ -79,16 +79,16 @@ describe('intents', () => {
   });
 
   it('shows the number that will actually land, not the raw one', () => {
-    // The Lathe Drone's Strike is 6. Vulnerable on the player makes it 9, and
-    // the telegraph must say 9 — freezing the number instead of the choice is
-    // exactly how "it said 6" happens.
+    // The Lathe Drone's Strike is 5. Vulnerable on the player makes it 7 (5 x
+    // 1.5, rounded down), and the telegraph must say 7 — freezing the number
+    // instead of the choice is exactly how "it said 5" happens.
     const clean = telegraphAll(makeFight({ enemyIds: ['lathe_drone'] }));
     const vulnerable = telegraphAll(
       makeFight({ enemyIds: ['lathe_drone'], playerStatuses: [{ status: VULNERABLE, stacks: 1, fresh: false }] }),
     );
 
-    expect(intentOf(clean, firstEnemy(clean))[0]?.amount).toBe(6);
-    expect(intentOf(vulnerable, firstEnemy(vulnerable))[0]?.amount).toBe(9);
+    expect(intentOf(clean, firstEnemy(clean))[0]?.amount).toBe(5);
+    expect(intentOf(vulnerable, firstEnemy(vulnerable))[0]?.amount).toBe(7);
   });
 
   it('telegraphs multi-hit as times x amount', () => {
@@ -97,7 +97,7 @@ describe('intents', () => {
     const hit = intentOf(telegraphed, firstEnemy(telegraphed))[0];
     expect(hit).toBeDefined();
     if (hit?.times === 2) expect(hit.amount).toBe(3);
-    else expect(hit?.amount).toBe(6);
+    else expect(hit?.amount).toBe(11);
   });
 
   it('runs a sequence script in order, every time', () => {
@@ -110,7 +110,7 @@ describe('intents', () => {
       seen.push(firstEnemy(state).intentMoveId);
       state = endTurnImmediately(state);
     }
-    expect(seen).toEqual(['strike', 'plate', 'sap', 'strike', 'plate', 'sap']);
+    expect(seen).toEqual(['strike', 'plate', 'press', 'sap', 'strike', 'plate']);
   });
 
   it('never repeats a weighted move more than its cap', () => {

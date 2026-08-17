@@ -169,21 +169,42 @@ export function rollRelics(
   const pool = relicTable.all().filter((def) => !run.pilot.relics.includes(def.id));
   if (pool.length === 0) return { relicIds: [], rng };
 
+  /*
+   * One tier for the whole offer, rolled first.
+   *
+   * Rolling each slot independently produced screens with a common, a rare and
+   * a legendary side by side, which is not a choice — it is a right answer with
+   * two decorations next to it. Picking the tier first and then filling from it
+   * means the three are comparable, and the decision is which effect suits the
+   * build rather than which border is shiniest.
+   *
+   * Tiers with too little left in them are skipped rather than padded from a
+   * neighbour, for the same reason: a padded offer is a mixed offer again.
+   */
+  const tiers = [...new Set(pool.map((def) => def.rarity))].filter(
+    (rarity) => pool.filter((def) => def.rarity === rarity).length >= REWARDS.relicChoices,
+  );
+  const usable = tiers.length > 0 ? tiers : [...new Set(pool.map((def) => def.rarity))];
+
+  const tierRoll = weightedPick(
+    rng,
+    'rewards',
+    usable.map((rarity) => ({
+      value: rarity,
+      weight: rarityWeights[rarity as Exclude<Rarity, 'basic'>] ?? 1,
+    })),
+  );
+  const offerRarity = tierRoll.value;
+  const tierPool = pool.filter((def) => def.rarity === offerRarity);
+
   const chosen: RelicId[] = [];
-  let current = rng;
+  let current = tierRoll.rng;
   for (let slot = 0; slot < REWARDS.relicChoices; slot++) {
-    const candidates = pool.filter((def) => !chosen.includes(def.id));
+    const candidates = tierPool.filter((def) => !chosen.includes(def.id));
     if (candidates.length === 0) break;
-    const rolled = weightedPick(
-      current,
-      'rewards',
-      candidates.map((def) => ({
-        value: def.id,
-        weight: rarityWeights[def.rarity as Exclude<Rarity, 'basic'>] ?? 1,
-      })),
-    );
+    const rolled = pick(current, 'rewards', candidates);
     current = rolled.rng;
-    chosen.push(rolled.value);
+    chosen.push(rolled.value.id);
   }
 
   return { relicIds: chosen, rng: current };

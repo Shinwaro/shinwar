@@ -11,7 +11,7 @@
  */
 
 import type { EncounterId, EnemyId } from '../engine/types.ts';
-import { CINDER_WISP, LATHE_DRONE, SCRAP_HOUND } from './enemies/act1.ts';
+import { CINDER_WISP, KILN_ADEPT, LATHE_DRONE, RUST_TICK, SCRAP_HOUND } from './enemies/act1.ts';
 import { KILN_ALPHA, KILN_SOVEREIGN, MAG_LATHE } from './enemies/act1elites.ts';
 import {
   ARC_WELDER,
@@ -55,6 +55,33 @@ export const ENCOUNTERS: readonly EncounterDef[] = [
     act: 1,
     tier: 'normal',
     enemyIds: [SCRAP_HOUND, CINDER_WISP],
+  },
+  {
+    /* One alone. The opening fight should teach the loop -- block the spike,
+       hit on the quiet turns -- without also asking who to kill first. */
+    id: 'lone_drone',
+    name: 'Stray',
+    act: 1,
+    tier: 'normal',
+    enemyIds: [LATHE_DRONE],
+  },
+  {
+    /* The clock and the wall. Burrow makes the Tick slow to kill, and the
+       poison runs the whole time you are trying. */
+    id: 'tick_nest',
+    name: 'Nest',
+    act: 1,
+    tier: 'normal',
+    enemyIds: [RUST_TICK, SCRAP_HOUND],
+  },
+  {
+    /* Target priority, stated plainly: the Adept gets worse every turn you
+       spend on the Wisp, and the Wisp is Scalding you the whole time. */
+    id: 'kindling',
+    name: 'Kindling',
+    act: 1,
+    tier: 'normal',
+    enemyIds: [KILN_ADEPT, CINDER_WISP],
   },
   {
     id: 'lathe_watch',

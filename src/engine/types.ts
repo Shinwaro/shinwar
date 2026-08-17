@@ -247,6 +247,16 @@ export interface StatusDef {
   readonly damageDealtMult?: number;
   /** Multiplier on damage the holder takes. Vulnerable is 1.5. */
   readonly damageTakenMult?: number;
+  /**
+   * Unblockable damage per stack, at the start of the holder's turn.
+   *
+   * Declared rather than hooked so a poison is a row in a table instead of a
+   * handler somewhere else: the tick lives in one place and every status that
+   * wants one gets the same one.
+   */
+  readonly damagePerTurn?: number;
+  /** Heat gained per stack at the start of the turn. Player only — enemies have no gauge. */
+  readonly heatPerTurn?: number;
 }
 
 /* ---------- run-scope effects ----------

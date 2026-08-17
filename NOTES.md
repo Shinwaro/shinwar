@@ -1303,3 +1303,91 @@ complaint.
 constraint is Station frequency and Alloy income, not the shelf. Masteries are
 still at zero even after dropping to 170. And the deck still grows to 24, which
 means removal is not keeping up with rewards.
+
+## Playtest pass 10 — spiky damage, enemies that ask different questions, honest tiers
+
+Robin, on the state after the progression pass: the mobs deal no damage at all;
+the point is to shield when they attack and find openings to hit back. Every
+encounter feels the same, with almost no variation in moveset. And the items are
+not equal in power within a tier — "gain 1 Focus a turn" sat a tier *above*
+"every attack deals 2 more", which is plainly backwards.
+
+### Flat damage is the failure mode, not high damage
+
+I had cut enemy damage across the board over four passes, which made Block a
+passive tax rather than a read. If every turn costs six, you block every turn and
+never think about it. The fix is not "more damage" — it is **spiky** damage:
+
+- **Scrap Hound** bites for 11 or snaps for 3x2. Same enemy, two very different
+  turns, with a repeat cap so you are choosing rather than guessing.
+- **Lathe Drone** runs strike / plate / **press 14** / sap. A fixed cycle with one
+  real spike in it, and the spike is always third — a cycle you can learn is a
+  cycle you can plan a Block around, which is the entire point of it.
+
+Health per fight went 7.5 -> 9.6 and Act 1 deaths 22% -> 34%, which is the bite
+coming back without returning to the 86% it started at.
+
+### Two new statuses, and they are data
+
+`damagePerTurn` and `heatPerTurn` are now fields on `StatusDef`, ticked in one
+place by `tickStatuses()`. A poison is a row in a table rather than a handler
+somewhere else, and the next status that wants a tick gets the same one instead
+of a second copy that drifts.
+
+- **Poison** — unblockable, decays. Block is the answer to nearly everything else
+  in this game, so the pressure worth adding is the kind that walks past it. It
+  falls off, so it is a reason to hurry rather than a tax.
+- **Scald** — Heat per turn. Against a deck that never goes near the overheat
+  line this is nothing; against one riding it, it is the whole fight. This is the
+  first thing in the game that makes Heat someone else's decision as well as
+  yours.
+
+Both tick at the *start* of the turn, after the hand is dealt and the intents are
+committed, so the player sees the damage and the Heat before choosing what to
+spend the turn on. A clock you only learn about after acting is not a clock, it
+is an ambush.
+
+### Two new Act 1 enemies, and they are the puzzles
+
+- **Rust Tick** — the first enemy Block cannot answer. Low damage, poison clock,
+  and it burrows for 6 so it is slow to kill. The correct play is to stop
+  defending and end it, which is the opposite of everything before it.
+- **Kiln Adept** — +2 Strength every third turn. Next to anything else it makes
+  target priority a real question, and it puts that question in Act 1 rather than
+  Act 3 where focus-fire currently first matters.
+
+New encounters to state those questions plainly: **Nest** (Tick + Hound: the
+clock and the wall), **Kindling** (Adept + Wisp: the Adept gets worse every turn
+you spend on the Wisp, and the Wisp is Scalding you), and **Stray** (a lone Lathe
+Drone, so the opening fight teaches block-the-spike without also asking who to
+kill first).
+
+### The tier ladder was backwards
+
+`whetted_edge` — +2 on **every** attack, unconditional, forever — was **common**.
+`breath_marker` — +1 Focus a turn, which only IAI ever cashes and only in a build
+that wants it — was **uncommon**. Robin caught it; it is exactly inverted.
+
+Retiered on one principle: **how unconditional is it**. Flat damage on every
+attack and a card drawn every turn are near-universal, so they cost a tier or two
+more than something that needs a build to matter. Whetted Edge is rare, Wide
+Aperture is epic, Breath Marker and Bleed Valve are common.
+
+**Elite and boss offers are now single-tier.** Rolling each slot independently
+produced screens with a common, a rare and a legendary side by side, which is not
+a choice — it is a right answer with two decorations next to it. The tier is
+rolled first and all three come from it, so the decision is which effect suits
+the build rather than which border is shiniest. Tiers with fewer than three left
+are skipped rather than padded, because a padded offer is a mixed offer again.
+
+### Not done, and named so it is not lost
+
+- **Relics still do not interact with cards.** Robin is right that they are
+  mostly "+damage" and "-damage taken". The interesting ones would read the play
+  — something that pays out on a turn you played four cards, or on the first
+  attack after a stance change, or that turns Block into something on a turn you
+  did not need it. That needs new hook points, not new numbers.
+- **Acts 2 and 3 still have flat rosters.** Only Act 1 got the spike-and-variety
+  pass.
+- **Card tiers have not been audited** the way relic tiers just were, and the
+  same inversion is likely sitting in there.
