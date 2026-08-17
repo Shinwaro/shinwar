@@ -1391,3 +1391,51 @@ are skipped rather than padded, because a padded offer is a mixed offer again.
   pass.
 - **Card tiers have not been audited** the way relic tiers just were, and the
   same inversion is likely sitting in there.
+
+## Playtest pass 11 — map spacing, and two things that were just wrong
+
+### The reward screen was rendering relics twice
+
+Robin: "when choosing relic after fights the 3 appear in 2 rows with the same
+cards." A real bug, and mine. When ship combat came out I removed the module
+shelf from `reward.ts` with a text slice that ran from the first
+`offer.moduleIds` block to the relic block — which left the relic block
+duplicated verbatim. Both copies rendered, both were live, and clicking either
+worked, so nothing failed loudly.
+
+The lesson is about the tool, not the bug: slicing source by searching for a
+marker will happily leave a duplicate when the same marker appears twice. A
+`grep -c` on the surviving marker afterwards would have caught it in one command.
+
+### Safe Planets are kept two nodes apart, along paths
+
+`afterSafe` only looked one row back, so two rests could sit with a single node
+between them — you arrive at the second still full, and the choice the node
+exists for is wasted. `typesWithin()` now walks predecessors `MAP.safeSpacing`
+rows deep along real edges.
+
+Along **edges**, not rows: two rests side by side in the same row are fine,
+because no single route takes both. What matters is what you meet in sequence.
+
+One thing looking backwards could not catch: the guaranteed rest-before-boss row
+is placed unconditionally rather than rolled, so nothing stopped a rolled rest
+landing just in front of it. That window is closed by hand. Verified at 0
+violations across 900 maps with a minimum of 4 rests each, and there is now an
+invariant test over 1000 seeds so it cannot drift back.
+
+Anomalies went 15 -> 20 and Elites 10 -> 14, out of combat's share. Anomalies are
+the most varied thing on the map, so the map is duller when they are rare; Elites
+are now worth routing to since they drop a single-tier relic offer. The mix lands
+at roughly 19% Anomaly, 10% Elite, 10% Safe.
+
+### Block no longer gives up before the blow lands
+
+The engine drops Block at the start of your turn — GUARD keeps 3 — and that
+happens in the *same dispatch* as the last enemy's blow. The screen therefore
+snapped the shield to 3 while the damage numbers from the hit it had just
+absorbed were still in the air, which reads as the armour quitting early.
+
+Fixed in presentation only, because the engine was already right: the displayed
+number is held at its old value until the floaters land, then released. Held only
+when Block **fell** — a gain shows immediately, since that is the player's own
+card doing something and there is nothing to wait for.

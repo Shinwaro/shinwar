@@ -87,6 +87,22 @@ export function renderCombat(store: Store): HTMLElement {
   /** How long the floaters from the last render still need. */
   let fxRunning = 0;
 
+  /*
+   * Block, as displayed, lags Block as stored.
+   *
+   * The engine drops Block at the start of your turn — GUARD keeps 3 — and that
+   * happens in the same dispatch as the last enemy's blow. So the shield used to
+   * snap to 3 while the damage numbers from the hit it just absorbed were still
+   * in the air, which reads as the armour giving up early. The number shown is
+   * held at its old value until the floaters land, then released.
+   *
+   * Presentation only: the engine is already correct and is never consulted
+   * about this. `null` means "show whatever state says".
+   */
+  let heldBlock: number | null = null;
+  let blockTimer = 0;
+  let lastBlockShown = 0;
+
   const scheduleEnemy = (): void => {
     if (enemyTimer !== 0) return;
     const state = store.getState();
@@ -126,7 +142,7 @@ export function renderCombat(store: Store): HTMLElement {
 
     rendering = true;
     try {
-      host.replaceChildren(build(store, state, selection, rerender));
+      host.replaceChildren(build(store, state, selection, rerender, heldBlock));
     } finally {
       rendering = false;
     }
@@ -138,6 +154,24 @@ export function renderCombat(store: Store): HTMLElement {
         : host.querySelector(`.enemy[data-uid="${CSS.escape(target)}"]`),
     );
     if (played > 0) fxRunning = played + SETTLE_MS;
+
+    /*
+     * If Block fell while numbers are still flying, keep showing the old value
+     * until they land. Only when it FELL — a gain should appear immediately,
+     * because that is the player's own card doing something.
+     */
+    const shown = state.run.combat.block;
+    if (played > 0 && lastBlockShown > shown && lastBlockShown > 0) {
+      heldBlock = lastBlockShown;
+      window.clearTimeout(blockTimer);
+      blockTimer = window.setTimeout(() => {
+        blockTimer = 0;
+        heldBlock = null;
+        rerender();
+      }, played + SETTLE_MS);
+    } else if (blockTimer === 0) {
+      lastBlockShown = shown;
+    }
 
     const log = host.querySelector('.log');
     if (log !== null) scrollLogToEnd(log);
@@ -172,6 +206,7 @@ export function renderCombat(store: Store): HTMLElement {
     detachKeys();
     unsubscribe();
     window.clearTimeout(enemyTimer);
+    window.clearTimeout(blockTimer);
     // A number still rising over a fight that has ended is just litter.
     clearFloaters();
   });
@@ -180,7 +215,13 @@ export function renderCombat(store: Store): HTMLElement {
   return host;
 }
 
-function build(store: Store, state: GameState, selection: Selection, rerender: () => void): HTMLElement {
+function build(
+  store: Store,
+  state: GameState,
+  selection: Selection,
+  rerender: () => void,
+  heldBlock: number | null = null,
+): HTMLElement {
   const run = requireRun(state);
   const combat = requireCombat(state);
 
@@ -194,6 +235,14 @@ function build(store: Store, state: GameState, selection: Selection, rerender: (
    * and it will be needed the moment anything wants to ask. Nothing on this
    * screen asks.
    */
+  /*
+   * What the shield reads. `heldBlock` is set only while damage floaters from a
+   * blow this Block already absorbed are still in the air — see the comment on
+   * the declaration. Everything that computes with Block still uses the real
+   * value; this is the label alone.
+   */
+  const shownBlock = heldBlock ?? combat.block;
+
   const alive = livingEnemies(combat);
   const selectedDef = selection.cardUid === null
     ? null
@@ -220,11 +269,11 @@ function build(store: Store, state: GameState, selection: Selection, rerender: (
         el(
           'span',
           {
-            class: `shield ${combat.block > 0 ? 'is-up' : 'is-down'}`,
-            'aria-label': `${combat.block} Block`,
+            class: `shield ${shownBlock > 0 ? 'is-up' : 'is-down'}`,
+            'aria-label': `${shownBlock} Block`,
             title: 'Block absorbs damage before it reaches your hull.',
           },
-          [el('span', { class: 'shield-icon', 'aria-hidden': 'true' }, ['⛨']), String(combat.block)],
+          [el('span', { class: 'shield-icon', 'aria-hidden': 'true' }, ['⛨']), String(shownBlock)],
         ),
       ]),
       healthBar,

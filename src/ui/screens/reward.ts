@@ -113,39 +113,6 @@ function buildReward(store: Store, state: GameState): HTMLElement {
             }),
           ),
         ]),
-    offer.relicIds.length === 0
-      ? null
-      : el('div', { class: 'reward-relics' }, [
-          el('h2', { class: 'pause-heading' }, ['Take one relic']),
-          el(
-            'div',
-            { class: 'relic-row' },
-            offer.relicIds.map((relicId) => {
-              const def = relicTable.find(relicId);
-              if (def === undefined) return null;
-              const taken = offer.takenRelic === relicId;
-              const node = button(
-                '',
-                {
-                  class: `relic-card${taken ? ' is-selected' : ''}`,
-                  'data-rarity': def.rarity,
-                  'aria-pressed': taken ? 'true' : 'false',
-                },
-                () => store.dispatch({ kind: 'takeRewardRelic', relicId }),
-              );
-              return withChildren(node, [
-                el('div', { class: 'card-head' }, [
-                  el('span', { class: 'card-name' }, [def.name]),
-                  el('span', { class: `card-badge card-badge--${def.rarity}` }, [
-                    RARITY_LABEL[def.rarity],
-                  ]),
-                ]),
-                el('p', { class: 'card-text' }, [def.text]),
-                def.flavor === undefined ? null : el('p', { class: 'card-flavor' }, [def.flavor]),
-              ]);
-            }),
-          ),
-        ]),
     el('div', { class: 'reward-cards' }, cards),
     el('div', { class: 'reward-actions' }, [
       button(alreadyTook ? 'Continue' : 'Take nothing', { class: 'btn btn-primary' }, () => {

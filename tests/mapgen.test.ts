@@ -104,6 +104,36 @@ describe('the guarantees, across 1000 seeds', () => {
     }
   });
 
+  it('never puts two Safe Planets within MAP.safeSpacing of each other on a path', () => {
+    // On a *path*, not on the chart: two rests side by side in the same row are
+    // fine, because no single route takes both. What matters is what you meet
+    // in sequence — arriving at a second rest still full from the first wastes
+    // the choice the node exists for.
+    for (const seed of SEEDS) {
+      for (const act of [1, 2, 3] as const) {
+        const { map } = generateMap(createRng(seed), act);
+        const byId = new Map(map.nodes.map((node) => [node.id, node]));
+
+        for (const node of map.nodes) {
+          if (node.type !== 'safe') continue;
+          let frontier = [...node.next];
+          for (let step = 1; step <= MAP.safeSpacing; step++) {
+            const next: string[] = [];
+            for (const id of frontier) {
+              const ahead = byId.get(id);
+              if (ahead === undefined) continue;
+              expect(ahead.type, `${seed} act${act}: ${node.id} -> ${ahead.id} at ${step}`).not.toBe(
+                'safe',
+              );
+              next.push(...ahead.next);
+            }
+            frontier = next;
+          }
+        }
+      }
+    }
+  });
+
   it('keeps every node inside the lane', () => {
     for (const seed of SEEDS.slice(0, 200)) {
       const { map } = generateMap(createRng(seed), 1);

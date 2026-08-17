@@ -205,9 +205,24 @@ function assignTypes(
       }
 
       const early = row < MAP.earliestSpecialRow;
-      // Real predecessors, not the same column one row down.
-      const above = predecessorsOf(skeleton, row, col).map((from) => types.get(nodeId(row - 1, from)));
-      const afterSafe = above.includes('safe');
+
+      /*
+       * Look back along real edges, not up the column.
+       *
+       * `MAP.safeSpacing` rows of it: two Safe Planets close together on one
+       * path waste the choice they exist for, because you arrive at the second
+       * still full from the first. One row of separation was not enough — a
+       * rest two nodes apart is the same problem with a step in between.
+       */
+      const nearby = typesWithin(skeleton, types, row, col, MAP.safeSpacing);
+      /*
+       * Looking back catches a rest that follows a rest. It cannot catch one
+       * that sits just *before* the guaranteed rest-before-boss row, because
+       * that row is placed unconditionally rather than rolled — so the window
+       * in front of it is closed here by hand.
+       */
+      const beforeBossRest = MAP.restBeforeBoss && row >= rows - 2 - MAP.safeSpacing;
+      const afterSafe = nearby.includes('safe') || beforeBossRest;
 
       const rolled = weightedPick(current, 'map', [
         { value: 'combat' as NodeType, weight: NODE_WEIGHTS.combat },
@@ -217,7 +232,7 @@ function assignTypes(
         // it starts offering deals.
         { value: 'elite' as NodeType, weight: early ? 0 : NODE_WEIGHTS.elite },
         { value: 'station' as NodeType, weight: early ? 0 : NODE_WEIGHTS.station },
-        // Two Safe Planets in a row on one path wastes the choice they exist for.
+        // Kept apart by `safeSpacing`; see `typesWithin` above.
         { value: 'safe' as NodeType, weight: early || afterSafe ? 0 : NODE_WEIGHTS.safe },
       ]);
 
@@ -227,6 +242,40 @@ function assignTypes(
   }
 
   return { types, rng: current };
+}
+
+/**
+ * Every node type within `depth` rows behind this one, along real edges.
+ *
+ * Used to keep node kinds apart on a *path* rather than on the chart: two Safe
+ * Planets can sit side by side in the same row quite happily, because no single
+ * route takes both. What matters is what you meet in sequence.
+ */
+function typesWithin(
+  skeleton: Skeleton,
+  types: Map<string, NodeType>,
+  row: number,
+  col: number,
+  depth: number,
+): readonly (NodeType | undefined)[] {
+  const seen: (NodeType | undefined)[] = [];
+  let frontier: readonly number[] = [col];
+
+  for (let back = 1; back <= depth; back++) {
+    const previousRow = row - back;
+    if (previousRow < 0) break;
+    const next: number[] = [];
+    for (const at of frontier) {
+      for (const from of predecessorsOf(skeleton, previousRow + 1, at)) {
+        seen.push(types.get(nodeId(previousRow, from)));
+        if (!next.includes(from)) next.push(from);
+      }
+    }
+    if (next.length === 0) break;
+    frontier = next;
+  }
+
+  return seen;
 }
 
 /* ---------- encounters ---------- */

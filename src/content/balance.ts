@@ -270,6 +270,13 @@ export const MAP = {
   branches: { min: 3, max: 6 },
   /** No elite, station or safe planet before this row — Act 1 opens plain. */
   earliestSpecialRow: 4,
+  /**
+   * How many rows back a Safe Planet blocks another one, along real edges.
+   *
+   * At 1 you could meet two rests with a single node between them and arrive at
+   * the second still full, which wastes the choice the node exists for.
+   */
+  safeSpacing: 2,
   /** The row before the boss is always a Safe Planet. StS's rest-before-boss. */
   restBeforeBoss: true,
 } as const;
@@ -280,12 +287,14 @@ export const MAP = {
  * they conflict.
  */
 export const NODE_WEIGHTS = {
-  combat: 36,
+  combat: 30,
   unknown: 26,
   /** Anomalies. Signposted on the map, unlike a `?`. */
-  event: 15,
-  /** Worth routing to now that an Elite drops a relic. */
-  elite: 10,
+  /** Anomalies. Signposted on the map, unlike a `?` — and the most varied
+      thing on it, so the map is duller when they are rare. */
+  event: 20,
+  /** Worth routing to now that an Elite drops a relic and a single-tier offer. */
+  elite: 14,
   /**
    * Stations and Safe Planets are where a deck gets *better* rather than
    * bigger — the forge and the two ways to strip a card. At 5 and 4 a player
