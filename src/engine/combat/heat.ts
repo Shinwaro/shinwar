@@ -19,7 +19,12 @@ import { HEAT } from '../../content/balance.ts';
 import { cards as cardTable } from '../../content/registry.ts';
 import { PLAYER, applyDirectDamage } from './damage.ts';
 import { moveToExhaust, randomFromHand } from './piles.ts';
-import { environmentRules } from './rules.ts';
+import { environmentRules, pilotRules } from './rules.ts';
+
+/** Where the line sits for this run. Relics can move it; nothing else does. */
+export function overheatThreshold(state: GameState): number {
+  return Math.max(1, HEAT.overheatAt + pilotRules(state).overheatThreshold);
+}
 
 /**
  * Damage taken this instant if the turn ended now. 0 below the threshold.
@@ -28,9 +33,13 @@ import { environmentRules } from './rules.ts';
  * moment the deck is doing forty a turn, which is exactly why Heat was never
  * something anyone had to think about. A fraction scales with the run for free.
  */
-export function overheatDamageAt(heat: number, maxHealth: number): number {
-  if (heat < HEAT.overheatAt) return 0;
-  const over = heat - HEAT.overheatAt;
+export function overheatDamageAt(
+  heat: number,
+  maxHealth: number,
+  threshold: number = HEAT.overheatAt,
+): number {
+  if (heat < threshold) return 0;
+  const over = heat - threshold;
   const pct = HEAT.overheatDamagePctOfMax + over * HEAT.overheatDamagePctPerPoint;
   return Math.max(1, Math.round(maxHealth * pct));
 }
@@ -47,20 +56,21 @@ export function heatStatus(state: GameState): {
 } {
   const combat = requireCombat(state);
   const maxHealth = state.run?.pilot.maxHealth ?? 1;
-  const damage = overheatDamageAt(combat.heat, maxHealth);
-  const atThreshold = overheatDamageAt(HEAT.overheatAt, maxHealth);
+  const threshold = overheatThreshold(state);
+  const damage = overheatDamageAt(combat.heat, maxHealth, threshold);
+  const atThreshold = overheatDamageAt(threshold, maxHealth, threshold);
   const critical = combat.heat >= HEAT.criticalAt;
   const lostTurn = HEAT.overheatSkipsTurn ? ', lose your next turn' : '';
   return {
     heat: combat.heat,
     max: HEAT.max,
-    threshold: HEAT.overheatAt,
-    overheating: combat.heat >= HEAT.overheatAt,
+    threshold,
+    overheating: combat.heat >= threshold,
     critical,
     damageIfTurnEnded: damage,
     consequence:
       damage === 0
-        ? `Overheat at ${HEAT.overheatAt} — ${atThreshold} damage${lostTurn}, and burn a card`
+        ? `Overheat at ${threshold} — ${atThreshold} damage${lostTurn}, and burn a card`
         : critical
           ? `${damage} damage${lostTurn}, burn a card, and -${HEAT.criticalEnergyLoss} Energy after`
           : `${damage} damage${lostTurn}, and burn a card`,
@@ -110,7 +120,7 @@ export function ventHeat(state: GameState, amount: number, source: string): Game
  */
 export function resolveOverheat(state: GameState): GameState {
   const combat = requireCombat(state);
-  const damage = overheatDamageAt(combat.heat, state.run?.pilot.maxHealth ?? 1);
+  const damage = overheatDamageAt(combat.heat, state.run?.pilot.maxHealth ?? 1, overheatThreshold(state));
   if (damage === 0) return state;
 
   const heat = combat.heat;

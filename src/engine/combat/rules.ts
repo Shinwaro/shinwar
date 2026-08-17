@@ -24,7 +24,11 @@ import type {
 } from '../types.ts';
 import { withCombat } from '../state.ts';
 import { STANCES, type StanceRules } from '../../content/balance.ts';
-import { environments as environmentTable, masteries as masteryTable } from '../../content/registry.ts';
+import {
+  environments as environmentTable,
+  masteries as masteryTable,
+  relics as relicTable,
+} from '../../content/registry.ts';
 
 /* ---------- stance, as this run plays it ---------- */
 
@@ -60,6 +64,11 @@ export function stanceRulesFor(state: GameState, stance: StanceId): LiveStanceRu
     };
   }
 
+  // Relics that sharpen Focus land on top of whatever the stance pays, so a
+  // Mastery and a relic stack rather than one quietly overwriting the other.
+  const bonus = pilotRules(state).focusPerStackBonus;
+  if (bonus !== 0) rules = { ...rules, focusPerStack: rules.focusPerStack + bonus };
+
   return rules;
 }
 
@@ -68,6 +77,68 @@ export function liveStance(state: GameState): LiveStanceRules {
   const combat = state.run?.combat;
   if (combat === undefined || combat === null) return stanceRulesFor(state, 'guard');
   return stanceRulesFor(state, combat.stance);
+}
+
+/* ---------- relics ----------
+   Aggregated once and read wherever the number is actually produced, for the
+   same reason the environment's rules are declared rather than hooked: a hook
+   fires after a calculation, and every one of these has to be inside it. */
+
+export interface PilotRules {
+  readonly energyPerTurn: number;
+  readonly drawPerTurn: number;
+  readonly blockPerTurn: number;
+  readonly focusPerTurn: number;
+  readonly ventPerTurn: number;
+  readonly damageFlat: number;
+  readonly damageTakenFlat: number;
+  readonly overheatThreshold: number;
+  readonly focusPerStackBonus: number;
+  readonly startingFocus: number;
+}
+
+const NO_PILOT_RULES: PilotRules = {
+  energyPerTurn: 0,
+  drawPerTurn: 0,
+  blockPerTurn: 0,
+  focusPerTurn: 0,
+  ventPerTurn: 0,
+  damageFlat: 0,
+  damageTakenFlat: 0,
+  overheatThreshold: 0,
+  focusPerStackBonus: 0,
+  startingFocus: 0,
+};
+
+/**
+ * Everything the carried relics add up to.
+ *
+ * Summed in registry order so two relics touching the same field always compose
+ * the same way for a seed, rather than in the order they were picked up.
+ */
+export function pilotRules(state: GameState): PilotRules {
+  const held = state.run?.pilot.relics ?? [];
+  if (held.length === 0) return NO_PILOT_RULES;
+
+  let rules = NO_PILOT_RULES;
+  for (const def of relicTable.all()) {
+    if (!held.includes(def.id)) continue;
+    const passive = def.passive;
+    if (passive === undefined) continue;
+    rules = {
+      energyPerTurn: rules.energyPerTurn + (passive.energyPerTurn ?? 0),
+      drawPerTurn: rules.drawPerTurn + (passive.drawPerTurn ?? 0),
+      blockPerTurn: rules.blockPerTurn + (passive.blockPerTurn ?? 0),
+      focusPerTurn: rules.focusPerTurn + (passive.focusPerTurn ?? 0),
+      ventPerTurn: rules.ventPerTurn + (passive.ventPerTurn ?? 0),
+      damageFlat: rules.damageFlat + (passive.damageFlat ?? 0),
+      damageTakenFlat: rules.damageTakenFlat + (passive.damageTakenFlat ?? 0),
+      overheatThreshold: rules.overheatThreshold + (passive.overheatThreshold ?? 0),
+      focusPerStackBonus: rules.focusPerStackBonus + (passive.focusPerStackBonus ?? 0),
+      startingFocus: rules.startingFocus + (passive.startingFocus ?? 0),
+    };
+  }
+  return rules;
 }
 
 /* ---------- the environment ---------- */

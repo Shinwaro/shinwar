@@ -14,6 +14,7 @@ import { ENVIRONMENTS, RADIATION_BELT_ID, registerEnvironmentHooks } from './env
 import { registerEnemyHooks } from './enemies/index.ts';
 import { isRegistered } from '../engine/hooks.ts';
 import { MASTERIES } from './masteries.ts';
+import { RELICS } from './relics.ts';
 import { STATUSES } from './statuses.ts';
 import { THREAD_DEFS } from './threads.ts';
 import {
@@ -24,6 +25,7 @@ import {
   events,
   masteries,
   modules,
+  relics,
   shipEnemies,
   statuses,
   weapons,
@@ -44,6 +46,7 @@ export function loadContent(): void {
   events.register(EVENTS);
   environments.register(ENVIRONMENTS);
   masteries.register(MASTERIES);
+  relics.register(RELICS);
   threads.register(THREAD_DEFS);
 
   // The hook bus is module-level and survives a content reload, so registering

@@ -11,6 +11,7 @@ import { appendLog, requireCombat, requireRun, withCombat, withRun } from '../st
 import { fireHook } from '../hooks.ts';
 import { shuffle } from '../rng.ts';
 import {
+  FOCUS_MAX,
   HEAT,
   PLAYER as PLAYER_BALANCE,
   STARTING_STANCE,
@@ -28,7 +29,7 @@ import { PLAYER, enemyTarget, livingEnemies } from './damage.ts';
 import { applyEffects, createContext, retireCard } from './effects.ts';
 import { gainHeat, resolveOverheat, ventHeat } from './heat.ts';
 import { addStacks, clearFresh, decayStatuses } from './keywords.ts';
-import { environmentRules, liveStance, stanceRulesFor } from './rules.ts';
+import { environmentRules, liveStance, pilotRules, stanceRulesFor } from './rules.ts';
 import { mintEnemy } from './instances.ts';
 import { discardHand, draw, findInHand, moveToDiscard, narrateDraw } from './piles.ts';
 import { telegraphAll } from './intents.ts';
@@ -83,7 +84,7 @@ export function startCombat(state: GameState, encounterId: string, environmentId
       heat: HEAT.min,
       energy: 0,
       block: 0,
-      focus: 0,
+      focus: Math.min(FOCUS_MAX, pilotRules(state).startingFocus),
       statuses: [],
       draw: rest,
       hand: innate,
@@ -175,16 +176,20 @@ export function startPlayerTurn(state: GameState): GameState {
   // costs a turn AND the Energy, and letting the skipped turn absorb the Energy
   // loss would quietly refund half the punishment for the worst overheat there
   // is.
+  const relics = pilotRules(state);
   const skipping = combat.skipNextTurn;
   const energy = skipping
     ? 0
-    : Math.max(0, PLAYER_BALANCE.energyPerTurn - combat.energyPenaltyNextTurn);
+    : Math.max(0, PLAYER_BALANCE.energyPerTurn + relics.energyPerTurn - combat.energyPenaltyNextTurn);
 
   let next = withCombat(state, (current) => ({
     ...current,
     turn,
     round: current.round + 1,
-    block: Math.min(current.block, stance.blockRetained),
+    // Relic Block is granted on top of whatever the stance retained, so a
+    // GUARD build and a Ballast Weave add up rather than one capping the other.
+    block: Math.min(current.block, stance.blockRetained) + (skipping ? 0 : relics.blockPerTurn),
+    focus: Math.min(FOCUS_MAX, current.focus + (skipping ? 0 : relics.focusPerTurn)),
     energy,
     energyPenaltyNextTurn: skipping ? current.energyPenaltyNextTurn : 0,
     cardsPlayedThisTurn: 0,
@@ -206,6 +211,8 @@ export function startPlayerTurn(state: GameState): GameState {
   // Intents commit here, before the player has any information to act on and
   // before they can act at all.
   next = telegraphAll(next);
+
+  if (!skipping && relics.ventPerTurn > 0) next = ventHeat(next, relics.ventPerTurn, 'relics');
 
   next = fireHook(next, 'onRoundStart', { round: requireCombat(next).round });
   next = fireHook(next, 'onTurnStart', { turn });
@@ -278,7 +285,10 @@ function drawForTurn(state: GameState): GameState {
   const combat = requireCombat(state);
   // Deep Void's penalty is turn 1 only: it costs you the opening, not the fight.
   const penalty = combat.turn === 1 ? (environmentRules(state).firstTurnDrawPenalty ?? 0) : 0;
-  const count = Math.max(0, PLAYER_BALANCE.drawPerTurn + liveStance(state).extraDraw - penalty);
+  const count = Math.max(
+    0,
+    PLAYER_BALANCE.drawPerTurn + liveStance(state).extraDraw + pilotRules(state).drawPerTurn - penalty,
+  );
   const run = requireRun(state);
   if (run.combat === null) return state;
 

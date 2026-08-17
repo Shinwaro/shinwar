@@ -22,7 +22,11 @@ import { advanceThreads, dueThreads, resolveThread } from './threads.ts';
 import { stockShop } from './shop.ts';
 import { ECONOMY, PLAYER, TREASURE_ALLOY, UNKNOWN_WEIGHTS, WAVEFRONT } from '../../content/balance.ts';
 import { CLEAR_SPACE_ID } from '../../content/environments.ts';
-import { cards as cardTable, masteries as masteryTable, shipEnemies } from '../../content/registry.ts';
+import {
+  cards as cardTable,
+  relics as relicTable,
+  shipEnemies,
+} from '../../content/registry.ts';
 
 /* ---------- opening the run ---------- */
 
@@ -411,7 +415,7 @@ export function leaveReward(state: GameState): GameState {
   const takenModules = offer.takenModules;
 
   if (chosen === undefined || def === undefined) {
-    return grantMastery(
+    return grantRelic(
       appendLog(
         withRun(state, (current) => ({
           ...current,
@@ -426,7 +430,7 @@ export function leaveReward(state: GameState): GameState {
           detail: null,
         },
       ),
-      offer.masteryId,
+      offer.takenRelic,
     );
   }
 
@@ -440,39 +444,66 @@ export function leaveReward(state: GameState): GameState {
     screen: 'map',
   }));
 
-  return grantMastery(
+  return grantRelic(
     appendLog(next, {
       source: 'reward',
       kind: 'reward',
       text: `Took ${def.name}.`,
       detail: { card: chosen },
     }),
-    offer.masteryId,
+    offer.takenRelic,
   );
 }
 
-/**
- * Take the Mastery the fight dropped. Granted, never chosen — it is the reward
- * for the detour, not a second decision stacked on top of one.
- */
-function grantMastery(state: GameState, masteryId: string | null): GameState {
-  if (masteryId === null) return state;
+/** Take the relic chosen from the act finale's three. */
+function grantRelic(state: GameState, relicId: string | null): GameState {
+  if (relicId === null) return state;
   const run = requireRun(state);
-  if (run.pilot.masteries.includes(masteryId)) return state;
-  const def = masteryTable.find(masteryId);
+  if (run.pilot.relics.includes(relicId)) return state;
+  const def = relicTable.find(relicId);
   if (def === undefined) return state;
 
-  const next = withRun(state, (current) => ({
+  let next = withRun(state, (current) => ({
     ...current,
-    pilot: { ...current.pilot, masteries: [...current.pilot.masteries, masteryId] },
+    pilot: { ...current.pilot, relics: [...current.pilot.relics, relicId] },
   }));
 
+  // `maxHealth` is the one passive that is not read continuously — it is a
+  // one-off change to the pilot, applied here and never again.
+  const extra = def.passive?.maxHealth ?? 0;
+  if (extra !== 0) {
+    next = withRun(next, (current) => ({
+      ...current,
+      pilot: {
+        ...current.pilot,
+        maxHealth: Math.max(1, current.pilot.maxHealth + extra),
+        health: Math.max(1, current.pilot.health + Math.max(0, extra)),
+      },
+    }));
+  }
+
   return appendLog(next, {
-    source: masteryId,
+    source: relicId,
     kind: 'reward',
     text: `${def.name}. ${def.text}`,
-    detail: { mastery: masteryId },
+    detail: { relic: relicId },
   });
+}
+
+/** Choose one of the act finale's relics — or change your mind, until you leave. */
+export function takeRewardRelic(state: GameState, relicId: string): GameState {
+  const run = requireRun(state);
+  const offer = run.pendingReward;
+  if (offer === null || !offer.relicIds.includes(relicId)) return state;
+
+  const already = offer.takenRelic === relicId;
+  return withRun(state, (current) => ({
+    ...current,
+    pendingReward:
+      current.pendingReward === null
+        ? null
+        : { ...current.pendingReward, takenRelic: already ? null : relicId },
+  }));
 }
 
 /* ---------- the Safe Planet ----------

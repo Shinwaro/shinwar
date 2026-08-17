@@ -19,12 +19,14 @@ import type {
   EventDef,
   MasteryDef,
   ModuleDef,
+  RelicDef,
   RunEffect,
   ShipEnemyDef,
   StatusDef,
   ThreadDef,
   WeaponDef,
 } from '../engine/types.ts';
+import { isRegistered } from '../engine/hooks.ts';
 import { ACTIVE_STANCES, SCOPE, THREADS } from './balance.ts';
 import { ENCOUNTERS } from './encounters.ts';
 
@@ -77,6 +79,7 @@ export const modules = createTable<ModuleDef>('module');
 export const events = createTable<EventDef>('event');
 export const environments = createTable<EnvironmentDef>('environment');
 export const masteries = createTable<MasteryDef>('mastery');
+export const relics = createTable<RelicDef>('relic');
 export const threads = createTable<ThreadDef>('thread');
 export const statuses = createTable<StatusDef>('status');
 export const weapons = createTable<WeaponDef>('weapon');
@@ -84,7 +87,7 @@ export const shipEnemies = createTable<ShipEnemyDef>('ship enemy');
 
 /** Tests only. The game registers once at import and never clears. */
 export function clearAllContent(): void {
-  for (const table of [cards, enemies, modules, events, environments, masteries, threads, statuses, weapons, shipEnemies]) {
+  for (const table of [cards, enemies, modules, events, environments, masteries, relics, threads, statuses, weapons, shipEnemies]) {
     table.clear();
   }
 }
@@ -363,6 +366,23 @@ function validateMasteries(issues: ValidationIssue[]): void {
   }
 }
 
+function validateRelics(issues: ValidationIssue[]): void {
+  for (const relic of relics.all()) {
+    const where = `relic '${relic.id}'`;
+    if (relic.text.trim() === '') {
+      issues.push({ where, problem: 'no text — the reward screen shows this' });
+    }
+    // A relic with no passive and no handler is a slot the player spent an act
+    // finale on for nothing. Handlers are checked by the hook bus, so what can
+    // be caught here is the declared half being empty on a relic that has no
+    // handler registered either.
+    const declares = relic.passive !== undefined && Object.keys(relic.passive).length > 0;
+    if (!declares && !isRegistered(relic.id)) {
+      issues.push({ where, problem: 'does nothing — no passive and no hook handler' });
+    }
+  }
+}
+
 function validateEnvironments(issues: ValidationIssue[]): void {
   for (const environment of environments.all()) {
     const where = `environment '${environment.id}'`;
@@ -436,6 +456,7 @@ export function validateContent(): readonly ValidationIssue[] {
   validateEvents(issues);
   validateThreads(issues);
   validateMasteries(issues);
+  validateRelics(issues);
   validateEnvironments(issues);
   validateEncounters(issues);
   validateReferences(issues);
@@ -451,6 +472,7 @@ export function contentCounts(): Readonly<Record<string, number>> {
     events: events.all().length,
     environments: environments.all().length,
     masteries: masteries.all().length,
+    relics: relics.all().length,
     threads: threads.all().length,
     statuses: statuses.all().length,
     weapons: weapons.all().length,

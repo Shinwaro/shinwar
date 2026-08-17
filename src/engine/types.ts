@@ -25,6 +25,7 @@ export type EventId = string;
 export type EncounterId = string;
 export type EnvironmentId = string;
 export type MasteryId = string;
+export type RelicId = string;
 export type StatusId = string;
 export type ThreadId = string;
 
@@ -509,6 +510,48 @@ export interface ThreadDef {
  * as an override of the stance table rather than as behaviour, so everything
  * that already reads a stance keeps working and nothing is special-cased.
  */
+/**
+ * What a relic does, declared rather than hooked.
+ *
+ * Same split as environments: a hook cannot change a number the engine is about
+ * to produce, only react after it has. Every field here modifies something the
+ * turn loop or the damage pipeline is already computing, so they are declared
+ * and aggregated by `pilotRules()`. A relic that wants to *do* something at a
+ * moment registers a hook handler as well — its id is a hook source.
+ *
+ * This is the progression axis the run was missing. Cards make the deck better
+ * at what it does; relics change what the deck is allowed to do, and they are
+ * the only thing in the game that raises Energy or draw.
+ */
+export interface RelicPassive {
+  readonly energyPerTurn?: number;
+  readonly drawPerTurn?: number;
+  readonly blockPerTurn?: number;
+  readonly focusPerTurn?: number;
+  readonly ventPerTurn?: number;
+  /** Added to every attack you make. */
+  readonly damageFlat?: number;
+  /** Taken off every attack that reaches you, after Block. */
+  readonly damageTakenFlat?: number;
+  /** Moves the overheat threshold. Positive means more room. */
+  readonly overheatThreshold?: number;
+  /** On top of whatever the stance pays per stack. */
+  readonly focusPerStackBonus?: number;
+  /** Applied once, when the relic is taken. */
+  readonly maxHealth?: number;
+  readonly startingFocus?: number;
+}
+
+export interface RelicDef {
+  readonly id: RelicId;
+  readonly name: string;
+  /** Hand-written framing. The mechanical line is generated from `passive`. */
+  readonly text: string;
+  readonly rarity: Rarity;
+  readonly passive?: RelicPassive;
+  readonly flavor?: string;
+}
+
 export interface MasteryDef {
   readonly id: MasteryId;
   readonly name: string;
@@ -786,6 +829,8 @@ export interface PilotState {
   readonly maxHealth: number;
   readonly deck: readonly CardInstance[];
   readonly masteries: readonly MasteryId[];
+  /** Passive items. The only thing in the game that raises Energy or draw. */
+  readonly relics: readonly RelicId[];
 }
 
 /** Stranded after a crash. The drive is dead until it is paid for. */
@@ -826,11 +871,12 @@ export interface RewardOffer {
   readonly moduleIds: readonly ModuleId[];
   readonly takenModules: readonly ModuleId[];
   /**
-   * A Stance Mastery, from a boss always and an Elite sometimes. Granted rather
-   * than chosen: it is the reward for the detour, not a second decision on top
-   * of it.
+   * Relics on offer, from a boss. Three of them, and you take one — an act
+   * finale should hand you a decision about what the rest of the run is, not a
+   * thing that happened to you.
    */
-  readonly masteryId: MasteryId | null;
+  readonly relicIds: readonly RelicId[];
+  readonly takenRelic: RelicId | null;
   readonly alloy: number;
   /** Cards already taken from this screen. One pick, but the shape allows more. */
   readonly taken: readonly CardId[];
@@ -873,6 +919,14 @@ export interface ShopState {
   /** Every Station stocks exactly one removal. The price rises per purchase. */
   readonly removalPrice: number;
   readonly removalUsed: boolean;
+  /**
+   * A Stance Mastery, sometimes. It moved here from the boss drop: rewriting a
+   * stance should be a thing you decide you want and pay for out of the same
+   * Alloy as everything else, not something an act finale hands you.
+   */
+  readonly masteryId: MasteryId | null;
+  readonly masteryPrice: number;
+  readonly masterySold: boolean;
 }
 
 /** What the player is looking at between fights. */

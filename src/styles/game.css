@@ -2221,3 +2221,57 @@ button.grid-tile {
   text-decoration: line-through;
   cursor: not-allowed;
 }
+
+/* ---------- relics ----------
+   The run's power curve, and the thing it was missing. An act finale offers
+   three and you take one, so they are laid out to be compared rather than
+   read one at a time. */
+
+.reward-relics {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.relic-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+}
+
+.relic-card {
+  display: grid;
+  gap: 0.35rem;
+  align-content: start;
+  width: 15rem;
+  min-height: 9rem;
+  padding: 0.8rem;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-solid);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.1s;
+}
+
+.relic-card:hover,
+.relic-card:focus-visible {
+  transform: translateY(-2px);
+}
+
+.relic-card.is-selected {
+  border-color: var(--accent);
+  border-left-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface-solid));
+}
+
+.relic-card[data-rarity='rare'] { border-left-color: var(--iai); }
+.relic-card[data-rarity='epic'] { border-left-color: #b79ae0; }
+.relic-card[data-rarity='legendary'] { border-left-color: var(--accent); }
+.relic-card[data-rarity='artifact'] { border-left-color: var(--good); }
+
+.shop-lot--wide {
+  width: 100%;
+  max-width: 32rem;
+}

@@ -31,9 +31,10 @@ import {
   stationRepair,
   takeRewardCard,
   takeRewardModule,
+  takeRewardRelic,
 } from './run/run.ts';
 import { chooseEventOption } from './run/events.ts';
-import { buyRemoval, buyShopCard, buyShopModule, repairShip } from './run/shop.ts';
+import { buyMastery, buyRemoval, buyShopCard, buyShopModule, repairShip } from './run/shop.ts';
 import { MAX_DEPTH } from '../content/balance.ts';
 
 export function clampDepth(depth: number): number {
@@ -242,6 +243,11 @@ export function applyAction(state: GameState, action: Action): GameState {
       return takeRewardCard(state, action.cardId);
     }
 
+    case 'takeRewardRelic': {
+      if (state.run?.screen !== 'reward') return state;
+      return takeRewardRelic(state, action.relicId);
+    }
+
     case 'claimRewardAlloy': {
       if (state.run?.screen !== 'reward') return state;
       return claimRewardAlloy(state);
@@ -311,6 +317,11 @@ export function applyAction(state: GameState, action: Action): GameState {
     case 'buyRemoval': {
       if (state.run?.screen !== 'station') return state;
       return buyRemoval(state, action.cardUid);
+    }
+
+    case 'buyMastery': {
+      if (state.run?.screen !== 'station') return state;
+      return buyMastery(state, action.masteryId);
     }
 
     case 'leaveNode': {

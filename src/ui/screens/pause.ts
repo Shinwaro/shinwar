@@ -18,6 +18,7 @@ import { currentDepth, currentSeed, depthRules } from '../../engine/queries.ts';
 import {
   masteries as masteryTable,
   modules as moduleTable,
+  relics as relicTable,
 } from '../../content/registry.ts';
 import { button, el } from '../dom.ts';
 import { renderManifest } from '../components/manifest.ts';
@@ -97,6 +98,26 @@ function build(
             : ` ${run.ship.stored.length} in storage.`),
       ]),
     ]),
+
+    // Relics are the run's power curve. They belong high on the panel, not
+    // under a deck list you have to scroll past.
+    run.pilot.relics.length === 0
+      ? null
+      : el('section', { class: 'pause-section' }, [
+          el('h2', { class: 'pause-heading' }, [`Relics (${run.pilot.relics.length})`]),
+          el(
+            'ul',
+            { class: 'mastery-list' },
+            run.pilot.relics.map((id) => {
+              const def = relicTable.find(id);
+              if (def === undefined) return null;
+              return el('li', { class: 'mastery-line', 'data-rarity': def.rarity }, [
+                el('span', { class: 'mastery-name' }, [def.name]),
+                el('span', { class: 'mastery-text' }, [def.text]),
+              ]);
+            }),
+          ),
+        ]),
 
     // Masteries rewrite how the whole deck reads, so they belong above the
     // deck list rather than as a footnote under it.

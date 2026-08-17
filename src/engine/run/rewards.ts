@@ -13,6 +13,8 @@ import type {
   CardDef,
   CardId,
   MasteryId,
+  Rarity,
+  RelicId,
   RewardOffer,
   RngState,
   RunState,
@@ -23,6 +25,7 @@ import {
   cards as cardTable,
   masteries as masteryTable,
   modules as moduleTable,
+  relics as relicTable,
 } from '../../content/registry.ts';
 
 export interface RolledReward {
@@ -128,36 +131,77 @@ export function rollReward(
     tier === 'elite' || tier === 'boss'
       ? rollModule(cards.rng, run)
       : { moduleIds: [], rng: cards.rng };
-  const withMastery = rollMastery(withModule.rng, run, tier);
+  const withRelics = rollRelics(withModule.rng, run, tier);
 
   return {
     offer: {
       cardIds: cards.cardIds,
       moduleIds: withModule.moduleIds,
-      masteryId: withMastery.masteryId,
+      relicIds: withRelics.relicIds,
+      takenRelic: null,
       alloy,
       taken: [],
       takenModules: [],
       alloyClaimed: false,
     },
-    rng: withMastery.rng,
+    rng: withRelics.rng,
   };
 }
 
 /**
- * A Stance Mastery: always from a boss, sometimes from an Elite.
+ * Three relics at an act finale, and you take one.
  *
- * Never from a normal fight, and capped, because a mastery rewrites how the
- * whole deck reads. Three is already two rewrites of a two-stance game — past
- * that they stop being run-defining and start being a stat line.
+ * A boss should hand you a decision about what the rest of the run is, not a
+ * thing that happened to you — which is what a granted Stance Mastery was. The
+ * Masteries are still in the game; they moved to the Station, where wanting one
+ * costs you the Alloy you were going to spend on something else.
+ */
+export function rollRelics(
+  rng: RngState,
+  run: RunState,
+  tier: 'combat' | 'elite' | 'boss',
+): { readonly relicIds: readonly RelicId[]; readonly rng: RngState } {
+  if (tier !== 'boss') return { relicIds: [], rng };
+
+  const rarityWeights = RARITY_WEIGHTS[run.act];
+  const pool = relicTable.all().filter((def) => !run.pilot.relics.includes(def.id));
+  if (pool.length === 0) return { relicIds: [], rng };
+
+  const chosen: RelicId[] = [];
+  let current = rng;
+  for (let slot = 0; slot < REWARDS.relicChoices; slot++) {
+    const candidates = pool.filter((def) => !chosen.includes(def.id));
+    if (candidates.length === 0) break;
+    const rolled = weightedPick(
+      current,
+      'rewards',
+      candidates.map((def) => ({
+        value: def.id,
+        weight: rarityWeights[def.rarity as Exclude<Rarity, 'basic'>] ?? 1,
+      })),
+    );
+    current = rolled.rng;
+    chosen.push(rolled.value);
+  }
+
+  return { relicIds: chosen, rng: current };
+}
+
+/**
+ * A Stance Mastery for the Station's shelf.
+ *
+ * No longer a boss drop: rewriting a stance is a thing a player should be able
+ * to *want*, not something an act finale decides for them. Capped, because a
+ * mastery rewrites how the whole deck reads, and one per stance, because two on
+ * the same stance compose by overwriting each other field by field.
  *
  * Only masteries for stances actually in rotation are eligible: one that
- * rewrites a dormant stance would be a reward that does nothing.
+ * rewrites a dormant stance would be an item that does nothing.
  */
 export function rollMastery(
   rng: RngState,
   run: RunState,
-  tier: 'combat' | 'elite' | 'boss',
+  tier: 'combat' | 'elite' | 'boss' | 'shop',
 ): { readonly masteryId: MasteryId | null; readonly rng: RngState } {
   if (tier === 'combat') return { masteryId: null, rng };
   if (run.pilot.masteries.length >= MASTERY.cap) return { masteryId: null, rng };

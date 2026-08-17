@@ -15,8 +15,8 @@ import { liveScreen } from '../screen.ts';
 import { describeCard } from '../../engine/combat/describe.ts';
 import {
   cards as cardTable,
-  masteries as masteryTable,
   modules as moduleTable,
+  relics as relicTable,
 } from '../../content/registry.ts';
 import { RARITY_LABEL } from '../../content/balance.ts';
 import { button, el, fill, withChildren } from '../dom.ts';
@@ -78,20 +78,42 @@ function buildReward(store: Store, state: GameState): HTMLElement {
         : 'Take one card, or take none. A card you did not want dilutes every draw after it.',
     ]),
     alloyRow,
-    // Granted, not chosen. It is the reward for the detour, not a second
-    // decision stacked on top of one — but it is the biggest thing on the
-    // screen, so it says exactly what it will do to the stance it rewrites.
-    offer.masteryId === null
+    // Three relics at an act finale, and you take one. A boss should hand you
+    // a decision about what the rest of the run is, not a thing that happened
+    // to you — which is what a granted Stance Mastery was.
+    offer.relicIds.length === 0
       ? null
-      : (() => {
-          const def = masteryTable.find(offer.masteryId);
-          if (def === undefined) return null;
-          return el('div', { class: `mastery-drop mastery-drop--${def.stance}` }, [
-            el('span', { class: 'mastery-kicker' }, ['Stance Mastery']),
-            el('span', { class: 'mastery-name' }, [def.name]),
-            el('span', { class: 'mastery-text' }, [def.text]),
-          ]);
-        })(),
+      : el('div', { class: 'reward-relics' }, [
+          el('h2', { class: 'pause-heading' }, ['Take one relic']),
+          el(
+            'div',
+            { class: 'relic-row' },
+            offer.relicIds.map((relicId) => {
+              const def = relicTable.find(relicId);
+              if (def === undefined) return null;
+              const taken = offer.takenRelic === relicId;
+              const node = button(
+                '',
+                {
+                  class: `relic-card${taken ? ' is-selected' : ''}`,
+                  'data-rarity': def.rarity,
+                  'aria-pressed': taken ? 'true' : 'false',
+                },
+                () => store.dispatch({ kind: 'takeRewardRelic', relicId }),
+              );
+              return withChildren(node, [
+                el('div', { class: 'card-head' }, [
+                  el('span', { class: 'card-name' }, [def.name]),
+                  el('span', { class: `card-badge card-badge--${def.rarity}` }, [
+                    RARITY_LABEL[def.rarity],
+                  ]),
+                ]),
+                el('p', { class: 'card-text' }, [def.text]),
+                def.flavor === undefined ? null : el('p', { class: 'card-flavor' }, [def.flavor]),
+              ]);
+            }),
+          ),
+        ]),
     offer.moduleIds.length === 0
       ? null
       : el('div', { class: 'reward-modules' }, [

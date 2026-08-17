@@ -20,7 +20,7 @@ import {
   environments as environmentTable,
   statuses as statusTable,
 } from '../../content/registry.ts';
-import { environmentRules, stanceRulesFor } from './rules.ts';
+import { environmentRules, pilotRules, stanceRulesFor } from './rules.ts';
 
 export type Combatant = { readonly kind: 'player' } | { readonly kind: 'enemy'; readonly uid: string };
 
@@ -166,6 +166,9 @@ export function computeDamage(state: GameState, input: DamageInput): DamageBreak
     if (stance.attackPenalty > 0) {
       ctx = record(ctx, stance.name, 'add', ctx.amount - stance.attackPenalty);
     }
+    // Relics, in the same step as Strength: flat, before anything multiplies.
+    const relicFlat = pilotRules(state).damageFlat;
+    if (relicFlat !== 0) ctx = record(ctx, 'Relics', 'add', ctx.amount + relicFlat);
   }
 
   /* 4 — multiplicatives: what the attacker suffers, then what the target invites. */
@@ -192,7 +195,12 @@ export function computeDamage(state: GameState, input: DamageInput): DamageBreak
   }
 
   /* 5 — target-side reductions. Act 3's counter-enemies live here: reading the
-     player's build means reading the number about to land on them. */
+     player's build means reading the number about to land on them, and so does
+     the plating the player is wearing. */
+  if (input.isAttack && input.target.kind === 'player') {
+    const soak = pilotRules(state).damageTakenFlat;
+    if (soak !== 0) ctx = record(ctx, 'Relics', 'reduce', Math.max(0, ctx.amount - soak));
+  }
   const struck = input.target;
   if (input.isAttack && struck.kind === 'enemy') {
     const defId = combat.enemies.find((enemy) => enemy.uid === struck.uid)?.defId;

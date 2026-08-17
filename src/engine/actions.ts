@@ -41,6 +41,8 @@ export type Action =
   | { readonly kind: 'moveToNode'; readonly nodeId: string }
   /* -- rewards -- */
   | { readonly kind: 'takeRewardCard'; readonly cardId: string }
+  /** Act finales offer three relics and you take one. */
+  | { readonly kind: 'takeRewardRelic'; readonly relicId: string }
   | { readonly kind: 'claimRewardAlloy' }
   | { readonly kind: 'leaveReward' }
   /* -- safe planet: a menu, pick one -- */
@@ -57,6 +59,7 @@ export type Action =
   | { readonly kind: 'buyShopCard'; readonly cardId: string }
   | { readonly kind: 'buyShopModule'; readonly moduleId: string }
   | { readonly kind: 'buyRemoval'; readonly cardUid: string }
+  | { readonly kind: 'buyMastery'; readonly masteryId: string }
   | { readonly kind: 'leaveNode' }
   /* -- run -- */
   | { readonly kind: 'abandonRun' }

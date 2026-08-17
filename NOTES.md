@@ -787,3 +787,42 @@ Ship modules are still all verbs and no passives; they want crit, flat damage, d
 parry, scaling off Heat mid-fight, rotation, more shapes, and adjacency synergies. There is no relic
 system, so there is still nothing that permanently raises Energy or draw. Enemy scaling within an
 act is untouched. All of that is the next pass.
+
+## Playtest pass 2 — relics, and what a boss is for
+
+"I have yet to see actual items that increase power, and the fact that I have the same amount of
+energy and cards every round makes it feel like I'm not progressing at all."
+
+That was exactly right, and it was structural: nothing in the game raised Energy or draw. Modules
+only matter in space, cards only make the deck better at what it already does, and the Safe Planet
+only ever gave back what you had. There was no power curve.
+
+**Relics are that curve.** Thirteen of them, declared rather than hooked — same split as
+environments, for the same reason: every field on `RelicPassive` modifies something the turn loop or
+the damage pipeline is already computing, and a hook fires after a calculation rather than inside
+it. `pilotRules()` aggregates the carried set in registry order, so two relics touching the same
+field always compose the same way for a seed.
+
+**Energy is deliberately the rarest thing on the list**, and there is a test that says so. Energy
+multiplies the whole deck rather than adding to it, so a common that granted one would flatten every
+tier above it.
+
+**The act finale offers three relics and you take one.** Robin's call, and it is the right one: a
+boss should hand you a decision about what the rest of the run is, not a thing that happened to you.
+The granted Stance Mastery it replaced was a mandatory rewrite of how the entire deck reads, arriving
+without being asked for.
+
+**Masteries moved to the Station**, at 220 Alloy, on a 45% chance per shop. Rewriting a stance is now
+something you decide you want and pay for out of the same pool as the card, the module and the
+removal — which is what makes it a decision rather than a gift. The cap and the one-per-stance rule
+carry over unchanged.
+
+`maxHealth` is the one passive that is not read continuously: it is applied once, when the relic is
+taken, and never again. Everything else is a live read, so a relic taken mid-act changes the very
+next number the pipeline produces.
+
+### Still open
+
+The ship module rework — passives instead of verbs, crit and parry and flat reduction, scaling off
+Heat mid-fight, rotation, more shapes, adjacency synergies, and the pop-and-glow when a module
+triggers. That is the next pass, and it is the last of Robin's list.

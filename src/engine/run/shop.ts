@@ -19,9 +19,13 @@ import { weightedPick } from '../rng.ts';
 import { fireHook } from '../hooks.ts';
 import { mintCard } from '../combat/instances.ts';
 import { removalCost, spendAlloy } from './economy.ts';
-import { offerableCards } from './rewards.ts';
-import { ECONOMY, RARITY_WEIGHTS, SHOP } from '../../content/balance.ts';
-import { cards as cardTable, modules as moduleTable } from '../../content/registry.ts';
+import { offerableCards, rollMastery } from './rewards.ts';
+import { ECONOMY, MASTERY, RARITY_WEIGHTS, SHOP } from '../../content/balance.ts';
+import {
+  cards as cardTable,
+  masteries as masteryTable,
+  modules as moduleTable,
+} from '../../content/registry.ts';
 
 export function cardPrice(rarity: Rarity): number {
   return rarity === 'basic' ? SHOP.cardPrice.common : SHOP.cardPrice[rarity];
@@ -78,12 +82,20 @@ export function stockShop(state: GameState, nodeId: string): GameState {
     });
   }
 
+  // A Mastery, sometimes. Rolled here so the shelf is fixed on arrival like
+  // everything else on it.
+  const mastery = rollMastery(rng, run, 'shop');
+  rng = mastery.rng;
+
   const shop: ShopState = {
     nodeId,
     cards,
     modules,
     removalPrice: removalCost(run.removalsPurchased),
     removalUsed: false,
+    masteryId: mastery.masteryId,
+    masteryPrice: MASTERY.price,
+    masterySold: false,
   };
 
   const next = withRun(state, (current) => ({ ...current, rng, shop }));
@@ -191,6 +203,38 @@ export function buyRemoval(state: GameState, cardUid: string): GameState {
     kind: 'run',
     text: `Stripped ${name} for ${shop.removalPrice} Alloy.`,
     detail: { card: card.defId, cost: shop.removalPrice },
+  });
+}
+
+/**
+ * Buy the Mastery on the shelf.
+ *
+ * It rewrites a stance for the rest of the run, so it is the most expensive
+ * thing a Station sells and it competes directly with the card, the module and
+ * the removal — which is the point of it being a purchase rather than a drop.
+ */
+export function buyMastery(state: GameState, masteryId: string): GameState {
+  const run = requireRun(state);
+  const shop = run.shop;
+  if (shop === null || shop.masterySold || shop.masteryId !== masteryId) return state;
+  if (run.alloy < shop.masteryPrice) return state;
+  if (run.pilot.masteries.includes(masteryId)) return state;
+
+  const def = masteryTable.find(masteryId);
+  if (def === undefined) return state;
+
+  const paid = spendAlloy(state, shop.masteryPrice, 'station');
+  const next = withRun(paid, (current) => ({
+    ...current,
+    pilot: { ...current.pilot, masteries: [...current.pilot.masteries, masteryId] },
+    shop: current.shop === null ? null : { ...current.shop, masterySold: true },
+  }));
+
+  return appendLog(next, {
+    source: 'station',
+    kind: 'run',
+    text: `${def.name} for ${shop.masteryPrice} Alloy. ${def.text}`,
+    detail: { mastery: masteryId, cost: shop.masteryPrice },
   });
 }
 

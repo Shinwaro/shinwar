@@ -349,6 +349,8 @@ export const RARITY_LABEL: { readonly [r in Rarity]: string } = {
 
 export const REWARDS = {
   cardChoices: 3,
+  /** Relics offered at an act finale. You take one. */
+  relicChoices: 3,
   /** Skip is always offered. A reward you must take is not a decision. */
   allowSkip: true,
   /** Reward screens with no archetype match before the soft up-weight kicks in. */
@@ -367,9 +369,17 @@ export const ARCHETYPES: readonly Archetype[] = ['iai', 'guard', 'flow', 'overhe
 export const MASTERY = {
   /** Chance an Elite drops one, rolled on the `rewards` stream. */
   eliteChance: 0.4,
-  /** A boss always does. */
-  bossGuaranteed: true,
   cap: 3,
+  /**
+   * What a Station charges for one.
+   *
+   * Masteries are shop stock rather than a boss drop: rewriting a stance should
+   * be a thing you decide you want, and the price is that it comes out of the
+   * same Alloy as the card, the module and the removal.
+   */
+  price: 220,
+  /** Chance a given Station has one on the shelf at all. */
+  shopChance: 0.45,
 } as const;
 
 /* ---------- the Wavefront ----------

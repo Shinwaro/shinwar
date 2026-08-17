@@ -16,7 +16,11 @@ import { requireRun } from '../../engine/state.ts';
 import { definitionOf } from '../../engine/combat/combat.ts';
 import { describeCard, describeCost } from '../../engine/combat/describe.ts';
 import { ECONOMY, RARITY_LABEL } from '../../content/balance.ts';
-import { cards as cardTable, modules as moduleTable } from '../../content/registry.ts';
+import {
+  cards as cardTable,
+  masteries as masteryTable,
+  modules as moduleTable,
+} from '../../content/registry.ts';
 import { button, el } from '../dom.ts';
 import { liveScreen } from '../screen.ts';
 import { renderRunBar } from '../components/runbar.ts';
@@ -131,6 +135,31 @@ function build(store: Store, state: GameState, local: Local, redraw: () => void)
             }),
           ),
         ]),
+
+    shop === null || shop.masteryId === null
+      ? null
+      : (() => {
+          const def = masteryTable.find(shop.masteryId);
+          if (def === undefined) return null;
+          const broke = run.alloy < shop.masteryPrice;
+          return el('section', { class: 'shop-section' }, [
+            el('h2', { class: 'shop-heading' }, ['Stance Mastery']),
+            el('div', { class: `shop-lot shop-lot--wide${shop.masterySold ? ' is-sold' : ''}` }, [
+              el('div', { class: `mastery-drop mastery-drop--${def.stance}` }, [
+                el('span', { class: 'mastery-kicker' }, ['Rewrites a stance, permanently']),
+                el('span', { class: 'mastery-name' }, [def.name]),
+                el('span', { class: 'mastery-text' }, [def.text]),
+              ]),
+              shop.masterySold
+                ? el('span', { class: 'shop-sold' }, ['Bought'])
+                : button(
+                    `${shop.masteryPrice} Alloy`,
+                    { class: `btn btn-buy${broke ? ' is-disabled' : ''}`, disabled: broke },
+                    () => store.dispatch({ kind: 'buyMastery', masteryId: shop.masteryId ?? '' }),
+                  ),
+            ]),
+          ]);
+        })(),
 
     el('section', { class: 'shop-section' }, [
       el('h2', { class: 'shop-heading' }, ['Services']),

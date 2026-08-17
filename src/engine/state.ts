@@ -65,6 +65,7 @@ export function createRunState(seed: string, depth: number): RunState {
       maxHealth: PLAYER.maxHealth,
       deck: built.deck,
       masteries: [],
+      relics: [],
     },
     ship: {
       hull: SHIP.startingHull,
