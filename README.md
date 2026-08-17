@@ -23,7 +23,7 @@ npm run dev
 | `npm run preview` | serve `dist/` locally |
 | `npm test` | Vitest |
 | `npm run typecheck` | `tsc --noEmit` |
-| `npm run sim` | headless balance runner (real from M6) |
+| `npm run sim` | headless balance runner — `-- --runs 400 --cards` |
 
 ## Where things are
 
@@ -37,7 +37,8 @@ tests/          guard tests and correctness tests
 ```
 
 `CLAUDE.md` holds the binding conventions, `DESIGN.md` the design rationale, and `PROMPT.md` the
-technical contract and milestone order. `NOTES.md` records decisions taken along the way.
+technical contract and milestone order. `NOTES.md` records decisions taken along the way, and
+`CONTENT.md` is the step-by-step for adding a card, an enemy, an Anomaly or a Thread.
 
 ## Where to pick up
 
@@ -77,9 +78,10 @@ from Act 2, which prices every detour to the shop at a row of your lead.
 
 **Next**, in order:
 
-1. **M6's simulator** is where the balance problems in `NOTES.md` get settled — Focus is
-   overtuned, Heat still does not threaten a GUARD deck, and none of M4's prices or M5's two new
-   acts have been measured. Tuning any of that by hand before the bot exists is guessing. It is
-   also where the question of whether Energy earns its place gets answered with data.
-2. **M7** — feel: animation timings, hit feedback, screen shake, the epilogue generator, the full
-   Depth ladder, the combat-stage background.
+1. **Finish M6.** The simulator is built and already has a verdict: **attrition is about three
+   times sustainable** — 15 health a fight against a 70-health pilot, so 86% of runs end in Act 1
+   and nothing has ever won. That is the first thing to tune, and until a run is winnable the
+   pick-rate-against-win-rate table can only show half of itself. Content is also short of target:
+   41 cards against ~85, 20 enemies against ~28, 10 Anomalies against ~35.
+2. **M7** — feel: animation timings, hit feedback, screen shake, the epilogue generator, the
+   combat-stage background. Not the Depth ladder — it stops at 5 deliberately.

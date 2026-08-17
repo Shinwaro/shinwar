@@ -421,7 +421,7 @@ export const SCOPE = {
 export const TARGETS = {
   runMinutes: { min: 45, max: 70, hardCeiling: 90 },
   winRateDepth0: { min: 0.4, max: 0.55 },
-  winRateDepth20: { min: 0.1, max: 0.2 },
+  winRateDepthMax: { min: 0.1, max: 0.2 },
   /** Below 8% a card is not in the game; above 60% it is mandatory. */
   pickRateBand: { min: 0.08, max: 0.6 },
 } as const;
@@ -437,7 +437,19 @@ export interface DepthRule {
   readonly text: string | null;
 }
 
-export const MAX_DEPTH = 20;
+/**
+ * The ladder stops at 5, and that is the whole ladder.
+ *
+ * It ran to 20 with rules 6-20 unwritten, which meant the slider offered
+ * fifteen difficulty levels that played exactly like Depth 5. A difficulty
+ * setting that does nothing is worse than one that is not offered: the player
+ * picks 12, dies, and learns nothing about what 12 was supposed to mean.
+ *
+ * Each Depth adds a rule rather than a stat bump — DESIGN.md §7 — so extending
+ * this is five more ideas, not five more multipliers. Raising the cap is this
+ * constant plus the entries to go with it.
+ */
+export const MAX_DEPTH = 5;
 
 export const DEPTH_RULES: readonly DepthRule[] = [
   { depth: 1, text: 'Elites are harder.' },
@@ -445,19 +457,4 @@ export const DEPTH_RULES: readonly DepthRule[] = [
   { depth: 3, text: 'Fewer Safe Planets.' },
   { depth: 4, text: 'Overheat threshold drops to 7.' },
   { depth: 5, text: 'Bosses gain a second phase.' },
-  { depth: 6, text: null },
-  { depth: 7, text: null },
-  { depth: 8, text: null },
-  { depth: 9, text: null },
-  { depth: 10, text: null },
-  { depth: 11, text: null },
-  { depth: 12, text: null },
-  { depth: 13, text: null },
-  { depth: 14, text: null },
-  { depth: 15, text: null },
-  { depth: 16, text: null },
-  { depth: 17, text: null },
-  { depth: 18, text: null },
-  { depth: 19, text: null },
-  { depth: 20, text: null },
 ];

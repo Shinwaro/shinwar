@@ -1134,3 +1134,82 @@ And the reward screen already had "pick one of N modules" in it, which is why
 salvage folded into it without ceremony rather than needing its own screen.
 
 `SHIP.md` and every deleted file are in git history at `4837c1f`.
+
+## M6, part one — the simulator, and what it said immediately
+
+The bot and the report are built. The tuning pass they exist to inform is
+deliberately not done — Robin's call, "we can adjust and balance later" — so this
+records what the tool is and the one finding it produced before anyone asked it
+anything.
+
+### The bot
+
+`sim/bot.ts` plays through `applyAction` and nothing else. Every decision is an
+action a click could produce, so a refused action is a bug in the bot rather than
+something to route around, and the runner counts refusals as "stuck" runs and
+says so loudly rather than quietly averaging over fewer games than it claims.
+
+It is deliberately not a good player. The bar a fight has to clear is a
+competent human who is not solving it perfectly; a bot tuned into a perfect
+solver measures the solver. What it must be is *consistent*, so its own choices
+come off a counter hashed with the run seed rather than `Math.random`. Two
+identical sim invocations print identical reports, which is what makes the
+report diffable — and a diff in it is a diff in the game.
+
+Two scoring details that turned out to matter more than the rest:
+
+**Damage is scored against what the target has left, not raw.** Overkill stops
+counting, and progress toward a kill is worth more than the same damage spread
+across two enemies. Every enemy removed is its whole intent removed from every
+future turn — the largest single lever in a fight against more than one thing,
+and the bot was materially worse before it knew that.
+
+**Block only counts up to what is actually coming.** A bot that hoards Block
+reports fights as safer than they are, because the wasted Block never shows up
+as damage taken.
+
+### The finding: attrition is roughly three times sustainable
+
+Even after the focus-fire fix and routing that treats a Safe Planet as the most
+valuable node on the chart, **86% of runs end in Act 1** and the win rate is 0%.
+This is not the bot being bad. The arithmetic is not close:
+
+- **15.2 health lost per fight**, median, against a **70-health** pilot.
+- Act 1 is 15 rows with maybe two Safe Planets on a given route, healing 30% of
+  max — about 21 each.
+- So a route through Act 1 offers roughly 70 + 42 = 112 health against something
+  north of 200 spent.
+
+A concrete opening: two `scrap_hound`s telegraph **18 a turn** at a player who
+has 3 Energy and can raise **9 Block** with one Solar Parry. Even spending the
+whole turn on defence, the floor is a net loss every turn, and spending the turn
+on defence means the fight lasts longer, which costs more turns of 18.
+
+The lever is not one number. Candidates, in the order the sim can test them:
+enemy damage bands for Act 1, `safePlanetHealPct`, the number of Safe Planets, or
+the starting deck's block density. That is exactly the question the tool now
+exists to answer, and answering it by hand first would be the guessing it was
+built to replace.
+
+**The card table is live but half-dark.** Pick rate works and is already
+interesting — Purge Cycle at 7% and Pressure Release at 2% are cards nobody
+takes. Every win rate reads 0% because nothing wins, so pick-against-win — the
+pair that actually identifies a problem — cannot say anything until a run is
+winnable. Fix difficulty first, then read the table.
+
+### Depth stops at 5
+
+The ladder ran to 20 with rules 6-20 unwritten, so the slider offered fifteen
+difficulty levels that played exactly like Depth 5. A difficulty setting that
+does nothing is worse than one not offered: you pick 12, die, and learn nothing
+about what 12 meant. `MAX_DEPTH` is 5 and `DEPTH_RULES` holds five entries.
+Raising it again is that constant plus the entries to go with it — each Depth is
+a *rule*, per DESIGN.md §7, so it is five more ideas rather than five more
+multipliers.
+
+### Still open in M6
+
+Content is at 41 cards, 20 enemies, 10 events against targets of ~85, ~28 and
+~35. `CONTENT.md` is written, which is the thing that makes that scale-up cheap.
+`BALANCE.md` waits on the tuning pass, since it is meant to record why each
+number is what it is and right now the honest answer is "untested".
