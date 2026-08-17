@@ -907,3 +907,56 @@ Every stat number, every scaling rate and every cap is a first guess, and the
 four build chains have never been played against each other. This is the largest
 single block of unmeasured tuning in the game and it goes straight onto M6's list
 with the rest.
+
+## Playtest pass 5 — Heat that bites, and a fight you can watch
+
+**Heat: a longer gauge with the line in the middle of it.** 0–20 now, overheating
+strictly above 10, IAI cooking 4 a turn and GUARD venting 2. The old shape was
+decoration: a 10-point gauge tripping at 8, where GUARD vented more than most
+turns generated, so you arrived at the threshold only if you set out to. With the
+line at 11 on a 20-point gauge, the top half is somewhere you can choose to live.
+
+**Overheating costs the Energy, not the turn's visibility.** The first version
+skipped the turn outright — no draw, no hand, nothing to look at, and the fight
+jumped forward while the player was still reading. Now the turn happens
+normally, you draw, and Energy is zero: you see exactly the hand you cannot play
+and have to end the turn holding it. Same cost, entirely legible, and a relic
+that hands the Energy back is now an ordinary thing to write rather than one that
+would have to special-case a skipped turn. Heat still blows to zero with it, or
+an overheat walks into another one with no playable turn in between.
+
+**Focus is folded into the printed damage.** A card that says 6 and deals 12 is
+asking the player to do arithmetic the game already did. The itemisation stays in
+the log, where it is the debugger.
+
+**IAI Slash lost its Focus rider.** IAI is where the stack is *spent*; a card
+that handed one back on the same swing was quietly refunding the stance's own
+cost. And "Iai" reads as a lowercase L in this typeface, so it is IAI everywhere.
+
+**Sensor Fog no longer sells the information back.** Scan is gone entirely —
+action, budget, UI. A free reveal once a turn made the environment a click you
+paid before getting the telegraph anyway, which is a chore rather than a
+condition. Blind is the environment; the answer to it is defensive play.
+
+**Pacing.** Floaters run at 180ms lead and 260ms apart rather than 70/115, the
+enemy lead is 750ms, and the enemy turn now waits for the player's numbers to
+finish before it starts. A fight where everything arrives in one frame reads as a
+spreadsheet updating, and a four-hit card was indistinguishable from a big one.
+
+**The map says what you are walking into.** Encounter name and environment now
+get their own lines under the node name, each in its own colour, rather than
+being folded into one grey run with the node type. These are the two facts a
+route is actually chosen on.
+
+**Space nodes offer a refit and drop salvage.** Two modules on the approach, take
+one; one cut out of the wreck on every win. A ship fight used to be whatever your
+grid already happened to be — you could see it coming two nodes out and there was
+nothing to do about it, because the ship path only moved at Elites and Stations.
+The grid is still the limit, so this fills the packing puzzle rather than
+inflating power: more parts than cells is the decision.
+
+### Still open
+
+Ship combat itself is still thin — the refit and the salvage give it stakes and
+a reason to route toward it, but the fight is one lever and an aiming decision.
+Making the turn itself interesting is a separate piece of work.

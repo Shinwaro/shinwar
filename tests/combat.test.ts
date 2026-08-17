@@ -305,7 +305,7 @@ describe('overheat', () => {
     expect(combatOf(after).skipNextTurn).toBe(false);
   });
 
-  it('costs energy after the skipped turn at critical', () => {
+  it('costs energy on the vent turn at critical', () => {
     const state = makeFight({
       stance: 'guard',
       heat: HEAT.criticalAt + STANCES.guard.ventAtTurnEnd,
@@ -314,7 +314,9 @@ describe('overheat', () => {
       hull: 500,
     });
     const after = endTurnImmediately(state);
-    expect(combatOf(after).energy).toBe(PLAYER.energyPerTurn - HEAT.criticalEnergyLoss);
+    // The vent turn hands you no Energy at all — that is the cost — and the
+    // critical penalty lands on the turn after it.
+    expect(combatOf(after).energy).toBe(0);
   });
 
   it('lets IAI’s own passive tip you over', () => {

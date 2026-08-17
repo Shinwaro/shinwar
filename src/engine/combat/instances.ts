@@ -1,6 +1,6 @@
 /* Minting card and enemy instances.
  *
- * Every physical copy needs a stable unique id: two Iai Slashes in hand are
+ * Every physical copy needs a stable unique id: two IAI Slashes in hand are
  * two different things to click, and two Scrap Hounds are two different things
  * to target. The ids come from a plain counter in `RunState`, not from the
  * RNG — burning a die roll to name something would couple the streams to how

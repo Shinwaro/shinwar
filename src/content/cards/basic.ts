@@ -1,7 +1,7 @@
 /* The starting deck. Four cards, twelve copies.
  *
  * Deliberately mediocre — Act 1's "weak" beat is manufactured by this deck
- * having no engine in it. Every one of them still teaches something: Iai Slash
+ * having no engine in it. Every one of them still teaches something: IAI Slash
  * teaches the stance rider, Solar Parry teaches that GUARD counter-punches,
  * Vector Step teaches that the transition costs a card slot, and Sever teaches
  * that your best card is the one cooking you.
@@ -21,28 +21,24 @@ export const SEVER = 'sever';
 export const BASIC_CARDS: readonly CardDef[] = [
   {
     id: IAI_SLASH,
-    name: 'Iai Slash',
+    name: 'IAI Slash',
     type: 'attack',
     rarity: 'basic',
     archetype: 'iai',
     cost: 1,
     effects: [{ op: 'damage', amount: 6, target: 'enemy' }],
+    // No Focus rider. IAI is where the stack is SPENT, so a card that hands one
+    // back on the same swing was quietly refunding the stance's own cost.
     stanceRider: {
       stance: 'iai',
-      effects: [
-        { op: 'damage', amount: 4, target: 'enemy' },
-        { op: 'gainFocus', amount: 1 },
-      ],
+      effects: [{ op: 'damage', amount: 4, target: 'enemy' }],
     },
     upgrade: {
-      name: 'Iai Slash+',
+      name: 'IAI Slash+',
       effects: [{ op: 'damage', amount: 9, target: 'enemy' }],
       stanceRider: {
         stance: 'iai',
-        effects: [
-          { op: 'damage', amount: 5, target: 'enemy' },
-          { op: 'gainFocus', amount: 1 },
-        ],
+        effects: [{ op: 'damage', amount: 6, target: 'enemy' }],
       },
     },
     flavor: 'The cut is finished before the blade is seen to move.',

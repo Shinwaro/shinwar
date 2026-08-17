@@ -211,9 +211,9 @@ describe('the stance passives', () => {
     // 6 +6 Focus = 12, then the rider's 4 with no Focus left to spend.
     expect(enemy.hp - (combatOf(after).enemies[0]?.hp ?? 0)).toBe(12 + 4);
     expect(3 * FOCUS_DAMAGE_PER_STACK).toBe(6);
-    // The old stack is spent by the first instance and the rider then grants a
-    // fresh one — which is the IAI engine: every slash pays for the next.
-    expect(combatOf(after).focus).toBe(1);
+    // The stack is gone. IAI Slash no longer hands one back on the same swing —
+    // a card that refunds the stance's own cost is the stance not costing.
+    expect(combatOf(after).focus).toBe(0);
   });
 });
 

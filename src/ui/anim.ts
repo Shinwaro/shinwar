@@ -117,10 +117,18 @@ export function forgetBars(): void {
 
 /* ---------- the timeline ---------- */
 
-/** How long after the render the first number appears — the beat. */
-const FIRST_BEAT = 70;
+/**
+ * How long after the render the first number appears — the beat.
+ *
+ * Slow. A fight where every number arrives in the same frame reads as a
+ * spreadsheet updating rather than as blows landing, and the player cannot tell
+ * a four-hit card from a single big one. These are pacing numbers, not
+ * animation ones: the state has already changed, this is only how long the eye
+ * is given to follow it.
+ */
+const FIRST_BEAT = 180;
 /** Spacing between consecutive hits, so a multi-hit reads as several blows. */
-const BEAT_STEP = 115;
+const BEAT_STEP = 260;
 
 interface Hit {
   readonly target: string;
@@ -163,8 +171,8 @@ function hitFromEntry(entry: LogEntry): Hit | null {
 export function playLogFx(
   fresh: readonly LogEntry[],
   locate: (target: string) => Element | null,
-): void {
-  if (prefersReducedMotion() || fresh.length === 0) return;
+): number {
+  if (prefersReducedMotion() || fresh.length === 0) return 0;
 
   let slot = 0;
   for (const entry of fresh) {
@@ -186,4 +194,9 @@ export function playLogFx(
     });
     slot += 1;
   }
+
+  // How long the whole sequence takes, so the caller can wait for it. The enemy
+  // turn should not start while the player's last three numbers are still in
+  // the air — that is exactly the "everything at once" the pacing is fixing.
+  return slot === 0 ? 0 : FIRST_BEAT + (slot - 1) * BEAT_STEP;
 }

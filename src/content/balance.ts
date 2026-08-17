@@ -27,9 +27,18 @@ export const PLAYER = {
 
 export const HEAT = {
   min: 0,
-  max: 10,
-  /** At end of player turn, at or above this: the reactor takes the next turn. */
-  overheatAt: 8,
+  /**
+   * The gauge runs to 20 and overheats above 10.
+   *
+   * At a 10-point gauge that tripped at 8 the whole thing was decoration: GUARD
+   * vented more than most turns generated, so you never arrived at the
+   * threshold unless you set out to. A longer gauge with the line in the middle
+   * of it means the top half is a place you can choose to live in, which is the
+   * "safe -> greedy -> threatened" arc the mechanic was always for.
+   */
+  max: 20,
+  /** Strictly above this at the end of your turn. 10 is safe; 11 is not. */
+  overheatAt: 11,
   /**
    * Overheating costs a percentage of MAX health, not a flat number.
    *
@@ -42,13 +51,18 @@ export const HEAT = {
   /** Per point above the threshold, on top of the base fraction. */
   overheatDamagePctPerPoint: 0.03,
   /**
-   * And you lose the turn. This is the change that makes Heat a resource rather
-   * than a tax: the cost is not the damage, it is that the fight continues
-   * without you while the reactor cools.
+   * And you lose the turn — but you still take it.
+   *
+   * The first version skipped straight past: no draw, no hand, nothing to look
+   * at, and the fight jumped forward while the player was still reading the
+   * last thing. Now the turn happens normally and Energy is simply zero, so you
+   * see the cards you would have played and have to end the turn holding them.
+   * Same cost, entirely legible — and it leaves room for a relic that gives the
+   * Energy back rather than one that has to special-case a skipped turn.
    */
   overheatSkipsTurn: true,
   /** At or above this, additionally lose 1 Energy the turn after. */
-  criticalAt: 10,
+  criticalAt: 17,
   criticalEnergyLoss: 1,
 } as const;
 
@@ -92,9 +106,9 @@ export const STANCES: { readonly [K in StanceId]: StanceRules } = {
   iai: {
     id: 'iai',
     name: 'IAI',
-    text: 'Attacks spend Focus · +2 Heat at turn end',
+    text: 'Attacks spend Focus · +4 Heat at turn end',
     firstAttackBonus: 0,
-    heatAtTurnEnd: 2,
+    heatAtTurnEnd: 4,
     ventAtTurnEnd: 0,
     blockRetained: 0,
     extraDraw: 0,
@@ -105,10 +119,10 @@ export const STANCES: { readonly [K in StanceId]: StanceRules } = {
   guard: {
     id: 'guard',
     name: 'GUARD',
-    text: 'Focus is banked, not spent · Vent 1 Heat at turn end · Retain 3 Block',
+    text: 'Focus is banked, not spent · Vent 2 Heat at turn end · Retain 3 Block',
     firstAttackBonus: 0,
     heatAtTurnEnd: 0,
-    ventAtTurnEnd: 1,
+    ventAtTurnEnd: 2,
     blockRetained: 3,
     extraDraw: 0,
     attackPenalty: 0,
@@ -213,6 +227,15 @@ export const ECONOMY = {
   refuelHullCost: 8,
   refuelAlloyGain: 60,
   safePlanetHealPct: 0.3,
+} as const;
+
+/* ---------- the refit ----------
+   Parts before a space battle, and one cut out of the wreck after. The grid is
+   still the limit, so this fills the packing puzzle rather than inflating
+   power: more parts than cells is the decision, not more power. */
+
+export const REFIT = {
+  choices: 2,
 } as const;
 
 /* ---------- the Station ----------

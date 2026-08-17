@@ -218,23 +218,27 @@ export function startPlayerTurn(state: GameState): GameState {
   next = fireHook(next, 'onTurnStart', { turn });
 
   /*
-   * The reactor took this one.
+   * The reactor took this one — but you still take the turn.
    *
-   * Heat blows down to zero with it — otherwise an overheat at 10 in IAI walks
-   * straight into another overheat with no turn in between to do anything about
-   * it, and a spiral you cannot act on is a death sentence rather than a cost.
-   * So the cycle is legible: ride the gauge up, pay a turn and a chunk of max
-   * health, come out cold.
+   * Energy is zero rather than the turn being skipped outright. The first
+   * version jumped straight past: no draw, no hand, nothing to look at, and the
+   * fight moved on while the player was still reading the last thing. Now you
+   * draw, you see exactly the hand you cannot play, and you have to end the turn
+   * holding it. Same cost, entirely legible — and a relic that hands the Energy
+   * back is now a normal thing to write rather than a special case.
+   *
+   * Heat blows to zero with it. Otherwise an overheat walks straight into
+   * another one with no playable turn in between, and a spiral you cannot act
+   * on is a death sentence rather than a price.
    */
   if (combat.skipNextTurn) {
     next = withCombat(next, (current) => ({ ...current, skipNextTurn: false, heat: HEAT.min }));
     next = appendLog(next, {
       source: 'heat',
       kind: 'heat',
-      text: 'Venting hard. You lose the turn and the gauge falls to zero.',
+      text: 'The reactor is venting. No Energy this turn — end it and ride it out.',
       detail: { turn },
     });
-    return queueEnemyTurn(withCombat(next, discardHand));
   }
 
   return drawForTurn(next);

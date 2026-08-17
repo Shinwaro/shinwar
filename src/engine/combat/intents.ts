@@ -17,11 +17,11 @@
  */
 
 import type { EnemyState, GameState, IntentHit } from '../types.ts';
-import { appendLog, requireCombat, requireRun, withRun } from '../state.ts';
+import { requireCombat, requireRun, withRun } from '../state.ts';
 import { enemies as enemyTable } from '../../content/registry.ts';
 import { chooseMove } from './ai.ts';
 import { PLAYER, computeDamage, enemyTarget, livingEnemies } from './damage.ts';
-import { envGetList, envGetNumber, envSet, environmentRules, intentsHidden } from './rules.ts';
+import { intentsHidden } from './rules.ts';
 
 /** Commit a move for every living enemy. Runs once, at the start of the player's turn. */
 export function telegraphAll(state: GameState): GameState {
@@ -68,44 +68,18 @@ export function intentOf(state: GameState, enemy: EnemyState): readonly IntentHi
   });
 }
 
-/* ---------- Sensor Fog ----------
-   The one environment that takes information away rather than adding a rule.
-   It is survivable because Scan gives it back on your terms and for free: the
-   cost is the attention and the ordering, not a resource. */
+/* ---------- Sensor Fog ---------- */
 
-export function scansLeft(state: GameState): number {
-  const combat = state.run?.combat;
-  if (combat === undefined || combat === null) return 0;
-  const allowed = environmentRules(state).scansPerTurn ?? 0;
-  return Math.max(0, allowed - envGetNumber(combat, 'scansUsed', 0));
-}
-
-/** Can the player read this enemy's telegraph right now? */
-export function intentVisible(state: GameState, uid: string): boolean {
-  if (!intentsHidden(state)) return true;
-  const combat = state.run?.combat;
-  if (combat === undefined || combat === null) return true;
-  return envGetList(combat, 'revealed').includes(uid);
-}
-
-/** Free, once or twice a turn. Reveals one enemy's telegraph for the rest of the turn. */
-export function scanEnemy(state: GameState, uid: string): GameState {
-  const combat = state.run?.combat;
-  if (combat === undefined || combat === null || combat.outcome !== 'ongoing') return state;
-  if (!intentsHidden(state) || scansLeft(state) <= 0) return state;
-  if (!combat.enemies.some((enemy) => enemy.uid === uid && enemy.hp > 0)) return state;
-  if (envGetList(combat, 'revealed').includes(uid)) return state;
-
-  const revealed = [...envGetList(combat, 'revealed'), uid];
-  const used = envGetNumber(combat, 'scansUsed', 0) + 1;
-  const next = envSet(envSet(state, 'revealed', revealed), 'scansUsed', used);
-
-  return appendLog(next, {
-    source: 'scan',
-    kind: 'combat',
-    text: `Scanned ${enemyTable.find(combat.enemies.find((entry) => entry.uid === uid)?.defId ?? '')?.name ?? 'contact'}.`,
-    detail: { enemy: uid },
-  });
+/**
+ * Can the player read this enemy's telegraph?
+ *
+ * Under Sensor Fog, no — and there is no way to buy it back. A free reveal once
+ * a turn turned the environment into a click you paid before getting the
+ * information anyway, which is a chore rather than a condition. Fighting blind
+ * is the whole point of the badge on the node.
+ */
+export function intentVisible(state: GameState): boolean {
+  return !intentsHidden(state);
 }
 
 /** `3 x 5`, or `14`, or `Strength +2`. Exactly what the mockup in the prompt shows. */

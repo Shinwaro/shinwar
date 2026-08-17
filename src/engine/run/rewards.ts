@@ -129,7 +129,7 @@ export function rollReward(
   // routing toward one a real decision rather than just more Alloy.
   const withModule =
     tier === 'elite' || tier === 'boss'
-      ? rollModule(cards.rng, run)
+      ? rollModules(cards.rng, run)
       : { moduleIds: [], rng: cards.rng };
   const withRelics = rollRelics(withModule.rng, run, tier);
 
@@ -233,21 +233,35 @@ export function rollMastery(
   return { masteryId: picked.value.id, rng: picked.rng };
 }
 
-/** One module the player does not already own, weighted by rarity. */
-function rollModule(
+/**
+ * `count` modules the player does not already own, weighted by rarity.
+ *
+ * The grid identifies a module by its id, so a duplicate has nowhere to go —
+ * owned ones are excluded rather than offered and then refused.
+ */
+export function rollModules(
   rng: RngState,
   run: RunState,
+  count = 1,
 ): { readonly moduleIds: readonly string[]; readonly rng: RngState } {
   const owned = new Set([...run.ship.stored, ...run.ship.placed.map((entry) => entry.moduleId)]);
   const pool = moduleTable.all().filter((def) => def.rarity !== 'basic' && !owned.has(def.id));
   if (pool.length === 0) return { moduleIds: [], rng };
 
-  const rolled = weightedPick(
-    rng,
-    'rewards',
-    pool.map((def) => ({ value: def.id, weight: MODULE_WEIGHTS[def.rarity] ?? 1 })),
-  );
-  return { moduleIds: [rolled.value], rng: rolled.rng };
+  const chosen: string[] = [];
+  let current = rng;
+  for (let slot = 0; slot < count; slot++) {
+    const candidates = pool.filter((def) => !chosen.includes(def.id));
+    if (candidates.length === 0) break;
+    const rolled = weightedPick(
+      current,
+      'rewards',
+      candidates.map((def) => ({ value: def.id, weight: MODULE_WEIGHTS[def.rarity] ?? 1 })),
+    );
+    current = rolled.rng;
+    chosen.push(rolled.value);
+  }
+  return { moduleIds: chosen, rng: current };
 }
 
 const MODULE_WEIGHTS: Readonly<Record<string, number>> = {

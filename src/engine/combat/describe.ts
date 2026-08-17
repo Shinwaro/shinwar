@@ -13,6 +13,7 @@ import type { CardDef, EffectOp, GameState, StanceId, Target } from '../types.ts
 import { STANCES } from '../../content/balance.ts';
 import { cards as cardTable, statuses as statusTable } from '../../content/registry.ts';
 import { activeCombat } from '../state.ts';
+import { stanceRulesFor } from './rules.ts';
 
 function statusName(id: string): string {
   return statusTable.find(id)?.name ?? id;
@@ -73,12 +74,29 @@ function describeScaleSource(source: Extract<EffectOp, { op: 'scaleWith' }>['sou
   }
 }
 
+/**
+ * What a stack of Focus is currently worth on the first hit of an attack.
+ *
+ * Folded into the printed damage rather than shown as a separate `+2`: the
+ * number on the card should be the number that lands. A card that says 6 and
+ * deals 12 is asking the player to do the arithmetic the game already did.
+ */
+function focusBonus(state: GameState | null): number {
+  if (state === null) return 0;
+  const combat = activeCombat(state);
+  if (combat === null || combat.focus <= 0) return 0;
+  const stance = stanceRulesFor(state, combat.stance);
+  return stance.spendsFocus ? combat.focus * stance.focusPerStack : 0;
+}
+
 function describeOp(op: EffectOp, state: GameState | null): string {
   switch (op.op) {
     case 'damage': {
       const times = op.times ?? 1;
       const hits = times > 1 ? ` ${times} times` : '';
-      return `Deal ${op.amount} damage${hits}${targetSuffix(op.target)}.`;
+      // Only the first instance spends the stack, so only the first shows it.
+      const withFocus = op.amount + focusBonus(state);
+      return `Deal ${withFocus} damage${hits}${targetSuffix(op.target)}.`;
     }
     case 'block':
       return `Gain ${op.amount} Block.`;

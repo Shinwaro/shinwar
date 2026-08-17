@@ -174,8 +174,8 @@ export const ACT3_ENEMIES: readonly EnemyDef[] = [
     moves: [
       {
         id: 'iai',
-        label: 'Iai',
-        intent: [{ kind: 'attack', amount: 32, times: 1, label: 'Iai' }],
+        label: 'IAI',
+        intent: [{ kind: 'attack', amount: 32, times: 1, label: 'IAI' }],
         effects: [{ op: 'damage', amount: 32, target: 'enemy' }],
       },
       {

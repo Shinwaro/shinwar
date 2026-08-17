@@ -11,7 +11,6 @@ import type { GameState } from './types.ts';
 import { appendLog, createInitialState, createRunState, withRun } from './state.ts';
 import { normalizeSeed } from './rng.ts';
 import { advanceEnemyTurn, endPlayerTurn, playCard } from './combat/combat.ts';
-import { scanEnemy } from './combat/intents.ts';
 import { aimAt, intervene, resolveShipTurn } from './ship/combat.ts';
 import {
   moveModule as moveOnGrid,
@@ -34,6 +33,9 @@ import {
   safePlanetTrade,
   safePlanetUpgrade,
   stationRepair,
+  launchShipCombat,
+  salvageWreck,
+  takeRefitModule,
   takeRewardCard,
   takeRewardModule,
   takeRewardRelic,
@@ -68,13 +70,15 @@ function settleShipCombat(state: GameState): GameState {
   if (fight === null || fight.outcome === 'ongoing') return state;
 
   if (fight.outcome === 'won') {
-    return appendLog(
+    // Every win, not sometimes. A ship fight that paid nothing was a fight with
+    // no reason to route toward it, and space nodes are four in ten of the map.
+    return salvageWreck(appendLog(
       // `forcedTier` is cleared here as well as in `concludeNode`: only the
       // surface path pays a reward, so a tier that reached a ship fight has
       // nothing to spend it and would otherwise leak into the next fight.
       withRun(state, (run) => ({ ...run, shipCombat: null, screen: 'map', forcedTier: null })),
       { source: 'system', kind: 'combat', text: 'The other ship stops moving.', detail: null },
-    );
+    ));
   }
 
   // You cannot die in space. Losing crashes you back onto the map.
@@ -171,11 +175,6 @@ export function applyAction(state: GameState, action: Action): GameState {
       return settleCombat(endPlayerTurn(state));
     }
 
-    case 'scanEnemy': {
-      if (state.run?.combat?.outcome !== 'ongoing') return state;
-      return scanEnemy(state, action.enemyUid);
-    }
-
     case 'advanceEnemies': {
       if (state.run?.combat?.outcome !== 'ongoing') return state;
       return settleCombat(advanceEnemyTurn(state));
@@ -240,9 +239,25 @@ export function applyAction(state: GameState, action: Action): GameState {
       return withRun(state, (current) => ({ ...current, ship }));
     }
 
+    case 'takeRefitModule': {
+      if (state.run?.screen !== 'refit') return state;
+      return takeRefitModule(state, action.moduleId);
+    }
+
+    case 'backToRefit': {
+      if (state.run === null || state.run.pendingRefit === null) return state;
+      return withRun(state, (run) => ({ ...run, screen: 'refit' }));
+    }
+
+    case 'launchShipCombat': {
+      if (state.run?.screen !== 'refit') return state;
+      return launchShipCombat(state);
+    }
+
     case 'openLoadout': {
       // Only between fights: mid-combat the grid is edited through Reposition,
-      // which costs the turn's lever.
+      // which costs the turn's lever. The refit is a legitimate place to open
+      // it from — that is the whole point of being offered parts first.
       if (state.run === null || state.run.combat !== null || state.run.shipCombat !== null) return state;
       return withRun(state, (current) => ({ ...current, screen: 'ship' }));
     }

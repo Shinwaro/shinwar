@@ -93,8 +93,8 @@ export const ENVIRONMENTS: readonly EnvironmentDef[] = [
   {
     id: SENSOR_FOG_ID,
     name: 'Sensor Fog',
-    text: 'Enemy intents are hidden. Scan is free, once a turn, and reveals one.',
-    rules: { hideIntents: true, scansPerTurn: 1 },
+    text: 'Enemy intents are hidden. You fight it blind.',
+    rules: { hideIntents: true },
   },
 
   {
@@ -191,16 +191,9 @@ export function registerEnvironmentHooks(): void {
     }),
   ]);
 
-  /* ---- Sensor Fog ----
-     The scan budget is per turn, so it resets here rather than anywhere the
-     engine has to know about. */
-  registerHooks(SENSOR_FOG_ID, [
-    defineHook({
-      hook: 'onTurnStart',
-      priority: HOOK_PRIORITY.environment,
-      handle: (state) => envSet(envSet(state, 'revealed', []), 'scansUsed', 0),
-    }),
-  ]);
+  /* Sensor Fog needs no handler. It used to hand the telegraph back for a free
+     Scan once a turn, which made it a chore rather than a condition — you paid
+     one click and got the information anyway. Blind is the environment. */
 
   /* Chronal Shear needs no handler: "enemies act twice" changes how the engine
      builds the enemy queue, which is a calculation, not a moment. It is a rule,

@@ -416,9 +416,8 @@ export interface EnvironmentRules {
   readonly bigHitMultiplier?: number;
   /** Gravity Well: how many stance changes a turn allows. */
   readonly stanceChangesPerTurn?: number;
-  /** Sensor Fog: intents are hidden until scanned. */
+  /** Sensor Fog: intents are hidden, full stop. */
   readonly hideIntents?: boolean;
-  readonly scansPerTurn?: number;
   /** Chronal Shear: on every Nth round, the enemy queue is built twice. */
   readonly doubleActEvery?: number;
 }
@@ -745,7 +744,7 @@ export interface EnemyState {
 }
 
 export interface CardInstance {
-  /** Unique per physical copy, so two Iai Slashes are distinguishable. */
+  /** Unique per physical copy, so two IAI Slashes are distinguishable. */
   readonly uid: string;
   readonly defId: CardId;
   readonly upgraded: boolean;
@@ -975,6 +974,22 @@ export interface PendingEvent {
   readonly outcome: readonly string[];
 }
 
+/**
+ * The refit offered before a space battle.
+ *
+ * A ship fight used to be whatever your grid already was, which meant the ship
+ * path only moved at Elites and Stations and a space node was a fight you had
+ * no way to prepare for. Now every one of them offers parts first and drops one
+ * off the wreck after — the grid is still the limit, so this fills the packing
+ * puzzle rather than inflating power.
+ */
+export interface PendingRefit {
+  readonly moduleIds: readonly ModuleId[];
+  readonly taken: ModuleId | null;
+  /** The enemy ship this refit is preparing you for. */
+  readonly enemyId: EnemyId;
+}
+
 export interface ShopCardStock {
   readonly cardId: CardId;
   readonly price: number;
@@ -1024,6 +1039,8 @@ export type RunScreen =
   | 'safe'
   | 'station'
   | 'event'
+  /** Parts before a space battle. */
+  | 'refit'
   /** The loadout: the grid, out of combat. */
   | 'ship';
 
@@ -1050,6 +1067,8 @@ export interface RunState {
   readonly seenEvents: readonly EventId[];
   /** The Station's stock, kept from arrival so it cannot reshuffle mid-visit. */
   readonly shop: ShopState | null;
+  /** Parts on offer before a space battle. */
+  readonly pendingRefit: PendingRefit | null;
   /**
    * Set when a Thread throws a fight at you. The reward screen reads it instead
    * of the node's type, so a reprisal pays what a reprisal is worth. Cleared

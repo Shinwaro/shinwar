@@ -64,13 +64,19 @@ function labelOf(node: MapNode): string {
  * what you are scanning for.
  */
 function captionOf(node: MapNode): HTMLElement {
-  const detail = [describeNode(node), environmentName(node)]
-    .filter((part) => part !== null && part !== '')
-    .join(' · ');
+  const environment = environmentName(node);
+  const encounter = encounterName(node);
 
   return el('span', { class: 'star-label' }, [
     el('span', { class: 'star-name' }, [node.name]),
-    el('span', { class: 'star-detail' }, [detail]),
+    el('span', { class: 'star-detail' }, [describeNode(node)]),
+    // What you are walking into, on its own line and in its own colour. These
+    // are the two facts the route decision is actually made on, and folding
+    // them into one grey run of text with the node type buried them.
+    encounter === null ? null : el('span', { class: 'star-encounter' }, [encounter]),
+    environment === null || environment === 'Clear Space'
+      ? null
+      : el('span', { class: 'star-env', 'data-environment': node.environmentId }, [environment]),
   ]);
 }
 

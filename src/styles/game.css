@@ -1023,6 +1023,31 @@
   color: var(--muted);
 }
 
+/* The two facts a route is actually chosen on. Each gets its own line and its
+   own colour, because folded into one grey run they were unreadable at a
+   glance — which is the only way anyone reads a chart. */
+.star-encounter {
+  font-size: 0.6rem;
+  color: color-mix(in srgb, var(--danger) 78%, var(--ink));
+}
+
+.star-env {
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.star-env[data-environment='stellar_corona'] { color: var(--heat-warm); }
+.star-env[data-environment='deep_void'] { color: var(--heat-cool); }
+.star-env[data-environment='gravity_well'] { color: #b79ae0; }
+.star-env[data-environment='radiation_belt'] { color: var(--good); }
+.star-env[data-environment='sensor_fog'] { color: var(--guard); }
+.star-env[data-environment='chronal_shear'] { color: var(--danger); }
+
+.star-label {
+  max-width: 10rem;
+}
+
 /* Named everywhere, but only loud where you are choosing. Places behind you and
    places you cannot reach yet stay legible and stop competing for attention. */
 .star-label--past .star-name,
@@ -2376,4 +2401,12 @@ button.grid-tile {
 /* A masked shape draws one tile per cell, so only the first carries a label. */
 .grid-tile .tile-name {
   white-space: nowrap;
+}
+
+.refit-inner {
+  width: 100%;
+  max-width: 62rem;
+  margin: 0 auto;
+  display: grid;
+  gap: 1rem;
 }

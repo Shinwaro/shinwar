@@ -242,9 +242,15 @@ function build(store: Store, state: GameState, local: Local, redraw: () => void)
             ]),
           ),
         ),
-    button('Back to the map', { class: 'btn btn-primary' }, () => {
-      store.dispatch({ kind: 'leaveNode' });
-    }),
+    // Back to wherever you came from. Opening the loadout from a refit and
+    // being dropped onto the map would skip the fight you were preparing for.
+    run.pendingRefit === null
+      ? button('Back to the map', { class: 'btn btn-primary' }, () => {
+          store.dispatch({ kind: 'leaveNode' });
+        })
+      : button('Back to the approach', { class: 'btn btn-primary' }, () => {
+          store.dispatch({ kind: 'backToRefit' });
+        }),
   ]);
 }
 

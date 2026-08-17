@@ -16,7 +16,7 @@ import { rollMastery } from '../src/engine/run/rewards.ts';
 import { computeDamage, previewDamage, PLAYER, enemyTarget } from '../src/engine/combat/damage.ts';
 import { endTurnImmediately, startPlayerTurn } from '../src/engine/combat/combat.ts';
 import { setStance } from '../src/engine/combat/stance.ts';
-import { intentVisible, scanEnemy, scansLeft } from '../src/engine/combat/intents.ts';
+import { intentVisible } from '../src/engine/combat/intents.ts';
 import { environmentRules, liveStance, stanceChangeLimit } from '../src/engine/combat/rules.ts';
 import { gainHeat, ventHeat } from '../src/engine/combat/heat.ts';
 import { ACTIVE_STANCES, MASTERY, WAVEFRONT } from '../src/content/balance.ts';
@@ -168,35 +168,24 @@ describe('environments that act at a moment', () => {
 });
 
 describe('Sensor Fog', () => {
-  it('hides the telegraph and hands it back for a free scan', () => {
-    const state = startPlayerTurn(inEnvironment(SENSOR_FOG_ID, { enemyIds: ['scrap_hound'] }));
-    const uid = firstEnemy(state).uid;
-
-    expect(intentVisible(state, uid)).toBe(false);
-    expect(scansLeft(state)).toBe(1);
-
-    const scanned = scanEnemy(state, uid);
-    expect(intentVisible(scanned, uid)).toBe(true);
-    expect(scansLeft(scanned)).toBe(0);
-
-    // The budget is spent, not refundable.
-    expect(scanEnemy(scanned, uid)).toBe(scanned);
-  });
-
-  it('refreshes the budget every turn', () => {
-    const state = startPlayerTurn(inEnvironment(SENSOR_FOG_ID, { enemyIds: ['scrap_hound'], hand: [] }));
-    const scanned = scanEnemy(state, firstEnemy(state).uid);
-    expect(scansLeft(scanned)).toBe(0);
-
-    const nextTurn = endTurnImmediately(scanned);
-    expect(scansLeft(nextTurn)).toBe(1);
-    expect(intentVisible(nextTurn, firstEnemy(nextTurn).uid)).toBe(false);
+  it('hides the telegraph, with no way to buy it back', () => {
+    // A free reveal once a turn made the environment a click you paid before
+    // getting the information anyway. Blind is the environment.
+    const fogged = startPlayerTurn(inEnvironment(SENSOR_FOG_ID, { enemyIds: ['scrap_hound'] }));
+    expect(intentVisible(fogged)).toBe(false);
   });
 
   it('hides nothing anywhere else', () => {
-    const state = startPlayerTurn(inEnvironment('clear_space', { enemyIds: ['scrap_hound'] }));
-    expect(intentVisible(state, firstEnemy(state).uid)).toBe(true);
-    expect(scansLeft(state)).toBe(0);
+    const clear = startPlayerTurn(inEnvironment('clear_space', { enemyIds: ['scrap_hound'] }));
+    expect(intentVisible(clear)).toBe(true);
+  });
+
+  it('still commits the move, so the fight is blind rather than random', () => {
+    // The intent is chosen and frozen exactly as it is anywhere else — the
+    // player just cannot read it. That distinction is the difference between
+    // hidden information and an unfair fight.
+    const fogged = startPlayerTurn(inEnvironment(SENSOR_FOG_ID, { enemyIds: ['scrap_hound'] }));
+    expect(firstEnemy(fogged).intentMoveId).not.toBeNull();
   });
 });
 

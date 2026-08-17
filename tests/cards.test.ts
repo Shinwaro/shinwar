@@ -61,7 +61,7 @@ describe('generated rules text', () => {
   });
 
   it('derives the rider separately, so the UI can grey it', () => {
-    expect(describeRider(def(IAI_SLASH))).toBe('Deal 4 damage. Gain 1 Focus.');
+    expect(describeRider(def(IAI_SLASH))).toBe('Deal 4 damage.');
     expect(describeRider(def(SOLAR_PARRY))).toBe('Gain 3 Block. Apply 1 Weak.');
     expect(describeRider(def(VECTOR_STEP))).toBeNull();
   });
@@ -69,7 +69,7 @@ describe('generated rules text', () => {
   it('follows the numbers when the card is upgraded', () => {
     const upgraded = definitionOf({ uid: 'x', defId: IAI_SLASH, upgraded: true });
     expect(describeCard(upgraded)).toBe('Deal 9 damage.');
-    expect(describeRider(upgraded)).toBe('Deal 5 damage. Gain 1 Focus.');
+    expect(describeRider(upgraded)).toBe('Deal 6 damage.');
   });
 
   it('knows whether the rider is live in the current stance', () => {

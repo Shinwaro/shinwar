@@ -20,7 +20,7 @@ import type { GameState } from '../../engine/types.ts';
 import type { Store } from '../store.ts';
 import { requireCombat, requireRun } from '../../engine/state.ts';
 import { canPlay, definitionOf, enemiesPending, needsTarget } from '../../engine/combat/combat.ts';
-import { incomingDamage, intentOf, intentVisible, scansLeft } from '../../engine/combat/intents.ts';
+import { incomingDamage, intentOf, intentVisible } from '../../engine/combat/intents.ts';
 import { livingEnemies } from '../../engine/combat/damage.ts';
 import { describeStatus } from '../../engine/combat/keywords.ts';
 import { currentSeed, healthFraction } from '../../engine/queries.ts';
@@ -34,15 +34,17 @@ import {
   renderResources,
   renderStanceStrip,
 } from '../components/gauges.ts';
-import { envGetString, intentsHidden } from '../../engine/combat/rules.ts';
+import { envGetString } from '../../engine/combat/rules.ts';
 import { renderLog, scrollLogToEnd } from '../components/log.ts';
 import { bindCombatKeys } from '../input.ts';
 import { clearFloaters, playLogFx, setBarFill } from '../anim.ts';
 
 /** Beat before an enemy acts, so you see who is about to swing. */
-const ENEMY_LEAD_MS = 500;
-/** Extra time per additional blow, so `2 x 4` takes a second rather than none. */
-const ENEMY_HIT_MS = 500;
+const ENEMY_LEAD_MS = 750;
+/** Extra time per additional blow, so `2 x 4` reads as two blows and not one. */
+const ENEMY_HIT_MS = 620;
+/** A last beat once the numbers have settled, before anything else moves. */
+const SETTLE_MS = 220;
 
 interface Selection {
   /** The card the player has picked up, if any. */
@@ -82,6 +84,9 @@ export function renderCombat(store: Store): HTMLElement {
    */
   let enemyTimer = 0;
 
+  /** How long the floaters from the last render still need. */
+  let fxRunning = 0;
+
   const scheduleEnemy = (): void => {
     if (enemyTimer !== 0) return;
     const state = store.getState();
@@ -95,11 +100,16 @@ export function renderCombat(store: Store): HTMLElement {
         ? 1
         : intentOf(state, enemy).reduce((total, hit) => total + Math.max(1, hit.times), 0);
 
+    // Wait out whatever is still in the air before starting the next beat, or
+    // the enemy's numbers land on top of the player's.
+    const wait = ENEMY_LEAD_MS + Math.max(0, hits - 1) * ENEMY_HIT_MS + fxRunning;
+    fxRunning = 0;
+
     enemyTimer = window.setTimeout(() => {
       enemyTimer = 0;
       store.dispatch({ kind: 'advanceEnemies' });
       // The next enemy is scheduled by the render this dispatch triggers.
-    }, ENEMY_LEAD_MS + Math.max(0, hits - 1) * ENEMY_HIT_MS);
+    }, wait);
   };
 
   const rerender = (): void => {
@@ -122,11 +132,12 @@ export function renderCombat(store: Store): HTMLElement {
     }
 
     // After the DOM exists, so the floaters can find what they rise from.
-    playLogFx(fresh, (target) =>
+    const played = playLogFx(fresh, (target) =>
       target === 'player'
         ? host.querySelector('.stat--hull')
         : host.querySelector(`.enemy[data-uid="${CSS.escape(target)}"]`),
     );
+    if (played > 0) fxRunning = played + SETTLE_MS;
 
     const log = host.querySelector('.log');
     if (log !== null) scrollLogToEnd(log);
@@ -259,23 +270,12 @@ function build(store: Store, state: GameState, selection: Selection, rerender: (
     'section',
     { class: 'enemy-row', 'aria-label': 'Enemies' },
     combat.enemies.map((enemy) => {
-      const unread =
-        enemy.hp > 0 && intentsHidden(state) && !intentVisible(state, enemy.uid) && scansLeft(state) > 0;
-
       return renderEnemy(state, enemy, {
         targetable: selection.cardUid !== null && enemy.hp > 0,
         focused: selection.focusUid === enemy.uid,
-        scannable: unread,
         acting: combat.actingUid === enemy.uid,
         onPick: () => {
           if (selection.cardUid === null) {
-            // Nothing in hand is selected and this contact is unread: reading
-            // it is the only thing a click here could mean.
-            if (unread) {
-              selection.focusUid = enemy.uid;
-              store.dispatch({ kind: 'scanEnemy', enemyUid: enemy.uid });
-              return;
-            }
             selection.focusUid = enemy.uid;
             rerender();
             return;
@@ -293,12 +293,12 @@ function build(store: Store, state: GameState, selection: Selection, rerender: (
   // Under Sensor Fog the total would hand back exactly what the fog took, so
   // the readout says how many contacts it cannot account for instead of
   // quietly reporting a number that is missing some of them.
-  const unread = combat.enemies.filter(
-    (enemy) => enemy.hp > 0 && !intentVisible(state, enemy.uid),
-  ).length;
+  const unread = intentVisible(state)
+    ? 0
+    : combat.enemies.filter((enemy) => enemy.hp > 0).length;
   const threat = el('p', { class: 'threat', role: 'status', 'aria-live': 'polite' }, [
     unread > 0
-      ? `${unread} contact${unread === 1 ? '' : 's'} unread. Scan, or find out.`
+      ? `${unread} contact${unread === 1 ? '' : 's'} you cannot read. Block for the worst of it.`
       : incoming > 0
         ? `Incoming this turn: ${incoming}${combat.block > 0 ? ` · ${combat.block} Block absorbs first` : ''}`
         : 'Nothing incoming this turn.',
@@ -383,16 +383,6 @@ function build(store: Store, state: GameState, selection: Selection, rerender: (
     el('div', { class: 'tray-actions' }, [
       // Sensor Fog only, and free. Pick an enemy, then read it — the cost is
       // the ordering, never a resource.
-      // Not a button that does the scanning — clicking the contact does that.
-      // This is the budget, on screen, so "free once a turn" is a fact rather
-      // than something the player has to discover by trying.
-      !intentsHidden(state)
-        ? null
-        : el('span', { class: 'scan-budget' }, [
-            scansLeft(state) > 0
-              ? `Scan: ${scansLeft(state)} left — click a fogged contact`
-              : 'Scan spent this turn',
-          ]),
       button(selection.logOpen ? 'Hide log' : 'Show log', { class: 'btn btn-quiet', 'aria-keyshortcuts': 'L' }, () => {
         selection.logOpen = !selection.logOpen;
         rerender();

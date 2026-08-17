@@ -21,8 +21,6 @@ export type Action =
      stop being a record of what the player actually chose to do. */
   | { readonly kind: 'playCard'; readonly cardUid: string; readonly targetUid: string | null }
   | { readonly kind: 'endTurn' }
-  /** Sensor Fog only. Free, limited per turn, reveals one enemy's telegraph. */
-  | { readonly kind: 'scanEnemy'; readonly enemyUid: string }
   /** Resolve one enemy. The UI dispatches these on a timer so the enemy turn
       can be watched rather than arriving in a single frame. */
   | { readonly kind: 'advanceEnemies' }
@@ -49,6 +47,10 @@ export type Action =
   /** Turn a module where it stands. Refused if the new orientation will not fit. */
   | { readonly kind: 'rotateModule'; readonly moduleId: string }
   | { readonly kind: 'openLoadout' }
+  /* -- the refit: parts on the approach to a space battle -- */
+  | { readonly kind: 'takeRefitModule'; readonly moduleId: string }
+  | { readonly kind: 'launchShipCombat' }
+  | { readonly kind: 'backToRefit' }
   | { readonly kind: 'repairDrive' }
   | { readonly kind: 'takeRewardModule'; readonly moduleId: string }
   /* -- the map -- */

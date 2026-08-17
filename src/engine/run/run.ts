@@ -15,15 +15,23 @@ import { startCombat } from '../combat/combat.ts';
 import { startShipCombat } from '../ship/combat.ts';
 import { mintCard } from '../combat/instances.ts';
 import { gainAlloy, removalCost, rollAlloy, spendAlloy } from './economy.ts';
-import { offerMatchesLean, rollReward } from './rewards.ts';
+import { offerMatchesLean, rollModules, rollReward } from './rewards.ts';
 import { applyRunEffects } from './effects.ts';
 import { clearEvent, openEvent } from './events.ts';
 import { advanceThreads, dueThreads, resolveThread } from './threads.ts';
 import { stockShop } from './shop.ts';
-import { ECONOMY, PLAYER, TREASURE_ALLOY, UNKNOWN_WEIGHTS, WAVEFRONT } from '../../content/balance.ts';
+import {
+  ECONOMY,
+  PLAYER,
+  REFIT,
+  TREASURE_ALLOY,
+  UNKNOWN_WEIGHTS,
+  WAVEFRONT,
+} from '../../content/balance.ts';
 import { CLEAR_SPACE_ID } from '../../content/environments.ts';
 import {
   cards as cardTable,
+  modules as moduleTable,
   relics as relicTable,
   shipEnemies,
 } from '../../content/registry.ts';
@@ -269,7 +277,14 @@ function openCombat(state: GameState, node: MapNode): GameState {
   return startCombat(staged, encounterId, node.environmentId ?? CLEAR_SPACE_ID);
 }
 
-/** Pick an enemy ship on the map stream and hand over to the grid. */
+/**
+ * A space node: parts first, then the fight.
+ *
+ * The refit answers "the ship path only moves at Elites and Stations". A space
+ * fight used to be whatever your grid already happened to be, with no way to
+ * prepare for the thing you could see coming on the map two nodes out. Now
+ * every one offers parts before and drops one off the wreck after.
+ */
 function openShipCombat(state: GameState, node: MapNode): GameState {
   const run = requireRun(state);
   // Falls back down the acts rather than returning to the map. Act 2 and 3 had
@@ -279,9 +294,94 @@ function openShipCombat(state: GameState, node: MapNode): GameState {
   const pool = exact.length > 0 ? exact : shipEnemies.all();
   if (pool.length === 0) return withRun(state, (current) => ({ ...current, screen: 'map' }));
   const rolled = pick(run.rng, 'map', pool);
-  const spun = withRun(state, (current) => ({ ...current, rng: rolled.rng }));
+  let spun = withRun(state, (current) => ({ ...current, rng: rolled.rng }));
   void node;
-  return startShipCombat(spun, rolled.value.id);
+
+  const offered = rollModules(requireRun(spun).rng, requireRun(spun), REFIT.choices);
+  spun = withRun(spun, (current) => ({ ...current, rng: offered.rng }));
+  if (offered.moduleIds.length === 0) return startShipCombat(spun, rolled.value.id);
+
+  return appendLog(
+    withRun(spun, (current) => ({
+      ...current,
+      screen: 'refit',
+      pendingRefit: { moduleIds: offered.moduleIds, taken: null, enemyId: rolled.value.id },
+    })),
+    {
+      source: 'refit',
+      kind: 'run',
+      text: 'Salvage drifting on the approach. Take what you can carry.',
+      detail: { enemy: rolled.value.id },
+    },
+  );
+}
+
+/** Pick a part for the coming fight, or change your mind. Free until you launch. */
+export function takeRefitModule(state: GameState, moduleId: string): GameState {
+  const run = requireRun(state);
+  const refit = run.pendingRefit;
+  if (refit === null || !refit.moduleIds.includes(moduleId)) return state;
+  const already = refit.taken === moduleId;
+  return withRun(state, (current) => ({
+    ...current,
+    pendingRefit:
+      current.pendingRefit === null
+        ? null
+        : { ...current.pendingRefit, taken: already ? null : moduleId },
+  }));
+}
+
+/** Launch. Whatever was taken goes into storage, and the fight opens. */
+export function launchShipCombat(state: GameState): GameState {
+  const run = requireRun(state);
+  const refit = run.pendingRefit;
+  if (refit === null) return state;
+
+  let next = withRun(state, (current) => ({ ...current, pendingRefit: null }));
+  const taken = refit.taken;
+  if (taken !== null) {
+    next = appendLog(
+      withRun(next, (current) => ({
+        ...current,
+        ship: { ...current.ship, stored: [...current.ship.stored, taken] },
+      })),
+      {
+        source: 'refit',
+        kind: 'run',
+        text: `${moduleTable.get(taken).name} aboard. Fit it before it matters.`,
+        detail: { module: taken },
+      },
+    );
+  }
+
+  return startShipCombat(next, refit.enemyId);
+}
+
+/**
+ * Cut something out of the wreck. Every win, not sometimes.
+ *
+ * A ship fight that paid nothing was a fight with no reason to route toward it,
+ * and space nodes are four in ten of the map now.
+ */
+export function salvageWreck(state: GameState): GameState {
+  const run = requireRun(state);
+  const rolled = rollModules(run.rng, run, 1);
+  const salvaged = rolled.moduleIds[0];
+  const spun = withRun(state, (current) => ({ ...current, rng: rolled.rng }));
+  if (salvaged === undefined) return spun;
+
+  return appendLog(
+    withRun(spun, (current) => ({
+      ...current,
+      ship: { ...current.ship, stored: [...current.ship.stored, salvaged] },
+    })),
+    {
+      source: 'salvage',
+      kind: 'reward',
+      text: `Cut ${moduleTable.get(salvaged).name} out of the wreck.`,
+      detail: { module: salvaged },
+    },
+  );
 }
 
 function fallbackEncounter(run: RunState): string | null {
