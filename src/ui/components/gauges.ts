@@ -89,16 +89,31 @@ export function renderHeatGauge(state: GameState): HTMLElement {
 
 export function renderResources(state: GameState): HTMLElement {
   const combat = requireCombat(state);
+  const stance = liveStance(state);
+  const worth = combat.focus * stance.focusPerStack;
+
+  /*
+   * Focus is a bar, not a number.
+   *
+   * It used to be a digit plus a sentence explaining what the digit would be
+   * worth — which is a lot of reading for a resource you glance at mid-turn,
+   * and the sentence changed meaning with the stance so it never became
+   * furniture you could stop parsing. Ticks are read at a glance and match the
+   * Heat gauge directly above, so the two pressure readouts have one grammar.
+   *
+   * White rather than an accent colour: Heat owns hot, the stances own their
+   * own hues, and Focus is the neutral thing both of them act on.
+   */
+  const focusTicks = Array.from({ length: FOCUS_MAX }, (_, index) =>
+    el('span', {
+      class: `focus-tick${index < combat.focus ? ' is-filled' : ''}`,
+      'aria-hidden': 'true',
+    }),
+  );
 
   const pips = Array.from({ length: Math.max(3, combat.energy) }, (_, index) =>
     el('span', { class: `energy-pip${index < combat.energy ? ' is-full' : ''}`, 'aria-hidden': 'true' }),
   );
-
-  // Which stance you are standing in decides whether Focus is a bank or a
-  // payload, so the readout has to say which it is right now. This is the one
-  // number on screen whose meaning changes with the axis.
-  const stance = liveStance(state);
-  const worth = combat.focus * stance.focusPerStack;
 
   // Block is not here: it lives beside the hull bar, next to the thing it
   // protects. Repeating it would be two numbers to keep in sync on screen.
@@ -106,22 +121,21 @@ export function renderResources(state: GameState): HTMLElement {
     el(
       'span',
       {
-        class: `resource resource--info${stance.spendsFocus ? ' is-armed' : ' is-banking'}`,
+        class: `resource resource--focus${stance.spendsFocus ? ' is-armed' : ' is-banking'}`,
         tabindex: '0',
+        // The explanation moves to the tooltip. It is worth reading once and
+        // then never again, which is exactly what a tooltip is for.
         title: stance.spendsFocus
-          ? `Focus: your next attack takes the whole stack and deals ${stance.focusPerStack} more damage per stack. Stances that bank Focus keep it instead.`
-          : `Focus: banked in ${stance.name} and spent nowhere. Change to a stance that spends it to cash the stack. Caps at ${FOCUS_MAX}.`,
+          ? `Focus ${combat.focus}/${FOCUS_MAX}: your next attack takes the whole stack and deals ${stance.focusPerStack} more per stack — +${worth} right now. Stances that bank Focus keep it instead.`
+          : `Focus ${combat.focus}/${FOCUS_MAX}: banked in ${stance.name}. Change to a stance that spends it to cash the stack — worth +${worth}.`,
       },
       [
         el('span', { class: 'resource-label' }, ['Focus']),
-        el('span', { class: 'resource-value' }, [`${combat.focus}${combat.focus >= FOCUS_MAX ? ' (max)' : ''}`]),
-        el('span', { class: 'resource-hint' }, [
-          combat.focus === 0
-            ? `+${stance.focusPerStack} per stack when spent`
-            : stance.spendsFocus
-              ? `next attack +${worth}, then spent`
-              : `banked · worth +${worth} in a stance that spends it`,
-        ]),
+        el(
+          'span',
+          { class: 'focus-ticks', 'aria-label': `${combat.focus} of ${FOCUS_MAX} Focus` },
+          focusTicks,
+        ),
       ],
     ),
     el('span', { class: 'resource resource--energy' }, [

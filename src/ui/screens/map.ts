@@ -101,13 +101,48 @@ export function renderMap(store: Store): HTMLElement {
 
   /* Whether the deck list is open. UI state — it changes nothing about the
      world, so it never goes near the reducer. */
-  const view = { showDeck: false };
+  const view = { showDeck: false, recentre: false };
   let host: HTMLElement | null = null;
 
   const rerender = (): void => {
     const state = store.getState();
     if (state.run === null || state.run.screen !== 'map') return;
-    host?.replaceChildren(buildMap(store, state, false, scroll, view, rerender));
+    host?.replaceChildren(buildMap(store, state, scroll, view, rerender));
+  };
+
+  /*
+   * Re-centring on the node you just cleared.
+   *
+   * Only this: opening on the starting row is CSS. Four scripted attempts at
+   * that failed for one reason, worth recording — the screen is rebuilt and the
+   * element that was scrolled is detached a moment later, so every timing fix
+   * was racing a re-render it could not see. Re-centring survives because it
+   * runs on `shinwar:mount`, which fires for the screen that is actually in the
+   * document, and again on each render for moves that do not remount.
+   */
+  const place = (): void => {
+    const viewport = host?.querySelector('.map-viewport');
+    if (!(viewport instanceof HTMLElement)) return;
+    if (viewport.scrollHeight <= viewport.clientHeight) return;
+
+    const here = viewport.querySelector('.star.is-here');
+
+    /* Before the first move nothing is `is-here`. The chart opening on the
+       starting row is handled by CSS — see `.map-viewport`, which is a reversed
+       flex column so its scroll origin is the bottom — because a scripted
+       scroll cannot survive the screen being rebuilt underneath it. */
+    if (here === null) return;
+
+    // After a fight the map should be looking at the node you just cleared,
+    // not wherever you had scrolled to before walking into it.
+    if (view.recentre && here instanceof HTMLElement) {
+      // Arithmetic rather than `scrollIntoView`, which also scrolls the page.
+      viewport.scrollTop = Math.max(0, here.offsetTop - viewport.clientHeight / 2);
+      scroll.top = viewport.scrollTop;
+      return;
+    }
+
+    viewport.scrollTop = scroll.top;
   };
 
   host = liveScreen(store, 'map screen', (state) => {
@@ -115,7 +150,21 @@ export function renderMap(store: Store): HTMLElement {
     const anchor = state.run.position ?? state.run.map?.startId ?? null;
     const moved = anchor !== lastAnchor;
     lastAnchor = anchor;
-    return buildMap(store, state, moved, scroll, view, rerender);
+    view.recentre = moved;
+    const built = buildMap(store, state, scroll, view, rerender);
+    // A re-render of an already-mounted screen fires no mount event, so the
+    // chart re-places itself on the next frame — that is the path that puts you
+    // back on the node you just cleared when a fight hands the map back.
+    requestAnimationFrame(place);
+    return built;
+  });
+  host.addEventListener('shinwar:mount', () => {
+    /* Twice: once now, once after the next frame. The shell dispatches the
+       moment the screen is in the document, which is not always the moment it
+       has been laid out — and `place` no-ops harmlessly when the viewport is
+       not yet taller than itself, so the second call is the one that lands. */
+    place();
+    requestAnimationFrame(place);
   });
   return host;
 }
@@ -123,7 +172,6 @@ export function renderMap(store: Store): HTMLElement {
 function buildMap(
   store: Store,
   state: GameState,
-  recentre: boolean,
   scroll: { top: number },
   view: { showDeck: boolean },
   rerender: () => void,
@@ -251,52 +299,17 @@ function buildMap(
   /* `requestAnimationFrame`, not a microtask: on a fresh mount the screen is
      still detached when microtasks run, and setting `scrollTop` on an element
      with no layout does nothing at all. */
-  /* Two frames, not one. A single `requestAnimationFrame` still fires while the
-     screen is detached on a fresh mount, so `scrollHeight` equals `clientHeight`
-     and every scroll calculation below quietly resolves to zero. The second
-     frame is the first one that sees real layout. */
-  requestAnimationFrame(() => requestAnimationFrame(() => {
-    /*
-     * Before the first move there is no `is-here`, and the chart is drawn
-     * boss-first — so the starting row sits at the BOTTOM and an untouched
-     * viewport opens looking at the boss. Pinning to the bottom is done here
-     * rather than inside `recentre` because the screen renders twice on mount
-     * and the second render was restoring a scroll position captured before the
-     * first one had laid out. Idempotent, so whichever render wins is fine.
-     */
-    if (field.querySelector('.star.is-here') === null && scroll.top === 0) {
-      viewport.scrollTop = viewport.scrollHeight;
-      scroll.top = viewport.scrollTop;
-      return;
-    }
-
-    if (recentre) {
-      /*
-       * Before the first move nothing is `is-here`, and the fallback found
-       * whichever reachable star came first in document order — which is near
-       * the top of a chart that is drawn boss-first. So a run opened scrolled
-       * away from its own starting row and you had to scroll down to begin.
-       * With no position, the answer is simply the bottom.
-       */
-      const here = field.querySelector('.star.is-here');
-      if (here === null) {
-        viewport.scrollTop = viewport.scrollHeight;
-        scroll.top = viewport.scrollTop;
-        return;
-      }
-      const anchor = here;
-      if (anchor instanceof HTMLElement) {
-        // Centre by arithmetic rather than `scrollIntoView`, which also walks
-        // up and scrolls the page itself.
-        const target = anchor.offsetTop - viewport.clientHeight / 2;
-        viewport.scrollTop = Math.max(0, target);
-      }
-      scroll.top = viewport.scrollTop;
-      return;
-    }
-    viewport.scrollTop = scroll.top;
-  }));
-
+  /*
+   * Scroll once the viewport actually has layout, not once a frame has passed.
+   *
+   * `requestAnimationFrame` — even two of them — still fires while the screen is
+   * detached on a fresh mount, and a detached element reports `scrollHeight`
+   * equal to `clientHeight`. Every calculation below then collapses to zero and
+   * writes that zero into `scroll.top`, which is why the chart kept opening at
+   * the top no matter how many frames it waited. So the condition is the thing
+   * we actually need — connected, and taller than its own viewport — polled for
+   * a few frames and then given up on rather than looped forever.
+   */
   // The Manifest sits on the chart, not behind the pause key. What you are
   // carrying is part of reading the route.
   return el('div', { class: 'map-inner' }, [

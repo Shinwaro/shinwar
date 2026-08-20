@@ -152,6 +152,15 @@ export function mountApp(root: HTMLElement, store: Store): void {
     screen.tabIndex = -1;
     host.replaceChildren(screen);
 
+    /*
+     * Screens are BUILT detached — `liveScreen` renders once before it returns
+     * the host — so anything that needs real layout cannot do it during the
+     * build. A detached element reports `scrollHeight === clientHeight`, which
+     * is why the map spent several attempts computing a scroll of zero and
+     * remembering it. This is the first moment the screen is in the document.
+     */
+    screen.dispatchEvent(new CustomEvent('shinwar:mount'));
+
     // The asteroid backs the menu screens. Inside the run the stage gets its
     // own, quieter background — and a canvas nobody can see is a battery bug.
     document.body.dataset['phase'] = state.phase;

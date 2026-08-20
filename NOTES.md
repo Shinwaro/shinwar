@@ -1633,3 +1633,62 @@ event and elite, 10% safe.
 
 One row of lookback is enough. It is consecutive pairs that read as empty, not a
 high overall share of them — the constraint should be as narrow as the complaint.
+
+## The Focus bar, and a scroll bug worth writing down
+
+### Focus reads as a quantity now
+
+Six ticks, white, sitting on the same line as the Energy pips and echoing the
+Heat gauge directly above. It was a digit plus a sentence explaining what the
+digit would be worth — a lot of reading for something you glance at mid-turn,
+and the sentence changed meaning with the stance so it never became furniture
+you could stop parsing. The explanation moved to the tooltip, which is what a
+tooltip is for: read once, then never again.
+
+`FOCUS_MAX` is 6 rather than 12. The cap is also the length of the bar, and
+twelve ticks is a row of noise instead of a quantity. Six is countable without
+counting, and a stack you can actually fill is a stack worth deciding when to
+spend.
+
+The stance strip lost its Focus clause — the bar and its tooltip say whether the
+stance banks or spends, so the strip is free to describe what the stance does to
+a *turn*. Energy pips went up to 0.85rem; they were reading as punctuation next
+to the thing they measure.
+
+### The map scroll: four failed fixes and why
+
+The chart kept opening on the boss instead of on the starting row. The fixes I
+tried, in order, and what each one assumed:
+
+1. Scroll to the bottom when nothing is `is-here`. *Assumed the callback runs
+   after layout.*
+2. Make it idempotent so whichever render wins is fine. *Same assumption.*
+3. Two nested `requestAnimationFrame`s. *Assumed one more frame is enough.*
+4. A `ResizeObserver`, then a `shinwar:mount` event from the shell. *Assumed the
+   element being scrolled is the element that stays.*
+
+Instrumenting it finally said what was happening:
+
+```
+PLACE set bottom -> 1415
+PLACE 300ms later -> 0 false      <- isConnected: false
+```
+
+The scroll *worked every time*. The viewport was then detached by a later screen
+rebuild, and the replacement started at zero. Every fix was racing a re-render it
+could not see, which is why each one looked like a timing problem and none of
+them was.
+
+The answer is CSS: `.map-viewport` is a reversed flex column, so its scroll
+*origin* is the bottom of the content and a freshly built viewport opens on the
+starting row with no script involved. A scroll origin is a property of the box —
+it survives the box being replaced. `.map-field` needs `flex: 0 0 auto`, or the
+single flex child shrinks to the viewport height and there is nothing to scroll.
+
+**The lesson: when four timing fixes in a row fail, the problem is not timing.**
+The cheap instrument — log the value, then log it again 300ms later along with
+`isConnected` — answered in one run what four rounds of reasoning had not.
+
+Re-centring on the node you just cleared is still script, because it depends on
+run state rather than on the shape of the box. It runs on `shinwar:mount`, which
+the shell now fires once a screen is actually in the document.

@@ -78,7 +78,15 @@ export const HEAT = {
    not simply the correct answer. */
 
 export const FOCUS_DAMAGE_PER_STACK = 2;
-export const FOCUS_MAX = 12;
+/**
+ * Six, not twelve.
+ *
+ * The cap is also the length of the bar the player reads, and twelve ticks is a
+ * row of noise rather than a quantity you can take in at a glance. Six is
+ * countable without counting — and a stack you can actually fill is a stack
+ * worth deciding when to spend.
+ */
+export const FOCUS_MAX = 6;
 
 /* ---------- stance ----------
    The multiplying axis. Always exactly one. Cards read differently in each. */
@@ -86,7 +94,15 @@ export const FOCUS_MAX = 12;
 export interface StanceRules {
   readonly id: StanceId;
   readonly name: string;
-  /** Plain words, shown on the stance strip. Never make the player remember. */
+  /**
+   * Plain words, shown on the stance strip. Never make the player remember.
+   *
+   * Focus is deliberately absent from these. The bar in the resource strip
+   * shows the stack and its tooltip says whether this stance banks or spends
+   * it, so repeating it here was the same fact in two places — and the strip is
+   * for what the stance does to a turn, not for a resource that has its own
+   * readout.
+   */
   readonly text: string;
   readonly firstAttackBonus: number;
   readonly heatAtTurnEnd: number;
@@ -114,7 +130,7 @@ export const STANCES: { readonly [K in StanceId]: StanceRules } = {
   iai: {
     id: 'iai',
     name: 'IAI',
-    text: 'Attacks spend Focus · +2 damage at 5+ Heat · +2 Heat at turn end',
+    text: '+2 damage at 5+ Heat · +2 Heat at turn end',
     firstAttackBonus: 0,
     heatAtTurnEnd: 2,
     ventAtTurnEnd: 0,
@@ -131,7 +147,7 @@ export const STANCES: { readonly [K in StanceId]: StanceRules } = {
   guard: {
     id: 'guard',
     name: 'GUARD',
-    text: 'Focus is banked, not spent · Vent 1 Heat at turn end · Retain 3 Block',
+    text: 'Vent 1 Heat at turn end · Retain 3 Block',
     firstAttackBonus: 0,
     heatAtTurnEnd: 0,
     ventAtTurnEnd: 1,

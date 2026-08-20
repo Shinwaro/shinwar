@@ -487,47 +487,7 @@
   font-weight: 600;
 }
 
-.resources {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1.25rem;
-}
-
-.resource {
-  display: flex;
-  align-items: baseline;
-  gap: 0.4rem;
-}
-
-.resource-label {
-  font-size: 0.68rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-
-.resource-value {
-  font-family: var(--mono);
-  font-size: 1rem;
-  font-variant-numeric: tabular-nums;
-}
-
-.energy-pips {
-  display: inline-flex;
-  gap: 0.25rem;
-}
-
-.energy-pip {
-  width: 0.7rem;
-  height: 0.7rem;
-  border-radius: 50%;
-  border: 1px solid var(--line-strong);
-}
-
-.energy-pip.is-full {
-  background: var(--accent);
-  border-color: var(--accent);
-}
+/* The resource strip lives with the Focus bar, further down. */
 
 /* -- hand -- */
 
@@ -872,9 +832,25 @@
   letter-spacing: 0.01em;
 }
 
+/*
+ * The chart opens on your feet, not on the boss.
+ *
+ * `column-reverse` puts the scroll ORIGIN at the bottom of the content, so a
+ * freshly mounted viewport starts looking at the starting row — which is drawn
+ * last because the chart runs boss-first. There is exactly one child, so
+ * nothing visually reorders.
+ *
+ * This is CSS rather than script on purpose. Four scripted attempts failed for
+ * the same reason each time: the screen is rebuilt and the element that was
+ * scrolled gets detached a moment later, so any timing fix is a race against a
+ * re-render it cannot see. A scroll origin is a property of the box, and it
+ * survives the box being replaced.
+ */
 .map-viewport {
   position: relative;
   height: min(66dvh, 40rem);
+  display: flex;
+  flex-direction: column-reverse;
   overflow-y: auto;
   overflow-x: hidden;
   border: 1px solid var(--line);
@@ -886,6 +862,10 @@
   position: relative;
   width: 100%;
   height: 118rem;
+  /* The viewport is a reversed flex column so the chart opens on the starting
+     row. A flex item shrinks by default, which collapsed the whole field to the
+     viewport's height and left nothing to scroll. */
+  flex: 0 0 auto;
   /* The galaxy the act sits in. Fixed to the field rather than the viewport so
      it scrolls with the chart — the sky should move when you move through it.
      Kept well under the lanes: this is a ground, not a subject. */
@@ -2202,4 +2182,82 @@
   font-size: 0.85rem;
   color: var(--accent);
   text-wrap: pretty;
+}
+
+/* ---------- the resource strip ----------
+   Focus and Energy on one line, same label size, both read as quantities
+   rather than sentences. The Focus bar deliberately echoes the Heat gauge
+   above it: two pressure readouts with one grammar is one thing to learn. */
+
+.resources {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 1.4rem;
+}
+
+.resource {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.resource-label {
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.focus-ticks {
+  display: flex;
+  gap: 3px;
+}
+
+/* White, not an accent. Heat owns hot and the stances own their own hues;
+   Focus is the neutral thing both of them act on. */
+.focus-tick {
+  width: 0.5rem;
+  height: 0.95rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 2px;
+  background: transparent;
+  transition: background 0.15s;
+}
+
+.focus-tick.is-filled {
+  background: var(--ink);
+  border-color: var(--ink);
+}
+
+/* Armed: this stance will spend the stack on the next attack. Banking leaves
+   the ticks plain, which is the difference the tooltip explains in words. */
+.resource--focus.is-armed .focus-tick.is-filled {
+  box-shadow: 0 0 6px color-mix(in srgb, var(--ink) 55%, transparent);
+}
+
+.resource--focus:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 3px;
+}
+
+.energy-pips {
+  display: flex;
+  gap: 4px;
+}
+
+/* Slightly larger than they were: Energy is the number you check most often
+   and the pips were reading as punctuation. */
+.energy-pip {
+  width: 0.85rem;
+  height: 0.85rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  background: transparent;
+}
+
+.energy-pip.is-full {
+  background: var(--accent);
+  border-color: var(--accent);
 }
