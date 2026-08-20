@@ -17,8 +17,34 @@ export const IAI_SLASH = 'iai_slash';
 export const SOLAR_PARRY = 'solar_parry';
 export const VECTOR_STEP = 'vector_step';
 export const SEVER = 'sever';
+export const FANNED_CUT = 'fanned_cut';
+
+/* The basic answer to more than one thing.
+   Deliberately small and deliberately hot: it exists so a pack fight has a
+   shape other than picking a target, not so it out-damages a real attack. */
+export const FANNED_CUT_DEF: CardDef = {
+  id: FANNED_CUT,
+  name: 'Fanned Cut',
+  type: 'attack',
+  rarity: 'basic',
+  archetype: 'neutral',
+  cost: 1,
+  effects: [
+    { op: 'damage', amount: 4, target: 'allEnemies' },
+    { op: 'gainHeat', amount: 1 },
+  ],
+  upgrade: {
+    name: 'Fanned Cut+',
+    effects: [
+      { op: 'damage', amount: 6, target: 'allEnemies' },
+      { op: 'gainHeat', amount: 1 },
+    ],
+  },
+  flavor: 'One motion, several answers.',
+};
 
 export const BASIC_CARDS: readonly CardDef[] = [
+  FANNED_CUT_DEF,
   {
     id: IAI_SLASH,
     name: 'IAI Slash',
@@ -128,7 +154,11 @@ export const STARTING_DECK: readonly string[] = [
   IAI_SLASH,
   IAI_SLASH,
   IAI_SLASH,
-  IAI_SLASH,
+  // One of the five IAI Slashes is this instead. The opening deck had no answer
+  // at all to two enemies, so the first pack fight was five single-target
+  // swings against two health bars — and "hit the same one twice" is not a
+  // decision. It costs Heat, so the answer is not free.
+  FANNED_CUT,
   SOLAR_PARRY,
   SOLAR_PARRY,
   SOLAR_PARRY,

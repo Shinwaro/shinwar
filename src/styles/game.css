@@ -2319,3 +2319,31 @@
   font-size: 0.92rem;
   color: var(--ink);
 }
+
+/* ---------- the forge preview ----------
+   What it is, and what it becomes. Forging used to be a two-step that never
+   showed the second step — you paid, and then found out. */
+
+.forge-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin: 0.8rem 0 1rem;
+  padding: 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.forge-side {
+  display: grid;
+  gap: 0.4rem;
+  justify-items: center;
+}
+
+.forge-arrow {
+  font-size: 1.6rem;
+  color: var(--accent);
+}

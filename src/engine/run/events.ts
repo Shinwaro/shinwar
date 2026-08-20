@@ -15,8 +15,9 @@ import type { EventDef, EventOption, GameState, RunState } from '../types.ts';
 import { appendLog, requireRun, withRun } from '../state.ts';
 import { weightedPick } from '../rng.ts';
 import { applyRunEffects } from './effects.ts';
-import { hasThread } from './threads.ts';
-import { events as eventTable } from '../../content/registry.ts';
+import { activeThreads, hasThread } from './threads.ts';
+import { events as eventTable, threads as threadTable } from '../../content/registry.ts';
+import { THREADS } from '../../content/balance.ts';
 
 /** Which options this run may actually see. Thread-gated ones stay hidden. */
 export function optionsFor(run: RunState, def: EventDef): readonly EventOption[] {
@@ -44,6 +45,26 @@ export function refusalFor(run: RunState, option: EventOption): string | null {
     }
     if (effect.op === 'maxHealth' && effect.amount < 0 && run.pilot.maxHealth <= -effect.amount) {
       return 'There is not enough of you left to give.';
+    }
+    /*
+     * A Thread you are already carrying.
+     *
+     * `canSetThread` refuses a duplicate, so this option used to be takeable and
+     * then quietly do nothing — the worst of the three outcomes, because the
+     * player has spent the choice and has no way to know it was spent on air.
+     * Refusing it up front costs nothing and says why; a second copy of the same
+     * promise would need a second countdown, and the Manifest has one row per
+     * Thread.
+     */
+    if (effect.op === 'setThread') {
+      const def = threadTable.find(effect.threadId);
+      const already = run.threads.some(
+        (carried) => carried.threadId === effect.threadId && !carried.resolved,
+      );
+      if (already) return `You are already carrying ${def?.name ?? 'that'}.`;
+      if (activeThreads(run).length >= THREADS.maxActive) {
+        return 'You are carrying all you can keep track of.';
+      }
     }
   }
   return null;

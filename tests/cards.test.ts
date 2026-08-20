@@ -11,7 +11,14 @@ import { describeCard, describeRider, riderIsLive } from '../src/engine/combat/d
 import { definitionOf } from '../src/engine/combat/combat.ts';
 import { reloadContent } from '../src/content/index.ts';
 import { cards as cardTable } from '../src/content/registry.ts';
-import { IAI_SLASH, SEVER, SOLAR_PARRY, STARTING_DECK, VECTOR_STEP } from '../src/content/cards/basic.ts';
+import {
+  FANNED_CUT,
+  IAI_SLASH,
+  SEVER,
+  SOLAR_PARRY,
+  STARTING_DECK,
+  VECTOR_STEP,
+} from '../src/content/cards/basic.ts';
 import { PLAYER, RARITY_WEIGHTS } from '../src/content/balance.ts';
 import { RARITY_ORDER } from '../src/engine/types.ts';
 import { rollCardChoices } from '../src/engine/run/rewards.ts';
@@ -32,10 +39,14 @@ describe('the starting deck', () => {
       acc[id] = (acc[id] ?? 0) + 1;
       return acc;
     }, {});
-    expect(counts[IAI_SLASH]).toBe(5);
+    expect(counts[IAI_SLASH]).toBe(4);
     expect(counts[SOLAR_PARRY]).toBe(4);
     expect(counts[VECTOR_STEP]).toBe(2);
     expect(counts[SEVER]).toBe(1);
+    // One AoE from the start: the opening deck had no answer to two enemies at
+    // all, so the first pack fight was five single-target swings at two health
+    // bars and "hit the same one twice" is not a decision.
+    expect(counts[FANNED_CUT]).toBe(1);
   });
 
   it('names only cards that exist', () => {

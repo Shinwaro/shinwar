@@ -1844,3 +1844,61 @@ Act 1 deaths sit at 80% over 250 runs. The enemy nerf helped; the repair
 reprice, which landed in the same measurement, cost more than it gave back. Both
 were asked for, so this is recorded rather than acted on — the next smallest
 lever is Solar Shield's base Block, not another enemy number.
+
+## A pass of playtest fixes
+
+**Echo of the Wavefront charged you twice, and that was mine.** Deleting ship
+hull converted every `hull` cost into a `health` cost — and that option already
+had one, so it read "lose 9 health, lose 6 health". One `-14` now. Swept every
+event and thread; it was the only one, but the class of bug is worth naming: a
+mechanical find-and-replace across content cannot see that the target already
+had what it was adding.
+
+**Conditionals say "additional" when they stack.** "Deal 8 to all. If Heat is 8
+or more, deal 10 damage to all" reads as though the 10 *replaces* the 8. It only
+gets the extra word when there is no `else` — a conditional with an else really
+is a choice between two outcomes, and Criticality still reads plainly. The
+distinction is exactly whether an alternative branch exists.
+
+**Measured Draw's third clause was doing no work.** "Gain 1 Focus. Does not
+consume Focus" is a net zero the player has to compute. Spending one and gaining
+one is the same result in fewer words.
+
+**A Thread you already carry is refused, not silently swallowed.** `canSetThread`
+already rejected duplicates, so the option was takeable and then did nothing —
+the worst of the three possibilities, because the choice is spent on air with no
+way to know. Refusing up front says why. A second copy would need a second
+countdown and the Manifest has one row per Thread.
+
+**Forging shows what it becomes.** It was a two-step that never showed the second
+step: pick a card, press "Forge Sever", find out what Sever+ does after paying.
+`renderCardFace` already takes a `changedVs` that greys what did not move, so the
+comparison is the card's own generated text rather than a second description
+that could drift.
+
+### Cards
+
+**Fanned Cut** joins the starting deck in place of one IAI Slash: 4 to all
+enemies, 1 Heat. The opening deck had no answer to two enemies at all, so the
+first pack fight was five single-target swings at two health bars — and "hit the
+same one twice" is not a decision.
+
+Four more sweeps, each paying a different currency: **Sweeping Guard** (a wall in
+GUARD, a sweep otherwise), **Scattering Arc** (doubles in IAI), **Coolant Burst**
+(scales on Heat and vents it — the gauge running backwards), **Rusting Wind**
+(three Rust on everything, better the more there is to hit).
+
+Deliberately *not* added: a card that gains Heat for a bigger sweep. Runaway
+Bloom already is that card, and a second one at smaller numbers is not a choice
+between two things — it is the same thing twice. Robin caught that one.
+
+**Pressure Cut is 5, not 7.** Vulnerable multiplies everything that follows it
+this turn, so the attack carrying it should not also be the best 1-cost attack in
+the pool.
+
+### Somewhere to heal that is not the Station
+
+Five of 42 Anomaly options restore health now, up from three. The Shrine offers a
+free rest; the Market sells field supplies at a worse rate per point than the
+Station's patch — because a market stall is not a medical bay, but it is *here*,
+and the Station may be three nodes away.

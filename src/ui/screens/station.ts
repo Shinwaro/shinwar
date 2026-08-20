@@ -294,6 +294,40 @@ function buildPicker(store: Store, state: GameState, local: Local, redraw: () =>
             },
           ),
     ]),
+
+    /*
+     * What it becomes, next to what it is.
+     *
+     * Forging was a two-step that never showed the second step: you picked a
+     * card, the button said "Forge Sever", and you found out what Sever+ did
+     * after paying for it. `renderCardFace` already takes a `changedVs`, which
+     * greys the parts that did not move — so the comparison is the card's own
+     * generated text rather than a second description that could drift.
+     */
+    chosen === null || !forging
+      ? null
+      : el('div', { class: 'forge-preview' }, [
+          el('div', { class: 'forge-side' }, [
+            el('h2', { class: 'pause-heading' }, ['Now']),
+            renderCardFace(definitionOf(chosen), {
+              state,
+              badge: null,
+              changedVs: null,
+              extraClass: null,
+            }),
+          ]),
+          el('div', { class: 'forge-arrow', 'aria-hidden': 'true' }, ['→']),
+          el('div', { class: 'forge-side' }, [
+            el('h2', { class: 'pause-heading' }, ['Forged']),
+            renderCardFace(definitionOf({ ...chosen, upgraded: true }), {
+              state,
+              badge: 'Forged',
+              changedVs: definitionOf(chosen),
+              extraClass: null,
+            }),
+          ]),
+        ]),
+
     el(
       'div',
       { class: 'deck-list' },

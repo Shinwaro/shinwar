@@ -42,14 +42,17 @@ export const NEUTRAL_CARDS: readonly CardDef[] = [
     rarity: 'uncommon',
     archetype: 'neutral',
     cost: 1,
+    // 5, not 7. Vulnerable is worth more than a flat number on the same card —
+    // it multiplies everything that follows it this turn — so the attack it
+    // rides on should not also be the best 1-cost attack in the pool.
     effects: [
-      { op: 'damage', amount: 7, target: 'enemy' },
+      { op: 'damage', amount: 5, target: 'enemy' },
       { op: 'applyStatus', status: VULNERABLE, stacks: 1, target: 'enemy' },
     ],
     upgrade: {
       name: 'Pressure Cut+',
       effects: [
-        { op: 'damage', amount: 9, target: 'enemy' },
+        { op: 'damage', amount: 7, target: 'enemy' },
         { op: 'applyStatus', status: VULNERABLE, stacks: 2, target: 'enemy' },
       ],
     },

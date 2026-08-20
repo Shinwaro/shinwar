@@ -210,6 +210,17 @@ export const EVENTS: readonly EventDef[] = [
         payoff: 'Immediate, large',
       },
       {
+        /* A free rest, deliberately: the Safe Planet is the only other place to
+           recover and a route may not offer one. Small enough that it is not a
+           replacement for routing toward the rest you actually need. */
+        id: 'vigil',
+        label: 'Sit with it a while',
+        detail: 'Nobody has swept the floor in eleven years. You sweep the floor.',
+        effects: [{ op: 'health', amount: 12 }],
+        risk: 'None',
+        payoff: 'Immediate, small',
+      },
+      {
         id: 'burn',
         label: 'Strip it and sell the alloy',
         detail: 'It is a rock with a good metal seam and no one left to be offended.',
@@ -466,6 +477,21 @@ export const EVENTS: readonly EventDef[] = [
         payoff: 'Immediate, moderate',
       },
       {
+        /* Somewhere other than the Station to turn Alloy into health. The
+           Station's patch is 150 for half your maximum; this is smaller and
+           dearer per point, because a market stall is not a medical bay — but
+           it is here, and the Station may be three nodes away. */
+        id: 'supplies',
+        label: 'Buy field supplies',
+        detail: 'Sealant, sutures, and something that smells like it works.',
+        effects: [
+          { op: 'alloy', amount: -70 },
+          { op: 'health', amount: 16 },
+        ],
+        risk: 'None',
+        payoff: 'Immediate, small',
+      },
+      {
         id: 'memory',
         label: 'Sell a form of the sect',
         detail: 'They record you doing it. You will not do it the same way again.',
@@ -500,8 +526,10 @@ export const EVENTS: readonly EventDef[] = [
         label: 'Burn ahead of it',
         detail: 'You reach the next field before anyone else does. It costs the drive.',
         effects: [
-          { op: 'health', amount: -9 },
-          { op: 'health', amount: -6 },
+          // One health cost, not two. Deleting ship hull turned this option's
+          // hull price into a health price and it already had one, so it
+          // charged the player twice for the same decision.
+          { op: 'health', amount: -14 },
           { op: 'alloy', amount: 130 },
         ],
         risk: 'Both',

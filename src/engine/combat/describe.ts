@@ -125,7 +125,23 @@ function describeOp(op: EffectOp, state: GameState | null, afterDamage = false):
     case 'conditional': {
       const then = describeOps(op.then, state);
       const otherwise = op.else === undefined ? '' : ` Otherwise ${lowerFirst(describeOps(op.else, state))}`;
-      return `If ${describeCondition(op.when)}, ${lowerFirst(then)}${otherwise}`;
+
+      /*
+       * "deal 13 additional damage", not "deal 13 damage".
+       *
+       * A conditional with no `else` stacks on top of whatever the card already
+       * did — but read cold, "Deal 8 damage to all enemies. If Heat is 8 or
+       * more, deal 13 damage to all enemies" looks like the 13 *replaces* the 8.
+       * A conditional WITH an else really is a choice between two outcomes, so
+       * it keeps the plain wording. The distinction is exactly whether there is
+       * an alternative branch.
+       */
+      const stacking = op.else === undefined && afterDamage;
+      const body = stacking
+        ? lowerFirst(then).replace(/^deal (\d+) damage/, 'deal $1 additional damage')
+        : lowerFirst(then);
+
+      return `If ${describeCondition(op.when)}, ${body}${otherwise}`;
     }
     case 'scaleWith': {
       const per = op.per === 1 ? '' : `${op.per} `;

@@ -20,7 +20,7 @@
  */
 
 import type { CardDef } from '../../engine/types.ts';
-import { VULNERABLE } from '../statuses.ts';
+import { RUST, VULNERABLE } from '../statuses.ts';
 
 export const TEMPO_CARDS: readonly CardDef[] = [
   {
@@ -375,7 +375,11 @@ export const TEMPO_CARDS: readonly CardDef[] = [
     rarity: 'common',
     archetype: 'iai',
     cost: 1,
-    keepsFocus: true,
+    // No `keepsFocus`. It was there so the card could not spend the stack it
+    // was building, which is true but reads as a third clause on a common that
+    // wants two — and "gain 1, do not spend 1" is a net zero the player has to
+    // work out. Spending one and gaining one is the same result, said in fewer
+    // words, and it keeps the card honest about being an IAI card.
     effects: [
       { op: 'damage', amount: 4, target: 'enemy' },
       { op: 'gainFocus', amount: 1 },
@@ -388,5 +392,120 @@ export const TEMPO_CARDS: readonly CardDef[] = [
       ],
     },
     flavor: 'A cut that asks a question rather than settling one.',
+  },
+
+  /* ---------- hitting everything ----------
+     One answer to a pack is not enough answers: the interesting version of AoE
+     is that each pays for the sweep with a different currency: the stance, the
+     gauge running backwards, or a status that spreads. Tuned low — a sweep that
+     also wins the fight makes single-target cards pointless.
+
+     Nothing here gains Heat for a bigger sweep. Runaway Bloom already is that
+     card, and a second one at smaller numbers is not a choice between two
+     things, it is the same thing twice. */
+
+  {
+    id: 'sweeping_guard',
+    name: 'Sweeping Guard',
+    type: 'attack',
+    rarity: 'uncommon',
+    archetype: 'guard',
+    cost: 1,
+    effects: [{ op: 'damage', amount: 4, target: 'allEnemies' }],
+    // The same card is a sweep in IAI and a wall in GUARD.
+    stanceRider: {
+      stance: 'guard',
+      effects: [{ op: 'block', amount: 6 }],
+    },
+    upgrade: {
+      name: 'Sweeping Guard+',
+      effects: [{ op: 'damage', amount: 6, target: 'allEnemies' }],
+      stanceRider: {
+        stance: 'guard',
+        effects: [{ op: 'block', amount: 9 }],
+      },
+    },
+    flavor: 'Everything in reach, and then back where it started.',
+  },
+
+  {
+    id: 'scattering_arc',
+    name: 'Scattering Arc',
+    type: 'attack',
+    rarity: 'uncommon',
+    archetype: 'iai',
+    cost: 1,
+    effects: [{ op: 'damage', amount: 3, target: 'allEnemies' }],
+    // In IAI a stack is already adding damage; this makes the sweep the place
+    // to spend it rather than the single big swing.
+    stanceRider: {
+      stance: 'iai',
+      effects: [{ op: 'damage', amount: 3, target: 'allEnemies' }],
+    },
+    upgrade: {
+      name: 'Scattering Arc+',
+      effects: [{ op: 'damage', amount: 5, target: 'allEnemies' }],
+      stanceRider: {
+        stance: 'iai',
+        effects: [{ op: 'damage', amount: 4, target: 'allEnemies' }],
+      },
+    },
+    flavor: 'Drawn once, landing in several places.',
+  },
+
+  {
+    id: 'coolant_burst',
+    name: 'Coolant Burst',
+    type: 'attack',
+    rarity: 'uncommon',
+    archetype: 'overheat',
+    cost: 1,
+    // Pays for the sweep by giving the gauge back. The hotter you are, the more
+    // this card is worth — which is the opposite of every other Heat card.
+    effects: [
+      {
+        op: 'scaleWith',
+        source: 'currentHeat',
+        per: 2,
+        then: [{ op: 'damage', amount: 2, target: 'allEnemies' }],
+      },
+      { op: 'ventHeat', amount: 4 },
+    ],
+    upgrade: {
+      name: 'Coolant Burst+',
+      effects: [
+        {
+          op: 'scaleWith',
+          source: 'currentHeat',
+          per: 2,
+          then: [{ op: 'damage', amount: 3, target: 'allEnemies' }],
+        },
+        { op: 'ventHeat', amount: 6 },
+      ],
+    },
+    flavor: 'Everything the loop was holding, released at once and outward.',
+  },
+
+  {
+    id: 'rusting_wind',
+    name: 'Rusting Wind',
+    type: 'attack',
+    rarity: 'rare',
+    archetype: 'neutral',
+    cost: 2,
+    // Low damage, but the Rust runs on every one of them at once — the sweep
+    // that gets better the more things there are to hit.
+    effects: [
+      { op: 'damage', amount: 3, target: 'allEnemies' },
+      { op: 'applyStatus', status: RUST, stacks: 3, target: 'allEnemies' },
+    ],
+    upgrade: {
+      name: 'Rusting Wind+',
+      effects: [
+        { op: 'damage', amount: 5, target: 'allEnemies' },
+        { op: 'applyStatus', status: RUST, stacks: 4, target: 'allEnemies' },
+      ],
+    },
+    flavor: 'It does not cut. It starts something that finishes on its own.',
   },
 ];
