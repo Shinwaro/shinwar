@@ -16,12 +16,13 @@
  */
 
 import type { EnemyDef } from '../../engine/types.ts';
-import { STRENGTH, VULNERABLE, WEAK } from '../statuses.ts';
+import { POISON, STRENGTH, VULNERABLE, WEAK } from '../statuses.ts';
 
 export const SABLE_DRIFTER = 'sable_drifter';
 export const ARC_WELDER = 'arc_welder';
 export const ASH_CHOIR = 'ash_choir';
 export const VOID_RONIN = 'void_ronin';
+export const BLOOM_WEEVIL = 'bloom_weevil';
 
 export const IRON_PROCESSION = 'iron_procession';
 export const SIPHON_ENGINE = 'siphon_engine';
@@ -38,8 +39,8 @@ export const ACT2_ENEMIES: readonly EnemyDef[] = [
       {
         id: 'lunge',
         label: 'Lunge',
-        intent: [{ kind: 'attack', amount: 13, times: 1, label: 'Lunge' }],
-        effects: [{ op: 'damage', amount: 13, target: 'enemy' }],
+        intent: [{ kind: 'attack', amount: 19, times: 1, label: 'Lunge' }],
+        effects: [{ op: 'damage', amount: 19, target: 'enemy' }],
       },
       {
         id: 'drift',
@@ -155,6 +156,46 @@ export const ACT2_ENEMIES: readonly EnemyDef[] = [
   },
 
   /* ---- elites: 130-170 HP, 22-30 a turn ---- */
+
+  {
+    /* Act 2's clock. Almost no damage of its own and a lot of health, so it
+       cannot be out-blocked and cannot be ignored -- the poison runs for as long
+       as it is alive, which makes killing it the play even when something else
+       is hitting harder. */
+    id: BLOOM_WEEVIL,
+    name: 'Bloom Weevil',
+    maxHp: 62,
+    act: 2,
+    tier: 'normal',
+    moves: [
+      {
+        id: 'seed',
+        label: 'Seed',
+        intent: [{ kind: 'debuff', amount: 4, times: 1, label: 'Poison 4' }],
+        effects: [{ op: 'applyStatus', status: POISON, stacks: 4, target: 'enemy' }],
+      },
+      {
+        id: 'gnaw',
+        label: 'Gnaw',
+        intent: [
+          { kind: 'attack', amount: 4, times: 1, label: 'Gnaw' },
+          { kind: 'debuff', amount: 2, times: 1, label: 'Poison 2' },
+        ],
+        effects: [
+          { op: 'damage', amount: 4, target: 'enemy' },
+          { op: 'applyStatus', status: POISON, stacks: 2, target: 'enemy' },
+        ],
+      },
+      {
+        id: 'harden',
+        label: 'Harden',
+        intent: [{ kind: 'block', amount: 12, times: 1, label: 'Harden 12' }],
+        effects: [{ op: 'block', amount: 12 }],
+      },
+    ],
+    script: { kind: 'sequence', moves: ['seed', 'harden', 'gnaw'] },
+    flavor: 'It is not attacking you. It is planting.',
+  },
 
   {
     id: IRON_PROCESSION,

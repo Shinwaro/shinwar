@@ -167,6 +167,16 @@ export function activeHookSources(state: GameState): readonly string[] {
 
   const sources: string[] = [];
 
+  /*
+   * Relics and implants carry handlers, not just passives.
+   *
+   * They were missing from this list, which meant a relic could register a hook
+   * and the bus would never call it — the handler existed, the relic said it did
+   * something, and nothing happened. Silent, because an unfired hook looks
+   * exactly like a hook with nothing to do.
+   */
+  for (const relicId of run.pilot.relics) sources.push(relicId);
+  for (const implantId of run.pilot.implants) sources.push(implantId);
   for (const masteryId of run.pilot.masteries) sources.push(masteryId);
   for (const thread of run.threads) {
     if (!thread.resolved) sources.push(thread.threadId);

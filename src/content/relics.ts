@@ -20,7 +20,11 @@
  * it. Those are priced and rolled accordingly.
  */
 
-import type { RelicDef } from '../engine/types.ts';
+import type { GameState, RelicDef } from '../engine/types.ts';
+import { appendLog, withCombat, withRun } from '../engine/state.ts';
+import { defineHook, registerHooks } from '../engine/hooks.ts';
+import { draw } from '../engine/combat/piles.ts';
+import { FOCUS_MAX, HOOK_PRIORITY } from './balance.ts';
 
 export const RELICS: readonly RelicDef[] = [
   /* ---- the yardsticks ---- */
@@ -134,4 +138,131 @@ export const RELICS: readonly RelicDef[] = [
     passive: { startingFocus: 4, focusPerTurn: 1, focusPerStackBonus: 1 },
     flavor: 'The last thing the sect agreed on, and the only one that survived them.',
   },
+
+  /* ---------- relics that read the play ----------
+     Everything above is a number added to a number. These are the ones that
+     watch what you are doing and pay out for doing it -- a stance change, a
+     long turn, a kill, a vent. They carry no `passive` at all; the whole effect
+     is a hook, which is why they can care about *when* rather than only *how
+     much*. Adding one is a def here plus a handler below. */
+
+  {
+    id: 'turning_point',
+    name: 'Turning Point',
+    text: 'Gain 2 Focus whenever you change stance.',
+    rarity: 'uncommon',
+    flavor: 'The sect taught that the turn is the technique. The cut is punctuation.',
+  },
+  {
+    id: 'kindling_ledger',
+    name: 'Kindling Ledger',
+    text: 'Draw a card whenever you vent Heat.',
+    rarity: 'rare',
+    flavor: 'Every degree it sheds, it writes down.',
+  },
+  {
+    id: 'momentum_core',
+    name: 'Momentum Core',
+    text: 'Gain 1 Energy whenever an enemy dies.',
+    rarity: 'epic',
+    flavor: 'It does not celebrate. It reallocates.',
+  },
+  {
+    id: 'long_form_ledger',
+    name: 'Long Form',
+    text: 'Every fourth card you play in a turn, gain 1 Focus.',
+    rarity: 'rare',
+    flavor: 'Counting is the discipline. The rest is only swordsmanship.',
+  },
+  {
+    id: 'backdraft',
+    name: 'Backdraft',
+    text: 'Draw 2 cards when you overheat.',
+    rarity: 'uncommon',
+    flavor: 'Something has to come out of it.',
+  },
 ];
+
+/* ---------- the handlers ----------
+   Registered by id, so the bus only fires them while the run is carrying the
+   relic -- `activeHookSources()` gates on `pilot.relics`. Pure, like every
+   handler: `(state, payload) => state`. */
+
+/** Focus, capped, with a line in the log so the payout is never a mystery. */
+function grantFocus(state: GameState, amount: number, source: string, why: string): GameState {
+  const combat = state.run?.combat;
+  if (combat === undefined || combat === null) return state;
+  const gained = Math.min(FOCUS_MAX, combat.focus + amount) - combat.focus;
+  if (gained <= 0) return state;
+  return appendLog(
+    withCombat(state, (current) => ({ ...current, focus: current.focus + gained })),
+    { source, kind: 'status', text: `${why} Focus +${gained}.`, detail: { focus: gained } },
+  );
+}
+
+/** Cards, off the run's own stream so a relic draw never moves the map. */
+function grantDraw(state: GameState, count: number, source: string, why: string): GameState {
+  const run = state.run;
+  if (run === null || run.combat === null) return state;
+  const pulled = draw(run.combat, run.rng, count);
+  if (pulled.combat.hand.length === run.combat.hand.length) return state;
+  return appendLog(
+    withRun(state, (current) => ({ ...current, rng: pulled.rng, combat: pulled.combat })),
+    { source, kind: 'combat', text: `${why} Draw ${count}.`, detail: { count } },
+  );
+}
+
+export function registerRelicHooks(): void {
+  registerHooks('turning_point', [
+    defineHook({
+      hook: 'onStanceChange',
+      priority: HOOK_PRIORITY.module,
+      handle: (state) => grantFocus(state, 2, 'turning_point', 'Turning Point.'),
+    }),
+  ]);
+
+  registerHooks('kindling_ledger', [
+    defineHook({
+      hook: 'onHeatVented',
+      priority: HOOK_PRIORITY.module,
+      handle: (state) => grantDraw(state, 1, 'kindling_ledger', 'Kindling Ledger.'),
+    }),
+  ]);
+
+  registerHooks('momentum_core', [
+    defineHook({
+      hook: 'onEnemyKilled',
+      priority: HOOK_PRIORITY.module,
+      handle: (state) => {
+        const combat = state.run?.combat;
+        if (combat === undefined || combat === null || combat.outcome !== 'ongoing') return state;
+        return appendLog(
+          withCombat(state, (current) => ({ ...current, energy: current.energy + 1 })),
+          { source: 'momentum_core', kind: 'combat', text: 'Momentum Core. Energy +1.', detail: null },
+        );
+      },
+    }),
+  ]);
+
+  registerHooks('long_form_ledger', [
+    defineHook({
+      hook: 'onCardPlayed',
+      priority: HOOK_PRIORITY.module,
+      handle: (state) => {
+        // `cardsPlayedThisTurn` is already incremented by the time this fires,
+        // so the fourth card sees 4 -- read it, never count separately.
+        const played = state.run?.combat?.cardsPlayedThisTurn ?? 0;
+        if (played === 0 || played % 4 !== 0) return state;
+        return grantFocus(state, 1, 'long_form_ledger', `Long Form, card ${played}.`);
+      },
+    }),
+  ]);
+
+  registerHooks('backdraft', [
+    defineHook({
+      hook: 'onOverheat',
+      priority: HOOK_PRIORITY.module,
+      handle: (state) => grantDraw(state, 2, 'backdraft', 'Backdraft.'),
+    }),
+  ]);
+}

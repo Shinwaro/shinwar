@@ -1472,3 +1472,69 @@ part that stops this recurring.
 The test that replaced the old one asserts the property rather than the
 mechanism: across 40 seeds the mark must land on more than one kind of target.
 The old test asserted `toBe('player')` — it was encoding the bug as the spec.
+
+## Playtest pass 12 — relics that watch you, acts that vary, tiers that don't lie
+
+### Relics were never wired to the hook bus
+
+The interesting relics — the ones that pay out for a stance change, a fourth card
+in a turn, a kill — are written as handlers rather than passives. They fired
+nothing. `activeHookSources()` gated on masteries, threads, environments and
+statuses, and **relics were simply not in the list**.
+
+Silent, and that is the part worth remembering: an unfired hook looks exactly
+like a hook with nothing to do. Five relics would have shipped saying they did
+something and doing nothing at all. Caught by smoke-testing one by hand rather
+than by any test, so there is now a test that plays a stance-change card while
+carrying Turning Point and asserts Focus actually moves.
+
+Implants are in the same list now, ahead of needing it.
+
+### Five relics that read the play
+
+- **Turning Point** — 2 Focus whenever you change stance. Pays for the rhythm the
+  stance layer is built around.
+- **Kindling Ledger** — draw when you vent. Makes Heat management draw cards
+  rather than only avoid damage.
+- **Momentum Core** — 1 Energy when an enemy dies. Rewards focus-fire, which is
+  the tactical lesson the game most wants taught.
+- **Long Form** — 1 Focus on every fourth card in a turn. Only a deck that can
+  build a long turn ever sees it.
+- **Backdraft** — draw 2 when you overheat. Turns the punishment into something
+  you can build toward on purpose.
+
+None carry a passive. The whole effect is the hook, which is exactly why they can
+care about *when* rather than only *how much* — the thing the old pool could not
+express.
+
+The pool test that demanded every relic have a passive had to be widened: it was
+quietly defining a relic as a bag of stat modifiers, which is most of why the
+pool read as "+damage" and "-damage taken" for so long.
+
+### Acts 2 and 3 get the questions Act 1 got
+
+- **Bloom Weevil** (Act 2) — 62 health, almost no damage, and it seeds Poison 4.
+  It cannot be out-blocked and cannot be ignored.
+- **Rimewake** (Act 3) — +3 Strength every third turn on a three-hit move, plus
+  Scald. A fight you cannot finish becomes one you cannot survive, and the
+  obvious answer — turtle and grind — walks you into an overheat instead.
+
+Plus real spikes where there were none: Sable Drifter 13 -> 19, Chirality Warden
+15 -> 24. And encounters that state the question: **Bloom** (a clock that cannot
+be blocked next to a spike that must be), **Screen** (Rimewake growing behind a
+Tessellate Shard that blocks for it).
+
+### The card ladder was inverted too
+
+Exactly the shape Robin found in the relics:
+
+- **Bulwark**, common, 1 Energy: **8 Block**. **Deflection Field**, uncommon, 1
+  Energy: **5 Block**. A strictly worse card, one tier up. Now 11.
+- **Standing Wave**, *epic*, 2 Energy, exhausts: **10 Block** — two less than the
+  uncommon Iron Wake, and gone afterwards. Now 24.
+- **Crossing Arc**, rare, 1 Energy, printed **6 damage** when the 0-cost common
+  Hairline prints 4. Now 9.
+- **Vareth Hatchling**, legendary: 5 damage and 3 Block. Now 9 and 6.
+
+The principle, same as the relics: **price the unconditional part**. A tier is a
+promise about the floor, not about the ceiling in the one build that wants it.

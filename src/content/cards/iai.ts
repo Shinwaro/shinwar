@@ -57,7 +57,9 @@ export const IAI_CARDS: readonly CardDef[] = [
     rarity: 'rare',
     archetype: 'iai',
     cost: 1,
-    effects: [{ op: 'damage', amount: 6, target: 'enemy' }],
+    // Hairline is a 0-cost common for 4. A 1-cost rare printing 6 before its
+    // rider is not a rare, it is a worse Hairline with a condition attached.
+    effects: [{ op: 'damage', amount: 9, target: 'enemy' }],
     stanceRider: {
       stance: 'iai',
       effects: [

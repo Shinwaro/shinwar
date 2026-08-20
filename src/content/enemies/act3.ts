@@ -20,12 +20,13 @@
  */
 
 import type { EnemyDef } from '../../engine/types.ts';
-import { STRENGTH, VULNERABLE, WEAK } from '../statuses.ts';
+import { SCALD, STRENGTH, VULNERABLE, WEAK } from '../statuses.ts';
 
 export const CHIRALITY_WARDEN = 'chirality_warden';
 export const HEAT_SIPHON = 'heat_siphon';
 export const NULL_PRISM = 'null_prism';
 export const TESSELLATE_SHARD = 'tessellate_shard';
+export const RIMEWAKE = 'rimewake';
 
 export const MIRROR_RONIN = 'mirror_ronin';
 export const COLLAPSE_CHOIR = 'collapse_choir';
@@ -46,11 +47,11 @@ export const ACT3_ENEMIES: readonly EnemyDef[] = [
         id: 'invert',
         label: 'Invert',
         intent: [
-          { kind: 'attack', amount: 15, times: 1, label: 'Invert' },
+          { kind: 'attack', amount: 24, times: 1, label: 'Invert' },
           { kind: 'debuff', amount: 1, times: 1, label: 'Weak 1' },
         ],
         effects: [
-          { op: 'damage', amount: 15, target: 'enemy' },
+          { op: 'damage', amount: 24, target: 'enemy' },
           { op: 'applyStatus', status: WEAK, stacks: 1, target: 'enemy' },
         ],
       },
@@ -163,6 +164,46 @@ export const ACT3_ENEMIES: readonly EnemyDef[] = [
   },
 
   /* ---- elites: 180-230 HP, 30-40 a turn ---- */
+
+  {
+    /* Act 3's timer. +3 Strength every third turn compounds on a three-hit
+       move, so a fight you cannot finish becomes one you cannot survive -- and
+       the Scald means the obvious answer (turtle up and grind) walks you into
+       an overheat instead. Kill it first or lose to it late. */
+    id: RIMEWAKE,
+    name: 'Rimewake',
+    maxHp: 78,
+    act: 3,
+    tier: 'normal',
+    moves: [
+      {
+        id: 'gather',
+        label: 'Gather',
+        intent: [
+          { kind: 'buff', amount: 3, times: 1, label: 'Strength +3' },
+          { kind: 'debuff', amount: 1, times: 1, label: 'Scald 1' },
+        ],
+        effects: [
+          { op: 'applyStatus', status: STRENGTH, stacks: 3, target: 'self' },
+          { op: 'applyStatus', status: SCALD, stacks: 1, target: 'enemy' },
+        ],
+      },
+      {
+        id: 'rake',
+        label: 'Rake',
+        intent: [{ kind: 'attack', amount: 5, times: 3, label: 'Rake' }],
+        effects: [{ op: 'damage', amount: 5, target: 'enemy', times: 3 }],
+      },
+      {
+        id: 'crest',
+        label: 'Crest',
+        intent: [{ kind: 'attack', amount: 16, times: 1, label: 'Crest' }],
+        effects: [{ op: 'damage', amount: 16, target: 'enemy' }],
+      },
+    ],
+    script: { kind: 'sequence', moves: ['gather', 'rake', 'crest'] },
+    flavor: 'Whatever it is trailing, it has been trailing it a long way.',
+  },
 
   {
     id: MIRROR_RONIN,

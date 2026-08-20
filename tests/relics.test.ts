@@ -11,15 +11,38 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import type { GameState } from '../src/engine/types.ts';
 import { createInitialState } from '../src/engine/state.ts';
 import { applyAction } from '../src/engine/reducer.ts';
+import { handlersFor } from '../src/engine/hooks.ts';
 import { rollRelics, rollMastery } from '../src/engine/run/rewards.ts';
 import { computeDamage, previewDamage, PLAYER, enemyTarget } from '../src/engine/combat/damage.ts';
-import { startPlayerTurn } from '../src/engine/combat/combat.ts';
+import { playCard, startPlayerTurn } from '../src/engine/combat/combat.ts';
 import { overheatThreshold } from '../src/engine/combat/heat.ts';
 import { pilotRules, liveStance } from '../src/engine/combat/rules.ts';
 import { PLAYER as PLAYER_BALANCE, REWARDS } from '../src/content/balance.ts';
 import { reloadContent } from '../src/content/index.ts';
 import { relics as relicTable } from '../src/content/registry.ts';
 import { makeFight, combatOf, firstEnemy } from './helpers.ts';
+import { VECTOR_STEP } from '../src/content/cards/basic.ts';
+
+/** Every hook a relic could plausibly hang off. Kept local to this test. */
+const HOOK_NAMES = [
+  'onCombatStart',
+  'onCombatEnd',
+  'onTurnStart',
+  'onTurnEnd',
+  'onRoundStart',
+  'onRoundEnd',
+  'onCardPlayed',
+  'onCardDrawn',
+  'onCardExhausted',
+  'onStanceChange',
+  'onHeatGained',
+  'onHeatVented',
+  'onOverheat',
+  'onDamageDealt',
+  'onDamageTaken',
+  'onBlockGained',
+  'onEnemyKilled',
+] as const;
 
 function holding(state: GameState, ...ids: readonly string[]): GameState {
   if (state.run === null) throw new Error('test: no run');
@@ -32,10 +55,50 @@ beforeEach(() => {
 
 describe('the relic pool', () => {
   it('gives every relic text and something to do', () => {
+    /*
+     * "Something to do" is a passive OR a handler on the bus.
+     *
+     * This used to demand a passive, which quietly defined a relic as a bag of
+     * stat modifiers — and that is exactly why the pool read as "+damage" and
+     * "-damage taken" for so long. A relic that watches for a stance change or
+     * a fourth card played does its whole job through hooks and carries no
+     * passive at all; the assertion has to admit that or it argues against the
+     * interesting half of the design.
+     */
+    const hooked = new Set<string>();
+    for (const hook of HOOK_NAMES) {
+      for (const entry of handlersFor(hook)) hooked.add(entry.sourceId);
+    }
+
     for (const def of relicTable.all()) {
       expect(def.text.trim(), def.id).not.toBe('');
-      expect(Object.keys(def.passive ?? {}).length, `${def.id} does nothing`).toBeGreaterThan(0);
+      const passives = Object.keys(def.passive ?? {}).length;
+      expect(passives > 0 || hooked.has(def.id), `${def.id} does nothing`).toBe(true);
     }
+  });
+
+  it('actually fires a relic that works through hooks', () => {
+    /*
+     * The regression: `activeHookSources()` gated on masteries, threads,
+     * environments and statuses -- but not relics. So a relic could register a
+     * handler, say in its text that it did something, and the bus would never
+     * call it. Silent, because an unfired hook looks exactly like a hook with
+     * nothing to do. Five relics shipped inert before this caught it.
+     */
+    const base = makeFight({ hand: [VECTOR_STEP] });
+    if (base.run === null) throw new Error('test: no run');
+    const carrying: GameState = {
+      ...base,
+      run: { ...base.run, pilot: { ...base.run.pilot, relics: ['turning_point'] } },
+    };
+
+    const before = combatOf(carrying).focus;
+    const after = playCard(carrying, combatOf(carrying).hand[0]!.uid, null);
+
+    expect(combatOf(after).stance, 'the card should have changed stance').not.toBe(
+      combatOf(carrying).stance,
+    );
+    expect(combatOf(after).focus, 'Turning Point did not fire').toBe(before + 2);
   });
 
   it('keeps Energy the rarest thing on the list', () => {

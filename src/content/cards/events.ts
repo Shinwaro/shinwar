@@ -43,15 +43,17 @@ export const EVENT_CARDS: readonly CardDef[] = [
     // Innate: it is there at the start of every fight, the way a companion is.
     // The closest the deck can get to an ally without an ally system.
     innate: true,
+    // A legendary you are handed once, for free, every fight. At 5/3 it was a
+    // common with a story attached.
     effects: [
-      { op: 'damage', amount: 5, target: 'enemy' },
-      { op: 'block', amount: 3 },
+      { op: 'damage', amount: 9, target: 'enemy' },
+      { op: 'block', amount: 6 },
     ],
     upgrade: {
       name: 'Vareth Hatchling+',
       effects: [
-        { op: 'damage', amount: 7, target: 'enemy' },
-        { op: 'block', amount: 5 },
+        { op: 'damage', amount: 13, target: 'enemy' },
+        { op: 'block', amount: 9 },
       ],
     },
     flavor: 'It has decided you are the shape a parent is.',

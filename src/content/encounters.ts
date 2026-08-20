@@ -17,6 +17,7 @@ import {
   ARC_WELDER,
   ASH_CHOIR,
   IRON_PROCESSION,
+  BLOOM_WEEVIL,
   SABLE_DRIFTER,
   SIPHON_ENGINE,
   VOID_RONIN,
@@ -29,6 +30,7 @@ import {
   HEAT_SIPHON,
   MIRROR_RONIN,
   NULL_PRISM,
+  RIMEWAKE,
   TESSELLATE_SHARD,
 } from './enemies/act3.ts';
 
@@ -142,6 +144,15 @@ export const ENCOUNTERS: readonly EncounterDef[] = [
     enemyIds: [ASH_CHOIR, SABLE_DRIFTER],
   },
   {
+    /* The clock and the spike together: the Weevil cannot be blocked away and
+       the Drifter's Crest has to be. You do not have turns for both. */
+    id: 'bloom_and_drift',
+    name: 'Bloom',
+    act: 2,
+    tier: 'normal',
+    enemyIds: [BLOOM_WEEVIL, SABLE_DRIFTER],
+  },
+  {
     id: 'the_procession',
     name: 'The Procession',
     act: 2,
@@ -194,6 +205,16 @@ export const ENCOUNTERS: readonly EncounterDef[] = [
     act: 3,
     tier: 'normal',
     enemyIds: [HEAT_SIPHON, NULL_PRISM],
+  },
+  {
+    /* Rimewake grows while the Shard blocks for it. Every turn spent on the
+       wall is a turn the timer gains three Strength -- and the Scald means
+       turtling through it walks you into an overheat instead. */
+    id: 'rimewake_screen',
+    name: 'Screen',
+    act: 3,
+    tier: 'normal',
+    enemyIds: [RIMEWAKE, TESSELLATE_SHARD],
   },
   {
     id: 'the_mirror',

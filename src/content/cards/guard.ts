@@ -27,12 +27,15 @@ export const GUARD_CARDS: readonly CardDef[] = [
     rarity: 'uncommon',
     archetype: 'guard',
     cost: 1,
-    effects: [{ op: 'block', amount: 5 }],
+    // 11, not 5. Bulwark is a *common* that gives 8 for the same Energy, so at
+    // 5 this was a strictly worse card one tier up -- the inversion Robin caught
+    // in the relics, sitting in the card pool too.
+    effects: [{ op: 'block', amount: 11 }],
     stanceRider: {
       stance: 'guard',
       effects: [{ op: 'applyStatus', status: WEAK, stacks: 1, target: 'allEnemies' }],
     },
-    upgrade: { name: 'Deflection Field+', effects: [{ op: 'block', amount: 8 }] },
+    upgrade: { name: 'Deflection Field+', effects: [{ op: 'block', amount: 15 }] },
     flavor: 'Not a wall. A suggestion, made forcefully, about where things should go.',
   },
 
@@ -94,7 +97,10 @@ export const GUARD_CARDS: readonly CardDef[] = [
     archetype: 'guard',
     cost: 2,
     exhaust: true,
-    effects: [{ op: 'block', amount: 10 }],
+    // An epic that costs 2 and exhausts was giving 10 Block -- two less than the
+    // uncommon Iron Wake, and gone afterwards. It has to be a wall or it has no
+    // reason to be in the deck at all.
+    effects: [{ op: 'block', amount: 24 }],
     stanceRider: {
       stance: 'guard',
       effects: [
@@ -102,7 +108,7 @@ export const GUARD_CARDS: readonly CardDef[] = [
         { op: 'applyStatus', status: WEAK, stacks: 2, target: 'allEnemies' },
       ],
     },
-    upgrade: { name: 'Standing Wave+', effects: [{ op: 'block', amount: 15 }] },
+    upgrade: { name: 'Standing Wave+', effects: [{ op: 'block', amount: 32 }] },
     flavor: 'Hold the position long enough and the position starts holding you.',
   },
 ];
