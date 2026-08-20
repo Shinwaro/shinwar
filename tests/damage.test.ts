@@ -208,8 +208,8 @@ describe('the stance passives', () => {
     const state = makeFight({ stance: 'iai', focus: 3, hand: [IAI_SLASH], enemyHp: 999 });
     const enemy = firstEnemy(state);
     const after = playCard(state, handCard(state, 0).uid, enemy.uid);
-    // 6 +6 Focus = 12, then the rider's 4 with no Focus left to spend.
-    expect(enemy.hp - (combatOf(after).enemies[0]?.hp ?? 0)).toBe(12 + 4);
+    // 6 +6 Focus = 12, then the rider's 2 with no Focus left to spend.
+    expect(enemy.hp - (combatOf(after).enemies[0]?.hp ?? 0)).toBe(12 + 2);
     expect(3 * FOCUS_DAMAGE_PER_STACK).toBe(6);
     // The stack is gone. IAI Slash no longer hands one back on the same swing —
     // a card that refunds the stance's own cost is the stance not costing.
@@ -237,8 +237,9 @@ describe('block', () => {
   it('is gained by the player from a card and by an enemy from its move', () => {
     const state = makeFight({ hand: [SOLAR_PARRY], stance: 'guard' });
     const after = playCard(state, handCard(state, 0).uid, firstEnemy(state).uid);
-    // 6 base + 3 GUARD rider.
-    expect(combatOf(after).block).toBe(9);
+    // 6 base. GUARD's rider is the Weak, not more Block — stacking Block on
+    // Block made the stance the only place the card was worth playing.
+    expect(combatOf(after).block).toBe(6);
     expect(combatOf(after).enemies[0]?.statuses.find((s) => s.status === WEAK)?.stacks).toBe(1);
   });
 });

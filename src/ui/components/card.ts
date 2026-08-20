@@ -173,10 +173,25 @@ export function renderCard(
   );
 
   node.addEventListener('click', options.onSelect);
+  /*
+   * Hovering re-renders the hand, which destroys this very element — and the
+   * removal fires `pointerleave` on the way out. Unguarded, that leave clears
+   * the hover, which re-renders again, which puts a fresh card under the
+   * cursor, which fires `pointerenter`, and around it goes: the highlight
+   * strobes and clicks land on nothing because the node is replaced between
+   * mousedown and mouseup.
+   *
+   * A leave that arrives because the node was removed is not the pointer
+   * leaving. `isConnected` is the difference, and it is the whole fix.
+   */
   node.addEventListener('pointerenter', () => options.onHover(true));
-  node.addEventListener('pointerleave', () => options.onHover(false));
+  node.addEventListener('pointerleave', () => {
+    if (node.isConnected) options.onHover(false);
+  });
   node.addEventListener('focus', () => options.onHover(true));
-  node.addEventListener('blur', () => options.onHover(false));
+  node.addEventListener('blur', () => {
+    if (node.isConnected) options.onHover(false);
+  });
 
   return node;
 }

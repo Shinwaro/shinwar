@@ -61,15 +61,17 @@ describe('generated rules text', () => {
   });
 
   it('derives the rider separately, so the UI can grey it', () => {
-    expect(describeRider(def(IAI_SLASH))).toBe('Deal 4 damage.');
-    expect(describeRider(def(SOLAR_PARRY))).toBe('Gain 3 Block. Apply 1 Weak.');
+    expect(describeRider(def(IAI_SLASH))).toBe('Deal 2 damage.');
+    // Solar Shield's GUARD rider is the debuff alone — stacking Block on Block
+    // made the stance the only place the card was worth playing.
+    expect(describeRider(def(SOLAR_PARRY))).toBe('Apply 1 Weak.');
     expect(describeRider(def(VECTOR_STEP))).toBeNull();
   });
 
   it('follows the numbers when the card is upgraded', () => {
     const upgraded = definitionOf({ uid: 'x', defId: IAI_SLASH, upgraded: true });
     expect(describeCard(upgraded)).toBe('Deal 9 damage.');
-    expect(describeRider(upgraded)).toBe('Deal 6 damage.');
+    expect(describeRider(upgraded)).toBe('Deal 3 damage.');
   });
 
   it('knows whether the rider is live in the current stance', () => {

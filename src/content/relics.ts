@@ -146,6 +146,18 @@ export const RELICS: readonly RelicDef[] = [
      is a hook, which is why they can care about *when* rather than only *how
      much*. Adding one is a def here plus a handler below. */
 
+  /* Robin's idea, and the reason it is a good one: it puts the two mechanics
+       on speaking terms. Heat is the thing you accumulate by being greedy and
+       Focus is the thing you accumulate by being patient — a relic that turns
+       one into the other makes a hot deck able to cash out, and makes venting a
+       choice about what you get rather than only about what you avoid. */
+  {
+    id: 'sublimation_coil',
+    name: 'Sublimation Coil',
+    text: 'Gain 1 Focus whenever you vent Heat.',
+    rarity: 'rare',
+    flavor: 'What leaves the reactor does not have to leave the ship.',
+  },
   {
     id: 'turning_point',
     name: 'Turning Point',
@@ -218,6 +230,14 @@ export function registerRelicHooks(): void {
       hook: 'onStanceChange',
       priority: HOOK_PRIORITY.module,
       handle: (state) => grantFocus(state, 2, 'turning_point', 'Turning Point.'),
+    }),
+  ]);
+
+  registerHooks('sublimation_coil', [
+    defineHook({
+      hook: 'onHeatVented',
+      priority: HOOK_PRIORITY.module,
+      handle: (state) => grantFocus(state, 1, 'sublimation_coil', 'Sublimation Coil.'),
     }),
   ]);
 

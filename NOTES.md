@@ -1692,3 +1692,51 @@ The cheap instrument — log the value, then log it again 300ms later along with
 Re-centring on the node you just cleared is still script, because it depends on
 run state rather than on the shape of the box. It runs on `shinwar:mount`, which
 the shell now fires once a screen is actually in the document.
+
+## The hover bug, third time — it was never CSS
+
+Two previous attempts treated this as a layout oscillation. It was a render
+loop, and the mechanism is worth recording because nothing about the symptom
+pointed at it:
+
+1. `pointerenter` on a card calls `onHover(true)`.
+2. That re-renders the hand, which **destroys the very element being hovered**.
+3. Removing a hovered node fires `pointerleave` on it.
+4. That calls `onHover(false)` → re-render → a fresh card appears under the
+   cursor → `pointerenter` → back to step 1.
+
+The highlight strobes because the element is replaced several times a second,
+and clicks die because the node is swapped out between mousedown and mouseup.
+
+**A `pointerleave` caused by the node being removed is not the pointer leaving.**
+`node.isConnected` tells the two apart, and guarding on it breaks the cycle in
+one line. The same guard is on `blur`, which has exactly the same problem.
+
+Worth noting how much time the first two attempts cost by assuming the cause
+from the symptom: "highlight flickers on hover" reads as a CSS problem, and the
+transform lift was a plausible enough culprit that I removed it without ever
+proving it was involved.
+
+## Cards that touch one mechanic each
+
+Seven new ones, deliberately under-tuned. A card that is slightly too weak is a
+tuning number; a card that does three things is a design decision to unpick
+later. Each touches Heat, the stance, or Focus — and only one of them.
+
+Heat: **Stoke the Core** (3 Heat for an Energy), **Kindled Edge** (a cheap
+attack that runs you hotter). Stance: **Turn the Shoulder**, **Reverse the
+Grip**, **Cross Step** — change stance plus exactly one rider, so the stance
+change is the card rather than a clause on something else. Focus: **Bank the
+Breath**, **Measured Draw** (which keeps the stack it builds).
+
+**Sublimation Coil** is Robin's idea and the best of the batch: 1 Focus whenever
+you vent Heat. It puts the two mechanics on speaking terms — Heat is what greed
+accumulates, Focus is what patience accumulates, and converting one to the other
+makes venting a choice about what you *gain* rather than only what you avoid.
+
+Rebalanced with them: **IAI Slash**'s rider is 2, not 4 — a rider should tilt
+the stance decision, not be most of the card. **Solar Parry is Solar Shield**,
+and its GUARD rider is the Weak alone; Block on top of Block made the stance the
+only place the card was worth playing, which is a rider deciding the stance
+rather than the stance colouring the card. **Held Line** loses its Focus,
+**Second Wind** wants 7 cards (6 upgraded), and Focus left the card glossary.

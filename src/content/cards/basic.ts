@@ -29,16 +29,19 @@ export const BASIC_CARDS: readonly CardDef[] = [
     effects: [{ op: 'damage', amount: 6, target: 'enemy' }],
     // No Focus rider. IAI is where the stack is SPENT, so a card that hands one
     // back on the same swing was quietly refunding the stance's own cost.
+    // 2, not 4. The rider is meant to tilt the stance decision, not to be most
+    // of the card's damage — at 4 the basic attack was a 10 whenever you stood
+    // in the stance the deck already wanted to stand in.
     stanceRider: {
       stance: 'iai',
-      effects: [{ op: 'damage', amount: 4, target: 'enemy' }],
+      effects: [{ op: 'damage', amount: 2, target: 'enemy' }],
     },
     upgrade: {
       name: 'IAI Slash+',
       effects: [{ op: 'damage', amount: 9, target: 'enemy' }],
       stanceRider: {
         stance: 'iai',
-        effects: [{ op: 'damage', amount: 6, target: 'enemy' }],
+        effects: [{ op: 'damage', amount: 3, target: 'enemy' }],
       },
     },
     flavor: 'The cut is finished before the blade is seen to move.',
@@ -46,28 +49,25 @@ export const BASIC_CARDS: readonly CardDef[] = [
 
   {
     id: SOLAR_PARRY,
-    name: 'Solar Parry',
+    name: 'Solar Shield',
     type: 'skill',
     rarity: 'basic',
     archetype: 'guard',
     cost: 1,
     effects: [{ op: 'block', amount: 6 }],
+    // GUARD adds the debuff, not more Block. Stacking block-on-block made the
+    // stance the only place this card was worth playing, which is a rider
+    // deciding the stance rather than the stance colouring the card.
     stanceRider: {
       stance: 'guard',
-      effects: [
-        { op: 'block', amount: 3 },
-        { op: 'applyStatus', status: WEAK, stacks: 1, target: 'enemy' },
-      ],
+      effects: [{ op: 'applyStatus', status: WEAK, stacks: 1, target: 'enemy' }],
     },
     upgrade: {
-      name: 'Solar Parry+',
+      name: 'Solar Shield+',
       effects: [{ op: 'block', amount: 9 }],
       stanceRider: {
         stance: 'guard',
-        effects: [
-          { op: 'block', amount: 3 },
-          { op: 'applyStatus', status: WEAK, stacks: 2, target: 'enemy' },
-        ],
+        effects: [{ op: 'applyStatus', status: WEAK, stacks: 2, target: 'enemy' }],
       },
     },
     flavor: 'Receive. Do not resist. The star does not notice you either way.',

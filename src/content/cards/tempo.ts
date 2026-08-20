@@ -150,7 +150,6 @@ export const TEMPO_CARDS: readonly CardDef[] = [
         per: 1,
         then: [{ op: 'block', amount: 2 }],
       },
-      { op: 'gainFocus', amount: 1 },
     ],
     upgrade: {
       name: 'Held Line+',
@@ -162,7 +161,6 @@ export const TEMPO_CARDS: readonly CardDef[] = [
           per: 1,
           then: [{ op: 'block', amount: 3 }],
         },
-        { op: 'gainFocus', amount: 1 },
       ],
     },
     flavor: 'Every motion before this one was also the guard.',
@@ -228,11 +226,167 @@ export const TEMPO_CARDS: readonly CardDef[] = [
         { op: 'draw', amount: 3 },
         {
           op: 'conditional',
-          when: { kind: 'handSizeAtLeast', value: 4 },
+          when: { kind: 'handSizeAtLeast', value: 6 },
           then: [{ op: 'gainEnergy', amount: 1 }],
         },
       ],
     },
     flavor: 'You were not tired. You were between things.',
+  },
+
+  /* ---------- deliberately small ----------
+     Cards that do one thing and interact with one mechanic. Tuned low on
+     purpose: a card that is slightly too weak is a tuning number, and a card
+     that does three things is a design decision you have to unpick. Every one
+     of these touches Heat, the stance, or Focus — and only one of them. */
+
+  {
+    id: 'stoke_the_core',
+    name: 'Stoke the Core',
+    type: 'skill',
+    rarity: 'common',
+    archetype: 'overheat',
+    cost: 0,
+    effects: [
+      { op: 'gainHeat', amount: 3 },
+      { op: 'gainEnergy', amount: 1 },
+    ],
+    upgrade: {
+      name: 'Stoke the Core+',
+      effects: [
+        { op: 'gainHeat', amount: 3 },
+        { op: 'gainEnergy', amount: 2 },
+      ],
+    },
+    flavor: 'Ask it for more. It has never once refused.',
+  },
+
+  {
+    id: 'kindled_edge',
+    name: 'Kindled Edge',
+    type: 'attack',
+    rarity: 'common',
+    archetype: 'overheat',
+    cost: 1,
+    effects: [
+      { op: 'damage', amount: 5, target: 'enemy' },
+      { op: 'gainHeat', amount: 2 },
+    ],
+    stanceRider: {
+      stance: 'iai',
+      effects: [{ op: 'damage', amount: 3, target: 'enemy' }],
+    },
+    upgrade: {
+      name: 'Kindled Edge+',
+      effects: [
+        { op: 'damage', amount: 8, target: 'enemy' },
+        { op: 'gainHeat', amount: 2 },
+      ],
+    },
+    flavor: 'Warm metal takes an edge that cold metal argues with.',
+  },
+
+  {
+    id: 'bank_the_breath',
+    name: 'Bank the Breath',
+    type: 'skill',
+    rarity: 'common',
+    archetype: 'guard',
+    cost: 0,
+    effects: [{ op: 'gainFocus', amount: 1 }],
+    stanceRider: {
+      stance: 'guard',
+      effects: [{ op: 'gainFocus', amount: 1 }],
+    },
+    upgrade: {
+      name: 'Bank the Breath+',
+      effects: [{ op: 'gainFocus', amount: 2 }],
+    },
+    flavor: 'Counting is not waiting. It only looks like it.',
+  },
+
+  {
+    id: 'turn_the_shoulder',
+    name: 'Turn the Shoulder',
+    type: 'skill',
+    rarity: 'common',
+    archetype: 'neutral',
+    cost: 0,
+    effects: [
+      { op: 'cycleStance', direction: 1 },
+      { op: 'block', amount: 4 },
+    ],
+    upgrade: {
+      name: 'Turn the Shoulder+',
+      effects: [
+        { op: 'cycleStance', direction: 1 },
+        { op: 'block', amount: 7 },
+      ],
+    },
+    flavor: 'The guard and the turn are the same motion, taught twice.',
+  },
+
+  {
+    id: 'reverse_the_grip',
+    name: 'Reverse the Grip',
+    type: 'skill',
+    rarity: 'uncommon',
+    archetype: 'neutral',
+    cost: 0,
+    effects: [
+      { op: 'cycleStance', direction: 1 },
+      { op: 'gainFocus', amount: 1 },
+    ],
+    upgrade: {
+      name: 'Reverse the Grip+',
+      effects: [
+        { op: 'cycleStance', direction: 1 },
+        { op: 'gainFocus', amount: 2 },
+      ],
+    },
+    flavor: 'Same blade. Other hand. Everything after it is different.',
+  },
+
+  {
+    id: 'cross_step',
+    name: 'Cross Step',
+    type: 'skill',
+    rarity: 'uncommon',
+    archetype: 'neutral',
+    cost: 1,
+    effects: [
+      { op: 'cycleStance', direction: 1 },
+      { op: 'ventHeat', amount: 2 },
+    ],
+    upgrade: {
+      name: 'Cross Step+',
+      effects: [
+        { op: 'cycleStance', direction: 1 },
+        { op: 'ventHeat', amount: 4 },
+      ],
+    },
+    flavor: 'Out of the line, and cooler for having left it.',
+  },
+
+  {
+    id: 'measured_draw',
+    name: 'Measured Draw',
+    type: 'attack',
+    rarity: 'common',
+    archetype: 'iai',
+    cost: 1,
+    keepsFocus: true,
+    effects: [
+      { op: 'damage', amount: 4, target: 'enemy' },
+      { op: 'gainFocus', amount: 1 },
+    ],
+    upgrade: {
+      name: 'Measured Draw+',
+      effects: [
+        { op: 'damage', amount: 6, target: 'enemy' },
+        { op: 'gainFocus', amount: 1 },
+      ],
+    },
+    flavor: 'A cut that asks a question rather than settling one.',
   },
 ];
