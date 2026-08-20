@@ -200,8 +200,13 @@ function applyOp(state: GameState, op: EffectOp, context: EffectContext): Effect
               target,
               isAttack: true,
               attackOrdinal: combat.attacksThisTurn,
-              // Only the first instance spends the Focus stack.
-              consumesFocus: hit === 0 && combat.attacksThisTurn === 0,
+              // Only the first instance spends the Focus stack -- and a card
+              // marked `keepsFocus` never does, so it can scale on the stack
+              // and leave it standing for the next swing.
+              consumesFocus:
+                hit === 0 &&
+                combat.attacksThisTurn === 0 &&
+                cardTable.find(context.source)?.keepsFocus !== true,
             },
             context.source,
           );

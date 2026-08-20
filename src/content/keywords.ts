@@ -32,6 +32,11 @@ export const KEYWORDS: readonly KeywordDef[] = [
     text: 'Starts in your hand every fight.',
   },
   {
+    id: 'keeps-focus',
+    name: 'Does not consume Focus',
+    text: 'Reads your Focus stack without spending it.',
+  },
+  {
     id: 'focus',
     name: 'Focus',
     text: 'Banked in GUARD, spent in IAI. Every stack adds damage to the attack that finally spends it.',

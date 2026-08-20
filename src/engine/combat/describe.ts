@@ -14,7 +14,6 @@ import type { CardDef, EffectOp, GameState, StanceId, Target } from '../types.ts
 import { STANCES } from '../../content/balance.ts';
 import { cards as cardTable, statuses as statusTable } from '../../content/registry.ts';
 import { activeCombat } from '../state.ts';
-import { stanceRulesFor } from './rules.ts';
 
 function statusName(id: string): string {
   return statusTable.find(id)?.name ?? id;
@@ -75,29 +74,27 @@ function describeScaleSource(source: Extract<EffectOp, { op: 'scaleWith' }>['sou
   }
 }
 
-/**
- * What a stack of Focus is currently worth on the first hit of an attack.
- *
- * Folded into the printed damage rather than shown as a separate `+2`: the
- * number on the card should be the number that lands. A card that says 6 and
- * deals 12 is asking the player to do the arithmetic the game already did.
- */
-function focusBonus(state: GameState | null): number {
-  if (state === null) return 0;
-  const combat = activeCombat(state);
-  if (combat === null || combat.focus <= 0) return 0;
-  const stance = stanceRulesFor(state, combat.stance);
-  return stance.spendsFocus ? combat.focus * stance.focusPerStack : 0;
-}
-
 function describeOp(op: EffectOp, state: GameState | null): string {
   switch (op.op) {
     case 'damage': {
       const times = op.times ?? 1;
       const hits = times > 1 ? ` ${times} times` : '';
-      // Only the first instance spends the stack, so only the first shows it.
-      const withFocus = op.amount + focusBonus(state);
-      return `Deal ${withFocus} damage${hits}${targetSuffix(op.target)}.`;
+      /*
+       * The printed number is the card's own number, always.
+       *
+       * Focus used to be folded in here, so a 6-damage card read "Deal 14" at
+       * four Focus. That was defensible -- the number on the card was the number
+       * that landed -- but it made the card itself unstable: the same card in
+       * the same hand read differently from one turn to the next, and Strength
+       * (which is never folded in) made it inconsistent on top of that. A static
+       * face and a modifier applied at the moment of the hit is easier to learn
+       * and easier to trust, because what changes is visibly the situation
+       * rather than the card.
+       *
+       * The projected damage on the enemy still shows the true total, so nothing
+       * is hidden -- it has just moved to the place that is about to be hit.
+       */
+      return `Deal ${op.amount} damage${hits}${targetSuffix(op.target)}.`;
     }
     case 'block':
       return `Gain ${op.amount} Block.`;
@@ -176,6 +173,7 @@ export function describeCard(def: CardDef, state: GameState | null = null): stri
   const parts = [describeOps(def.effects, state)];
   if (def.exhaust === true && !def.effects.some((op) => op.op === 'exhaustSelf')) parts.push('Exhaust.');
   if (def.innate === true) parts.push('Innate.');
+  if (def.keepsFocus === true) parts.push('Does not consume Focus.');
   return parts.filter((part) => part.trim() !== '').join(' ');
 }
 

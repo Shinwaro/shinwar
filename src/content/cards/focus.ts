@@ -87,6 +87,7 @@ export const FOCUS_CARDS: readonly CardDef[] = [
      * nothing in the one stance built to use it. Reading the stack before
      * anything consumes it is what makes the printed number true.
      */
+    keepsFocus: true,
     effects: [
       { op: 'scaleWith', source: 'focus', per: 1, then: [{ op: 'damage', amount: 3, target: 'enemy' }] },
       { op: 'damage', amount: 6, target: 'enemy' },

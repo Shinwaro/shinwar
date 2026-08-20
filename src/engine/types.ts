@@ -138,6 +138,15 @@ export interface CardDef {
    * that is the whole point of a choice from also turning up in a shop.
    */
   readonly exclusive?: boolean;
+  /**
+   * This card reads the Focus stack without spending it.
+   *
+   * A card-level exception, not a change to the stance layer: Focus still banks
+   * in GUARD and is still spent by attacks in IAI. This one simply declines to
+   * be the attack that spends it, which is what lets a card scale on the stack
+   * and leave it standing for the swing that follows.
+   */
+  readonly keepsFocus?: boolean;
   /** Hand-written. Rules text is NOT — `describeCard()` generates that. */
   readonly flavor?: string;
 }
