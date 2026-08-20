@@ -51,7 +51,7 @@ function walkTo(state: GameState, type: string, limit = 30): GameState | null {
     const wanted = moves.find((node) => node.type === type);
     const next = wanted ?? moves[0];
     if (next === undefined) return null;
-    current = applyAction(current, { kind: 'moveToNode', nodeId: next.id });
+    current = applyAction(applyAction(current, { kind: 'moveToNode', nodeId: next.id }), { kind: 'leaveLanding' });
     if (currentNode(current.run ?? run)?.type === type) return current;
     // Fight through whatever we landed on.
     let guard = 0;
@@ -85,7 +85,7 @@ describe('opening a run', () => {
 
   it('opens the real fan of choices once the origin is behind you', () => {
     let state = openRun('OPEN-2b');
-    state = applyAction(state, { kind: 'moveToNode', nodeId: state.run!.map!.startId });
+    state = applyAction(applyAction(state, { kind: 'moveToNode', nodeId: state.run!.map!.startId }), { kind: 'leaveLanding' });
     // The origin is a fight; play it out however it goes.
     let guard = 0;
     while (guard++ < 200 && state.run?.combat?.outcome === 'ongoing') {
@@ -103,13 +103,13 @@ describe('opening a run', () => {
     const state = openRun('OPEN-3');
     const far = state.run?.map?.nodes.find((node) => node.row === 5);
     expect(far).toBeDefined();
-    expect(applyAction(state, { kind: 'moveToNode', nodeId: far!.id })).toBe(state);
+    expect(applyAction(applyAction(state, { kind: 'moveToNode', nodeId: far!.id }), { kind: 'leaveLanding' })).toBe(state);
   });
 
   it('starts a fight when it enters a combat node', () => {
     const state = openRun('OPEN-4');
     const entry = availableMoves(state.run!)[0]!;
-    const fighting = applyAction(state, { kind: 'moveToNode', nodeId: entry.id });
+    const fighting = applyAction(applyAction(state, { kind: 'moveToNode', nodeId: entry.id }), { kind: 'leaveLanding' });
     expect(fighting.run?.screen).toBe('combat');
     expect(fighting.run?.combat?.outcome).toBe('ongoing');
     expect(fighting.run?.visited).toContain(entry.id);
@@ -125,7 +125,7 @@ describe('rewards', () => {
   function reachReward(seed: string): GameState {
     let state = openRun(seed);
     const entry = availableMoves(state.run!)[0]!;
-    state = applyAction(state, { kind: 'moveToNode', nodeId: entry.id });
+    state = applyAction(applyAction(state, { kind: 'moveToNode', nodeId: entry.id }), { kind: 'leaveLanding' });
 
     let guard = 0;
     while (guard++ < 200 && state.run?.combat?.outcome === 'ongoing') {

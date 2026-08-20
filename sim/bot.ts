@@ -542,6 +542,12 @@ export function playRun(seed: string, depth: number): RunReport {
         break;
       }
 
+      case 'landing':
+        // One click, the same one a player makes. The screen exists to be read,
+        // and the bot cannot read, but it must still pass through it.
+        state = applyAction(state, { kind: 'leaveLanding' });
+        break;
+
       case 'reward':
         state = takeReward(state, report);
         break;

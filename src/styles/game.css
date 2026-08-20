@@ -566,30 +566,23 @@
 }
 
 /*
- * The hover lift moves the card out from under the cursor, which un-hovers it,
- * which drops it back under the cursor, which hovers it again. The card
- * flickers and clicks land on nothing — you have to leave the hand and come
- * back to break the loop.
+ * Hover changes NO geometry. That is the whole fix.
  *
- * The lift stays; the hit area stops moving. This pad hangs below the card and
- * covers exactly the gap the lift opens, so the pointer is never outside the
- * element it is hovering. It is transparent and behind the content, so it
- * changes nothing except where the mouse counts as being.
+ * The lift used to be `translateY(-3px)`, which moved the card out from under
+ * the cursor near its lower edge — the card un-hovered, dropped back under the
+ * cursor, hovered again, and clicks landed on nothing until you left the hand.
+ * A transparent pad below the card was the first attempt and made it worse: it
+ * was deeper than the hand's row gap, so on a wrapped hand it covered the cards
+ * in the next row and stole their hover instead. Hence "random".
+ *
+ * Border and shadow say "this one" perfectly well, and neither can move the
+ * element away from the pointer. The lift still exists for `is-selected`, which
+ * is driven by a click rather than by the pointer's position, so it cannot feed
+ * back into itself.
  */
-.card::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  /* Deeper than the largest lift, which is `is-selected` at 10px. */
-  bottom: -14px;
-  z-index: -1;
-}
-
 .card:hover {
   border-color: var(--line-strong);
-  transform: translateY(-3px);
+  box-shadow: 0 0 0 1px var(--line-strong);
 }
 
 /* The lift is what "picked up" means. It has to read at a glance. */
@@ -2127,4 +2120,86 @@
   gap: 0 0.3rem;
   margin-top: 0.25rem;
   padding-top: 0.22rem;
+}
+
+/* ---------- arriving ----------
+   The chart goes dark and the place introduces itself. A beat, not a screen:
+   it holds for a moment and leaves on any click, so it never becomes something
+   you have to dismiss twice. */
+
+.landing-plate {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 2rem;
+  background: var(--bg);
+  cursor: pointer;
+  z-index: 40;
+}
+
+.landing-plate:focus-visible {
+  outline: none;
+}
+
+.landing-inner {
+  max-width: 34rem;
+  text-align: center;
+  display: grid;
+  gap: 0.5rem;
+}
+
+/* Under reduced-motion this class is never applied, so the text is simply
+   there. The pause still happens — it is a beat, not an animation. */
+.landing-inner.is-arriving {
+  animation: landing-in 420ms ease-out both;
+}
+
+@keyframes landing-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+.landing-lede {
+  margin: 0;
+  font-size: 0.8rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.landing-name {
+  margin: 0;
+  font-size: clamp(1.8rem, 5vw, 2.8rem);
+  line-height: 1.1;
+  color: var(--ink);
+}
+
+.landing-body {
+  margin: 0.4rem 0 1.2rem;
+  font-size: 1rem;
+  line-height: 1.5;
+  color: var(--muted);
+  text-wrap: pretty;
+}
+
+.landing-go {
+  justify-self: center;
+}
+
+/* What came due on the way in. Set apart from the arrival line, because one is
+   the place and the other is the run catching up with you. */
+.landing-notes {
+  list-style: none;
+  margin: 0.2rem 0 1rem;
+  padding: 0.7rem 0 0;
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 0.25rem;
+}
+
+.landing-note {
+  font-size: 0.85rem;
+  color: var(--accent);
+  text-wrap: pretty;
 }

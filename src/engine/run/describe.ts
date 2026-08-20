@@ -10,7 +10,7 @@
  * its risk/payoff categories. Never its numbers.
  */
 
-import type { ImplantDef, RelicPassive, RunEffect } from '../types.ts';
+import type { ImplantDef, MapNode, RelicPassive, RunEffect } from '../types.ts';
 import { cards as cardTable, threads as threadTable } from '../../content/registry.ts';
 
 export function describeRunEffect(effect: RunEffect): string {
@@ -122,3 +122,73 @@ export function implantStackLabel(def: ImplantDef, fitted: readonly string[]): s
   if (def.maxStacks === 1) return count > 0 ? 'Fitted' : '';
   return `${count} of ${def.maxStacks} fitted`;
 }
+
+/* ---------- arriving ----------
+   What the place says about itself as you set down. Generated, like everything
+   else the player reads: a node's arrival line is derived from what the node
+   actually is, so it can never promise a fight that is not there. */
+
+/**
+ * The line under the place-name on the landing screen.
+ *
+ * Enemies are named where there are enemies, because "ambushed by two Scrap
+ * Hounds" is information as well as atmosphere — it is the first look at the
+ * fight, a beat before the fight. Where there is nothing, it says so plainly
+ * rather than staying silent: a barren node used to be indistinguishable from a
+ * misclick, and naming the emptiness is what turns it into a place you visited.
+ */
+export function describeLanding(node: MapNode, enemyNames: readonly string[]): string {
+  const names = joinNames(enemyNames);
+
+  switch (node.type) {
+    case 'boss':
+      return names === ''
+        ? 'Whatever has been waiting at the end of this act is here.'
+        : `${names} is already turned toward you. There is no route around this one.`;
+
+    case 'elite':
+      return names === ''
+        ? 'Something well-armed has been expecting company.'
+        : `${names} moves to meet you, unhurried. It has done this before.`;
+
+    case 'combat':
+      return names === ''
+        ? 'Something moves against the light before you have finished setting down.'
+        : `You are met by ${names}.`;
+
+    case 'station':
+      return 'A yard, still lit, still trading. Someone here will take your alloy.';
+
+    case 'safe':
+      return 'Nothing here wants anything from you. That is rarer than it sounds.';
+
+    case 'event':
+      return 'There is something down here that does not resolve into a shape yet.';
+
+    case 'unknown':
+      return 'The scan comes back inconclusive. You go down anyway.';
+
+    default: {
+      const unreachable: never = node.type;
+      return unreachable;
+    }
+  }
+}
+
+/** `a Scrap Hound`, `two Scrap Hounds`, `a Rust Tick and a Scrap Hound`. */
+function joinNames(names: readonly string[]): string {
+  if (names.length === 0) return '';
+  if (names.length === 1) return `a ${names[0] ?? ''}`;
+
+  const all = names.every((name) => name === names[0]);
+  if (all) {
+    const counted = COUNT_WORDS[names.length] ?? String(names.length);
+    return `${counted} ${names[0] ?? ''}s`;
+  }
+
+  const listed = names.map((name) => `a ${name}`);
+  const last = listed.pop() ?? '';
+  return `${listed.join(', ')} and ${last}`;
+}
+
+const COUNT_WORDS: Readonly<Record<number, string>> = { 2: 'two', 3: 'three', 4: 'four' };

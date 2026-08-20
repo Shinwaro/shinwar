@@ -24,6 +24,8 @@ export type Action =
   /** Resolve one enemy. The UI dispatches these on a timer so the enemy turn
       can be watched rather than arriving in a single frame. */
   | { readonly kind: 'advanceEnemies' }
+  /** Leave the arrival screen; the node resolves into whatever it is. */
+  | { readonly kind: 'leaveLanding' }
   /* -- the map -- */
   | { readonly kind: 'moveToNode'; readonly nodeId: string }
   /* -- rewards -- */

@@ -65,6 +65,7 @@ export function createRunState(seed: string, depth: number): RunState {
     },
     threads: [],
     pendingEvent: null,
+    landing: null,
     seenEvents: [],
     shop: null,
     forcedTier: null,

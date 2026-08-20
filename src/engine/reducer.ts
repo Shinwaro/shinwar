@@ -17,6 +17,7 @@ import {
   concludeNode,
   enterNode,
   leaveEvent,
+  leaveLanding,
   leaveNode,
   leaveReward,
   openMap,
@@ -136,6 +137,13 @@ export function applyAction(state: GameState, action: Action): GameState {
     case 'advanceEnemies': {
       if (state.run?.combat?.outcome !== 'ongoing') return state;
       return settleCombat(advanceEnemyTurn(state));
+    }
+
+    case 'leaveLanding': {
+      if (state.run?.screen !== 'landing') return state;
+      // Settled, because the node may resolve straight into a fight the player
+      // then loses on the enemy's first swing.
+      return settleCombat(leaveLanding(state));
     }
 
     case 'takeRewardCard': {

@@ -133,7 +133,16 @@ function describeOp(op: EffectOp, state: GameState | null): string {
       const combat = state === null ? null : activeCombat(state);
       const live =
         combat === null ? '' : ` (${Math.floor(currentScale(combat, op.source) / Math.max(1, op.per))}x now)`;
-      return `For every ${per}${describeScaleSource(op.source)}, ${body}${live}`;
+      /*
+       * "deal 3 extra", not "deal 3 damage".
+       *
+       * A scaling term almost always sits behind a base hit, and reading two
+       * "deal N damage" sentences in a row invites the player to think the
+       * second one replaces the first. `extra` says it is additional without
+       * needing a second sentence to explain that it is.
+       */
+      const additive = body.replace(/^deal (\d+) damage/, 'deal $1 extra');
+      return `For every ${per}${describeScaleSource(op.source)}, ${additive}${live}`;
     }
     default: {
       const unreachable: never = op;

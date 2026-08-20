@@ -104,6 +104,30 @@ describe('the guarantees, across 1000 seeds', () => {
     }
   });
 
+  it('never puts two blank-looking nodes back to back on a path', () => {
+    // `event` and `unknown` are the two that show no encounter on the chart.
+    // Consecutively they read as a stretch where nothing is happening — you
+    // walk two nodes and have fought nothing — which is what a player notices,
+    // rather than the overall share of them.
+    const blank = (type: string): boolean => type === 'event' || type === 'unknown';
+
+    for (const seed of SEEDS) {
+      for (const act of [1, 2, 3] as const) {
+        const { map } = generateMap(createRng(seed), act);
+        const byId = new Map(map.nodes.map((node) => [node.id, node]));
+
+        for (const node of map.nodes) {
+          if (!blank(node.type)) continue;
+          for (const id of node.next) {
+            const ahead = byId.get(id);
+            if (ahead === undefined) continue;
+            expect(blank(ahead.type), `${seed} act${act}: ${node.id} -> ${ahead.id}`).toBe(false);
+          }
+        }
+      }
+    }
+  });
+
   it('never puts two Safe Planets within MAP.safeSpacing of each other on a path', () => {
     // On a *path*, not on the chart: two rests side by side in the same row are
     // fine, because no single route takes both. What matters is what you meet

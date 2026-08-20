@@ -275,7 +275,12 @@ describe('threads on the real path', () => {
     const targetId = here?.next[0];
     expect(targetId).toBeDefined();
 
+    // Arriving lands first now, so the reprisal is announced on the way in
+    // rather than sprung on a fight the player never saw coming.
     state = enterNode(state, targetId ?? '');
+    expect(runOf(state).screen).toBe('landing');
+
+    state = applyAction(state, { kind: 'leaveLanding' });
     // Whatever that node was, what opened is a fight, and the tier is banked.
     expect(runOf(state).screen).toBe('combat');
     expect(runOf(state).forcedTier).toBe('elite');

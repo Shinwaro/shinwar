@@ -11,6 +11,7 @@ import { shouldGuardUnload } from '../engine/queries.ts';
 import { createSpaceScene } from './space.ts';
 import { renderTitle } from './screens/title.ts';
 import { renderCombat } from './screens/combat.ts';
+import { renderLanding } from './screens/landing.ts';
 import { renderMap } from './screens/map.ts';
 import { renderReward } from './screens/reward.ts';
 import { renderSafePlanet } from './screens/safe.ts';
@@ -45,6 +46,8 @@ function renderView(store: Store, view: View): HTMLElement {
       return renderGameOver(store);
     case 'run:map':
       return renderMap(store);
+    case 'run:landing':
+      return renderLanding(store);
     case 'run:combat':
       return renderCombat(store);
     case 'run:reward':

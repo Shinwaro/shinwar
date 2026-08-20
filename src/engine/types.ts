@@ -715,6 +715,23 @@ export interface RewardOffer {
  * state rather than resolved and discarded — an outcome you scroll past in the
  * log is an outcome the player never connects to the decision.
  */
+export interface LandingState {
+  readonly nodeId: string;
+  /** The place, by name. */
+  readonly title: string;
+  /** One or two sentences. Generated — see `describeLanding`. */
+  readonly body: string;
+  /**
+   * Anything that resolved on the way in — a Thread coming due, mostly.
+   *
+   * Threads always worked; you just could not tell. The payoff landed as log
+   * lines while the map was re-rendering, so a promise made five nodes ago paid
+   * out into a scrollback nobody was reading and the whole system felt inert.
+   * The arrival beat is where "what just happened" belongs.
+   */
+  readonly notes: readonly string[];
+}
+
 export interface PendingEvent {
   readonly eventId: EventId;
   readonly chosenOptionId: string | null;
@@ -769,6 +786,8 @@ export interface ShopImplantStock {
 /** What the player is looking at between fights. */
 export type RunScreen =
   | 'map'
+  /** The moment of arrival, before the node resolves into whatever it is. */
+  | 'landing'
   | 'combat'
   | 'reward'
   | 'safe'
@@ -793,6 +812,15 @@ export interface RunState {
   readonly threads: readonly ThreadState[];
   /** The Anomaly on screen, if one is. */
   readonly pendingEvent: PendingEvent | null;
+  /**
+   * What you are looking at as you set down.
+   *
+   * A node used to resolve the instant it was clicked, so arriving somewhere
+   * barren was indistinguishable from a misclick — nothing happened and the map
+   * came back. This is the beat in between: the chart goes dark, the place says
+   * what it is, and then it becomes a fight or a shop or nothing at all.
+   */
+  readonly landing: LandingState | null;
   /** Anomalies already spent this run. An event you see twice is not a story. */
   readonly seenEvents: readonly EventId[];
   /** The Station's stock, kept from arrival so it cannot reshuffle mid-visit. */

@@ -79,24 +79,25 @@ export const FOCUS_CARDS: readonly CardDef[] = [
     archetype: 'iai',
     cost: 1,
     /*
-     * The scaling term runs FIRST, and that ordering is the whole card.
+     * `keepsFocus` is what lets the base hit come first.
      *
-     * In IAI the opening damage instance is the one that spends the Focus
-     * stack, so a `scaleWith source: 'focus'` placed after it read a stack that
-     * was already zero — the card's entire rare-tier payoff silently did
-     * nothing in the one stance built to use it. Reading the stack before
-     * anything consumes it is what makes the printed number true.
+     * It used to be the other way round out of necessity: in IAI the opening
+     * damage instance spent the Focus stack, so a `scaleWith` placed after it
+     * read zero and the card's whole rare-tier payoff quietly did nothing. Now
+     * that nothing here consumes the stack, execution order stops mattering —
+     * so the ops are in the order the card reads in, which is the order a
+     * player would say it out loud.
      */
     keepsFocus: true,
     effects: [
-      { op: 'scaleWith', source: 'focus', per: 1, then: [{ op: 'damage', amount: 3, target: 'enemy' }] },
       { op: 'damage', amount: 6, target: 'enemy' },
+      { op: 'scaleWith', source: 'focus', per: 1, then: [{ op: 'damage', amount: 3, target: 'enemy' }] },
     ],
     upgrade: {
       name: 'The Long Draw+',
       effects: [
-        { op: 'scaleWith', source: 'focus', per: 1, then: [{ op: 'damage', amount: 4, target: 'enemy' }] },
         { op: 'damage', amount: 9, target: 'enemy' },
+        { op: 'scaleWith', source: 'focus', per: 1, then: [{ op: 'damage', amount: 4, target: 'enemy' }] },
       ],
     },
     flavor: 'The cut is short. Everything before it was not.',

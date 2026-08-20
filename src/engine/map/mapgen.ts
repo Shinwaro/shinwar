@@ -234,10 +234,23 @@ function assignTypes(
       const beforeBossRest = MAP.restBeforeBoss && row >= rows - 2 - MAP.safeSpacing;
       const afterSafe = nearby.includes('safe') || beforeBossRest;
 
+      /*
+       * Never two blank-looking nodes in a row on one path.
+       *
+       * `event` and `unknown` are the two that show no encounter on the chart,
+       * and back to back they read as a stretch of map where nothing is
+       * happening — you walk two nodes and have fought nothing. Roughly two in
+       * five of their exits used to lead into another one. Looking back exactly
+       * one row is enough: it is consecutive pairs that read as empty, not a
+       * high overall share of them.
+       */
+      const justBehind = typesWithin(skeleton, types, row, col, 1);
+      const afterBlank = justBehind.includes('event') || justBehind.includes('unknown');
+
       const rolled = weightedPick(current, 'map', [
         { value: 'combat' as NodeType, weight: NODE_WEIGHTS.combat },
-        { value: 'unknown' as NodeType, weight: NODE_WEIGHTS.unknown },
-        { value: 'event' as NodeType, weight: NODE_WEIGHTS.event },
+        { value: 'unknown' as NodeType, weight: afterBlank ? 0 : NODE_WEIGHTS.unknown },
+        { value: 'event' as NodeType, weight: afterBlank ? 0 : NODE_WEIGHTS.event },
         // Nothing special in the opening rows: Act 1 should feel plain before
         // it starts offering deals.
         { value: 'elite' as NodeType, weight: early ? 0 : NODE_WEIGHTS.elite },

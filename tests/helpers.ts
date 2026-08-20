@@ -117,7 +117,13 @@ export function beginRunInCombat(seed: string): GameState {
   if (run === null) throw new Error('test: beginRun produced no run');
   const entry = availableMoves(run)[0];
   if (entry === undefined) throw new Error('test: the map opened with nowhere to go');
-  return applyActions(opened, [{ kind: 'moveToNode', nodeId: entry.id }]);
+  // Entering a node lands first now — the chart darkens and the place says what
+  // it is — so the walk into a fight is two actions, exactly as it is for a
+  // player clicking through.
+  return applyActions(opened, [
+    { kind: 'moveToNode', nodeId: entry.id },
+    { kind: 'leaveLanding' },
+  ]);
 }
 
 /**

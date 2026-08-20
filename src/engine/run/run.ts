@@ -28,7 +28,13 @@ import {
   WAVEFRONT,
 } from '../../content/balance.ts';
 import { CLEAR_SPACE_ID } from '../../content/environments.ts';
-import { cards as cardTable, relics as relicTable } from '../../content/registry.ts';
+import {
+  cards as cardTable,
+  enemies as enemyTable,
+  relics as relicTable,
+} from '../../content/registry.ts';
+import { ENCOUNTERS as encounterTable } from '../../content/encounters.ts';
+import { describeLanding } from './describe.ts';
 
 /* ---------- opening the run ---------- */
 
@@ -114,15 +120,10 @@ export function enterNode(state: GameState, nodeId: string): GameState {
 
   next = fireHook(next, 'onNodeEntered', { nodeId, nodeType: node.type });
   next = advanceWavefront(next, node);
-  next = settleThreads(next, node);
+  const settled = settleThreads(next, node);
+  next = settled.state;
 
-  // A Thread that came due with a reprisal takes the node. You never find out
-  // what was here, which is exactly what an ambush is.
-  if (requireRun(next).forcedTier !== null) {
-    return openCombat(next, { ...node, type: 'combat' });
-  }
-
-  return resolveNode(next, node);
+  return openLanding(next, node, settled.notes);
 }
 
 /**
@@ -166,19 +167,61 @@ function advanceWavefront(state: GameState, node: MapNode): GameState {
  * not a curveball, and being jumped by a bill instead of fighting it is the
  * definition of a curveball.
  */
-function settleThreads(state: GameState, node: MapNode): GameState {
+function settleThreads(state: GameState, node: MapNode): { state: GameState; notes: string[] } {
   let next = advanceThreads(state);
+  const notes: string[] = [];
 
   for (const def of dueThreads(requireRun(next))) {
     next = resolveThread(next, def.id);
-    next = applyRunEffects(next, def.payoff, def.id).state;
+    const paid = applyRunEffects(next, def.payoff, def.id);
+    next = paid.state;
+    // Named, then itemised. "Yard Debt comes due." followed by what it cost is
+    // the difference between a system the player can feel and one they cannot.
+    notes.push(`${def.name} comes due.`, ...paid.lines);
   }
 
   if (node.type === 'boss' && requireRun(next).forcedTier !== null) {
     next = withRun(next, (current) => ({ ...current, forcedTier: null }));
   }
 
-  return next;
+  return { state: next, notes };
+}
+
+/**
+ * The beat between clicking a place and the place happening.
+ *
+ * A node used to resolve on the click, so arriving somewhere with nothing in it
+ * was indistinguishable from a misclick: the map simply came back. Naming the
+ * place and saying what is on it — including when the answer is "nothing" —
+ * turns every node into somewhere you went rather than a button you pressed.
+ */
+function openLanding(state: GameState, node: MapNode, notes: readonly string[]): GameState {
+  const encounter = node.encounterId === null ? undefined : encounterTable.find((entry) => entry.id === node.encounterId);
+  const names = (encounter?.enemyIds ?? []).map((id) => enemyTable.find(id)?.name ?? id);
+
+  return withRun(state, (run) => ({
+    ...run,
+    screen: 'landing' as const,
+    landing: { nodeId: node.id, title: node.name, body: describeLanding(node, names), notes },
+  }));
+}
+
+/** Leave the arrival screen. The node becomes whatever it is. */
+export function leaveLanding(state: GameState): GameState {
+  const run = requireRun(state);
+  const landing = run.landing;
+  if (landing === null) return state;
+
+  const node = run.map === null ? undefined : nodeById(run.map, landing.nodeId);
+  const cleared = withRun(state, (current) => ({ ...current, landing: null }));
+  if (node === undefined) return withRun(cleared, (current) => ({ ...current, screen: 'map' }));
+
+  // A Thread's reprisal still takes the node, and it is announced on the way in
+  // rather than discovered on arrival at a fight you did not choose.
+  if (requireRun(cleared).forcedTier !== null) {
+    return openCombat(cleared, { ...node, type: 'combat' });
+  }
+  return resolveNode(cleared, node);
 }
 
 function resolveNode(state: GameState, node: MapNode): GameState {

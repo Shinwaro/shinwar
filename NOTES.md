@@ -1569,3 +1569,67 @@ line at all.
 
 `src/content/keywords.ts` holds the vocabulary that has no status row: Exhaust,
 Innate, Block, Heat, Focus, Energy. Adding a term is one entry there.
+
+## Playtest pass 13 — arriving somewhere
+
+### The hover flicker, properly this time
+
+The first fix was wrong in an instructive way. The lift was `translateY(-3px)`,
+which near a card's lower edge moves it out from under the cursor: un-hover,
+drop back under the cursor, hover again. I "fixed" it with a transparent pad
+hanging 14px below each card — and the hand's row gap is about 9.6px, so on a
+wrapped hand the pad covered the row below and stole *its* hover instead. That
+is exactly why Robin reported it as still present and "kinda random".
+
+Hover now changes no geometry at all: border and shadow only. Nothing that
+responds to the pointer's position can move the element away from the pointer.
+The lift survives on `is-selected`, which is driven by a click rather than by
+where the mouse is, so it cannot feed back into itself.
+
+**The general rule worth keeping: never let `:hover` change layout or position.**
+Any geometry change on hover is a potential oscillator, and the ones that only
+trigger near an edge look random from the outside.
+
+### Landing on a place
+
+A node used to resolve on the click, so setting down somewhere empty was
+indistinguishable from a misclick — nothing happened and the map came back. Now
+the chart goes dark, the place names itself, and what is there says so:
+
+> You set down on **Arrival**
+> You are met by a Kiln Adept and a Cinder Wisp.
+
+Generated from the node, like every other line the player reads, so it can never
+promise a fight that is not there. Enemies are named because that is information
+as well as atmosphere — the first look at the fight, a beat before the fight.
+Where there is nothing, it says that plainly; naming the emptiness is what turns
+a dead node into a place you visited.
+
+It holds for 2.6s and leaves on any click or key. Never *only* on a timer: a
+screen you cannot dismiss is one that feels broken the second time you read it.
+
+### Threads were never broken, only invisible
+
+Robin asked whether Threads do anything. They always did — `settleThreads` fires
+the payoff on arrival. The problem was entirely where it landed: log lines,
+written while the map was re-rendering, in a panel nobody reads mid-route. A
+promise made five nodes ago paid out into scrollback.
+
+`settleThreads` now returns its lines, and the arrival screen shows them under
+the place description — the Thread named, then what it cost or gave. The beat
+where "what just happened" belongs.
+
+**Worth remembering: a system that fires correctly and reports into a log the
+player never opens is indistinguishable from a system that does nothing.** The
+bug report was "do these work?" and the answer was yes, which was not the point.
+
+### No two blank nodes in a row
+
+`event` and `unknown` are the two types that show no encounter on the chart, and
+41% of their exits led into another one — so walking two nodes and fighting
+nothing was ordinary. Zero across 900 maps now, with an invariant test over 1000
+seeds. The mix stays healthy: 38% combat, 15% unknown, 13% station, 11% each of
+event and elite, 10% safe.
+
+One row of lookback is enough. It is consecutive pairs that read as empty, not a
+high overall share of them — the constraint should be as narrow as the complaint.
