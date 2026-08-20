@@ -50,8 +50,23 @@ beforeEach(() => {
 });
 
 describe('the event pool', () => {
-  it('ships ten anomalies', () => {
-    expect(eventTable.all().length).toBe(10);
+  it('ships enough anomalies that a run does not exhaust the pool', () => {
+    /*
+     * An exact count was fine at M4 and became a chore the moment the pool grew.
+     * What actually matters is the floor: an Anomaly is spent once per run
+     * (`seenEvents`), and a run walks somewhere near twenty of them, so a pool
+     * below that guarantees the back half of every run repeats itself.
+     */
+    expect(eventTable.all().length).toBeGreaterThanOrEqual(20);
+  });
+
+  it('offers something in every act', () => {
+    // An `acts` restriction is how a late Anomaly gets to assume you have a
+    // deck and some Alloy. It is also how a pool accidentally empties for Act 1.
+    for (const act of [1, 2, 3] as const) {
+      const forAct = eventTable.all().filter((def) => def.acts === undefined || def.acts.includes(act));
+      expect(forAct.length, `act ${act}`).toBeGreaterThanOrEqual(12);
+    }
   });
 
   it('gives every one of them a leave that pays nothing', () => {

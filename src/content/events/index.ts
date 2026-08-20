@@ -566,4 +566,614 @@ export const EVENTS: readonly EventDef[] = [
       },
     ],
   },
+
+  /* ---------- M6: the pool that stops a run repeating ----------
+     An Anomaly is spent once per run, so ten of them meant most runs met the
+     whole pool and Act 3 saw nothing new. These follow the same template: a
+     named situation, three options answering different needs, and a leave that
+     is genuinely worthless.
+
+     Several carry an `acts` restriction. One that only appears late can assume
+     you have a deck and some Alloy, which lets it ask a harder question than one
+     that has to work on turn three of Act 1. */
+
+  {
+    id: 'the_quiet_transponder',
+    name: 'The Quiet Transponder',
+    body:
+      'A sect beacon, still cycling its identification forty years after the sect stopped ' +
+      'existing to be identified. It has been talking to nobody for longer than you have been ' +
+      'alive. The codes still authenticate against your cutter.',
+    options: [
+      {
+        id: 'answer',
+        label: 'Answer it properly',
+        detail: 'The response takes an hour, and the forms come back to you as you speak them.',
+        effects: [{ op: 'setThread', threadId: 'sect_rites' }],
+        risk: 'Unknown',
+        payoff: 'Unknown',
+      },
+      {
+        id: 'strip',
+        label: 'Strip the transmitter',
+        detail: 'Good parts, and nobody left to mind.',
+        effects: [{ op: 'alloy', amount: 95 }],
+        risk: 'None',
+        payoff: 'Immediate, moderate',
+      },
+      {
+        id: 'listen',
+        label: 'Listen to the whole loop',
+        detail: 'Six hours of a dead voice naming stations. You learn where things were.',
+        effects: [
+          { op: 'upgradeRandomCard' },
+          { op: 'health', amount: -6 },
+        ],
+        risk: 'Time',
+        payoff: 'Immediate, specific',
+      },
+      {
+        id: 'pass',
+        label: 'Let it keep talking',
+        detail: 'It has managed this long without an audience.',
+        effects: [],
+        isLeave: true,
+        risk: 'None',
+        payoff: 'None',
+      },
+    ],
+  },
+
+  {
+    id: 'the_stalled_convoy',
+    name: 'The Stalled Convoy',
+    body:
+      'Nine haulers strung out along a burn they will not finish. Their escort left two days ' +
+      'ago and did not say why. The convoy master is still transmitting a schedule nobody is ' +
+      'keeping, on a channel nobody is answering.',
+    options: [
+      {
+        id: 'escort',
+        label: 'Escort them out',
+        detail: 'Slow, visible, and someone will notice a cutter moving at hauler speed.',
+        effects: [
+          { op: 'alloy', amount: 120 },
+          { op: 'setThread', threadId: 'marked' },
+        ],
+        risk: 'Deferred',
+        payoff: 'Immediate, large',
+      },
+      {
+        id: 'parts',
+        label: 'Trade for their spares',
+        detail: 'They have more drive parts than drive.',
+        effects: [
+          { op: 'alloy', amount: -60 },
+          { op: 'health', amount: 20 },
+        ],
+        risk: 'None',
+        payoff: 'Immediate, moderate',
+      },
+      {
+        id: 'take',
+        label: 'Take what you need',
+        detail: 'Nobody here is armed. That is the whole of the situation.',
+        effects: [
+          { op: 'alloy', amount: 170 },
+          { op: 'maxHealth', amount: -4 },
+        ],
+        risk: 'Moral',
+        payoff: 'Immediate, large',
+      },
+      {
+        id: 'pass',
+        label: 'Hold your burn',
+        detail: 'The schedule they are keeping is not yours.',
+        effects: [],
+        isLeave: true,
+        risk: 'None',
+        payoff: 'None',
+      },
+    ],
+  },
+
+  {
+    id: 'the_cold_forge',
+    name: 'The Cold Forge',
+    body:
+      'A weapons shop built into a hollowed asteroid, banked down to embers and left. The ' +
+      'smith is not here. The work is: eleven blades at various stages, and notes in a hand ' +
+      'that expected to come back.',
+    options: [
+      {
+        id: 'relight',
+        label: 'Relight it and finish one',
+        detail: 'You are not a smith. You have watched enough of them to be dangerous.',
+        effects: [
+          { op: 'upgradeRandomCard' },
+          { op: 'upgradeRandomCard' },
+          { op: 'health', amount: -10 },
+        ],
+        risk: 'The body',
+        payoff: 'Immediate, large',
+      },
+      {
+        id: 'notes',
+        label: 'Take the notes',
+        detail: 'Somebody spent a life learning this. It fits in a pocket.',
+        effects: [{ op: 'card', cardId: 'crossing_arc', upgraded: true }],
+        risk: 'None',
+        payoff: 'Immediate, specific',
+      },
+      {
+        id: 'strip',
+        label: 'Strip the shop',
+        detail: 'Tools, stock, and the good steel he never got to.',
+        effects: [
+          { op: 'alloy', amount: 130 },
+          { op: 'setThread', threadId: 'yard_debt' },
+        ],
+        risk: 'Deferred',
+        payoff: 'Immediate, moderate',
+      },
+      {
+        id: 'pass',
+        label: 'Bank it again and go',
+        detail: 'You leave the embers where you found them.',
+        effects: [],
+        isLeave: true,
+        risk: 'None',
+        payoff: 'None',
+      },
+    ],
+  },
+
+  {
+    id: 'the_borrowed_registry',
+    name: 'A Ship With Your Registry',
+    acts: [2, 3],
+    body:
+      'It is flying under your registry, three digits off, and it has been running debts on ' +
+      'it for a month. The pilot is apologetic in the way of someone who has done the ' +
+      'arithmetic and decided you will not shoot.',
+    options: [
+      {
+        id: 'collect',
+        label: 'Collect what they owe you',
+        detail: 'They pay. It is most of what they have, and they knew it was coming.',
+        effects: [{ op: 'alloy', amount: 150 }],
+        risk: 'None',
+        payoff: 'Immediate, large',
+      },
+      {
+        id: 'forgive',
+        label: 'Let them keep the name',
+        detail: 'Somebody, somewhere, updates a ledger about you.',
+        effects: [{ op: 'setThread', threadId: 'navigators_favour' }],
+        risk: 'Unknown',
+        payoff: 'Unknown',
+      },
+      {
+        id: 'swap',
+        label: 'Trade registries',
+        detail: 'Their debts, your clean name. The debts travel faster than you do.',
+        effects: [
+          { op: 'alloy', amount: 200 },
+          { op: 'setThread', threadId: 'yard_debt' },
+        ],
+        risk: 'Deferred',
+        payoff: 'Immediate, large',
+      },
+      {
+        id: 'pass',
+        label: 'Break off',
+        detail: 'Three digits is enough distance for today.',
+        effects: [],
+        isLeave: true,
+        risk: 'None',
+        payoff: 'None',
+      },
+    ],
+  },
+
+  {
+    id: 'the_reactor_choir',
+    name: 'The Reactor Choir',
+    acts: [2, 3],
+    body:
+      'Forty people living inside a runaway reactor housing, singing to keep time with its ' +
+      'cycle. They have been doing this for six years. They are not, as far as you can tell, ' +
+      'in any distress about it.',
+    options: [
+      {
+        id: 'learn',
+        label: 'Learn the cycle',
+        detail: 'You spend a day counting with them. Your own reactor sounds different after.',
+        effects: [{ op: 'card', cardId: 'flashpoint' }],
+        risk: 'None',
+        payoff: 'Immediate, specific',
+      },
+      {
+        id: 'tap',
+        label: 'Tap the housing',
+        detail: 'There is more power here than forty people need in order to sing.',
+        effects: [
+          { op: 'alloy', amount: 140 },
+          { op: 'setThread', threadId: 'coolant_leak' },
+        ],
+        risk: 'Deferred',
+        payoff: 'Immediate, large',
+      },
+      {
+        id: 'warn',
+        label: 'Tell them what it is doing',
+        detail: 'They already know. They thank you for the courtesy and keep singing.',
+        effects: [{ op: 'health', amount: 22 }],
+        risk: 'None',
+        payoff: 'Immediate, moderate',
+      },
+      {
+        id: 'pass',
+        label: 'Leave them to it',
+        detail: 'Six years is a long time to be wrong about something.',
+        effects: [],
+        isLeave: true,
+        risk: 'None',
+        payoff: 'None',
+      },
+    ],
+  },
+
+  {
+    id: 'the_wrecking_field',
+    name: 'The Wrecking Field',
+    body:
+      'Somebody has been towing dead ships here for years and stacking them by class. It is ' +
+      'tidy in a way that suggests one person with a system and a great deal of time. There ' +
+      'is no sign of the person.',
+    options: [
+      {
+        id: 'salvage',
+        label: 'Work the stacks',
+        detail: 'Hours of it, in a suit, in the dark, and not unobserved.',
+        effects: [
+          { op: 'alloy', amount: 110 },
+          { op: 'health', amount: -8 },
+          { op: 'setThread', threadId: 'marked' },
+        ],
+        risk: 'The body, deferred',
+        payoff: 'Immediate, moderate',
+      },
+      {
+        id: 'lighten',
+        label: 'Leave something behind',
+        detail: 'A form you never liked, filed away with the rest of the dead weight.',
+        effects: [
+          { op: 'removeRandomCard' },
+          { op: 'alloy', amount: 40 },
+        ],
+        risk: 'None',
+        payoff: 'Immediate, small',
+      },
+      {
+        id: 'wait',
+        label: 'Wait for whoever stacks them',
+        detail: 'They arrive at the end of the second day, and are not pleased.',
+        effects: [{ op: 'ambush', tier: 'elite' }],
+        risk: 'A fight',
+        payoff: 'Immediate, unknown',
+      },
+      {
+        id: 'pass',
+        label: 'Fly the lane and go',
+        detail: 'Somebody has a filing system. It is not yours.',
+        effects: [],
+        isLeave: true,
+        risk: 'None',
+        payoff: 'None',
+      },
+    ],
+  },
+
+  {
+    id: 'the_long_orbit',
+    name: 'The Long Orbit',
+    body:
+      'A one-seat courier on a ninety-year ellipse, still under power, still correcting. The ' +
+      'pilot has been dead for most of it. The correction burns are perfect.',
+    options: [
+      {
+        id: 'study',
+        label: 'Study the burns',
+        detail: 'Ninety years of somebody being exactly right, written in fuel.',
+        effects: [{ op: 'card', cardId: 'long_form' }],
+        risk: 'None',
+        payoff: 'Immediate, specific',
+      },
+      {
+        id: 'fuel',
+        label: 'Take the remaining fuel',
+        detail: 'It ends the orbit. Nothing was going to meet it anyway.',
+        effects: [{ op: 'alloy', amount: 100 }],
+        risk: 'Moral',
+        payoff: 'Immediate, moderate',
+      },
+      {
+        id: 'rites',
+        label: 'Say the forms over them',
+        detail: 'The sect had words for this. You are the only one left who knows them.',
+        effects: [
+          { op: 'health', amount: 14 },
+          { op: 'setThread', threadId: 'sect_rites' },
+        ],
+        risk: 'Unknown',
+        payoff: 'Unknown',
+      },
+      {
+        id: 'pass',
+        label: 'Let the orbit finish',
+        detail: 'It has sixty years left and no need of you.',
+        effects: [],
+        isLeave: true,
+        risk: 'None',
+        payoff: 'None',
+      },
+    ],
+  },
+
+  {
+    id: 'the_pressure_auction',
+    name: 'The Pressure Auction',
+    acts: [2, 3],
+    body:
+      'A hab with failing life support, selling everything it owns before the air runs out. ' +
+      'The auctioneer is calm and fast and has clearly done the arithmetic on how long she ' +
+      'has. Prices drop every hour.',
+    options: [
+      {
+        id: 'early',
+        label: 'Buy early, pay full',
+        detail: 'You take the good lot while there is still a good lot.',
+        effects: [
+          { op: 'alloy', amount: -120 },
+          { op: 'card', cardId: 'unsheathed_mind' },
+        ],
+        risk: 'None',
+        payoff: 'Immediate, specific',
+      },
+      {
+        id: 'late',
+        label: 'Wait for the last hour',
+        detail: 'Cheap, and you spend the wait breathing what they have left.',
+        effects: [
+          { op: 'alloy', amount: 90 },
+          { op: 'health', amount: -12 },
+        ],
+        risk: 'The body',
+        payoff: 'Immediate, moderate',
+      },
+      {
+        id: 'scrubber',
+        label: 'Sell them your spare scrubber',
+        detail: 'It is worth more to them than to you, and they know it.',
+        effects: [
+          { op: 'alloy', amount: 60 },
+          { op: 'setThread', threadId: 'navigators_favour' },
+        ],
+        risk: 'Unknown',
+        payoff: 'Unknown',
+      },
+      {
+        id: 'pass',
+        label: 'Bid on nothing',
+        detail: 'You watch a room sell its furniture, and you leave.',
+        effects: [],
+        isLeave: true,
+        risk: 'None',
+        payoff: 'None',
+      },
+    ],
+  },
+
+  {
+    id: 'the_mirror_wake',
+    name: 'The Mirror Wake',
+    acts: [3],
+    body:
+      'Your own drive signature, four hours old, on a heading you have not flown. Something ' +
+      'out here is wearing your wake deliberately, and doing it well enough that the ' +
+      'difference took you two passes to find.',
+    options: [
+      {
+        id: 'hunt',
+        label: 'Turn and hunt it',
+        detail: 'Whatever is copying you is close enough to be caught.',
+        effects: [{ op: 'ambush', tier: 'elite' }],
+        risk: 'A fight',
+        payoff: 'Immediate, unknown',
+      },
+      {
+        id: 'feed',
+        label: 'Feed it a false wake',
+        detail: 'Let it follow something that is not there, and see who else follows it.',
+        effects: [
+          { op: 'alloy', amount: 90 },
+          { op: 'setThread', threadId: 'marked' },
+        ],
+        risk: 'Deferred',
+        payoff: 'Immediate, moderate',
+      },
+      {
+        id: 'copy',
+        label: 'Copy the copy',
+        detail: 'It is flying you better than you do. That is worth knowing.',
+        effects: [
+          { op: 'upgradeRandomCard' },
+          { op: 'health', amount: -8 },
+        ],
+        risk: 'The body',
+        payoff: 'Immediate, specific',
+      },
+      {
+        id: 'pass',
+        label: 'Change heading',
+        detail: 'Let it wear a wake that goes nowhere.',
+        effects: [],
+        isLeave: true,
+        risk: 'None',
+        payoff: 'None',
+      },
+    ],
+  },
+
+  {
+    id: 'the_field_surgeon',
+    name: 'The Field Surgeon',
+    body:
+      'A medical tender working out of a converted ore hopper, taking anyone. The surgeon has ' +
+      'not slept in a while and is entirely competent anyway. There is a queue.',
+    options: [
+      {
+        id: 'treat',
+        label: 'Take a bed',
+        detail: 'Proper work, properly done, and it costs what proper work costs.',
+        effects: [
+          { op: 'alloy', amount: -90 },
+          { op: 'health', amount: 30 },
+        ],
+        risk: 'None',
+        payoff: 'Immediate, large',
+      },
+      {
+        id: 'donate',
+        label: 'Pay for the queue',
+        detail: 'Eleven people who could not afford the bed you were about to take.',
+        effects: [
+          { op: 'alloy', amount: -140 },
+          { op: 'maxHealth', amount: 8 },
+          { op: 'setThread', threadId: 'navigators_favour' },
+        ],
+        risk: 'Unknown',
+        payoff: 'Immediate, permanent',
+      },
+      {
+        id: 'work',
+        label: 'Hold instruments for a shift',
+        detail: 'You learn where things are inside a person. It is applicable.',
+        effects: [
+          { op: 'card', cardId: 'pressure_cut' },
+          { op: 'health', amount: 10 },
+        ],
+        risk: 'None',
+        payoff: 'Immediate, specific',
+      },
+      {
+        id: 'pass',
+        label: 'Keep your place in the lane',
+        detail: 'The queue is long, and you are not the worst of it.',
+        effects: [],
+        isLeave: true,
+        risk: 'None',
+        payoff: 'None',
+      },
+    ],
+  },
+
+  {
+    id: 'the_archive_hulk',
+    name: 'The Archive Hulk',
+    body:
+      'A library ship, holed and airless, its collection still racked and still readable. ' +
+      'Whoever holed it did not stop to take anything, which tells you what they thought the ' +
+      'contents were worth.',
+    options: [
+      {
+        id: 'read',
+        label: 'Read until your air runs low',
+        detail: 'Forms, drills, and one manual on a stance nobody teaches now.',
+        effects: [
+          { op: 'upgradeRandomCard' },
+          { op: 'health', amount: -7 },
+        ],
+        risk: 'The body',
+        payoff: 'Immediate, specific',
+      },
+      {
+        id: 'index',
+        label: 'Take the index only',
+        detail: 'Not the books. The list of where the books came from.',
+        effects: [{ op: 'setThread', threadId: 'navigators_favour' }],
+        risk: 'Unknown',
+        payoff: 'Unknown',
+      },
+      {
+        id: 'racks',
+        label: 'Sell the racks',
+        detail: 'The shelving is worth more than the collection. That is the joke.',
+        effects: [{ op: 'alloy', amount: 105 }],
+        risk: 'Moral',
+        payoff: 'Immediate, moderate',
+      },
+      {
+        id: 'pass',
+        label: 'Leave it racked',
+        detail: 'Somebody may come who can read it properly.',
+        effects: [],
+        isLeave: true,
+        risk: 'None',
+        payoff: 'None',
+      },
+    ],
+  },
+
+  {
+    id: 'the_burning_lane',
+    name: 'The Burning Lane',
+    acts: [2, 3],
+    body:
+      'A transit lane running hot. Some cascade three months upstream is still arriving, and ' +
+      'everything that flies it comes out the far side cooked. It is four days shorter than ' +
+      'going around.',
+    options: [
+      {
+        id: 'run',
+        label: 'Run it hot',
+        detail: 'Four days saved. The reactor will remember.',
+        effects: [
+          { op: 'alloy', amount: 130 },
+          { op: 'setThread', threadId: 'coolant_leak' },
+        ],
+        risk: 'Deferred',
+        payoff: 'Immediate, large',
+      },
+      {
+        id: 'shielded',
+        label: 'Go slow and shielded',
+        detail: 'You arrive intact, and a great deal later.',
+        effects: [{ op: 'health', amount: 16 }],
+        risk: 'None',
+        payoff: 'Immediate, moderate',
+      },
+      {
+        id: 'tune',
+        label: 'Tune the cutter to the lane',
+        detail: 'Run the loop the way the lane wants it run, and learn something permanent.',
+        effects: [
+          { op: 'card', cardId: 'coolant_burst' },
+          { op: 'health', amount: -9 },
+        ],
+        risk: 'The body',
+        payoff: 'Immediate, specific',
+      },
+      {
+        id: 'pass',
+        label: 'Go around',
+        detail: 'Four days is four days.',
+        effects: [],
+        isLeave: true,
+        risk: 'None',
+        payoff: 'None',
+      },
+    ],
+  },
 ];

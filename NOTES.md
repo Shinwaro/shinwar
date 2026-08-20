@@ -1902,3 +1902,35 @@ Five of 42 Anomaly options restore health now, up from three. The Shrine offers 
 free rest; the Market sells field supplies at a worse rate per point than the
 Station's patch — because a market stall is not a medical bay, but it is *here*,
 and the Station may be three nodes away.
+
+## M6: the Anomaly pool
+
+Ten Anomalies against a run that walks roughly twenty of them, each spent once
+(`seenEvents`), meant the back half of every run met nothing new — and the map
+got duller exactly when the deck got interesting. Twenty-two now.
+
+The template held without changes, which is the useful part: a named situation,
+three options answering different needs, at least one deferring into a Thread,
+and a leave that pays nothing. The validator caught three of the twelve for
+having no deferred option, which is the rule doing its job rather than the rule
+getting in the way — and the fix was to find the option in each that *should*
+have had consequences (taking a working forge, paying for a queue of strangers,
+working somebody's salvage stacks while they watch).
+
+**Several carry `acts` now.** An Anomaly that only shows up in Act 2 or 3 can
+assume you have a deck and some Alloy, so it can ask a harder question than one
+that has to work on turn three of Act 1 — the Pressure Auction wants 120 Alloy
+for a card, and the Mirror Wake is Act 3 only because it is about recognising
+your own flying. The pools land at 17 / 21 / 22 by act.
+
+Where the 90 options sit: 25 open a Thread, 11 restore health, 2 start a fight.
+That heal count matters more than it looks — before this pass there were three
+in the whole pool, so a route with no Safe Planet on it had nowhere at all to
+recover.
+
+### The pool-size test now asserts a floor, not a count
+
+`expect(length).toBe(10)` was fine at M4 and became a chore the moment the pool
+grew. What actually matters is that the pool outlasts a run, so it asserts ≥20 —
+plus a new one that every act has at least twelve to draw from, since `acts` is
+also the way a pool accidentally empties for Act 1.
