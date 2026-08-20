@@ -184,6 +184,11 @@ function assignTypes(
 ): { types: Map<string, NodeType>; rng: RngState } {
   const types = new Map<string, NodeType>();
   let current = rng;
+  // Clamped clear of the opening rows, the rest-before-boss and the boss.
+  const stationRow = Math.min(
+    rows - 3,
+    Math.max(MAP.earliestSpecialRow, Math.round((rows - 1) * MAP.stationRowAt)),
+  );
 
   for (let row = 0; row < rows; row++) {
     for (const col of skeleton.cells[row] ?? []) {
@@ -201,6 +206,11 @@ function assignTypes(
       }
       if (MAP.restBeforeBoss && row === rows - 2) {
         types.set(id, 'safe');
+        continue;
+      }
+      // The guaranteed Station row. See MAP.stationRowAt.
+      if (row === stationRow) {
+        types.set(id, 'station');
         continue;
       }
 

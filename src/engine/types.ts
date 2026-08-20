@@ -250,7 +250,7 @@ export interface StatusDef {
   /**
    * Unblockable damage per stack, at the start of the holder's turn.
    *
-   * Declared rather than hooked so a poison is a row in a table instead of a
+   * Declared rather than hooked so a rust is a row in a table instead of a
    * handler somewhere else: the tick lives in one place and every status that
    * wants one gets the same one.
    */

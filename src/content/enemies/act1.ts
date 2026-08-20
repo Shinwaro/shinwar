@@ -15,7 +15,7 @@
  *   Cinder Wisp  — no threat in damage, but it Scalds. It is the reason to kill
  *                  something fast rather than grind, and it is how a first-time
  *                  player meets the overheat threshold without being ambushed.
- *   Rust Tick    — a poison clock. Blocking does nothing about it, so it is the
+ *   Rust Tick    — a rust clock. Blocking does nothing about it, so it is the
  *                  first enemy that cannot be solved by defending.
  *   Kiln Adept   — grows. Every turn you leave it alive it hits harder, which
  *                  turns "who do I kill first" into a real question the moment
@@ -23,7 +23,7 @@
  */
 
 import type { EnemyDef } from '../../engine/types.ts';
-import { POISON, SCALD, STRENGTH, WEAK } from '../statuses.ts';
+import { RUST, SCALD, STRENGTH, WEAK } from '../statuses.ts';
 
 export const SCRAP_HOUND = 'scrap_hound';
 export const LATHE_DRONE = 'lathe_drone';
@@ -132,7 +132,7 @@ export const ACT1_ENEMIES: readonly EnemyDef[] = [
   },
 
   {
-    /* The first enemy Block cannot answer. Low damage, but the poison is a clock
+    /* The first enemy Block cannot answer. Low damage, but the rust is a clock
        that runs whatever you do about it, so the correct play is to stop
        defending and end it. */
     id: RUST_TICK,
@@ -146,11 +146,11 @@ export const ACT1_ENEMIES: readonly EnemyDef[] = [
         label: 'Lance',
         intent: [
           { kind: 'attack', amount: 2, times: 1, label: 'Lance' },
-          { kind: 'debuff', amount: 2, times: 1, label: 'Poison 2' },
+          { kind: 'debuff', amount: 2, times: 1, label: 'Rust 2' },
         ],
         effects: [
           { op: 'damage', amount: 2, target: 'enemy' },
-          { op: 'applyStatus', status: POISON, stacks: 2, target: 'enemy' },
+          { op: 'applyStatus', status: RUST, stacks: 2, target: 'enemy' },
         ],
       },
       {

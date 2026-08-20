@@ -105,13 +105,16 @@ export interface StanceRules {
   readonly spendsFocus: boolean;
   /** What a stack is worth when it is finally spent. */
   readonly focusPerStack: number;
+  /** At or above this Heat, attacks in this stance gain `hotDamage`. */
+  readonly hotDamageAtHeat?: number;
+  readonly hotDamage?: number;
 }
 
 export const STANCES: { readonly [K in StanceId]: StanceRules } = {
   iai: {
     id: 'iai',
     name: 'IAI',
-    text: 'Attacks spend Focus · +2 Heat at turn end',
+    text: 'Attacks spend Focus · +2 damage at 5+ Heat · +2 Heat at turn end',
     firstAttackBonus: 0,
     heatAtTurnEnd: 2,
     ventAtTurnEnd: 0,
@@ -120,6 +123,10 @@ export const STANCES: { readonly [K in StanceId]: StanceRules } = {
     attackPenalty: 0,
     spendsFocus: true,
     focusPerStack: FOCUS_DAMAGE_PER_STACK,
+    // The reward for the Heat IAI charges you. Without it the stance was all
+    // cost: 2 a turn, and nothing for living up there.
+    hotDamageAtHeat: 5,
+    hotDamage: 2,
   },
   guard: {
     id: 'guard',
@@ -279,6 +286,16 @@ export const MAP = {
   safeSpacing: 2,
   /** The row before the boss is always a Safe Planet. StS's rest-before-boss. */
   restBeforeBoss: true,
+  /**
+   * One row, about here through the act, is entirely Stations.
+   *
+   * Stations were ~5% of nodes and every map had one, which sounds fine and is
+   * not: a *route* only visits about fifteen nodes, so walking a whole act
+   * without a shop on your lane was common. A run reached Act 3 with 1006 Alloy
+   * and had never seen one. The same trick as the rest-before-boss — a full row,
+   * so every route meets exactly one guaranteed, and rolled Stations are extra.
+   */
+  stationRowAt: 0.55,
 } as const;
 
 /**

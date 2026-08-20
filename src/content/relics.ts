@@ -39,9 +39,9 @@ export const RELICS: readonly RelicDef[] = [
   {
     id: 'whetted_edge',
     name: 'Whetted Edge',
-    text: 'Every attack deals 2 more.',
+    text: 'Every attack deals 1 more.',
     rarity: 'rare',
-    passive: { damageFlat: 2 },
+    passive: { damageFlat: 1 },
     flavor: 'Nothing clever. A better edge, kept better.',
   },
   {
@@ -97,9 +97,9 @@ export const RELICS: readonly RelicDef[] = [
   {
     id: 'drawn_string',
     name: 'Drawn String',
-    text: 'Each stack of Focus is worth 1 more when it is spent.',
+    text: 'Each stack of Focus is worth 2 more when it is spent.',
     rarity: 'rare',
-    passive: { focusPerStackBonus: 1 },
+    passive: { focusPerStackBonus: 2 },
     flavor: 'Wound tighter than it should be. That is the entire technique.',
   },
   {

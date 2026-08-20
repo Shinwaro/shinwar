@@ -81,21 +81,15 @@ function renderOption(store: Store, option: EventOption, refusal: string | null)
     // Refused options stay on screen rather than vanishing: knowing what you
     // could not afford is part of reading the situation.
     refusal === null ? null : el('span', { class: 'anomaly-refusal' }, [refusal]),
-    el('span', { class: 'anomaly-chips' }, [
-      chip('RISK', option.risk),
-      chip('PAYOFF', option.payoff),
-    ]),
+    /* RISK and PAYOFF chips are gone. The generated mechanical line above
+       already says what the option does, and the categories were restating it
+       one abstraction up -- two labels that mostly read "Immediate, moderate"
+       next to a sentence that said exactly what would happen. */
   ]);
 
   return node;
 }
 
-function chip(label: string, value: string): HTMLElement {
-  return el('span', { class: 'anomaly-chip' }, [
-    el('span', { class: 'anomaly-chip-label' }, [label]),
-    el('span', { class: 'anomaly-chip-value' }, [value]),
-  ]);
-}
 
 function renderOutcome(store: Store, chosen: EventOption, lines: readonly string[]): HTMLElement {
   return el('div', { class: 'anomaly-outcome' }, [

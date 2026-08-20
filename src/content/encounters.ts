@@ -69,7 +69,7 @@ export const ENCOUNTERS: readonly EncounterDef[] = [
   },
   {
     /* The clock and the wall. Burrow makes the Tick slow to kill, and the
-       poison runs the whole time you are trying. */
+       rust runs the whole time you are trying. */
     id: 'tick_nest',
     name: 'Nest',
     act: 1,

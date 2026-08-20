@@ -66,7 +66,7 @@ export function heatStatus(state: GameState): {
   const damage = overheatDamageAt(combat.heat, maxHealth, threshold);
   const atThreshold = overheatDamageAt(threshold, maxHealth, threshold);
   const critical = combat.heat >= HEAT.criticalAt;
-  const lostTurn = HEAT.overheatSkipsTurn ? ', lose your next turn' : '';
+  const lostTurn = HEAT.overheatSkipsTurn ? ', gain 0 Energy next turn' : '';
   return {
     heat: combat.heat,
     max: HEAT.max,

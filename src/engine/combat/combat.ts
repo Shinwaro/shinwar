@@ -214,7 +214,7 @@ export function startPlayerTurn(state: GameState): GameState {
 
   if (!skipping && relics.ventPerTurn > 0) next = ventHeat(next, relics.ventPerTurn, 'relics');
 
-  // Poison and Scald tick here: after the hand is dealt and the intents are
+  // Rust and Scald tick here: after the hand is dealt and the intents are
   // committed, so the player sees the damage and the Heat *before* deciding
   // what to spend the turn on. A clock you only find out about after acting is
   // not a clock, it is an ambush.
@@ -488,7 +488,7 @@ export function advanceEnemyTurn(state: GameState): GameState {
       ),
     }));
 
-    // Whatever is eating this enemy eats it before it swings, so a poison that
+    // Whatever is eating this enemy eats it before it swings, so a rust that
     // kills it means the move never lands.
     next = tickStatuses(next, enemyTarget(uid));
     if (next.run?.combat?.enemies.find((entry) => entry.uid === uid)?.hp === 0) return next;

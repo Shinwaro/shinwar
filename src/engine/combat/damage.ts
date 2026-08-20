@@ -166,6 +166,18 @@ export function computeDamage(state: GameState, input: DamageInput): DamageBreak
     if (stance.attackPenalty > 0) {
       ctx = record(ctx, stance.name, 'add', ctx.amount - stance.attackPenalty);
     }
+    /*
+     * IAI's own passive: hot attacks hit harder.
+     *
+     * The stance charged 2 Heat a turn and gave nothing for standing in the
+     * heat it created, so riding the gauge was pure cost. This is the reward
+     * half, and it is declared here rather than hooked because it modifies a
+     * number the pipeline is in the middle of producing.
+     */
+    if (stance.hotDamageAtHeat !== undefined && combat.heat >= stance.hotDamageAtHeat) {
+      ctx = record(ctx, `${stance.name} hot`, 'add', ctx.amount + (stance.hotDamage ?? 0));
+    }
+
     // Relics, in the same step as Strength: flat, before anything multiplies.
     const relicFlat = pilotRules(state).damageFlat;
     if (relicFlat !== 0) ctx = record(ctx, 'Relics', 'add', ctx.amount + relicFlat);

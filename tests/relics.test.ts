@@ -125,8 +125,12 @@ describe('passives reach the number they modify', () => {
       consumesFocus: false,
     } as const;
 
+    // Read from the definition rather than hard-coding 2. These assertions are
+    // about the passive reaching the pipeline, not about what it is tuned to,
+    // and a retune should not fail a test that is checking the plumbing.
+    const edge = relicTable.get('whetted_edge').passive?.damageFlat ?? 0;
     expect(computeDamage(armed, shape).beforeBlock).toBe(
-      computeDamage(base, shape).beforeBlock + 2,
+      computeDamage(base, shape).beforeBlock + edge,
     );
     expect(previewDamage(armed, shape)).toEqual(computeDamage(armed, shape));
   });
@@ -171,12 +175,16 @@ describe('passives reach the number they modify', () => {
   it('sharpens Focus on top of whatever the stance already pays', () => {
     const base = makeFight({ stance: 'iai' });
     const armed = holding(base, 'drawn_string');
-    expect(liveStance(armed).focusPerStack).toBe(liveStance(base).focusPerStack + 1);
+    const sharpen = relicTable.get('drawn_string').passive?.focusPerStackBonus ?? 0;
+    expect(liveStance(armed).focusPerStack).toBe(liveStance(base).focusPerStack + sharpen);
   });
 
   it('adds up rather than letting the last one win', () => {
     const armed = holding(makeFight(), 'whetted_edge', 'coldforge_lining');
-    expect(pilotRules(armed).damageFlat).toBe(5);
+    const summed =
+      (relicTable.get('whetted_edge').passive?.damageFlat ?? 0) +
+      (relicTable.get('coldforge_lining').passive?.damageFlat ?? 0);
+    expect(pilotRules(armed).damageFlat).toBe(summed);
   });
 });
 

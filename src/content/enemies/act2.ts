@@ -16,7 +16,7 @@
  */
 
 import type { EnemyDef } from '../../engine/types.ts';
-import { POISON, STRENGTH, VULNERABLE, WEAK } from '../statuses.ts';
+import { RUST, STRENGTH, VULNERABLE, WEAK } from '../statuses.ts';
 
 export const SABLE_DRIFTER = 'sable_drifter';
 export const ARC_WELDER = 'arc_welder';
@@ -159,7 +159,7 @@ export const ACT2_ENEMIES: readonly EnemyDef[] = [
 
   {
     /* Act 2's clock. Almost no damage of its own and a lot of health, so it
-       cannot be out-blocked and cannot be ignored -- the poison runs for as long
+       cannot be out-blocked and cannot be ignored -- the rust runs for as long
        as it is alive, which makes killing it the play even when something else
        is hitting harder. */
     id: BLOOM_WEEVIL,
@@ -171,19 +171,19 @@ export const ACT2_ENEMIES: readonly EnemyDef[] = [
       {
         id: 'seed',
         label: 'Seed',
-        intent: [{ kind: 'debuff', amount: 4, times: 1, label: 'Poison 4' }],
-        effects: [{ op: 'applyStatus', status: POISON, stacks: 4, target: 'enemy' }],
+        intent: [{ kind: 'debuff', amount: 4, times: 1, label: 'Rust 4' }],
+        effects: [{ op: 'applyStatus', status: RUST, stacks: 4, target: 'enemy' }],
       },
       {
         id: 'gnaw',
         label: 'Gnaw',
         intent: [
           { kind: 'attack', amount: 4, times: 1, label: 'Gnaw' },
-          { kind: 'debuff', amount: 2, times: 1, label: 'Poison 2' },
+          { kind: 'debuff', amount: 2, times: 1, label: 'Rust 2' },
         ],
         effects: [
           { op: 'damage', amount: 4, target: 'enemy' },
-          { op: 'applyStatus', status: POISON, stacks: 2, target: 'enemy' },
+          { op: 'applyStatus', status: RUST, stacks: 2, target: 'enemy' },
         ],
       },
       {

@@ -78,18 +78,24 @@ export const FOCUS_CARDS: readonly CardDef[] = [
     rarity: 'rare',
     archetype: 'iai',
     cost: 1,
-    // Scales on the stack itself, on top of the stack it is already spending.
-    // In IAI this is the cash-out; in GUARD it is a weak hit that keeps the
-    // bank intact, which is exactly the decision the stance layer is for.
+    /*
+     * The scaling term runs FIRST, and that ordering is the whole card.
+     *
+     * In IAI the opening damage instance is the one that spends the Focus
+     * stack, so a `scaleWith source: 'focus'` placed after it read a stack that
+     * was already zero — the card's entire rare-tier payoff silently did
+     * nothing in the one stance built to use it. Reading the stack before
+     * anything consumes it is what makes the printed number true.
+     */
     effects: [
-      { op: 'damage', amount: 4, target: 'enemy' },
-      { op: 'scaleWith', source: 'focus', per: 1, then: [{ op: 'damage', amount: 2, target: 'enemy' }] },
+      { op: 'scaleWith', source: 'focus', per: 1, then: [{ op: 'damage', amount: 3, target: 'enemy' }] },
+      { op: 'damage', amount: 6, target: 'enemy' },
     ],
     upgrade: {
       name: 'The Long Draw+',
       effects: [
-        { op: 'damage', amount: 6, target: 'enemy' },
-        { op: 'scaleWith', source: 'focus', per: 1, then: [{ op: 'damage', amount: 3, target: 'enemy' }] },
+        { op: 'scaleWith', source: 'focus', per: 1, then: [{ op: 'damage', amount: 4, target: 'enemy' }] },
+        { op: 'damage', amount: 9, target: 'enemy' },
       ],
     },
     flavor: 'The cut is short. Everything before it was not.',

@@ -114,10 +114,22 @@ export function moveToDiscard(combat: CombatState, card: CardInstance): CombatSt
   };
 }
 
+/**
+ * Out of the fight for good.
+ *
+ * Pulls from the discard as well as the hand, and that is the whole bug this
+ * carries a comment for: a card is moved to the discard by the normal play flow
+ * *before* `retireCard` decides to exhaust it. Filtering only the hand left the
+ * instance sitting in the discard AND listed in exhaust, so the next reshuffle
+ * dealt it straight back. An Exhaust card could be played three times in a
+ * fight, which quietly undoes every deck decision built on "once".
+ */
 export function moveToExhaust(combat: CombatState, card: CardInstance): CombatState {
   return {
     ...combat,
     hand: combat.hand.filter((entry) => entry.uid !== card.uid),
+    discard: combat.discard.filter((entry) => entry.uid !== card.uid),
+    draw: combat.draw.filter((entry) => entry.uid !== card.uid),
     exhaust: [...combat.exhaust, card],
   };
 }

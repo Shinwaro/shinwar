@@ -24,22 +24,12 @@ export const KEYWORDS: readonly KeywordDef[] = [
   {
     id: 'exhaust',
     name: 'Exhaust',
-    text: 'Leaves the fight when played. It does not return when the discard reshuffles.',
+    text: 'Gone for the rest of the fight once played.',
   },
   {
     id: 'innate',
     name: 'Innate',
-    text: 'Always in your opening hand.',
-  },
-  {
-    id: 'block',
-    name: 'Block',
-    text: 'Absorbs damage before your health does. Lost at the start of your turn — GUARD keeps 3.',
-  },
-  {
-    id: 'heat',
-    name: 'Heat',
-    text: 'Builds up over the fight and never decays on its own. Above the threshold at the end of your turn, you overheat.',
+    text: 'Starts in your hand every fight.',
   },
   {
     id: 'focus',
@@ -49,6 +39,6 @@ export const KEYWORDS: readonly KeywordDef[] = [
   {
     id: 'energy',
     name: 'Energy',
-    text: 'What a card costs. Refills at the start of every turn.',
+    text: 'Refills at the start of every turn.',
   },
 ];

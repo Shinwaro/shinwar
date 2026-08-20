@@ -60,16 +60,14 @@ export const TEMPO_CARDS: readonly CardDef[] = [
     archetype: 'overheat',
     cost: 0,
     effects: [
-      { op: 'gainEnergy', amount: 2 },
+      { op: 'gainEnergy', amount: 1 },
       { op: 'gainHeat', amount: 3 },
-      { op: 'draw', amount: 1 },
     ],
     upgrade: {
       name: 'Runaway Intake+',
       effects: [
-        { op: 'gainEnergy', amount: 3 },
+        { op: 'gainEnergy', amount: 2 },
         { op: 'gainHeat', amount: 3 },
-        { op: 'draw', amount: 1 },
       ],
     },
     flavor: 'Everything the reactor has, right now, and the bill at the end of the turn.',
@@ -87,10 +85,7 @@ export const TEMPO_CARDS: readonly CardDef[] = [
       {
         op: 'conditional',
         when: { kind: 'cardsPlayedThisTurnAtLeast', value: 3 },
-        then: [
-          { op: 'draw', amount: 2 },
-          { op: 'gainEnergy', amount: 1 },
-        ],
+        then: [{ op: 'gainEnergy', amount: 1 }],
       },
     ],
     upgrade: {
@@ -100,10 +95,7 @@ export const TEMPO_CARDS: readonly CardDef[] = [
         {
           op: 'conditional',
           when: { kind: 'cardsPlayedThisTurnAtLeast', value: 2 },
-          then: [
-            { op: 'draw', amount: 2 },
-            { op: 'gainEnergy', amount: 1 },
-          ],
+          then: [{ op: 'gainEnergy', amount: 1 }],
         },
       ],
     },
@@ -226,7 +218,7 @@ export const TEMPO_CARDS: readonly CardDef[] = [
       { op: 'draw', amount: 2 },
       {
         op: 'conditional',
-        when: { kind: 'handSizeAtLeast', value: 5 },
+        when: { kind: 'handSizeAtLeast', value: 7 },
         then: [{ op: 'gainEnergy', amount: 1 }],
       },
     ],

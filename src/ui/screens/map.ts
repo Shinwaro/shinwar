@@ -236,7 +236,20 @@ function buildMap(
      with no layout does nothing at all. */
   requestAnimationFrame(() => {
     if (recentre) {
-      const anchor = field.querySelector('.star.is-here') ?? field.querySelector('.star.is-reachable');
+      /*
+       * Before the first move nothing is `is-here`, and the fallback found
+       * whichever reachable star came first in document order — which is near
+       * the top of a chart that is drawn boss-first. So a run opened scrolled
+       * away from its own starting row and you had to scroll down to begin.
+       * With no position, the answer is simply the bottom.
+       */
+      const here = field.querySelector('.star.is-here');
+      if (here === null) {
+        viewport.scrollTop = viewport.scrollHeight;
+        scroll.top = viewport.scrollTop;
+        return;
+      }
+      const anchor = here;
       if (anchor instanceof HTMLElement) {
         // Centre by arithmetic rather than `scrollIntoView`, which also walks
         // up and scrolls the page itself.

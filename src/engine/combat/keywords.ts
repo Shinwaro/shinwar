@@ -85,8 +85,8 @@ export function describeStatus(status: StatusId, stacks: number): string {
  * Everything a status does *per turn*, for one holder.
  *
  * One tick, in one place, driven by `damagePerTurn` and `heatPerTurn` on the
- * status row. A poison is therefore a line of data rather than a handler, and
- * the day a second poison-like status arrives it gets the same tick for free
+ * status row. A rust is therefore a line of data rather than a handler, and
+ * the day a second rust-like status arrives it gets the same tick for free
  * instead of a second copy of this that drifts.
  *
  * Unblockable on purpose: Block is the answer to nearly everything else, so the

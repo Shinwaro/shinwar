@@ -6,11 +6,11 @@
  *
  * Target is <= 14 keywords at 1.0. Counting the ones that need explaining:
  * Block, Heat, Focus, Vulnerable, Weak, Strength, Exhaust, Innate, Irradiate,
- * Poison, Scald. Eleven.
+ * Rust, Scald. Eleven.
  *
- * Poison and Scald exist because every enemy was asking the same question --
+ * Rust and Scald exist because every enemy was asking the same question --
  * "can you out-damage this" -- and the answer was always the same shape. A
- * poison is a clock you cannot block, and a Scald pushes you toward an overheat
+ * rust is a clock you cannot block, and a Scald pushes you toward an overheat
  * you were managing fine. Both make the fight a different problem rather than a
  * bigger one.
  */
@@ -21,7 +21,7 @@ export const VULNERABLE = 'vulnerable';
 export const WEAK = 'weak';
 export const STRENGTH = 'strength';
 export const IRRADIATE = 'irradiate';
-export const POISON = 'poison';
+export const RUST = 'rust';
 export const SCALD = 'scald';
 
 export const STATUSES: readonly StatusDef[] = [
@@ -44,7 +44,7 @@ export const STATUSES: readonly StatusDef[] = [
   {
     id: STRENGTH,
     name: 'Strength',
-    text: 'Attacks deal 1 more damage per stack. Does not decay.',
+    text: 'Attacks deal 1 more damage per stack.',
     kind: 'buff',
     decay: 'never',
     damageDealtFlat: 1,
@@ -55,7 +55,7 @@ export const STATUSES: readonly StatusDef[] = [
   {
     id: IRRADIATE,
     name: 'Irradiate',
-    text: 'Takes 1 damage per stack at the start of each turn. Does not decay.',
+    text: 'Takes 1 damage per stack at the start of each turn.',
     kind: 'debuff',
     decay: 'never',
   },
@@ -63,9 +63,9 @@ export const STATUSES: readonly StatusDef[] = [
      in this game, so the interesting version of pressure is the kind that walks
      past it — and it falls off, so it is a reason to hurry rather than a tax. */
   {
-    id: POISON,
-    name: 'Poison',
-    text: 'Takes 1 damage per stack at the start of its turn, ignoring Block. One stack falls off after.',
+    id: RUST,
+    name: 'Rust',
+    text: 'Takes 1 damage per stack at the start of its turn. Ignores Block.',
     kind: 'debuff',
     decay: 'turn',
     damagePerTurn: 1,
@@ -76,7 +76,7 @@ export const STATUSES: readonly StatusDef[] = [
   {
     id: SCALD,
     name: 'Scald',
-    text: 'Gain 1 Heat per stack at the start of your turn. Does not decay.',
+    text: 'Gain 1 Heat per stack at the start of your turn.',
     kind: 'debuff',
     decay: 'never',
     heatPerTurn: 1,
