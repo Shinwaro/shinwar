@@ -558,10 +558,33 @@
   color: inherit;
   text-align: left;
   cursor: pointer;
+  position: relative;
   transition:
     transform 0.12s,
     border-color 0.12s,
     box-shadow 0.12s;
+}
+
+/*
+ * The hover lift moves the card out from under the cursor, which un-hovers it,
+ * which drops it back under the cursor, which hovers it again. The card
+ * flickers and clicks land on nothing — you have to leave the hand and come
+ * back to break the loop.
+ *
+ * The lift stays; the hit area stops moving. This pad hangs below the card and
+ * covers exactly the gap the lift opens, so the pointer is never outside the
+ * element it is hovering. It is transparent and behind the content, so it
+ * changes nothing except where the mouse counts as being.
+ */
+.card::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  /* Deeper than the largest lift, which is `is-selected` at 10px. */
+  bottom: -14px;
+  z-index: -1;
 }
 
 .card:hover {

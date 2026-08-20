@@ -22,6 +22,8 @@ import { button, el, fill } from '../dom.ts';
 import { liveScreen } from '../screen.ts';
 import { renderRunBar } from '../components/runbar.ts';
 import { renderManifest } from '../components/manifest.ts';
+import { renderCardFace } from '../components/card.ts';
+import { definitionOf } from '../../engine/combat/combat.ts';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -97,13 +99,25 @@ export function renderMap(store: Store): HTMLElement {
    */
   const scroll = { top: 0 };
 
-  return liveScreen(store, 'map screen', (state) => {
+  /* Whether the deck list is open. UI state — it changes nothing about the
+     world, so it never goes near the reducer. */
+  const view = { showDeck: false };
+  let host: HTMLElement | null = null;
+
+  const rerender = (): void => {
+    const state = store.getState();
+    if (state.run === null || state.run.screen !== 'map') return;
+    host?.replaceChildren(buildMap(store, state, false, scroll, view, rerender));
+  };
+
+  host = liveScreen(store, 'map screen', (state) => {
     if (state.run === null || state.run.screen !== 'map') return null;
     const anchor = state.run.position ?? state.run.map?.startId ?? null;
     const moved = anchor !== lastAnchor;
     lastAnchor = anchor;
-    return buildMap(store, state, moved, scroll);
+    return buildMap(store, state, moved, scroll, view, rerender);
   });
+  return host;
 }
 
 function buildMap(
@@ -111,8 +125,11 @@ function buildMap(
   state: GameState,
   recentre: boolean,
   scroll: { top: number },
+  view: { showDeck: boolean },
+  rerender: () => void,
 ): HTMLElement {
   const run = requireRun(state);
+  if (view.showDeck) return buildDeckList(store, state, view, rerender);
   const map = run.map;
   if (map === null) return el('div', { class: 'map-inner' }, ['No map.']);
 
@@ -234,7 +251,25 @@ function buildMap(
   /* `requestAnimationFrame`, not a microtask: on a fresh mount the screen is
      still detached when microtasks run, and setting `scrollTop` on an element
      with no layout does nothing at all. */
-  requestAnimationFrame(() => {
+  /* Two frames, not one. A single `requestAnimationFrame` still fires while the
+     screen is detached on a fresh mount, so `scrollHeight` equals `clientHeight`
+     and every scroll calculation below quietly resolves to zero. The second
+     frame is the first one that sees real layout. */
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    /*
+     * Before the first move there is no `is-here`, and the chart is drawn
+     * boss-first — so the starting row sits at the BOTTOM and an untouched
+     * viewport opens looking at the boss. Pinning to the bottom is done here
+     * rather than inside `recentre` because the screen renders twice on mount
+     * and the second render was restoring a scroll position captured before the
+     * first one had laid out. Idempotent, so whichever render wins is fine.
+     */
+    if (field.querySelector('.star.is-here') === null && scroll.top === 0) {
+      viewport.scrollTop = viewport.scrollHeight;
+      scroll.top = viewport.scrollTop;
+      return;
+    }
+
     if (recentre) {
       /*
        * Before the first move nothing is `is-here`, and the fallback found
@@ -260,7 +295,7 @@ function buildMap(
       return;
     }
     viewport.scrollTop = scroll.top;
-  });
+  }));
 
   // The Manifest sits on the chart, not behind the pause key. What you are
   // carrying is part of reading the route.
@@ -269,6 +304,14 @@ function buildMap(
     el('div', { class: 'map-head' }, [
       el('span', { class: 'map-act' }, [`Act ${map.act}`]),
       renderWavefront(run),
+      /* Reading the route means knowing what you will draw while you walk it.
+         Deck size alone was on the run bar; the deck itself was only behind the
+         pause key, which is a strange place to hide the thing the map decision
+         is actually about. */
+      button(`Deck (${run.pilot.deck.length})`, { class: 'btn btn-quiet' }, () => {
+        view.showDeck = true;
+        rerender();
+      }),
     ]),
     readout,
     renderManifest(state, 'Carrying'),
@@ -306,5 +349,51 @@ function renderWavefront(run: RunState): HTMLElement | null {
         ? 'The next fight starts hot, and they start stronger.'
         : 'A Station or a Safe Planet costs two rows of lead instead of one.',
     ]),
+  ]);
+}
+
+/**
+ * The deck, from the map.
+ *
+ * Reading a route means knowing what you will draw while you walk it. Deck size
+ * was on the run bar and the list itself was behind the pause key, which is an
+ * odd place to keep the thing the routing decision is actually about.
+ */
+function buildDeckList(
+  store: Store,
+  state: GameState,
+  view: { showDeck: boolean },
+  rerender: () => void,
+): HTMLElement {
+  const run = requireRun(state);
+  const sorted = [...run.pilot.deck].sort((a, b) => {
+    const left = definitionOf(a);
+    const right = definitionOf(b);
+    return left.cost === right.cost
+      ? left.name.localeCompare(right.name)
+      : Number(left.cost) - Number(right.cost);
+  });
+
+  return el('div', { class: 'map-inner' }, [
+    renderRunBar(store, state),
+    el('h1', { class: 'screen-title' }, [`Deck (${sorted.length})`]),
+    el('div', { class: 'picker-actions' }, [
+      button('Back to the chart', { class: 'btn btn-primary' }, () => {
+        view.showDeck = false;
+        rerender();
+      }),
+    ]),
+    el(
+      'div',
+      { class: 'deck-list' },
+      sorted.map((card) =>
+        renderCardFace(definitionOf(card), {
+          state,
+          badge: card.upgraded ? 'Forged' : null,
+          changedVs: null,
+          extraClass: null,
+        }),
+      ),
+    ),
   ]);
 }

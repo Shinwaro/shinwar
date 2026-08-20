@@ -395,7 +395,29 @@ export function playCard(state: GameState, cardUid: string, targetUid: string | 
   next = retireCard(result.state, card, result.context.exhaustSelf || def.exhaust === true);
   next = fireHook(next, 'onCardPlayed', { cardUid: card.uid, cardId: def.id });
 
-  return checkOutcome(next);
+  next = checkOutcome(next);
+
+  /*
+   * A full gauge ends the turn where you stand.
+   *
+   * At the top of the bar there is nothing left to decide -- Heat cannot go
+   * higher, so every further card is played into a foregone overheat. Ending it
+   * here makes the ceiling mean something in the moment rather than at the end
+   * of a turn you were already committed to, and the consequence is the ordinary
+   * overheat, not a second worse one.
+   */
+  const hot = next.run?.combat;
+  if (hot !== undefined && hot !== null && hot.outcome === 'ongoing' && hot.heat >= HEAT.max) {
+    next = appendLog(next, {
+      source: 'heat',
+      kind: 'heat',
+      text: `Heat ${hot.heat}/${HEAT.max}. The reactor decides the turn is over.`,
+      detail: { heat: hot.heat },
+    });
+    return endPlayerTurn(next);
+  }
+
+  return next;
 }
 
 /* ---------- ending the turn ---------- */
