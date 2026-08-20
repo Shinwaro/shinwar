@@ -61,7 +61,9 @@ function build(store: Store, state: GameState, local: Local, redraw: () => void)
   if (local.picking !== null && shop !== null) return buildPicker(store, state, local, redraw);
 
   const bodyMissing = run.pilot.maxHealth - run.pilot.health;
-  const bodyAffordable = Math.min(bodyMissing, Math.floor(run.alloy / ECONOMY.hullRepairPerPoint));
+  // One fixed patch, not a slider. What it restores is a fraction of MAX health,
+  // capped by what is actually missing.
+  const patch = Math.min(bodyMissing, Math.round(run.pilot.maxHealth * ECONOMY.repairPct));
 
   return el('div', { class: 'station-inner' }, [
     renderRunBar(store, state),
@@ -209,17 +211,21 @@ function build(store: Store, state: GameState, local: Local, redraw: () => void)
                 redraw();
               },
             ),
-        serviceOption(
-          'Patch up',
-          bodyAffordable === 0
-            ? bodyMissing === 0
-              ? 'Nothing to repair.'
-              : 'Not enough Alloy.'
-            : `Recover ${bodyAffordable} health for ${bodyAffordable * ECONOMY.hullRepairPerPoint} Alloy.`,
-          `You are down ${bodyMissing}.`,
-          bodyAffordable === 0,
-          () => store.dispatch({ kind: 'stationRepair', amount: bodyAffordable }),
-        ),
+        shop === null
+          ? null
+          : serviceOption(
+              shop.repairUsed ? 'Patched up' : 'Patch up',
+              `${shop.repairPrice} Alloy for ${patch} health, one per Station.`,
+              shop.repairUsed
+                ? 'This station has done its one.'
+                : bodyMissing === 0
+                  ? 'Nothing to repair.'
+                  : run.alloy < shop.repairPrice
+                    ? 'Not enough Alloy.'
+                    : `You are down ${bodyMissing}.`,
+              shop.repairUsed || bodyMissing === 0 || run.alloy < shop.repairPrice,
+              () => store.dispatch({ kind: 'stationRepair' }),
+            ),
       ]),
     ]),
 

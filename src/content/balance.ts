@@ -207,7 +207,17 @@ export const ECONOMY = {
   /** Rises per purchase, per Slay the Spire's model — it stops you removing your whole deck. */
   cardRemovalBase: 60,
   cardRemovalIncrement: 15,
-  hullRepairPerPoint: 1,
+  /**
+   * Patching up is one fixed purchase, not a slider.
+   *
+   * It used to be 1 Alloy a point, which meant a full heal for 70 — cheaper
+   * than a common card, and it made health something you bought back rather
+   * than something you spent. A fixed fraction at a fixed price competes with
+   * an implant and a card for the same Alloy, which is the decision the Station
+   * is supposed to pose. Once per Station, like the forge and the removal.
+   */
+  repairPct: 0.5,
+  repairPrice: 150,
   /** Safe Planet: trade health for Alloy. */
   refuelHullCost: 8,
   refuelAlloyGain: 60,

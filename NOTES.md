@@ -1791,3 +1791,56 @@ Not tuned here, deliberately — Robin's read was that the game is in a good spo
 and possibly slightly too hard, and this is the measurement that says by how
 much. The obvious levers, cheapest first: `FOCUS_DAMAGE_PER_STACK` 2 -> 3,
 Solar Shield's base Block 6 -> 8, or the Act 1 enemy damage that pass 10 raised.
+
+## Threads you can learn from
+
+Robin's question was not "when does it fire" — the Manifest's countdown had that
+covered. It was "what happened when it did", and the answer was: nothing you
+could see. The payout applied, the arrival screen auto-advanced after 2.6
+seconds, and a promise made five nodes ago landed with no way to connect it to
+the choice that caused it.
+
+Three changes, and the third is the one that matters:
+
+**The promise travels with the payout.** `ResolvedThread` carries the Thread's
+name, the description the Manifest has been showing all along — *"You signed for
+work you had not paid for. The yard has a collection arm."* — and the generated
+lines for what it just did. Name, cause, effect, in that order.
+
+**A payout stops the clock.** The auto-advance exists so an empty node is not a
+click you have to make; a Thread coming due is the opposite of an empty node.
+When anything resolved, the screen waits.
+
+**And it will not dismiss on a stray click.** Normally the whole plate is the
+dismiss target so a fast reader never hunts for the button. When a Thread has
+paid out it is the button only — the cost of one deliberate click is far lower
+than the cost of missing the one thing on screen worth reading.
+
+The design rule underneath: **vague when you agree to it, completely explicit
+when it lands.** An omen that named its payoff would remove the decision; a
+payout that does not name its omen removes the lesson.
+
+## The Station stops selling health cheaply
+
+1 Alloy a point meant a full heal for 70 — less than a common card, which made
+health something you bought back rather than something you spent. It is one
+fixed purchase now: half your max health for 150 Alloy, once per Station. That
+is implant money, so patching up competes with getting stronger, which is the
+trade a shop is for.
+
+## The Act 1 rollback, and what it did not fix
+
+Bite 11 -> 9 and Press 14 -> 12. Deliberately just the two spikes, per Robin's
+"very small change, don't overdo it".
+
+It did not recover the difficulty, and the measurement says why: **health lost
+per fight went 9.6 -> 11.9** even with the enemies hitting softer. The cause is
+not enemy damage at all — it is that defence got weaker and fights got longer in
+the same pass. Solar Shield lost its 3 GUARD Block, and Focus stopped arriving
+as a burst that could end a fight early. 54% of all health lost is now ordinary
+combat.
+
+Act 1 deaths sit at 80% over 250 runs. The enemy nerf helped; the repair
+reprice, which landed in the same measurement, cost more than it gave back. Both
+were asked for, so this is recorded rather than acted on — the next smallest
+lever is Solar Shield's base Block, not another enemy number.

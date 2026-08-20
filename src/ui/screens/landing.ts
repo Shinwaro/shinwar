@@ -42,8 +42,18 @@ export function renderLanding(store: Store): HTMLElement {
     const landing = requireRun(state).landing;
     if (landing === null) return null;
 
+    /*
+     * A Thread paying out stops the clock.
+     *
+     * The auto-advance exists so an empty node does not become a click you have
+     * to make. But a promise from five nodes ago landing is the one thing on
+     * this screen the player has to actually read — hurrying it past is how a
+     * Thread ends up feeling like the game did something arbitrary. If anything
+     * came due, the screen waits.
+     */
+    const held = landing.resolved.length > 0;
     window.clearTimeout(timer);
-    timer = window.setTimeout(leave, HOLD_MS);
+    if (!held) timer = window.setTimeout(leave, HOLD_MS);
 
     const inner = el(
       'div',
@@ -52,25 +62,38 @@ export function renderLanding(store: Store): HTMLElement {
         el('p', { class: 'landing-lede' }, ['You set down on']),
         el('h1', { class: 'landing-name' }, [landing.title]),
         el('p', { class: 'landing-body' }, [landing.body]),
-        /* What resolved on the way in. A Thread coming due used to pay out into
-           the log while the map re-rendered, so the promise it made five nodes
-           ago arrived somewhere nobody was looking. */
-        landing.notes.length === 0
-          ? null
-          : el(
-              'ul',
-              { class: 'landing-notes' },
-              landing.notes.map((line) => el('li', { class: 'landing-note' }, [line])),
-            ),
-        button('Continue', { class: 'btn btn-quiet landing-go' }, leave),
+
+        /* The causal link, spelled out: the Thread by name, what you took on,
+           and what it just did. Vague when you agreed to it, explicit now. */
+        ...landing.resolved.map((thread) =>
+          el('section', { class: `landing-thread landing-thread--${thread.tone}` }, [
+            el('p', { class: 'landing-thread-head' }, ['A thread comes due']),
+            el('h2', { class: 'landing-thread-name' }, [thread.name]),
+            el('p', { class: 'landing-thread-promise' }, [thread.promise]),
+            thread.lines.length === 0
+              ? null
+              : el(
+                  'ul',
+                  { class: 'landing-thread-lines' },
+                  thread.lines.map((line) => el('li', { class: 'landing-thread-line' }, [line])),
+                ),
+          ]),
+        ),
+
+        button(held ? 'Understood' : 'Continue', { class: `btn landing-go ${held ? 'btn-primary' : 'btn-quiet'}` }, leave),
       ],
     );
 
-    // The whole plate is the dismiss target, so a player who is reading fast
-    // never has to find the button.
-    const plate = el('div', { class: 'landing-plate', role: 'button', tabindex: '0' }, [inner]);
-    plate.addEventListener('click', leave);
+    /*
+     * Normally the whole plate dismisses, so a player who reads fast never has
+     * to hunt for the button. When a Thread has paid out it does not: a stray
+     * click would wipe the one thing on the screen that has to be read, and the
+     * cost of a deliberate click is much lower than the cost of missing it.
+     */
+    const plate = el('div', { class: `landing-plate${held ? ' is-held' : ''}`, role: 'button', tabindex: '0' }, [inner]);
+    if (!held) plate.addEventListener('click', leave);
     plate.addEventListener('keydown', (event) => {
+      if (held) return;
       if (event instanceof KeyboardEvent && (event.key === 'Enter' || event.key === ' ')) {
         event.preventDefault();
         leave();

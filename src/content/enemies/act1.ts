@@ -6,6 +6,12 @@
  * and every fight ends up asking the same question. So the big hits are big and
  * telegraphed a turn ahead, and the small turns are genuinely small.
  *
+ * The two spikes were dialled back a little after the Focus rework -- Bite 11
+ * to 9, Press 14 to 12. Small on purpose: the opening deck lost four things at
+ * once in that pass (IAI Slash's rider halved, Solar Shield's GUARD Block, a
+ * smaller Focus cap, and Focus paying per card rather than in a lump), so the
+ * fix belongs on the side that changed least.
+ *
  * Each one also asks a *different* question:
  *
  *   Scrap Hound  — unpredictable inside a readable range. Its repeat cap means
@@ -42,8 +48,8 @@ export const ACT1_ENEMIES: readonly EnemyDef[] = [
       {
         id: 'bite',
         label: 'Bite',
-        intent: [{ kind: 'attack', amount: 11, times: 1, label: 'Bite' }],
-        effects: [{ op: 'damage', amount: 11, target: 'enemy' }],
+        intent: [{ kind: 'attack', amount: 9, times: 1, label: 'Bite' }],
+        effects: [{ op: 'damage', amount: 9, target: 'enemy' }],
       },
       {
         id: 'snap',
@@ -87,8 +93,8 @@ export const ACT1_ENEMIES: readonly EnemyDef[] = [
            you can plan a Block around — that is the whole point of it. */
         id: 'press',
         label: 'Press',
-        intent: [{ kind: 'attack', amount: 14, times: 1, label: 'Press' }],
-        effects: [{ op: 'damage', amount: 14, target: 'enemy' }],
+        intent: [{ kind: 'attack', amount: 12, times: 1, label: 'Press' }],
+        effects: [{ op: 'damage', amount: 12, target: 'enemy' }],
       },
       {
         id: 'sap',

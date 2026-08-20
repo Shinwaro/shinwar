@@ -204,7 +204,7 @@ export function applyAction(state: GameState, action: Action): GameState {
 
     case 'stationRepair': {
       if (state.run?.screen !== 'station') return state;
-      return stationRepair(state, action.amount);
+      return stationRepair(state);
     }
 
     case 'buyShopCard': {

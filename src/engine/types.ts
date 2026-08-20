@@ -729,7 +729,25 @@ export interface LandingState {
    * out into a scrollback nobody was reading and the whole system felt inert.
    * The arrival beat is where "what just happened" belongs.
    */
-  readonly notes: readonly string[];
+  /**
+   * Threads that came due on the way in, and what each one did.
+   *
+   * Structured rather than a flat list of sentences, because the point is the
+   * *causal link*: a promise you made five nodes ago, named, with the thing you
+   * agreed to and the thing it just cost or gave. A player who cannot connect
+   * the payout to the choice cannot learn from either.
+   */
+  readonly resolved: readonly ResolvedThread[];
+}
+
+export interface ResolvedThread {
+  readonly threadId: ThreadId;
+  readonly name: string;
+  /** What you took on, in the words the Manifest has been showing all along. */
+  readonly promise: string;
+  /** What it actually did, generated from the payoff effects. */
+  readonly lines: readonly string[];
+  readonly tone: ThreadTone;
 }
 
 export interface PendingEvent {
@@ -773,6 +791,9 @@ export interface ShopState {
    */
   readonly forgePrice: number;
   readonly forgeUsed: boolean;
+  /** One patch-up per Station, at a fixed price for a fixed fraction. */
+  readonly repairPrice: number;
+  readonly repairUsed: boolean;
   /** The implant shelf. What Alloy is actually for. */
   readonly implants: readonly ShopImplantStock[];
 }

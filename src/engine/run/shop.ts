@@ -20,7 +20,7 @@ import { mintCard } from '../combat/instances.ts';
 import { removalCost, spendAlloy } from './economy.ts';
 import { describeImplant } from './describe.ts';
 import { offerableCards, rollMastery } from './rewards.ts';
-import { MASTERY, RARITY_WEIGHTS, SHOP } from '../../content/balance.ts';
+import { ECONOMY, MASTERY, RARITY_WEIGHTS, SHOP } from '../../content/balance.ts';
 import {
   cards as cardTable,
   implants as implantTable,
@@ -101,6 +101,8 @@ export function stockShop(state: GameState, nodeId: string): GameState {
     masterySold: false,
     forgePrice: SHOP.forgePrice,
     forgeUsed: false,
+    repairPrice: ECONOMY.repairPrice,
+    repairUsed: false,
     implants,
   };
 

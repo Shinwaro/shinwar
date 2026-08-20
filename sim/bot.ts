@@ -32,7 +32,7 @@ import {
   events as eventTable,
   implants as implantTable,
 } from '../src/content/registry.ts';
-import { ACTIVE_STANCES } from '../src/content/balance.ts';
+import { ACTIVE_STANCES, ECONOMY } from '../src/content/balance.ts';
 
 function eventDefOf(id: string): EventDef | null {
   return eventTable.find(id) ?? null;
@@ -390,10 +390,16 @@ function station(state: GameState): GameState {
   const shop = run.shop;
   if (shop === null) return applyAction(next, { kind: 'leaveNode' });
 
-  // Patch up first: health is the resource the run actually ends on.
+  /*
+   * Patch up first, but only when it is worth the price. It is one fixed
+   * purchase now, so buying it while barely scratched wastes most of it — and
+   * it costs about what an implant does, which is the trade the Station means
+   * to pose.
+   */
   const missing = run.pilot.maxHealth - run.pilot.health;
-  if (missing > 12 && run.alloy > 90) {
-    next = applyAction(next, { kind: 'stationRepair', amount: Math.min(missing, 25) });
+  const patch = Math.round(run.pilot.maxHealth * ECONOMY.repairPct);
+  if (missing >= patch * 0.7 && run.alloy >= (shop.repairPrice ?? 0) + 60) {
+    next = applyAction(next, { kind: 'stationRepair' });
   }
 
   /*

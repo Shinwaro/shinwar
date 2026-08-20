@@ -16,6 +16,7 @@ import { availableMoves, currentNode } from '../src/engine/map/route.ts';
 import { canPlay } from '../src/engine/combat/combat.ts';
 import { archetypeLean } from '../src/engine/run/rewards.ts';
 import { removalCost } from '../src/engine/run/economy.ts';
+import { stockShop } from '../src/engine/run/shop.ts';
 import { reloadContent } from '../src/content/index.ts';
 import { cards as cardTable } from '../src/content/registry.ts';
 import { ECONOMY, PLAYER } from '../src/content/balance.ts';
@@ -270,28 +271,34 @@ describe('the Safe Planet', () => {
 });
 
 describe('the Station', () => {
-  it('repairs for Alloy, and refuses what cannot be paid for', () => {
+  it('sells one fixed patch-up, and refuses one that cannot be paid for', () => {
+    /*
+     * Repair used to be a slider at 1 Alloy a point — a full heal for 70, which
+     * is cheaper than a common card and made health something you bought back
+     * rather than something you spent. One fixed purchase at implant money is
+     * the trade the Station is supposed to pose.
+     */
     const state = openRun('STATION-1');
-    const run = state.run!;
+    const stocked = stockShop(state, 'n4_2');
+    const run = stocked.run!;
     const parked: GameState = {
-      ...state,
-      run: { ...run, screen: 'station', alloy: 30, pilot: { ...run.pilot, health: 40 } },
+      ...stocked,
+      run: { ...run, screen: 'station', alloy: 400, pilot: { ...run.pilot, health: 20 } },
     };
 
-    const repaired = applyAction(parked, { kind: 'stationRepair', amount: 10 });
-    expect(repaired.run?.pilot.health).toBe(50);
-    expect(repaired.run?.alloy).toBe(30 - 10 * ECONOMY.hullRepairPerPoint);
+    const patch = Math.round(run.pilot.maxHealth * ECONOMY.repairPct);
+    const repaired = applyAction(parked, { kind: 'stationRepair' });
+    expect(repaired.run?.pilot.health).toBe(20 + patch);
+    expect(repaired.run?.alloy).toBe(400 - ECONOMY.repairPrice);
 
-    // Asking for more than the missing health is clamped, not refused.
-    const full = applyAction(parked, { kind: 'stationRepair', amount: 999 });
-    expect(full.run?.pilot.health).toBe(70);
-    expect(full.run?.alloy).toBe(0);
+    // One per Station. A second attempt changes nothing at all.
+    expect(applyAction(repaired, { kind: 'stationRepair' })).toBe(repaired);
 
-    // But a repair the Alloy cannot cover is refused outright rather than
+    // And a repair the Alloy cannot cover is refused outright rather than
     // partially paid — a half-purchase is the kind of thing nobody notices
-    // until they are 20 Alloy short of the module that would have saved them.
+    // until they are 20 Alloy short of the implant that would have saved them.
     const broke: GameState = { ...parked, run: { ...parked.run!, alloy: 5 } };
-    expect(applyAction(broke, { kind: 'stationRepair', amount: 999 })).toBe(broke);
+    expect(applyAction(broke, { kind: 'stationRepair' })).toBe(broke);
   });
 
   it('charges more for each removal bought', () => {

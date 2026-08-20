@@ -43,7 +43,7 @@ export type Action =
   | { readonly kind: 'chooseEventOption'; readonly optionId: string }
   | { readonly kind: 'leaveEvent' }
   /* -- station -- */
-  | { readonly kind: 'stationRepair'; readonly amount: number }
+  | { readonly kind: 'stationRepair' }
   | { readonly kind: 'buyShopCard'; readonly cardId: string }
   | { readonly kind: 'buyRemoval'; readonly cardUid: string }
   /** The forge: Alloy for an upgrade, one per Station. */

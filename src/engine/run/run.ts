@@ -5,7 +5,14 @@
  * back out to the reducer.
  */
 
-import type { CardId, GameState, MapNode, RunState, WavefrontState } from '../types.ts';
+import type {
+  CardId,
+  GameState,
+  MapNode,
+  ResolvedThread,
+  RunState,
+  WavefrontState,
+} from '../types.ts';
 import { appendLog, requireRun, withRun } from '../state.ts';
 import { fireHook } from '../hooks.ts';
 import { nextIntInclusive, weightedPick } from '../rng.ts';
@@ -123,7 +130,7 @@ export function enterNode(state: GameState, nodeId: string): GameState {
   const settled = settleThreads(next, node);
   next = settled.state;
 
-  return openLanding(next, node, settled.notes);
+  return openLanding(next, node, settled.resolved);
 }
 
 /**
@@ -167,24 +174,39 @@ function advanceWavefront(state: GameState, node: MapNode): GameState {
  * not a curveball, and being jumped by a bill instead of fighting it is the
  * definition of a curveball.
  */
-function settleThreads(state: GameState, node: MapNode): { state: GameState; notes: string[] } {
+function settleThreads(
+  state: GameState,
+  node: MapNode,
+): { state: GameState; resolved: ResolvedThread[] } {
   let next = advanceThreads(state);
-  const notes: string[] = [];
+  const resolved: ResolvedThread[] = [];
 
   for (const def of dueThreads(requireRun(next))) {
     next = resolveThread(next, def.id);
     const paid = applyRunEffects(next, def.payoff, def.id);
     next = paid.state;
-    // Named, then itemised. "Yard Debt comes due." followed by what it cost is
-    // the difference between a system the player can feel and one they cannot.
-    notes.push(`${def.name} comes due.`, ...paid.lines);
+    /*
+     * The promise travels with the payout.
+     *
+     * A Thread that simply happens is indistinguishable from the game being
+     * arbitrary — the player has to be able to draw the line back to the choice
+     * they made five nodes ago, or there is nothing to learn from either end.
+     * Deliberately vague when taken, completely explicit when it lands.
+     */
+    resolved.push({
+      threadId: def.id,
+      name: def.name,
+      promise: def.description,
+      lines: paid.lines,
+      tone: def.tone,
+    });
   }
 
   if (node.type === 'boss' && requireRun(next).forcedTier !== null) {
     next = withRun(next, (current) => ({ ...current, forcedTier: null }));
   }
 
-  return { state: next, notes };
+  return { state: next, resolved };
 }
 
 /**
@@ -195,14 +217,18 @@ function settleThreads(state: GameState, node: MapNode): { state: GameState; not
  * place and saying what is on it — including when the answer is "nothing" —
  * turns every node into somewhere you went rather than a button you pressed.
  */
-function openLanding(state: GameState, node: MapNode, notes: readonly string[]): GameState {
+function openLanding(
+  state: GameState,
+  node: MapNode,
+  resolved: readonly ResolvedThread[],
+): GameState {
   const encounter = node.encounterId === null ? undefined : encounterTable.find((entry) => entry.id === node.encounterId);
   const names = (encounter?.enemyIds ?? []).map((id) => enemyTable.find(id)?.name ?? id);
 
   return withRun(state, (run) => ({
     ...run,
     screen: 'landing' as const,
-    landing: { nodeId: node.id, title: node.name, body: describeLanding(node, names), notes },
+    landing: { nodeId: node.id, title: node.name, body: describeLanding(node, names), resolved },
   }));
 }
 
@@ -589,23 +615,37 @@ export function safePlanetTrade(state: GameState): GameState {
 /* ---------- the Station ----------
    Patching the ronin. Stock, prices and buying live in `shop.ts`. */
 
-export function stationRepair(state: GameState, amount: number): GameState {
+/**
+ * One patch-up, a fixed fraction of max health, once per Station.
+ *
+ * It used to be a slider at 1 Alloy a point — a full heal for 70, cheaper than
+ * a common card, which made health a thing you bought back rather than a thing
+ * you spent. Now it costs what an implant costs and you get half of what you
+ * are missing capacity for, so arriving hurt is a real problem and the Station
+ * is a real choice rather than a reset button.
+ */
+export function stationRepair(state: GameState): GameState {
   const run = requireRun(state);
-  const wanted = Math.max(0, Math.min(amount, run.pilot.maxHealth - run.pilot.health));
-  const cost = wanted * ECONOMY.hullRepairPerPoint;
-  if (wanted === 0 || run.alloy < cost) return state;
+  const shop = run.shop;
+  if (shop === null || shop.repairUsed || run.alloy < shop.repairPrice) return state;
 
-  const paid = spendAlloy(state, cost, 'station');
+  const amount = Math.round(run.pilot.maxHealth * ECONOMY.repairPct);
+  const healed = Math.min(run.pilot.maxHealth, run.pilot.health + amount);
+  const gained = healed - run.pilot.health;
+  if (gained === 0) return state;
+
+  const paid = spendAlloy(state, shop.repairPrice, 'station');
   const next = withRun(paid, (current) => ({
     ...current,
-    pilot: { ...current.pilot, health: current.pilot.health + wanted },
+    pilot: { ...current.pilot, health: healed },
+    shop: current.shop === null ? null : { ...current.shop, repairUsed: true },
   }));
 
   return appendLog(next, {
     source: 'station',
     kind: 'run',
-    text: `Patched ${wanted} for ${cost} Alloy.`,
-    detail: { repaired: wanted, cost },
+    text: `Patched ${gained} for ${shop.repairPrice} Alloy.`,
+    detail: { repaired: gained, cost: shop.repairPrice },
   });
 }
 
