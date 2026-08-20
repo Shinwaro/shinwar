@@ -90,7 +90,6 @@ export function renderHeatGauge(state: GameState): HTMLElement {
 export function renderResources(state: GameState): HTMLElement {
   const combat = requireCombat(state);
   const stance = liveStance(state);
-  const worth = combat.focus * stance.focusPerStack;
 
   /*
    * Focus is a bar, not a number.
@@ -121,13 +120,14 @@ export function renderResources(state: GameState): HTMLElement {
     el(
       'span',
       {
-        class: `resource resource--focus${stance.spendsFocus ? ' is-armed' : ' is-banking'}`,
+        class: `resource resource--focus is-${stance.focusMode}`,
         tabindex: '0',
         // The explanation moves to the tooltip. It is worth reading once and
         // then never again, which is exactly what a tooltip is for.
-        title: stance.spendsFocus
-          ? `Focus ${combat.focus}/${FOCUS_MAX}: your next attack takes the whole stack and deals ${stance.focusPerStack} more per stack — +${worth} right now. Stances that bank Focus keep it instead.`
-          : `Focus ${combat.focus}/${FOCUS_MAX}: banked in ${stance.name}. Change to a stance that spends it to cash the stack — worth +${worth}.`,
+        title:
+          stance.focusMode === 'damage'
+            ? `Focus ${combat.focus}/${FOCUS_MAX}: one stack is spent per card, adding ${stance.focusPerStack} damage to your next attack. In GUARD the same stack adds Block instead.`
+            : `Focus ${combat.focus}/${FOCUS_MAX}: one stack is spent per card, adding ${stance.focusPerStack} Block to the next card that grants any. In IAI the same stack adds damage instead.`,
       },
       [
         el('span', { class: 'resource-label' }, ['Focus']),

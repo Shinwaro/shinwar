@@ -159,7 +159,9 @@ function scoreCard(state: GameState, card: CardInstance, targetUid: string | nul
   score += Math.max(0, preview.blockGain - useful) * 0.1;
 
   score += preview.drawCount * 5;
-  score += preview.focusDelta * (liveStance(state).spendsFocus ? 1.5 : 3.5);
+  // A stack is worth the same in either stance now — damage in IAI, Block in
+  // GUARD — so banking it is no longer a different proposition from spending it.
+  score += preview.focusDelta * 2.5;
 
   // Heat: cheap below the line, expensive across it.
   const threshold = overheatThreshold(state);
@@ -226,10 +228,15 @@ function wantsStanceChange(state: GameState): boolean {
   const stance = liveStance(state);
   const threshold = overheatThreshold(state);
 
-  // Too hot to stand in IAI. Step out and vent.
-  if (stance.spendsFocus && combat.heat >= threshold - 2) return true;
-  // A stack worth cashing, and room to cash it.
-  if (!stance.spendsFocus && combat.focus >= 3 && combat.heat < threshold - 2) return true;
+  /*
+   * The stance decides what a Focus stack becomes, not whether it is spent, so
+   * the question is no longer "have I banked enough to cash" — it is "do I want
+   * the next few cards to hit harder or hold better".
+   */
+  // Too hot to stand in IAI. Step out and cool down; the stack keeps its value.
+  if (stance.focusMode === 'damage' && combat.heat >= threshold - 2) return true;
+  // Cool, holding Focus, and nothing urgent to block: turn it into damage.
+  if (stance.focusMode === 'block' && combat.focus >= 2 && combat.heat < threshold - 3) return true;
   return false;
 }
 

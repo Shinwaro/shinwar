@@ -1740,3 +1740,54 @@ and its GUARD rider is the Weak alone; Block on top of Block made the stance the
 only place the card was worth playing, which is a rider deciding the stance
 rather than the stance colouring the card. **Held Line** loses its Focus,
 **Second Wind** wants 7 cards (6 upgraded), and Focus left the card glossary.
+
+## The Focus rework
+
+Focus was a number you watched rather than a resource you spent. It banked in
+GUARD, did nothing at all, and then dumped the whole stack into one attack in
+IAI — so for most of a fight the readout was a promise, and the payoff was a
+single moment you either set up or wasted.
+
+Now: **one stack per card, and the stance decides what the stack becomes.**
+Damage in IAI, Block in GUARD. Same stack, same value, different shape.
+
+That changes what the stance axis *is*. It used to be "bank, then cash" — the
+change was a cash-out and the timing was the whole decision. It is now a
+redirection: the stack is worth something in either stance, and changing is
+about what you want the next few cards to do rather than about finally being
+allowed to spend.
+
+Verified end to end, three cards in a row from three Focus:
+
+```
+IAI   iai_slash:    dmg 10, 10, 10   focus 3 -> 2 -> 1 -> 0
+GUARD solar_shield: blk  8,  8,  8   focus 3 -> 2 -> 1 -> 0
+IAI   at 0 focus:   dmg  8,  8,  8
+```
+
+Two implementation notes worth keeping:
+
+**`consumesFocus` used to mean "first attack of the turn".** That was right when
+one attack cashed the whole bank. Under one-at-a-time it meant only the turn's
+first card ever spent Focus and everything after swung bare — the first pass had
+exactly that bug, and the trace above is how it was caught. It is now
+`!context.focusSpent`, the same per-card guard the Block side uses, so both
+halves of the mechanic spend at identical rates.
+
+**The Block half lives in the block op, not the damage pipeline**, because
+Block is not damage and routing it through `computeDamage` to get one number
+would have meant a second pipeline. `EffectContext.focusSpent` is what keeps a
+card that grants Block twice from quietly spending two stacks.
+
+### It got harder, and by a lot
+
+Act 1 deaths went **27% -> 73%** across 150 runs. Some of that is the rework —
+a lump sum of +6 on one swing reads bigger than +2 on three — but most of it is
+that this landed on top of the starting-card nerfs in the same pass: IAI Slash's
+rider 4 -> 2, Solar Shield losing its 3 GUARD Block, and `FOCUS_MAX` 12 -> 6.
+Four reductions to the opening deck at once.
+
+Not tuned here, deliberately — Robin's read was that the game is in a good spot
+and possibly slightly too hard, and this is the measurement that says by how
+much. The obvious levers, cheapest first: `FOCUS_DAMAGE_PER_STACK` 2 -> 3,
+Solar Shield's base Block 6 -> 8, or the Act 1 enemy damage that pass 10 raised.

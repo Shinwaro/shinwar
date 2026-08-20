@@ -269,7 +269,7 @@ export const TEMPO_CARDS: readonly CardDef[] = [
     archetype: 'overheat',
     cost: 1,
     effects: [
-      { op: 'damage', amount: 5, target: 'enemy' },
+      { op: 'damage', amount: 8, target: 'enemy' },
       { op: 'gainHeat', amount: 2 },
     ],
     stanceRider: {
@@ -279,7 +279,7 @@ export const TEMPO_CARDS: readonly CardDef[] = [
     upgrade: {
       name: 'Kindled Edge+',
       effects: [
-        { op: 'damage', amount: 8, target: 'enemy' },
+        { op: 'damage', amount: 12, target: 'enemy' },
         { op: 'gainHeat', amount: 2 },
       ],
     },

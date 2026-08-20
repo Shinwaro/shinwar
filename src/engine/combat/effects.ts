@@ -27,12 +27,21 @@ import {
 } from './damage.ts';
 import { gainHeat, ventHeat } from './heat.ts';
 import { addStacks, stacksOf } from './keywords.ts';
+import { liveStance } from './rules.ts';
 import { setStance, cycleStance } from './stance.ts';
 import { draw, moveToExhaust, narrateDraw, randomFromHand } from './piles.ts';
 import { mintCard } from './instances.ts';
 import { FOCUS_MAX } from '../../content/balance.ts';
 
 export interface EffectContext {
+  /**
+   * Whether this card has already spent a stack of Focus on Block.
+   *
+   * One stack per card, so a card granting Block twice does not quietly spend
+   * two. The damage side is guarded the same way by `consumesFocus`, which is
+   * already true only for the first instance of the first attack.
+   */
+  readonly focusSpent: boolean;
   /** A card id, an enemy uid, a module id — whatever is answerable in the log. */
   readonly source: string;
   readonly actor: Combatant;
@@ -43,7 +52,7 @@ export interface EffectContext {
 }
 
 export function createContext(source: string, actor: Combatant, chosen: Combatant | null): EffectContext {
-  return { source, actor, chosen, exhaustSelf: false };
+  return { source, actor, chosen, exhaustSelf: false, focusSpent: false };
 }
 
 export interface EffectResult {
@@ -192,6 +201,8 @@ function applyOp(state: GameState, op: EffectOp, context: EffectContext): Effect
         for (let hit = 0; hit < times; hit++) {
           if (next.run?.combat?.outcome !== 'ongoing') break;
           const combat = requireCombat(next);
+          const spendsHere =
+            !context.focusSpent && cardTable.find(context.source)?.keepsFocus !== true;
           next = applyDamage(
             next,
             {
@@ -200,16 +211,25 @@ function applyOp(state: GameState, op: EffectOp, context: EffectContext): Effect
               target,
               isAttack: true,
               attackOrdinal: combat.attacksThisTurn,
-              // Only the first instance spends the Focus stack -- and a card
-              // marked `keepsFocus` never does, so it can scale on the stack
-              // and leave it standing for the next swing.
+              /*
+               * One stack per CARD, not per turn.
+               *
+               * This used to read `attacksThisTurn === 0`, which was right when
+               * a single attack cashed the whole bank — but under one-stack-at-
+               * a-time it meant only the turn's first attack ever spent Focus
+               * and every card after it swung bare. `context.focusSpent` is the
+               * same guard the Block side uses, so both halves of the mechanic
+               * spend at exactly the same rate.
+               */
               consumesFocus:
-                hit === 0 &&
-                combat.attacksThisTurn === 0 &&
+                !context.focusSpent &&
                 cardTable.find(context.source)?.keepsFocus !== true,
             },
             context.source,
           );
+          if (spendsHere && (next.run?.combat?.focus ?? 0) < combat.focus) {
+            context = { ...context, focusSpent: true };
+          }
         }
       }
       return keep(next);
@@ -217,30 +237,54 @@ function applyOp(state: GameState, op: EffectOp, context: EffectContext): Effect
 
     case 'block': {
       // Block goes to whoever played the card. An enemy's Plate is the same op
-      // as your Solar Parry, which is the point of making targets relative.
+      // as your Solar Shield, which is the point of making targets relative.
       if (op.amount <= 0) return keep(state);
       const actor = context.actor;
+
+      /*
+       * Focus, GUARD's half of it: one stack becomes Block on the first Block
+       * this card grants. The mirror of what a stack does to an attack in IAI,
+       * and the reason the stance change is a redirection rather than a
+       * cash-out — the same stack is worth something in either stance, just a
+       * different something.
+       */
+      const combatNow = state.run?.combat;
+      const stanceNow = combatNow === undefined || combatNow === null ? null : liveStance(state);
+      const focusBlock =
+        actor.kind === 'player' &&
+        !context.focusSpent &&
+        combatNow !== undefined &&
+        combatNow !== null &&
+        combatNow.focus > 0 &&
+        stanceNow?.focusMode === 'block' &&
+        cardTable.find(context.source)?.keepsFocus !== true
+          ? (stanceNow?.focusPerStack ?? 0)
+          : 0;
+
+      const amount = op.amount + focusBlock;
       const next = withCombat(state, (combat) =>
         actor.kind === 'player'
           ? {
               ...combat,
-              block: combat.block + op.amount,
-              blockGainedThisTurn: combat.blockGainedThisTurn + op.amount,
+              block: combat.block + amount,
+              blockGainedThisTurn: combat.blockGainedThisTurn + amount,
+              focus: focusBlock > 0 ? Math.max(0, combat.focus - 1) : combat.focus,
             }
           : {
               ...combat,
               enemies: combat.enemies.map((enemy) =>
-                enemy.uid === actor.uid ? { ...enemy, block: enemy.block + op.amount } : enemy,
+                enemy.uid === actor.uid ? { ...enemy, block: enemy.block + amount } : enemy,
               ),
             },
       );
+      if (focusBlock > 0) context = { ...context, focusSpent: true };
       const logged = appendLog(next, {
         source: context.source,
         kind: 'block',
         text:
           actor.kind === 'player'
-            ? `Block +${op.amount} (${requireCombat(next).block}).`
-            : `Block +${op.amount}.`,
+            ? `Block +${amount}${focusBlock > 0 ? ` (Focus +${focusBlock})` : ''} (${requireCombat(next).block}).`
+            : `Block +${amount}.`,
         detail: {
           to: actor.kind === 'player' ? 'player' : actor.uid,
           amount: op.amount,

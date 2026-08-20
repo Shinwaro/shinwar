@@ -140,13 +140,22 @@ export function computeDamage(state: GameState, input: DamageInput): DamageBreak
   let ctx: Ctx = { amount: 0, steps: [], focusConsumed: 0 };
   ctx = record(ctx, 'base', 'base', input.amount);
 
-  /* 2 — Focus. Attacks only, first instance only, player only, and only in a
-     stance that spends it. GUARD banks; IAI draws. The stance change is the
-     decision, and the size of the stack is the record of how long you waited. */
+  /* 2 — Focus. One stack, on the first instance of an attack, in a stance that
+     turns Focus into damage.
+
+     One rather than the whole stack: Focus used to do nothing until the single
+     moment it did everything, which made it a number you watched rather than a
+     resource you spent. A stack a card means every card is a small decision and
+     the stance change redirects the stream instead of cashing it. */
   const live = playerAttacking ? stanceRulesFor(state, combat.stance) : null;
-  if (playerAttacking && input.isAttack && input.consumesFocus && combat.focus > 0 && live?.spendsFocus === true) {
-    const bonus = combat.focus * live.focusPerStack;
-    ctx = { ...record(ctx, `Focus ${combat.focus}`, 'add', ctx.amount + bonus), focusConsumed: combat.focus };
+  if (
+    playerAttacking &&
+    input.isAttack &&
+    input.consumesFocus &&
+    combat.focus > 0 &&
+    live?.focusMode === 'damage'
+  ) {
+    ctx = { ...record(ctx, 'Focus', 'add', ctx.amount + live.focusPerStack), focusConsumed: 1 };
   }
 
   /* 3 — flat additives: Strength-likes, then the stance passive. */
@@ -301,7 +310,9 @@ export function applyDamage(state: GameState, input: DamageInput, source: string
 
     if (input.attacker.kind === 'player' && input.isAttack) {
       updated = { ...updated, attacksThisTurn: updated.attacksThisTurn + 1 };
-      if (breakdown.focusConsumed > 0) updated = { ...updated, focus: 0 };
+      if (breakdown.focusConsumed > 0) {
+        updated = { ...updated, focus: Math.max(0, updated.focus - breakdown.focusConsumed) };
+      }
     }
 
     return updated;

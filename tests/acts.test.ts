@@ -223,8 +223,10 @@ describe('stance masteries', () => {
       consumesFocus: true,
     } as const;
 
-    expect(computeDamage(base, shape).beforeBlock).toBe(6 + 3 * 2);
-    expect(computeDamage(mastered, shape).beforeBlock).toBe(6 + 3 * 4);
+    // One stack per card, so the mastery doubles what THAT stack is worth
+    // rather than doubling a lump sum.
+    expect(computeDamage(base, shape).beforeBlock).toBe(6 + 2);
+    expect(computeDamage(mastered, shape).beforeBlock).toBe(6 + 4);
   });
 
   it('cannot make the preview disagree with the result', () => {

@@ -74,7 +74,7 @@ function describeScaleSource(source: Extract<EffectOp, { op: 'scaleWith' }>['sou
   }
 }
 
-function describeOp(op: EffectOp, state: GameState | null): string {
+function describeOp(op: EffectOp, state: GameState | null, afterDamage = false): string {
   switch (op.op) {
     case 'damage': {
       const times = op.times ?? 1;
@@ -141,7 +141,7 @@ function describeOp(op: EffectOp, state: GameState | null): string {
        * second one replaces the first. `extra` says it is additional without
        * needing a second sentence to explain that it is.
        */
-      const additive = body.replace(/^deal (\d+) damage/, 'deal $1 extra');
+      const additive = afterDamage ? body.replace(/^deal (\d+) damage/, 'deal $1 extra') : body;
       return `For every ${per}${describeScaleSource(op.source)}, ${additive}${live}`;
     }
     default: {
@@ -174,7 +174,20 @@ function lowerFirst(text: string): string {
 }
 
 export function describeOps(ops: readonly EffectOp[], state: GameState | null = null): string {
-  return ops.map((op) => describeOp(op, state)).join(' ');
+  /*
+   * A scaling term reads as "extra" only when something came before it to be
+   * extra TO. Momentum is pure scaling with no base hit — "for every card
+   * played, deal 3 extra" invites the reader to ask "extra to what?" and there
+   * is no answer. After a base hit, "extra" is the word that stops the second
+   * sentence looking like it replaces the first.
+   */
+  let afterDamage = false;
+  const parts = ops.map((op) => {
+    const text = describeOp(op, state, afterDamage);
+    if (op.op === 'damage') afterDamage = true;
+    return text;
+  });
+  return parts.join(' ');
 }
 
 /** The card's base rules text. The rider is described separately so the UI can grey it. */

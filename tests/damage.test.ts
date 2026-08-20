@@ -99,11 +99,11 @@ describe('the ordered steps', () => {
       consumesFocus: true,
     });
 
-    // 6 base, +4 Focus (2 x 2), x1.5 Vulnerable = 15. IAI has no flat bonus of
-    // its own any more — what it has is permission to spend the stack.
-    expect(breakdown.toHull).toBe(15);
+    // 6 base, +2 for one stack of Focus, x1.5 Vulnerable = 12. One stack a
+    // card: Focus is a stream now, not a lump sum.
+    expect(breakdown.toHull).toBe(12);
     expect(breakdown.steps.map((step) => step.kind)).toEqual(['base', 'add', 'mult', 'floor']);
-    expect(breakdown.focusConsumed).toBe(2);
+    expect(breakdown.focusConsumed).toBe(1);
   });
 
   it('rounds down rather than up', () => {
@@ -155,9 +155,10 @@ describe('the ordered steps', () => {
 });
 
 describe('the stance passives', () => {
-  it('spends Focus in IAI and banks it in GUARD', () => {
-    // The whole axis: the same card, the same stack, and the only difference
-    // is which stance you are standing in when you swing.
+  it('turns Focus into damage in IAI and leaves attacks alone in GUARD', () => {
+    // The axis: the same card, the same stack, and the only difference is what
+    // the stance turns that stack into. GUARD spends Focus on Block instead, so
+    // an attack made in GUARD is the bare number.
     const shape = {
       amount: 6,
       isAttack: true,
@@ -182,8 +183,8 @@ describe('the stance passives', () => {
       attacker: PLAYER,
       target: enemyTarget(drawEnemy.uid),
     });
-    expect(drawn.toHull).toBe(6 + 3 * FOCUS_DAMAGE_PER_STACK);
-    expect(drawn.focusConsumed).toBe(3);
+    expect(drawn.toHull).toBe(6 + FOCUS_DAMAGE_PER_STACK);
+    expect(drawn.focusConsumed).toBe(1);
   });
 
   it('leaves the stack alone across a whole turn in GUARD', () => {
@@ -208,12 +209,12 @@ describe('the stance passives', () => {
     const state = makeFight({ stance: 'iai', focus: 3, hand: [IAI_SLASH], enemyHp: 999 });
     const enemy = firstEnemy(state);
     const after = playCard(state, handCard(state, 0).uid, enemy.uid);
-    // 6 +6 Focus = 12, then the rider's 2 with no Focus left to spend.
-    expect(enemy.hp - (combatOf(after).enemies[0]?.hp ?? 0)).toBe(12 + 2);
+    // 6 +2 for one stack = 8, then the rider's 2 — the rider is not the first
+    // instance, so it spends nothing.
+    expect(enemy.hp - (combatOf(after).enemies[0]?.hp ?? 0)).toBe(8 + 2);
     expect(3 * FOCUS_DAMAGE_PER_STACK).toBe(6);
-    // The stack is gone. IAI Slash no longer hands one back on the same swing —
-    // a card that refunds the stance's own cost is the stance not costing.
-    expect(combatOf(after).focus).toBe(0);
+    // Exactly one stack gone, not the bank. Started at 3.
+    expect(combatOf(after).focus).toBe(2);
   });
 });
 

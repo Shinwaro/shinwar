@@ -72,10 +72,14 @@ export const HEAT = {
 } as const;
 
 /* ---------- focus ----------
-   A stacking buff, not a fourth resource. It is only SPENT in a stance that
-   spends it — GUARD banks, IAI draws — so the size of the stack is a record of
-   how long you have been patient. Capped so patience is still a decision and
-   not simply the correct answer. */
+   A stacking buff, not a fourth resource. One stack is spent per card, and the
+   stance decides what it becomes: damage in IAI, Block in GUARD.
+
+   It used to bank the whole stack in GUARD and dump all of it into one attack
+   in IAI. That read as a number you watched rather than a resource you used —
+   it did nothing until the single moment it did everything. Spending one at a
+   time makes every card a small decision and makes the stance change a
+   redirection rather than a cash-out. */
 
 export const FOCUS_DAMAGE_PER_STACK = 2;
 /**
@@ -111,14 +115,19 @@ export interface StanceRules {
   readonly extraDraw: number;
   readonly attackPenalty: number;
   /**
-   * Whether attacks in this stance spend Focus.
+   * What a stack of Focus does when this stance spends one.
    *
-   * This is the axis, not a bonus. Focus accumulates in GUARD and is only ever
-   * cashed in IAI, so the stance change *is* the decision: how long do you bank
-   * before you draw, knowing every turn in IAI is 2 more Heat. A flat "+4 on
-   * the first attack" was a number you got for free; this is a rhythm.
+   * The stance no longer decides *whether* Focus is spent — both spend it, one
+   * stack per card. It decides what the stack turns into: damage in IAI, Block
+   * in GUARD. That is the axis, and it is now a choice you make every card
+   * rather than a lump sum you cash once.
+   *
+   * The old version banked the whole stack in GUARD and spent all of it on one
+   * attack in IAI, which made Focus a number you watched rather than used: it
+   * did nothing at all until the single moment it did everything, and until
+   * then the readout was a promise rather than a resource.
    */
-  readonly spendsFocus: boolean;
+  readonly focusMode: 'damage' | 'block';
   /** What a stack is worth when it is finally spent. */
   readonly focusPerStack: number;
   /** At or above this Heat, attacks in this stance gain `hotDamage`. */
@@ -130,14 +139,14 @@ export const STANCES: { readonly [K in StanceId]: StanceRules } = {
   iai: {
     id: 'iai',
     name: 'IAI',
-    text: '+2 damage at 5+ Heat · +2 Heat at turn end',
+    text: 'Focus adds damage · +2 damage at 5+ Heat · +2 Heat at turn end',
     firstAttackBonus: 0,
     heatAtTurnEnd: 2,
     ventAtTurnEnd: 0,
     blockRetained: 0,
     extraDraw: 0,
     attackPenalty: 0,
-    spendsFocus: true,
+    focusMode: 'damage',
     focusPerStack: FOCUS_DAMAGE_PER_STACK,
     // The reward for the Heat IAI charges you. Without it the stance was all
     // cost: 2 a turn, and nothing for living up there.
@@ -147,14 +156,14 @@ export const STANCES: { readonly [K in StanceId]: StanceRules } = {
   guard: {
     id: 'guard',
     name: 'GUARD',
-    text: 'Vent 1 Heat at turn end · Retain 3 Block',
+    text: 'Focus adds Block · Vent 1 Heat at turn end · Retain 3 Block',
     firstAttackBonus: 0,
     heatAtTurnEnd: 0,
     ventAtTurnEnd: 1,
     blockRetained: 3,
     extraDraw: 0,
     attackPenalty: 0,
-    spendsFocus: false,
+    focusMode: 'block',
     focusPerStack: FOCUS_DAMAGE_PER_STACK,
   },
   flow: {
@@ -167,7 +176,7 @@ export const STANCES: { readonly [K in StanceId]: StanceRules } = {
     blockRetained: 0,
     extraDraw: 1,
     attackPenalty: 2,
-    spendsFocus: true,
+    focusMode: 'damage',
     focusPerStack: FOCUS_DAMAGE_PER_STACK,
   },
 } as const;

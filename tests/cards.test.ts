@@ -119,7 +119,9 @@ describe('generated rules text', () => {
       },
       hot,
     );
-    expect(text).toBe('For every 2 Heat, deal 3 extra. (3x now)');
+    // "extra" only reads right after a base hit; with nothing before it, the
+    // reader would be asking "extra to what?".
+    expect(text).toBe('For every 2 Heat, deal 3 damage. (3x now)');
   });
 
   it('appends Exhaust and Innate', () => {
