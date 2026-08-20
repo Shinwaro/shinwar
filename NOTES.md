@@ -1439,3 +1439,36 @@ Fixed in presentation only, because the engine was already right: the displayed
 number is held at its old value until the floaters land, then released. Held only
 when Block **fell** — a gain shows immediately, since that is the player's own
 card doing something and there is nothing to wait for.
+
+## Debris Field: "highest HP" was never neutral
+
+Robin: the Debris Field punishes the player for having more health than the mobs.
+Correct, and it is the kind of unfairness that reads as neutral on the page.
+
+The rule was "the rock hits the highest-HP combatant". The ronin has 70 health;
+an Act 1 enemy has twenty-something. So it resolved to the player nearly every
+round — a flat 7 a round dressed as a hazard, charged for precisely the thing
+that keeps a run alive. Measured against a `hound_pair`, the old rule marked the
+player essentially 100% of the time.
+
+Now it draws uniformly from everyone still standing, on the `combat` stream, and
+still marks a full turn ahead so the telegraph is unchanged. Same measurement:
+**35.2% player, 64.8% an enemy** across 600 fights — which is 1-in-3 in a
+three-combatant fight, i.e. exactly uniform.
+
+Two things worth keeping:
+
+**The break falls out of the rule rather than being written into it.** A fight
+with two enemies is a fight where the rock probably hits something else. That is
+a fair consequence of "pick anyone", not a designed favour, and it means the
+environment reads differently in a pack fight than in a duel without a special
+case saying so.
+
+**`combatants()` no longer carries `hp`.** Nothing sorts by it any more, and a
+helper that offers an `hp` field next to a list of targets is an invitation to
+write another rule that quietly means "the player". Removing the field is the
+part that stops this recurring.
+
+The test that replaced the old one asserts the property rather than the
+mechanism: across 40 seeds the mark must land on more than one kind of target.
+The old test asserted `toBe('player')` — it was encoding the bug as the spec.

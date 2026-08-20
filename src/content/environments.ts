@@ -27,10 +27,11 @@
 
 import type { EnvironmentDef, GameState } from '../engine/types.ts';
 import { defineHook, registerHooks } from '../engine/hooks.ts';
-import { withCombat } from '../engine/state.ts';
+import { withCombat, withRun } from '../engine/state.ts';
 import { PLAYER, applyDirectDamage, enemyTarget, livingEnemies } from '../engine/combat/damage.ts';
 import { addStacks, stacksOf } from '../engine/combat/keywords.ts';
 import { envGetString, envSet } from '../engine/combat/rules.ts';
+import { pick } from '../engine/rng.ts';
 import { HOOK_PRIORITY } from './balance.ts';
 import { IRRADIATE } from './statuses.ts';
 
@@ -87,7 +88,7 @@ export const ENVIRONMENTS: readonly EnvironmentDef[] = [
   {
     id: DEBRIS_FIELD_ID,
     name: 'Debris Field',
-    text: `At the end of each round a rock hits the highest-HP combatant for ${DEBRIS_DAMAGE}. Marked a turn ahead.`,
+    text: `At the end of each round a rock hits one combatant at random for ${DEBRIS_DAMAGE}. Marked a turn ahead.`,
   },
 
   {
@@ -108,17 +109,21 @@ export const ENVIRONMENTS: readonly EnvironmentDef[] = [
 
 /* ---------- the reactive half ---------- */
 
-/** Everyone still standing, player included, as damage targets. */
-function combatants(state: GameState): readonly { target: ReturnType<typeof enemyTarget> | typeof PLAYER; hp: number; uid: string }[] {
+/**
+ * Everyone still standing, player included, as damage targets.
+ *
+ * Deliberately carries no HP any more. It used to, so the Debris Field could
+ * pick the highest — and a field that says "hp" next to a list of targets is an
+ * invitation to write another rule that quietly means "the player".
+ */
+function combatants(
+  state: GameState,
+): readonly { target: ReturnType<typeof enemyTarget> | typeof PLAYER; uid: string }[] {
   const combat = state.run?.combat;
   if (combat === undefined || combat === null) return [];
   return [
-    { target: PLAYER, hp: state.run?.pilot.health ?? 0, uid: 'player' },
-    ...livingEnemies(combat).map((enemy) => ({
-      target: enemyTarget(enemy.uid),
-      hp: enemy.hp,
-      uid: enemy.uid,
-    })),
+    { target: PLAYER, uid: 'player' },
+    ...livingEnemies(combat).map((enemy) => ({ target: enemyTarget(enemy.uid), uid: enemy.uid })),
   ];
 }
 
@@ -159,7 +164,18 @@ export function registerEnvironmentHooks(): void {
 
   /* ---- Debris Field ----
      Marked a full turn ahead. The randomness is in which rock comes, never in
-     whether you could have seen it. */
+     whether you could have seen it.
+
+     The target is drawn uniformly from everyone still standing. It used to be
+     the highest-HP combatant, which sounds neutral and is not: the ronin has 70
+     health and an Act 1 enemy has twenty-something, so "highest HP" resolved to
+     the player almost every round. That is a flat tax wearing a hazard's coat,
+     and it punished the player precisely for the thing that keeps them alive.
+
+     Uniform is neutral by construction. It also means a fight with two enemies
+     in it is a fight where the rock probably hits something else -- which is a
+     fair break rather than a designed favour, and it falls out of the rule
+     instead of being written into it. */
   registerHooks(DEBRIS_FIELD_ID, [
     defineHook({
       hook: 'onTurnStart',
@@ -167,10 +183,15 @@ export function registerEnvironmentHooks(): void {
       handle: (state) => {
         const all = combatants(state);
         if (all.length === 0) return state;
-        // Highest HP, ties broken by uid so the marker never depends on order.
-        const marked = [...all].sort((a, b) => (b.hp - a.hp) || (a.uid < b.uid ? -1 : 1))[0];
-        if (marked === undefined) return state;
-        return envSet(state, 'debrisTarget', marked.uid);
+        const run = state.run;
+        if (run === null) return state;
+
+        // Sorted by uid before the draw so the candidate list never depends on
+        // array order -- the same seed has to mark the same target every time.
+        const ordered = [...all].sort((a, b) => (a.uid < b.uid ? -1 : 1));
+        const rolled = pick(run.rng, 'combat', ordered);
+        const spun = withRun(state, (current) => ({ ...current, rng: rolled.rng }));
+        return envSet(spun, 'debrisTarget', rolled.value.uid);
       },
     }),
     defineHook({

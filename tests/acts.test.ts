@@ -10,6 +10,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { GameState } from '../src/engine/types.ts';
 import { createInitialState } from '../src/engine/state.ts';
+import { createRng } from '../src/engine/rng.ts';
 import { applyAction } from '../src/engine/reducer.ts';
 import { advanceAct } from '../src/engine/run/run.ts';
 import { rollMastery } from '../src/engine/run/rewards.ts';
@@ -156,14 +157,31 @@ describe('environments that act at a moment', () => {
     expect(firstEnemy(state).hp).toBeLessThan(enemyTable.get('scrap_hound').maxHp);
   });
 
-  it('Debris Field marks its target a turn before the rock lands', () => {
+  it('Debris Field marks a target a turn before the rock lands', () => {
     const state = startPlayerTurn(inEnvironment(DEBRIS_FIELD_ID, { enemyIds: ['scrap_hound'] }));
     const marked = combatOf(state).envMemory['debrisTarget'];
-    // The player has 70 and a Scrap Hound has 30, so the mark is on the player.
-    expect(marked).toBe('player');
+    // Somebody in the fight, and named before the round it lands in.
+    const present = ['player', ...combatOf(state).enemies.map((enemy) => enemy.uid)];
+    expect(present).toContain(marked);
+  });
 
-    const after = endTurnImmediately(state);
-    expect(hullOf(after)).toBeLessThan(hullOf(state));
+  it('spreads the rock across everyone rather than always hitting the player', () => {
+    /*
+     * The regression this exists for: the target used to be the highest-HP
+     * combatant, which sounds neutral and is not. The ronin has 70 health and an
+     * Act 1 enemy has twenty-something, so it resolved to the player nearly
+     * every round — a flat tax wearing a hazard's coat, charged for the thing
+     * that keeps you alive.
+     */
+    const marks = new Set<unknown>();
+    for (let i = 0; i < 40; i++) {
+      const base = inEnvironment(DEBRIS_FIELD_ID, { enemyIds: ['scrap_hound'] });
+      if (base.run === null) throw new Error('test: no run');
+      // Only the stream differs between iterations, so what varies is the draw.
+      const seeded: GameState = { ...base, run: { ...base.run, rng: createRng(`ROCK-${i}`) } };
+      marks.add(combatOf(startPlayerTurn(seeded)).envMemory['debrisTarget']);
+    }
+    expect(marks.size, 'the rock only ever marks one kind of target').toBeGreaterThan(1);
   });
 });
 
