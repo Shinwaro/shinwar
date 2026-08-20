@@ -1538,3 +1538,34 @@ Exactly the shape Robin found in the relics:
 
 The principle, same as the relics: **price the unconditional part**. A tier is a
 promise about the floor, not about the ceiling in the one build that wants it.
+
+## The fine print
+
+Robin asked what Exhaust means. Nothing in the game said, which is the answer to
+the question underneath the question.
+
+**Exhaust: the card leaves the fight when played.** It goes to the exhaust pile
+rather than the discard, and the reshuffle only ever pulls from the discard — so
+you get it once per combat and then it is gone until the next one.
+
+Every card now carries a glossary of the terms it actually uses, in fine print
+under the rules line, above the flavour. Three decisions in it worth keeping:
+
+**Driven off the generated text, not the ops.** What needs explaining is what the
+player can *see*. If a word is not printed on the card, explaining it there is
+answering a question nobody asked. It picks up rider keywords for free, which is
+why Standing Wave explains Weak — its GUARD rider applies it, and that is printed.
+
+**Statuses are not restated.** `glossaryFor()` reads a status's own `text` out of
+`statuses.ts`. Two copies of "Vulnerable takes 50% more damage" is precisely how
+one of them ends up wrong after a tuning pass, and the whole reason card text is
+generated in the first place.
+
+**It is in the hand too, smaller, not hidden.** The first version hid it in the
+hand to protect the layout — but mid-fight is exactly when "what does Exhaust
+mean" gets asked, and a glossary you have to leave the fight to read is not
+answering the question. 8.8px in hand, and typically two of five cards carry a
+line at all.
+
+`src/content/keywords.ts` holds the vocabulary that has no status row: Exhaust,
+Innate, Block, Heat, Focus, Energy. Adding a term is one entry there.

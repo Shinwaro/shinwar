@@ -11,7 +11,13 @@
 
 import type { CardDef, CardInstance, GameState } from '../../engine/types.ts';
 import { definitionOf } from '../../engine/combat/combat.ts';
-import { describeCard, describeCost, describeRider, riderIsLive } from '../../engine/combat/describe.ts';
+import {
+  describeCard,
+  describeCost,
+  describeRider,
+  glossaryFor,
+  riderIsLive,
+} from '../../engine/combat/describe.ts';
 import { STANCES } from '../../content/balance.ts';
 import { el } from '../dom.ts';
 
@@ -70,6 +76,22 @@ export function renderCardFace(def: CardDef, options: CardFaceOptions): HTMLElem
             rider,
           ],
         ),
+    /* The fine print: what the words on this card mean.
+       Driven off the generated text, so it explains what is printed above it
+       rather than reciting the rulebook. Below the flavour because it is
+       reference, not voice -- you read it once and then stop seeing it. */
+    (() => {
+      const glossary = glossaryFor(def, options.state ?? undefined);
+      if (glossary.length === 0) return null;
+      return el(
+        'dl',
+        { class: 'card-glossary' },
+        glossary.flatMap((entry) => [
+          el('dt', { class: 'card-glossary-term' }, [entry.name]),
+          el('dd', { class: 'card-glossary-text' }, [entry.text]),
+        ]),
+      );
+    })(),
     def.flavor === undefined ? null : el('p', { class: 'card-flavor' }, [def.flavor]),
   ]);
 }
@@ -113,6 +135,23 @@ export function renderCard(
         rider,
         live ? null : el('span', { class: 'visually-hidden' }, [' (not active in your current stance)']),
       ]),
+    );
+  }
+
+  /* The fine print, in hand as well as on the reward screens. Mid-fight is
+     exactly when "what does Exhaust mean" gets asked, and a glossary you have to
+     leave the fight to read is not answering it. */
+  const glossary = glossaryFor(def, state);
+  if (glossary.length > 0) {
+    body.push(
+      el(
+        'dl',
+        { class: 'card-glossary' },
+        glossary.flatMap((entry) => [
+          el('dt', { class: 'card-glossary-term' }, [entry.name]),
+          el('dd', { class: 'card-glossary-text' }, [entry.text]),
+        ]),
+      ),
     );
   }
 

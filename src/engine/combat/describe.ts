@@ -9,6 +9,7 @@
  * against current Heat, and a conditional says what it is doing right now.
  */
 
+import { KEYWORDS } from '../../content/keywords.ts';
 import type { CardDef, EffectOp, GameState, StanceId, Target } from '../types.ts';
 import { STANCES } from '../../content/balance.ts';
 import { cards as cardTable, statuses as statusTable } from '../../content/registry.ts';
@@ -197,4 +198,46 @@ export function riderIsLive(def: CardDef, state: GameState | null): boolean {
 /** Cost, with `X` spelled out rather than shown as a letter nobody has met yet. */
 export function describeCost(def: CardDef): string {
   return def.cost === 'X' ? 'X' : String(def.cost);
+}
+
+/* ---------- the glossary ----------
+   Which terms a card actually uses, so the fine print under it explains this
+   card rather than reciting the rulebook. */
+
+export interface GlossaryLine {
+  readonly name: string;
+  readonly text: string;
+}
+
+/**
+ * Every keyword that appears in this card's generated text, with what it means.
+ *
+ * Driven off the generated text rather than off the ops, deliberately: what the
+ * player needs explained is what they can *see*. If a word is not printed on the
+ * card, explaining it here would be answering a question nobody asked.
+ *
+ * Status definitions come from the status table rather than being restated, so
+ * "Vulnerable takes 50% more damage" exists once. Two copies is how one of them
+ * ends up wrong after a tuning pass.
+ */
+export function glossaryFor(def: CardDef, state?: GameState): readonly GlossaryLine[] {
+  const printed = `${describeCard(def, state)} ${describeRider(def) ?? ''}`;
+  const lines: GlossaryLine[] = [];
+  const seen = new Set<string>();
+
+  for (const keyword of KEYWORDS) {
+    if (!printed.includes(keyword.name)) continue;
+    if (seen.has(keyword.id)) continue;
+    seen.add(keyword.id);
+    lines.push({ name: keyword.name, text: keyword.text });
+  }
+
+  for (const status of statusTable.all()) {
+    if (!printed.includes(status.name)) continue;
+    if (seen.has(status.id)) continue;
+    seen.add(status.id);
+    lines.push({ name: status.name, text: status.text });
+  }
+
+  return lines;
 }
