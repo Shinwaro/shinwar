@@ -23,6 +23,8 @@ import {
 import { describeImplant } from '../../engine/run/describe.ts';
 import { button, el } from '../dom.ts';
 import { renderManifest } from '../components/manifest.ts';
+import { getSettings, setSetting } from '../settings.ts';
+import { prefersReducedMotion } from '../anim.ts';
 
 export interface PauseHandle {
   readonly node: HTMLElement;
@@ -34,10 +36,19 @@ export function renderPause(store: Store, onClose: () => void): HTMLElement {
   const host = el('div', { class: 'pause-backdrop', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Paused' });
 
   const rerender = (): void => {
-    host.replaceChildren(build(store, store.getState(), confirming, (next) => {
-      confirming = next;
-      rerender();
-    }, onClose));
+    host.replaceChildren(
+      build(
+        store,
+        store.getState(),
+        confirming,
+        (next) => {
+          confirming = next;
+          rerender();
+        },
+        onClose,
+        rerender,
+      ),
+    );
   };
 
   // Clicking the backdrop closes, same as Esc. Clicking the panel must not.
@@ -55,6 +66,7 @@ function build(
   confirming: boolean,
   setConfirming: (next: boolean) => void,
   onClose: () => void,
+  refresh: () => void,
 ): HTMLElement {
   const run = requireRun(state);
   const rules = depthRules(currentDepth(state)).filter((rule) => rule.text !== null);
@@ -172,6 +184,22 @@ function build(
       el('ul', { class: 'pause-deck' }, deck),
     ]),
 
+    /* Presentation only, and session only — see `settings.ts` for why this is
+       not in `GameState` and why it is not saved. When the OS has asked for
+       reduced motion there is nothing here to decide, so the control says so
+       rather than pretending to be live. */
+    el('section', { class: 'pause-section' }, [
+      el('h2', { class: 'pause-heading' }, ['Motion']),
+      prefersReducedMotion()
+        ? el('p', { class: 'pause-empty' }, [
+            'Your system asks for reduced motion, so animation is already off. That setting wins.',
+          ])
+        : toggle('Screen shake', getSettings().shake, (next) => {
+            setSetting('shake', next);
+            refresh();
+          }),
+    ]),
+
     el('div', { class: 'pause-actions' }, [
       button('Resume', { class: 'btn btn-primary' }, onClose),
       confirming
@@ -185,6 +213,18 @@ function build(
         : button('Abandon run', { class: 'btn btn-quiet' }, () => setConfirming(true)),
     ]),
   ]);
+}
+
+/* A real <button> with `aria-pressed`, not a styled checkbox — it is keyboard
+   reachable and announces its own state without any extra wiring. */
+function toggle(label: string, on: boolean, onChange: (next: boolean) => void): HTMLElement {
+  const node = button(
+    label,
+    { class: `pause-toggle${on ? ' is-on' : ''}`, 'aria-pressed': on ? 'true' : 'false' },
+    () => onChange(!on),
+  );
+  node.append(el('span', { class: 'pause-toggle-state' }, [on ? 'On' : 'Off']));
+  return node;
 }
 
 function fact(label: string, value: string): HTMLElement {

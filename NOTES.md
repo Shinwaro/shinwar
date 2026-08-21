@@ -1995,3 +1995,65 @@ generator's name, and it caught the *comment* in the new file explaining that
 the file does not use it. The guard is right to be that blunt — a grep that
 understood comments would be a grep that could be talked around — so the
 comment was reworded instead.
+
+### Hit feedback is one idea, not a pile of effects
+
+**A hit that reaches the hull has to look different from one the plating ate.**
+That is the single most important fact in any moment of a fight, and it was
+carried entirely by two floating numbers — which are the part of the screen a
+player stops reading once they know their deck.
+
+So the struck thing reacts, and it reacts in two distinguishable ways: plating
+that absorbed a blow flashes cold and stays put, a hit that got through knocks
+the target sideways. 260ms, inside the beat between blows, so a four-hit move
+reads as four reactions and not one smear.
+
+**The shake is only for the player's hull, and it is scaled.** Shaking on every
+poke is noise, and noise on every hit is indistinguishable from no signal at
+all — it has to mean "that one actually hurt" or it means nothing. Below 4% of
+max health nothing moves; 25% shakes as hard as it ever gets. A 2-damage chip
+from a Scrap Hound leaves the screen alone; a 9 does not.
+
+**What shakes is `.combat-inner`, not the screen root.** The root owns the stage
+background now, and a background that moves with the hit shows the page edge
+behind it — which reads as the browser hiccuping rather than as the ship being
+hit. Content shakes against a stage that stays put.
+
+### The shake toggle is not in `GameState`, and it is not saved
+
+New `src/ui/settings.ts`, in memory, for the length of the tab.
+
+Not in state because nothing here can change what happens, and a replayed
+action log has to produce the same run whether or not the person replaying it
+likes their screen moving. A preference reachable from the reducer is the same
+class of bug the named RNG streams exist to prevent.
+
+Not saved because the no-saves rule covers "just a settings cache" too. A run
+is one sitting and the toggle lives as long as the sitting does.
+
+`prefers-reduced-motion` is not one of these settings — it is the OS telling us
+something and it always wins. `shakeAllowed()` is the only thing anything asks,
+and there is a test pinning the case where the two disagree. When the OS has
+asked for reduced motion the pause panel says so instead of showing a control
+that would do nothing.
+
+### The combat stage finally has the background it was promised
+
+`shell.css` has said "the combat stage gets its own, quieter background" since
+M2, and until now that meant flat black — the asteroid scene is hidden inside a
+run, and nothing replaced it.
+
+**No canvas.** A second animation loop running behind every fight for an
+hour-long run is a battery bug wearing an atmosphere costume, and it would need
+its own hidden-tab and reduced-motion handling. This is a few fixed gradients:
+one paint, then nothing.
+
+It reads the fight through two attributes the combat screen sets on its root.
+The stance tints the field with that stance's own accent — IAI amber, GUARD
+blue, FLOW green, the same three colours that already carry meaning nowhere
+else — and crossing the overheat line washes the whole stage warm. Both are
+things the player already has to know, said again in peripheral vision where a
+gauge cannot reach.
+
+The star dusting is deliberately irregular. Evenly spaced stars read as a
+texture rather than as a sky.

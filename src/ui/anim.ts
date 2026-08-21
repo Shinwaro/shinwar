@@ -1,10 +1,14 @@
 /* The animation layer.
  *
- * Small on purpose. Three things: numbers that rise off what they hit, bars
- * that drain instead of snapping, and a beat between a card leaving your hand
- * and its effect landing. Screen shake, hit sparks and weapon effects wait for
- * M7 — this pass exists because a state change you cannot see the *order* of
- * is a state change you cannot read.
+ * Small on purpose. Numbers that rise off what they hit, bars that drain
+ * instead of snapping, a beat between a card leaving your hand and its effect
+ * landing, and — since M7 — the thing struck reacting to being struck.
+ *
+ * The M7 addition is one idea, not a pile of effects: **a hit that reaches the
+ * hull has to look different from one the plating ate.** That is the single
+ * most important fact in any given moment of a fight, it was previously
+ * carried by two floating numbers alone, and floating numbers are the part of
+ * the screen a player stops reading once they know the deck.
  *
  * Two rules it must never break:
  *
@@ -24,6 +28,7 @@
  */
 
 import type { LogEntry } from '../engine/types.ts';
+import { shakeAllowed } from './settings.ts';
 
 export function prefersReducedMotion(): boolean {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -123,6 +128,80 @@ export function forgetBars(): void {
   lastWidth.clear();
 }
 
+/* ---------- impact ----------
+
+   The struck thing reacts. Two distinct reactions, because they are two
+   distinct facts: plating that absorbed a blow flashes cold and stays put,
+   and a hit that got through to the hull knocks the target sideways. If both
+   read the same, the player is back to reading numbers to find out whether
+   their Block did anything, which is the question the shield floater was
+   added to answer and the one the whole defensive layer turns on.
+
+   Deliberately short — 260ms, inside the beat between blows — so a four-hit
+   move reads as four reactions rather than one long smear. */
+
+const IMPACT_MS = 260;
+
+export function impactFx(anchor: Element, kind: 'hull' | 'shield', delay: number): void {
+  if (prefersReducedMotion()) return;
+
+  const frames: Keyframe[] =
+    kind === 'shield'
+      ? [
+          { offset: 0, filter: 'brightness(1)', transform: 'scale(1)' },
+          { offset: 0.25, filter: 'brightness(1.9)', transform: 'scale(1.02)' },
+          { offset: 1, filter: 'brightness(1)', transform: 'scale(1)' },
+        ]
+      : [
+          { offset: 0, transform: 'translateX(0)', filter: 'brightness(1)' },
+          { offset: 0.18, transform: 'translateX(-6px)', filter: 'brightness(1.6) saturate(1.4)' },
+          { offset: 0.42, transform: 'translateX(4px)', filter: 'brightness(1.2)' },
+          { offset: 0.7, transform: 'translateX(-2px)', filter: 'brightness(1)' },
+          { offset: 1, transform: 'translateX(0)', filter: 'brightness(1)' },
+        ];
+
+  anchor.animate(frames, { duration: IMPACT_MS, delay, easing: 'ease-out' });
+}
+
+/* ---------- screen shake ----------
+
+   Only for damage that reaches the PLAYER's hull, and scaled by how much of
+   the health bar it took. Shaking on every poke is noise, and noise on every
+   hit is indistinguishable from no signal at all — the shake has to mean "that
+   one actually hurt" or it means nothing.
+
+   Off under `prefers-reduced-motion`, and off when the player says so; see
+   `settings.ts` for why that toggle is not in `GameState`. */
+
+const SHAKE_MS = 300;
+/** A hit for this share of max health shakes as hard as the shake ever goes. */
+const SHAKE_FULL_AT = 0.25;
+/** Below this share, nothing moves. A 2-damage chip is not an event. */
+const SHAKE_FLOOR = 0.04;
+const SHAKE_MAX_PX = 9;
+
+export function shakeScreen(stage: Element, share: number, delay: number): void {
+  if (!shakeAllowed()) return;
+  if (share < SHAKE_FLOOR) return;
+
+  const weight = Math.min(1, share / SHAKE_FULL_AT);
+  const amplitude = SHAKE_MAX_PX * weight;
+  const step = (multiplier: number): string =>
+    `translate3d(${(amplitude * multiplier).toFixed(2)}px, ${(amplitude * multiplier * 0.4).toFixed(2)}px, 0)`;
+
+  stage.animate(
+    [
+      { transform: 'translate3d(0,0,0)' },
+      { transform: step(-1) },
+      { transform: step(0.72) },
+      { transform: step(-0.45) },
+      { transform: step(0.22) },
+      { transform: 'translate3d(0,0,0)' },
+    ],
+    { duration: SHAKE_MS, delay, easing: 'ease-out' },
+  );
+}
+
 /* ---------- the timeline ---------- */
 
 /**
@@ -142,6 +221,8 @@ interface Hit {
   readonly target: string;
   readonly text: string;
   readonly kind: FloatKind;
+  /** How much hull this instance actually cost. Zero for a full absorb. */
+  readonly toHull: number;
 }
 
 /**
@@ -165,15 +246,15 @@ function hitsFromEntry(entry: LogEntry): readonly Hit[] {
     if (amount === 0 && blocked === 0) return [];
 
     const out: Hit[] = [];
-    if (blocked > 0) out.push({ target, text: `-${blocked}`, kind: 'shield' });
-    if (amount > 0) out.push({ target, text: `-${amount}`, kind: 'damage' });
+    if (blocked > 0) out.push({ target, text: `-${blocked}`, kind: 'shield', toHull: 0 });
+    if (amount > 0) out.push({ target, text: `-${amount}`, kind: 'damage', toHull: amount });
     return out;
   }
 
   if (entry.kind === 'block') {
     const amount = typeof detail['amount'] === 'number' ? detail['amount'] : 0;
     if (amount <= 0) return [];
-    return [{ target, text: `+${amount}`, kind: 'block' }];
+    return [{ target, text: `+${amount}`, kind: 'block', toHull: 0 }];
   }
 
   return [];
@@ -186,9 +267,21 @@ function hitsFromEntry(entry: LogEntry): readonly Hit[] {
  * number should rise from. Returning `null` drops the floater rather than
  * guessing a position; a number floating over nothing is worse than no number.
  */
+export interface LogFxOptions {
+  /**
+   * What shakes. The combat screen's own root, not `document.body` — moving
+   * the whole page drags the log and the hand along with it, which reads as the
+   * browser hiccuping rather than as the ship being hit.
+   */
+  readonly stage: Element | null;
+  /** Denominator for the shake weight. A 9 is a lot at 40 health and not at 90. */
+  readonly playerMaxHealth: number;
+}
+
 export function playLogFx(
   fresh: readonly LogEntry[],
   locate: (target: string) => Element | null,
+  options: LogFxOptions,
 ): number {
   if (prefersReducedMotion() || fresh.length === 0) return 0;
 
@@ -201,6 +294,18 @@ export function playLogFx(
       const box = anchor.getBoundingClientRect();
       if (box.width === 0 && box.height === 0) continue;
 
+      const delay = FIRST_BEAT + slot * BEAT_STEP;
+
+      // The thing struck reacts on the same beat as its number, so the two
+      // read as one event rather than as a number and then a wobble.
+      if (hit.kind === 'damage' || hit.kind === 'shield') {
+        impactFx(anchor, hit.kind === 'shield' ? 'shield' : 'hull', delay);
+      }
+
+      if (hit.target === 'player' && hit.toHull > 0 && options.stage !== null) {
+        shakeScreen(options.stage, hit.toHull / Math.max(1, options.playerMaxHealth), delay);
+      }
+
       floatText({
         text: hit.text,
         kind: hit.kind,
@@ -208,7 +313,7 @@ export function playLogFx(
         // hit reads as two numbers rather than one flickering twice.
         x: box.left + box.width / 2 + (hit.kind === 'shield' ? -22 : 22),
         y: box.top + box.height * 0.32,
-        delay: FIRST_BEAT + slot * BEAT_STEP,
+        delay,
       });
       slot += 1;
     }

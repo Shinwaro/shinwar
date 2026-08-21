@@ -25,6 +25,7 @@ import { livingEnemies } from '../../engine/combat/damage.ts';
 import { describeStatus } from '../../engine/combat/keywords.ts';
 import { currentSeed, healthFraction } from '../../engine/queries.ts';
 import { environments, statuses as statusTable } from '../../content/registry.ts';
+import { HEAT } from '../../content/balance.ts';
 import { button, el } from '../dom.ts';
 import { renderCard } from '../components/card.ts';
 import { renderEnemy } from '../components/enemy.ts';
@@ -147,11 +148,28 @@ export function renderCombat(store: Store): HTMLElement {
       rendering = false;
     }
 
+    /* The stage reads the fight. The background is CSS keyed off these two
+       attributes rather than a second canvas — the asteroid scene already owns
+       a loop, and a second one running behind every fight for the length of a
+       run is a battery bug wearing an atmosphere costume. */
+    host.dataset['stance'] = state.run.combat.stance;
+    host.dataset['heat'] = state.run.combat.heat >= HEAT.overheatAt ? 'hot' : 'cool';
+
     // After the DOM exists, so the floaters can find what they rise from.
-    const played = playLogFx(fresh, (target) =>
-      target === 'player'
-        ? host.querySelector('.stat--hull')
-        : host.querySelector(`.enemy[data-uid="${CSS.escape(target)}"]`),
+    const played = playLogFx(
+      fresh,
+      (target) =>
+        target === 'player'
+          ? host.querySelector('.stat--hull')
+          : host.querySelector(`.enemy[data-uid="${CSS.escape(target)}"]`),
+      {
+        // The content column shakes, not the screen root — the root owns the
+        // stage background, and a background that moves with the hit shows the
+        // page edge behind it, which reads as the browser hiccuping rather
+        // than as the ship being hit.
+        stage: host.querySelector('.combat-inner'),
+        playerMaxHealth: state.run.pilot.maxHealth,
+      },
     );
     if (played > 0) fxRunning = played + SETTLE_MS;
 
