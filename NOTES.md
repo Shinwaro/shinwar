@@ -2086,3 +2086,134 @@ about a second apart with their own reaction.
 
 `DEATH_HOLD_MS` stays at 2200. It fires once in a run, on the blow that ends
 it, and that one is earned.
+
+---
+
+## Content & balance pass (Robin's batch)
+
+### Anomalies asked for hull and paid nothing for it
+
+Measured before touching anything: options that cost health paid 5-13 Alloy a
+point, against a Station that sells it back at about 4. So the deliberate "open
+a vein" choices paid barely more than the free ones on the same screen — and
+the Toll's "cut through" (-14 for 40) was *strictly dominated* by the option
+directly beneath it (0 for 90). Nine options retuned to 12-16 Alloy a point
+with health costs of 12-18 and every payoff clearing 150. At that rate selling
+hull is a real profit against the repair price, which is what makes it a
+decision: the Alloy is only worth something if you live to spend it, and you
+just made living harder.
+
+Two of those nine went the other way — the Becalmed Navigator and the Derelict
+Cutter paid ~200 for six health, which is the same failure seen from the other
+side. A free 200 Alloy is not a decision either.
+
+### Weak is capped, and the cap is data
+
+Stacks compound (`value ** stacks`), so an uncapped 0.75 reached 0.32 at four
+stacks and kept going. A debuff that can take two thirds of an enemy's output
+off the table stops being a tempo play and becomes the whole answer to a fight,
+at which point stacking it beats doing anything else.
+
+The cap is a `multFloor` field on the status rather than a clamp in the
+pipeline — it belongs next to the number it caps, the status text can say it
+out loud, and any future multiplicative status gets the same treatment for
+free. The helper clamps in both directions, since a floor on a reducing status
+is a minimum and on an amplifying one would be a maximum.
+
+Worth noting the cap does not bite until the third stack: two stacks is 0.5625,
+which is still honest compounding.
+
+### Two cards were the same card
+
+`runaway_intake` (uncommon) and `stoke_the_core` (common) were both 0 Energy,
++1 Energy, +3 Heat, with identical upgrades. A duplicate *and* a tier inversion
+— the uncommon offered nothing the common did not. Deleted the uncommon.
+`scattering_arc` deleted outright.
+
+### Clearing an act patches you up
+
+`advanceAct` raised the ceiling and left you on whatever the boss left you,
+which made a won fight feel like a loss with extra steps and pushed the whole
+run's difficulty onto how cheaply you cleared Act 1. 25% of max health now
+comes back alongside the +8 ceiling. Two separate things, deliberately: one
+raises the cap, one fills under it.
+
+### Execution: a condition, not an op
+
+"If this kills an enemy, gain X" reads like a trigger system and is not one. An
+execution card is a plain `damage` op followed by a `conditional` on a new
+`killedThisPlay` condition — effects run in order, so by the time the
+conditional is evaluated the blow has landed and the condition is reading what
+it did. No new op, no trigger vocabulary, and `describeCard` generates the text
+for free.
+
+Two details that took thought. The kill is counted as **"was alive, now is
+not"** rather than "is dead", or a multi-hit card collects the bounty once per
+swing at a corpse. And it is scoped to the **card**, not the turn, or every
+card played after a kill collects.
+
+**The one real engine change this forced**: `applyEffects` broke out of the op
+loop on anything other than `ongoing`, which meant the killing blow on the LAST
+enemy skipped every op after it — so an execution rider paid out on every kill
+except the one you most wanted it to. A card that says "gain 40 Alloy" and then
+does not is the game lying about its own rules. It now breaks only on `lost`,
+which is safe because `applyDamage` already refuses to hit a corpse and
+`allEnemies` resolves to nothing on a clear board.
+
+`gainAlloy` is a new effect op and the only place the combat vocabulary reaches
+into the run. It earns it: a bounty you collect by killing something is a
+different promise from one you collect by winning, and only the first changes
+how you pick a target.
+
+### Voided — the game's word for a curse
+
+Unplayable, no upgrade, exclusive, removable only by paying. They exist because
+the Anomaly pool kept producing a shape it could not price: an option that
+hands you something for nothing. A Voided card is a cost the reward screen
+cannot express, because the cost is *carrying it for the rest of the run* — a
+slot in every hand it turns up in, for an hour, plus a removal fee to end that.
+The only price in the game that gets worse the longer you leave it.
+
+The rule the six new Anomalies are written to: **the Voided option is always
+the one that costs somebody else something.** The player is never punished for
+taking a risk, only for taking the way out that somebody else pays for.
+
+`CardType` already had an unused `curse` member; renamed to `voided`. The
+validator exempts them from needing an upgrade or effects and *demands* they
+declare it, so a `voided` that does something is caught as the typo it is.
+`CardDef.upgrade` became optional in the type — the type says what is
+representable, the validator says what is allowed, and only the validator knows
+the rule is about card type.
+
+### The content gap, closed
+
+Cards 53 -> 86, written against gaps rather than to a count. Three conditions
+had sat unused in the vocabulary since M1: `hullBelowPct` (a defensive
+archetype with no desperation card plays identically on turn one and on your
+last four health), `targetHasStatus` (so Vulnerable was a damage multiplier and
+nothing else), and `setStance`. Rust had one card; Scald had never been aimed
+at the player as a Heat cost paid on the instalment plan; `heal` had no card at
+all, so the deck could not answer the one resource the run is about.
+
+Relics 19 -> 28. The first nineteen all answered "how do I get more of what I
+already do" and left three systems with nothing pointing at them: nothing read
+a kill, nothing read a Thread coming due, nothing turned a fight into Alloy.
+The Sect Reliquary is the only relic that reads the story layer — a run that
+engages with Threads took risks it did not have to, and now something pays for
+that.
+
+Encounters 25 -> 33, and **three-wide arrives in Act 1** rather than Act 3.
+Only tolerable now because the deck can answer it: the starting twelve carry an
+AoE from node one and the pool has five more above it. Adding these before that
+existed would have been a difficulty spike wearing variety's clothes. Act 1's
+three-wide is deliberately the softest three in the game — two Wisps and a
+Hound is less total health than the Pack — so it teaches the shape of a wide
+board before anything punishes reading it slowly.
+
+### A hand-maintained list had gone stale
+
+`HOOK_NAMES` in the relic tests was a hand-written copy that stopped at
+`onEnemyKilled`, so a relic hanging off `onThreadResolved` was reported as
+doing nothing at all. Fixed at the cause: `hooks.ts` now exports `HOOK_NAMES`
+built from a record keyed by `HookName`, so adding a hook and forgetting the
+list is a compile error.

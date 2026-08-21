@@ -237,6 +237,83 @@ export const ENCOUNTERS: readonly EncounterDef[] = [
     tier: 'boss',
     enemyIds: [EVENT_HORIZON],
   },
+
+  /* ---- the second batch ----
+
+     Two things this pool did not have. **Three of anything before Act 3** — the
+     board was two enemies for two whole acts, so "who do I hit first" had one
+     shape and the AoE cards had nothing to be for. And **a pack whose members
+     answer different questions**: a pair of the same enemy is one problem
+     twice, and a pair that both punish being hit is still one problem.
+
+     Three-wide is only tolerable now because the deck can answer it: the
+     starting twelve carry an AoE from node one, and the pool has five more
+     above it. Adding these before that existed would have been adding a
+     difficulty spike and calling it variety. */
+
+  {
+    /* Act 1's only three-wide, and deliberately the softest three in the game:
+       two Wisps and a Hound is less total health than the Pack, so it teaches
+       the shape of a wide board before anything punishes reading it slowly. */
+    id: 'wisp_swarm',
+    name: 'Swarm',
+    act: 1,
+    tier: 'normal',
+    enemyIds: [CINDER_WISP, CINDER_WISP, SCRAP_HOUND],
+  },
+  {
+    /* The Adept scales and the Drone does not, in front of a Tick that is
+       running a clock through both. Kill order is the entire fight. */
+    id: 'kiln_work_crew',
+    name: 'Work Crew',
+    act: 1,
+    tier: 'normal',
+    enemyIds: [KILN_ADEPT, LATHE_DRONE, RUST_TICK],
+  },
+  {
+    id: 'drifter_escort',
+    name: 'Escort',
+    act: 2,
+    tier: 'normal',
+    enemyIds: [SABLE_DRIFTER, ARC_WELDER, BLOOM_WEEVIL],
+  },
+  {
+    /* Three questions at once: the Choir wants you slow, the Siphon wants you
+       rich, and the Ronin wants you in the wrong stance. */
+    id: 'the_procession',
+    name: 'The Procession',
+    act: 2,
+    tier: 'normal',
+    enemyIds: [ASH_CHOIR, SIPHON_ENGINE, VOID_RONIN],
+  },
+  {
+    id: 'welder_pair',
+    name: 'Cutting Crew',
+    act: 2,
+    tier: 'normal',
+    enemyIds: [ARC_WELDER, ARC_WELDER],
+  },
+  {
+    id: 'herald_and_weevil',
+    name: 'Forerunners',
+    act: 2,
+    tier: 'normal',
+    enemyIds: [WAVEFRONT_HERALD, BLOOM_WEEVIL],
+  },
+  {
+    id: 'prism_field',
+    name: 'Prism Field',
+    act: 3,
+    tier: 'normal',
+    enemyIds: [NULL_PRISM, TESSELLATE_SHARD, HEAT_SIPHON],
+  },
+  {
+    id: 'the_cold_wake',
+    name: 'The Cold Wake',
+    act: 3,
+    tier: 'normal',
+    enemyIds: [RIMEWAKE, CHIRALITY_WARDEN],
+  },
 ];
 
 export function encountersFor(act: 1 | 2 | 3, tier: 'normal' | 'elite' | 'boss'): readonly EncounterDef[] {
