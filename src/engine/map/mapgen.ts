@@ -244,6 +244,19 @@ function assignTypes(
        * rest two nodes apart is the same problem with a step in between.
        */
       const nearby = typesWithin(skeleton, types, row, col, MAP.safeSpacing);
+      /* Stations keep their distance for the same reason Safe Planets do: the
+         second shop on a path is nearly worthless because you spent at the
+         first. Its own window, because the two spacings are separate numbers.
+
+         Looking back catches a shop that follows a shop. It cannot catch one
+         that sits just BEFORE the guaranteed Station row, because that row is
+         placed unconditionally rather than rolled — when row N-1 is generated,
+         row N does not exist yet to be seen. Exactly the same blind spot the
+         rest-before-boss has, and closed the same way: by hand, in front. */
+      const nearbyStations = typesWithin(skeleton, types, row, col, MAP.stationSpacing);
+      const besideStationRow =
+        row > stationRow - 1 - MAP.stationSpacing && row < stationRow + 1 + MAP.stationSpacing;
+      const afterStation = nearbyStations.includes('station') || besideStationRow;
       /*
        * Looking back catches a rest that follows a rest. It cannot catch one
        * that sits just *before* the guaranteed rest-before-boss row, because
@@ -273,7 +286,10 @@ function assignTypes(
         // Nothing special in the opening rows: Act 1 should feel plain before
         // it starts offering deals.
         { value: 'elite' as NodeType, weight: early ? 0 : NODE_WEIGHTS.elite },
-        { value: 'station' as NodeType, weight: early ? 0 : NODE_WEIGHTS.station },
+        {
+          value: 'station' as NodeType,
+          weight: early || afterStation ? 0 : NODE_WEIGHTS.station,
+        },
         // Kept apart by `safeSpacing`; see `typesWithin` above.
         { value: 'safe' as NodeType, weight: early || afterSafe ? 0 : NODE_WEIGHTS.safe },
       ]);
@@ -322,12 +338,14 @@ function typesWithin(
 
 /* ---------- encounters ---------- */
 
-function poolFor(act: 1 | 2 | 3, type: NodeType): readonly { id: EncounterId }[] {
+function poolFor(act: 1 | 2 | 3, type: NodeType, row: number): readonly { id: EncounterId }[] {
   const tier = type === 'elite' ? 'elite' : type === 'boss' ? 'boss' : 'normal';
-  const exact = encountersFor(act, tier);
+  // `row` gates the encounters that declare a `minRow` — the three-wide Act 1
+  // packs, which are a different game on the arrival node.
+  const exact = encountersFor(act, tier, row);
   // Elites and bosses get their own rosters at M5. Until then they fall back to
   // the normal pool so every combat node is playable — under-tuned beats empty.
-  return exact.length > 0 ? exact : encountersFor(act, 'normal');
+  return exact.length > 0 ? exact : encountersFor(act, 'normal', row);
 }
 
 function assignEncounters(
@@ -344,9 +362,15 @@ function assignEncounters(
     for (const col of skeleton.cells[row] ?? []) {
       const id = nodeId(row, col);
       const type = types.get(id);
-      if (type !== 'combat' && type !== 'elite' && type !== 'boss') continue;
+      /* Unknowns are given one too, and never show it. A `?` that resolves
+         into an ambush used to reach for `fallbackEncounter`, which returns
+         the first encounter anywhere on the chart — including an elite or the
+         boss. Rolling it here makes the ambush a normal Act-appropriate fight
+         and part of the seed like everything else. */
+      const rolls = type === 'combat' || type === 'elite' || type === 'boss' || type === 'unknown';
+      if (!rolls) continue;
 
-      const pool = poolFor(act, type);
+      const pool = poolFor(act, type === 'unknown' ? 'combat' : type, row);
       if (pool.length === 0) continue;
 
       // Never the same encounter twice in a row on any path into this node.
@@ -548,7 +572,14 @@ function assemble(skeleton: Skeleton, act: 1 | 2 | 3, rng: RngState): GeneratedM
         // place so the map, routing and the crash are built once — see SHIP.md.
         encounterId,
         eventId: row === reliquaryRow && type === 'event' ? RELIQUARY_EVENT_ID : null,
-        environmentId: encounterId === null ? null : (scened.environments.get(id) ?? CLEAR_SPACE_ID),
+        /* An Unknown that resolves into a fight now fights somewhere, rather
+           than always in Clear Space. It is generated here like every other
+           node's, so it is part of the seed — the map simply does not draw it,
+           which is the whole point of an Unknown. */
+        environmentId:
+          encounterId === null && type !== 'unknown'
+            ? null
+            : (scened.environments.get(id) ?? CLEAR_SPACE_ID),
         next: outgoing.map((target) => nodeId(row + 1, target)),
       });
     }

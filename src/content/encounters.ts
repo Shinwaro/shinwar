@@ -51,6 +51,15 @@ export interface EncounterDef {
   readonly act: 1 | 2 | 3;
   readonly tier: 'normal' | 'elite' | 'boss';
   readonly enemyIds: readonly EnemyId[];
+  /**
+   * Earliest row this may be placed on. Absent means anywhere.
+   *
+   * The three-wide Act 1 packs need it. A Swarm on the arrival node is three
+   * enemies against the opening twelve cards, before a single reward screen —
+   * which is not a hard start, it is a different game. The board can be wide
+   * once the deck has had a chance to answer it.
+   */
+  readonly minRow?: number;
 }
 
 export const ENCOUNTERS: readonly EncounterDef[] = [
@@ -270,6 +279,7 @@ export const ENCOUNTERS: readonly EncounterDef[] = [
     name: 'Swarm',
     act: 1,
     tier: 'normal',
+    minRow: 5,
     enemyIds: [CINDER_WISP, CINDER_WISP, SCRAP_HOUND],
   },
   {
@@ -279,6 +289,7 @@ export const ENCOUNTERS: readonly EncounterDef[] = [
     name: 'Work Crew',
     act: 1,
     tier: 'normal',
+    minRow: 5,
     enemyIds: [KILN_ADEPT, LATHE_DRONE, RUST_TICK],
   },
   {
@@ -386,6 +397,15 @@ export const ENCOUNTERS: readonly EncounterDef[] = [
   },
 ];
 
-export function encountersFor(act: 1 | 2 | 3, tier: 'normal' | 'elite' | 'boss'): readonly EncounterDef[] {
-  return ENCOUNTERS.filter((entry) => entry.act === act && entry.tier === tier);
+export function encountersFor(
+  act: 1 | 2 | 3,
+  tier: 'normal' | 'elite' | 'boss',
+  row?: number,
+): readonly EncounterDef[] {
+  return ENCOUNTERS.filter(
+    (entry) =>
+      entry.act === act &&
+      entry.tier === tier &&
+      (row === undefined || entry.minRow === undefined || row >= entry.minRow),
+  );
 }

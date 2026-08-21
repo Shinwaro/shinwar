@@ -21,7 +21,7 @@ import { intentOf, telegraphAll } from '../src/engine/combat/intents.ts';
 import { nextStance } from '../src/engine/combat/stance.ts';
 import { overheatDamageAt } from '../src/engine/combat/heat.ts';
 import { addStacks, clearFresh, decayStatuses } from '../src/engine/combat/keywords.ts';
-import { WEAK } from '../src/content/statuses.ts';
+import { SCALD, WEAK } from '../src/content/statuses.ts';
 import { ACTIVE_STANCES, HEAT, PLAYER, STANCES } from '../src/content/balance.ts';
 import { IAI_SLASH, SEVER, SOLAR_PARRY, VECTOR_STEP } from '../src/content/cards/basic.ts';
 import { VULNERABLE } from '../src/content/statuses.ts';
@@ -317,6 +317,46 @@ describe('overheat', () => {
     // The vent turn hands you no Energy at all — that is the cost — and the
     // critical penalty lands on the turn after it.
     expect(combatOf(after).energy).toBe(0);
+  });
+
+  it('takes the turn when a status ticks you into the ceiling', () => {
+    /* The bug, exactly as it was hit: start a turn on full Heat with Scald
+       running, and play a whole hand anyway.
+
+       `playCard` had ended the turn at the ceiling since M3, so the rule
+       existed for cards and only for cards. Nothing checked after the turn's
+       status tick, so a Scald could put you at the top of the gauge before you
+       had moved and hand you a free turn with nothing left to lose — the exact
+       opposite of what the ceiling is for. */
+    const state = makeFight({
+      stance: 'guard',
+      heat: HEAT.criticalAt - 2,
+      playerStatuses: [{ status: SCALD, stacks: 3, fresh: false }],
+      hand: [IAI_SLASH],
+      drawPile: [SOLAR_PARRY, IAI_SLASH, IAI_SLASH, IAI_SLASH, IAI_SLASH, IAI_SLASH],
+      hull: 500,
+    });
+
+    const opened = startPlayerTurn(state);
+    // Scald pushed it over, so the turn is already gone: the player never gets
+    // to act, and the enemies are queued.
+    expect(combatOf(opened).pendingEnemies.length).toBeGreaterThan(0);
+  });
+
+  it('does not take the turn on a reactor-vent turn', () => {
+    /* The vent turn already blows the gauge to zero, and it is already the
+       punishment for the last overheat. Reading the Heat before that clears
+       would charge for the same overheat twice — which is what the first
+       version of the ceiling check did. */
+    const state = makeFight({ stance: 'guard', heat: HEAT.criticalAt, hand: [IAI_SLASH], hull: 500 });
+    const skipping = {
+      ...state,
+      run: { ...state.run!, combat: { ...combatOf(state), skipNextTurn: true } },
+    };
+
+    const opened = startPlayerTurn(skipping);
+    expect(combatOf(opened).heat).toBe(0);
+    expect(combatOf(opened).pendingEnemies.length).toBe(0);
   });
 
   it('lets IAI’s own passive tip you over', () => {

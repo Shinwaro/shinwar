@@ -78,21 +78,20 @@ export function renderHeatGauge(state: GameState): HTMLElement {
       el('div', { class: 'heat-ticks' }, ticks),
       el('span', { class: 'heat-value' }, [`${heat.heat} / ${heat.max}`]),
     ]),
-    // aria-live so crossing a threshold is announced, not just coloured.
+    /* Both thresholds on one line.
+     *
+     * The gauge only ever announced the soft one, so the hard one arrived as a
+     * surprise — you reach the cap, the turn ends under you, and nothing on
+     * screen had ever said it would. A cost you cannot read before paying it is
+     * the definition of unfair. It sits in the same sentence rather than its
+     * own paragraph because it is the same fact: this is what the gauge does to
+     * you, at these two points.
+     *
+     * aria-live so crossing a threshold is announced, not just coloured. */
     el('p', { class: 'heat-consequence', role: 'status', 'aria-live': 'polite' }, [
       heat.overheating
-        ? `OVERHEATING — end this turn and take ${heat.consequence}`
-        : `Overheat at ${HEAT.overheatAt} → ${heat.consequence.replace(`Overheat at ${HEAT.overheatAt} — `, '')}`,
-    ]),
-    /* The second threshold, said out loud and always.
-     *
-     * The gauge only ever announced the soft line, so the hard one arrived as
-     * a surprise — you hit the cap mid-turn, the turn ended under you, and
-     * nothing on screen had ever mentioned that it would. A cost you cannot
-     * read before paying it is the definition of unfair, and this is the most
-     * expensive one in the game. */
-    el('p', { class: 'heat-critical' }, [
-      `At ${HEAT.criticalAt} the turn ends immediately, the reactor takes the next one, and a card burns.`,
+        ? `OVERHEATING — end this turn and take ${heat.consequence}. At ${HEAT.criticalAt} the turn ends immediately.`
+        : `Overheat at ${HEAT.overheatAt} → ${heat.consequence.replace(`Overheat at ${HEAT.overheatAt} — `, '')}. At ${HEAT.criticalAt} the turn ends immediately.`,
     ]),
   ]);
 }

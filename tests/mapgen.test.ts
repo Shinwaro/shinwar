@@ -10,6 +10,7 @@ import { generateMap, mapProblems } from '../src/engine/map/mapgen.ts';
 import { availableMoves, rowsOf } from '../src/engine/map/route.ts';
 import { createRng } from '../src/engine/rng.ts';
 import { createRunState } from '../src/engine/state.ts';
+import { ENCOUNTERS } from '../src/content/encounters.ts';
 import { MAP } from '../src/content/balance.ts';
 import { CLEAR_SPACE_ID, ENVIRONMENTS } from '../src/content/environments.ts';
 
@@ -101,6 +102,69 @@ describe('the guarantees, across 1000 seeds', () => {
       expect(bossRow).toHaveLength(1);
       expect(bossRow[0]?.id).toBe(map.bossId);
       expect(bossRow[0]?.type).toBe('boss');
+    }
+  });
+
+  it('never puts two Stations back to back on a path', () => {
+    /* Safe Planets had spacing from M2 and Stations did not, so two shops in a
+       row was a normal roll — and the second is nearly worthless, because you
+       spent at the first.
+
+       The failure was specifically in FRONT of the guaranteed Station row:
+       that row is placed unconditionally, so when the row below it rolls, it
+       cannot see what is coming. Looking backwards alone never catches it. */
+    for (const seed of SEEDS) {
+      for (const act of [1, 2, 3] as const) {
+        const { map } = generateMap(createRng(seed), act);
+        const byId = new Map(map.nodes.map((node) => [node.id, node]));
+        for (const node of map.nodes) {
+          if (node.type !== 'station') continue;
+          for (const id of node.next) {
+            expect(byId.get(id)?.type, `${seed} act${act}: ${node.id} -> ${id}`).not.toBe('station');
+          }
+        }
+      }
+    }
+  });
+
+  it('holds every encounter to its earliest row', () => {
+    // Three enemies on the arrival node is not a hard start, it is a different
+    // game — the opening twelve cards have not had a reward screen yet.
+    const floors = new Map(
+      ENCOUNTERS.filter((entry) => entry.minRow !== undefined).map((entry) => [
+        entry.id,
+        entry.minRow as number,
+      ]),
+    );
+    expect(floors.size).toBeGreaterThan(0);
+
+    for (const seed of SEEDS) {
+      for (const act of [1, 2, 3] as const) {
+        const { map } = generateMap(createRng(seed), act);
+        for (const node of map.nodes) {
+          const floor = node.encounterId === null ? undefined : floors.get(node.encounterId);
+          if (floor === undefined) continue;
+          expect(node.row, `${seed} act${act}: ${node.encounterId} at row ${node.row}`)
+            .toBeGreaterThanOrEqual(floor);
+        }
+      }
+    }
+  });
+
+  it('gives every Unknown a fight to resolve into', () => {
+    /* An Unknown carries a hidden encounter and environment. Without them the
+       ambush fell back to "the first encounter anywhere on the chart", which
+       includes the elite and boss rosters — so a `?` in Act 1 could roll the
+       act boss. */
+    for (const seed of SEEDS.slice(0, 300)) {
+      for (const act of [1, 2, 3] as const) {
+        const { map } = generateMap(createRng(seed), act);
+        for (const node of map.nodes) {
+          if (node.type !== 'unknown') continue;
+          expect(node.encounterId, `${seed} act${act}: ${node.id}`).not.toBeNull();
+          expect(node.environmentId, `${seed} act${act}: ${node.id}`).not.toBeNull();
+        }
+      }
     }
   });
 

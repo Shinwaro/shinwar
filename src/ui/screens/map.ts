@@ -16,7 +16,6 @@ import type { GameState, MapNode, RunMap, RunState } from '../../engine/types.ts
 import type { Store } from '../store.ts';
 import { requireRun } from '../../engine/state.ts';
 import { availableMoves, currentNode, describeNode } from '../../engine/map/route.ts';
-import { ENCOUNTERS } from '../../content/encounters.ts';
 import { environments } from '../../content/registry.ts';
 import { button, el, fill } from '../dom.ts';
 import { liveScreen } from '../screen.ts';
@@ -28,7 +27,7 @@ import {
   relics as relicTable,
 } from '../../content/registry.ts';
 import { describeImplant } from '../../engine/run/describe.ts';
-import { MAP_INFO, renderInfoPanel } from '../components/info.ts';
+import { mapInfo, renderInfoPanel } from '../components/info.ts';
 import { renderCardFace } from '../components/card.ts';
 import { definitionOf } from '../../engine/combat/combat.ts';
 
@@ -47,19 +46,35 @@ function svg<K extends keyof SVGElementTagNameMap>(
   return node;
 }
 
+/**
+ * The environment, unless the node is an Unknown.
+ *
+ * An Unknown carries a real environment now — it is rolled with the map so an
+ * ambush fights somewhere rather than always in Clear Space — and drawing it
+ * would give the `?` away. A node that tells you the weather has told you
+ * there is going to be a fight.
+ */
 function environmentName(node: MapNode): string | null {
-  if (node.environmentId === null) return null;
+  if (node.environmentId === null || node.type === 'unknown') return null;
   return environments.find(node.environmentId)?.name ?? null;
 }
 
-function encounterName(node: MapNode): string | null {
-  if (node.encounterId === null) return null;
-  return ENCOUNTERS.find((entry) => entry.id === node.encounterId)?.name ?? null;
-}
+/**
+ * The route decision is which KIND of place to walk into, not which named pack.
+ *
+ * The chart used to print the encounter's name on every combat node, which
+ * turned routing into looking up a known quantity: you learn that Swarm is
+ * three enemies and after that the chart is answering the question instead of
+ * asking it. The encounter roster lives in the Info panel, where it is
+ * reference rather than a spoiler on the node itself.
+ *
+ * The environment stays visible. That is a rule about how the fight works,
+ * which you are entitled to price before committing — unlike who is in it.
+ */
 
 /** Everything about a node, for the readout and the accessible name. */
 function labelOf(node: MapNode): string {
-  return [node.name, describeNode(node), encounterName(node), environmentName(node)]
+  return [node.name, describeNode(node), environmentName(node)]
     .filter((part) => part !== null && part !== '')
     .join(' · ');
 }
@@ -74,14 +89,11 @@ function labelOf(node: MapNode): string {
  */
 function captionOf(node: MapNode): HTMLElement {
   const environment = environmentName(node);
-  const encounter = encounterName(node);
   return el('span', { class: 'star-label' }, [
     el('span', { class: 'star-name' }, [node.name]),
     el('span', { class: 'star-detail' }, [describeNode(node)]),
-    // What you are walking into, on its own line and in its own colour. These
-    // are the two facts the route decision is actually made on, and folding
-    // them into one grey run of text with the node type buried them.
-    encounter === null ? null : el('span', { class: 'star-encounter' }, [encounter]),
+    // The environment, on its own line and in its own colour: it is the fact
+    // the route decision is actually made on. Who is waiting is not.
     environment === null || environment === 'Clear Space'
       ? null
       : el('span', { class: 'star-env', 'data-environment': node.environmentId }, [environment]),
@@ -343,7 +355,7 @@ function buildMap(
     renderManifest(state, 'Carrying'),
     viewport,
     view.showInfo
-      ? renderInfoPanel('Reading the chart', MAP_INFO, () => {
+      ? renderInfoPanel('Reading the chart', mapInfo(map.act), () => {
           view.showInfo = false;
           rerender();
         })

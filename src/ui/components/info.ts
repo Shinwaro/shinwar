@@ -14,8 +14,9 @@
  * because the player now has a wrong thing they trust.
  */
 
-import { HEAT, FOCUS_MAX, PLAYER, STANCES } from '../../content/balance.ts';
-import { statuses as statusTable } from '../../content/registry.ts';
+import { ACTIVE_STANCES, HEAT, FOCUS_MAX, PLAYER, STANCES } from '../../content/balance.ts';
+import { ENCOUNTERS } from '../../content/encounters.ts';
+import { enemies as enemyTable, statuses as statusTable } from '../../content/registry.ts';
 import { button, el } from '../dom.ts';
 
 export interface InfoEntry {
@@ -128,6 +129,36 @@ export function renderInfoPanel(
    layout pass is a legend that flickers. If a star colour changes, this is the
    second place to change it — and the only one. */
 
+/**
+ * The encounter roster, generated.
+ *
+ * This is where "who is in that fight" lives now that the chart no longer
+ * prints it on the node. The distinction is deliberate: knowing that a pack
+ * called Swarm exists and is three Cinder Wisps is reference a player should
+ * have, and knowing that *this* star is Swarm turns routing into a lookup.
+ */
+function encounterEntries(act: 1 | 2 | 3): readonly InfoEntry[] {
+  return ENCOUNTERS.filter((entry) => entry.act === act && entry.tier === 'normal').map((entry) => {
+    const names = entry.enemyIds.map((id) => enemyTable.find(id)?.name ?? id);
+    const counts = new Map<string, number>();
+    for (const name of names) counts.set(name, (counts.get(name) ?? 0) + 1);
+    const roster = [...counts]
+      .map(([name, count]) => (count === 1 ? name : `${count}x ${name}`))
+      .join(', ');
+    return { term: entry.name, text: roster };
+  });
+}
+
+export function mapInfo(act: 1 | 2 | 3): readonly InfoSection[] {
+  return [
+    ...MAP_INFO,
+    {
+      heading: `Act ${act} packs`,
+      entries: encounterEntries(act),
+    },
+  ];
+}
+
 export const MAP_INFO: readonly InfoSection[] = [
   {
     heading: 'What the stars are',
@@ -162,7 +193,6 @@ function statusEntries(): readonly InfoEntry[] {
 export function combatInfo(): readonly InfoSection[] {
   const iai = STANCES.iai;
   const guard = STANCES.guard;
-  const flow = STANCES.flow;
 
   return [
     {
@@ -206,9 +236,10 @@ export function combatInfo(): readonly InfoSection[] {
     {
       heading: 'Stance',
       entries: [
-        { term: iai.name, text: iai.text },
-        { term: guard.name, text: guard.text },
-        { term: flow.name, text: flow.text },
+        /* Only the stances actually in rotation. `STANCES` still holds FLOW —
+           it is written, tested, and deliberately benched — and listing it
+           here described a stance the player can never enter. */
+        ...ACTIVE_STANCES.map((id) => ({ term: STANCES[id].name, text: STANCES[id].text })),
         {
           term: 'Focus',
           text: `Up to ${FOCUS_MAX} stacks. One is spent per card, and the stance decides what it becomes — damage in ${iai.name}, Block in ${guard.name}.`,

@@ -27,7 +27,7 @@ import { STRENGTH } from '../../content/statuses.ts';
 import { ENCOUNTERS } from '../../content/encounters.ts';
 import { PLAYER, enemyTarget, livingEnemies } from './damage.ts';
 import { applyEffects, createContext, retireCard } from './effects.ts';
-import { gainHeat, resolveOverheat, ventHeat } from './heat.ts';
+import { atCriticalHeat, gainHeat, resolveOverheat, ventHeat } from './heat.ts';
 import { addStacks, clearFresh, decayStatuses, statusEnergy, tickStatuses } from './keywords.ts';
 import { environmentRules, liveStance, pilotRules, stanceRulesFor } from './rules.ts';
 import { mintEnemy } from './instances.ts';
@@ -232,6 +232,7 @@ export function startPlayerTurn(state: GameState): GameState {
   next = tickStatuses(next, PLAYER);
   if (next.run?.combat?.outcome !== 'ongoing') return next;
 
+
   next = fireHook(next, 'onRoundStart', { round: requireCombat(next).round });
   next = fireHook(next, 'onTurnStart', { turn });
 
@@ -259,7 +260,28 @@ export function startPlayerTurn(state: GameState): GameState {
     });
   }
 
-  return drawForTurn(next);
+  /* A Scald can tick you straight into the ceiling before you have played
+     anything, and the ceiling takes the turn whoever pushed it there.
+
+     Checked HERE, after the reactor-vent branch above has had its chance to
+     blow the gauge back to zero — a vent turn is already the punishment for
+     the last overheat, and reading the Heat before it clears would charge for
+     the same overheat twice. This reads the Heat the player will actually be
+     holding when they act.
+
+     The hand is dealt first either way: you see the turn you are losing,
+     exactly as on a vent turn. */
+  const drawn = drawForTurn(next);
+  if (!atCriticalHeat(drawn)) return drawn;
+
+  return endPlayerTurn(
+    appendLog(drawn, {
+      source: 'heat',
+      kind: 'heat',
+      text: `Heat ${requireCombat(drawn).heat}/${HEAT.max} before you moved. The reactor takes this one.`,
+      detail: { heat: requireCombat(drawn).heat },
+    }),
+  );
 }
 
 /**
@@ -427,14 +449,17 @@ export function playCard(state: GameState, cardUid: string, targetUid: string | 
    * here makes the ceiling mean something in the moment rather than at the end
    * of a turn you were already committed to, and the consequence is the ordinary
    * overheat, not a second worse one.
+   *
+   * Shares `atCriticalHeat` with the turn-start check rather than reading
+   * `HEAT.max` directly. The two lines are the same number today and two names
+   * for one rule is how they stop being.
    */
-  const hot = next.run?.combat;
-  if (hot !== undefined && hot !== null && hot.outcome === 'ongoing' && hot.heat >= HEAT.max) {
+  if (atCriticalHeat(next)) {
     next = appendLog(next, {
       source: 'heat',
       kind: 'heat',
-      text: `Heat ${hot.heat}/${HEAT.max}. The reactor decides the turn is over.`,
-      detail: { heat: hot.heat },
+      text: `Heat ${requireCombat(next).heat}/${HEAT.max}. The reactor decides the turn is over.`,
+      detail: { heat: requireCombat(next).heat },
     });
     return endPlayerTurn(next);
   }

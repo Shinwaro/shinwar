@@ -2689,19 +2689,6 @@
   }
 }
 
-/* ---------- the second heat line ----------
-   Quieter than the overheat line above it, because it is the rule rather than
-   the current state — it says the same thing whatever the gauge reads, and a
-   sentence that never changes should not compete with one that does. */
-
-.heat-critical {
-  margin: 0.15rem 0 0;
-  font-size: 0.72rem;
-  line-height: 1.4;
-  color: var(--muted);
-  text-wrap: pretty;
-}
-
 /* ---------- inventory ---------- */
 
 .inv-section { margin: 1.4rem 0 0; }

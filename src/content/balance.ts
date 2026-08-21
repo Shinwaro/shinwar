@@ -139,7 +139,9 @@ export const STANCES: { readonly [K in StanceId]: StanceRules } = {
   iai: {
     id: 'iai',
     name: 'IAI',
-    text: 'Focus adds damage · +2 damage at 5+ Heat · +2 Heat at turn end',
+    // The Heat cost last: it is what the stance charges you, and it reads
+    // better after the two things it is paying for.
+    text: 'Focus adds damage · +2 Heat at turn end · +2 damage at 5+ Heat',
     firstAttackBonus: 0,
     heatAtTurnEnd: 2,
     ventAtTurnEnd: 0,
@@ -312,6 +314,15 @@ export const MAP = {
   branches: { min: 3, max: 6 },
   /** No elite, station or safe planet before this row — Act 1 opens plain. */
   earliestSpecialRow: 4,
+  /**
+   * Rows of separation between two Stations on one path.
+   *
+   * Safe Planets had this from M2 and Stations did not, so two shops back to
+   * back was a normal roll — and the second one is nearly worthless, because
+   * you spent at the first. Same reasoning, same mechanism: it is what you
+   * meet in *sequence* that matters, not the share on the chart.
+   */
+  stationSpacing: 2,
   /**
    * Where the Reliquary sits, as a fraction of the act.
    *

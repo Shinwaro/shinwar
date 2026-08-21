@@ -121,6 +121,22 @@ export function ventHeat(state: GameState, amount: number, source: string): Game
 }
 
 /**
+ * Has the gauge hit the hard ceiling?
+ *
+ * The soft line at `overheatAt` is checked when the turn ends, because it is a
+ * price for how you *finished* the turn. The ceiling is different: reaching it
+ * ends the turn there and then, whoever pushed it. That is what makes the top
+ * of the gauge a wall rather than a slightly worse version of the line below
+ * it — and it is why a Scald ticking you to the top at the start of a turn
+ * takes the turn, rather than letting you play a full hand at maximum Heat
+ * with nothing to lose.
+ */
+export function atCriticalHeat(state: GameState): boolean {
+  const combat = state.run?.combat ?? null;
+  return combat !== null && combat.outcome === 'ongoing' && combat.heat >= HEAT.criticalAt;
+}
+
+/**
  * End of the player's turn. Runs *after* the stance passive, so IAI's +1 can
  * be the point that tips you over — which is the whole bargain IAI offers.
  */
