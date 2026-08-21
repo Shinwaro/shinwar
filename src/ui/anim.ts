@@ -96,8 +96,17 @@ export function floatText(request: FloatRequest): void {
   );
 }
 
-/** Tests and screen teardown. A floater outliving its fight is just litter. */
-export function clearFloaters(): void {
+/**
+ * Empty the effects layer. Tests, and screen teardown.
+ *
+ * Named for the layer rather than for floaters, because cards in flight live
+ * here too now — and a full-size card ghost left over a fight that has ended
+ * is a great deal more than litter. This is also the backstop for the one case
+ * the per-animation cleanup cannot cover: the document timeline freezes while
+ * the tab is hidden, so an animation started just before a switch away never
+ * reaches `finished` until the player returns.
+ */
+export function clearEffects(): void {
   layer?.replaceChildren();
 }
 
@@ -200,6 +209,156 @@ export function shakeScreen(stage: Element, share: number, delay: number): void 
     ],
     { duration: SHAKE_MS, delay, easing: 'ease-out' },
   );
+}
+
+/* ---------- cards in motion ----------
+
+   The hand is rebuilt from scratch on every render, so a card is not a thing
+   that moves — it is a node that stops existing and a different node that
+   starts. Both halves of that are handled here, and they need opposite tricks.
+
+   **Arriving** is a FLIP on the real node: it already exists at its resting
+   place, so it is animated *from* the deck pile back to zero. Nothing is
+   cloned and nothing can be left behind.
+
+   **Leaving** cannot use the real node, because by the time we know the card is
+   gone the render has already destroyed it. But a node removed from the
+   document is still a live object, so the outgoing node is captured *before*
+   the render and then re-adopted into the effects layer as its own ghost. That
+   is better than cloning: it is not a copy of what was on screen, it is what
+   was on screen.
+
+   The ghost layer is the same fixed, body-level layer the damage numbers use,
+   and for the same reason — a card mid-flight must not be swept away by the
+   next render. */
+
+const CARD_FX_CLASS = 'fx-card';
+
+/** How long a card takes to reach a pile. Short: this happens constantly. */
+const CARD_FLY_MS = 320;
+/** The beat a played card holds before it leaves, so "played" reads as an act. */
+const CARD_PLAY_HOLD_MS = 150;
+/** Spacing when a whole hand is discarded at once. */
+const CARD_STAGGER_MS = 45;
+/** Arriving cards. Slightly quicker than leaving — you want to read them. */
+const CARD_DEAL_MS = 280;
+
+export type CardExit = 'play' | 'discard' | 'exhaust';
+
+function centreOf(rect: DOMRect): { readonly x: number; readonly y: number } {
+  return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+}
+
+/**
+ * Fly a card that has left the hand to the pile it landed in.
+ *
+ * `node` is the element that *was* in the hand — already detached by the
+ * render that removed it. It is adopted rather than copied.
+ */
+export function flyCardOut(
+  node: HTMLElement,
+  from: DOMRect,
+  to: DOMRect,
+  kind: CardExit,
+  delay: number,
+): void {
+  if (prefersReducedMotion()) return;
+  if (from.width === 0 || to.width === 0) return;
+
+  node.classList.add(CARD_FX_CLASS, `${CARD_FX_CLASS}--${kind}`);
+  node.style.left = `${from.left}px`;
+  node.style.top = `${from.top}px`;
+  node.style.width = `${from.width}px`;
+  node.style.height = `${from.height}px`;
+  fxLayer().append(node);
+
+  const start = centreOf(from);
+  const end = centreOf(to);
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+
+  /* A played card holds for a beat first — it lifts and brightens where it
+     was, and only then goes to the pile. Without that, playing a card and
+     discarding a card look identical, and the one you chose should not. */
+  const held = kind === 'play';
+  const frames: Keyframe[] = held
+    ? [
+        { offset: 0, transform: 'translate3d(0,0,0) scale(1)', opacity: 1, filter: 'brightness(1)' },
+        {
+          offset: 0.3,
+          transform: 'translate3d(0,-14px,0) scale(1.06)',
+          opacity: 1,
+          filter: 'brightness(1.45)',
+        },
+        {
+          offset: 1,
+          transform: `translate3d(${dx}px, ${dy}px, 0) scale(0.16)`,
+          opacity: 0,
+          filter: 'brightness(1)',
+        },
+      ]
+    : [
+        { offset: 0, transform: 'translate3d(0,0,0) scale(1)', opacity: 0.95 },
+        {
+          offset: 1,
+          transform: `translate3d(${dx}px, ${dy}px, 0) scale(0.16)`,
+          opacity: 0,
+        },
+      ];
+
+  const animation = node.animate(frames, {
+    duration: held ? CARD_PLAY_HOLD_MS + CARD_FLY_MS : CARD_FLY_MS,
+    delay,
+    easing: held ? 'cubic-bezier(.3,.0,.2,1)' : 'cubic-bezier(.4,0,.25,1)',
+    fill: 'both',
+  });
+
+  void animation.finished.then(
+    () => node.remove(),
+    () => node.remove(),
+  );
+}
+
+/**
+ * A card arriving in the hand, dealt from the deck pile.
+ *
+ * FLIP: the node is already where it belongs, so it is animated from the pile
+ * to nowhere. If it is interrupted by the next render the node simply goes
+ * with it — there is no ghost to clean up.
+ */
+export function dealCardIn(node: HTMLElement, from: DOMRect, delay: number): void {
+  if (prefersReducedMotion()) return;
+
+  const to = node.getBoundingClientRect();
+  if (to.width === 0 || from.width === 0) return;
+
+  const start = centreOf(from);
+  const end = centreOf(to);
+  const dx = start.x - end.x;
+  const dy = start.y - end.y;
+
+  node.animate(
+    [
+      {
+        offset: 0,
+        transform: `translate3d(${dx}px, ${dy}px, 0) scale(0.18)`,
+        opacity: 0,
+      },
+      { offset: 1, transform: 'translate3d(0,0,0) scale(1)', opacity: 1 },
+    ],
+    { duration: CARD_DEAL_MS, delay, easing: 'cubic-bezier(.2,.7,.3,1)', fill: 'both' },
+  );
+}
+
+/** Spacing for a batch — a whole hand discarded should read as several cards. */
+export function cardStagger(index: number): number {
+  return index * CARD_STAGGER_MS;
+}
+
+/** How long a batch of exits occupies, so the caller can wait it out. */
+export function cardExitDuration(count: number, held: boolean): number {
+  if (count === 0) return 0;
+  return cardStagger(count - 1) + CARD_FLY_MS + (held ? CARD_PLAY_HOLD_MS : 0);
 }
 
 /* ---------- the timeline ---------- */

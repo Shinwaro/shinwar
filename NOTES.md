@@ -2302,3 +2302,52 @@ node that pins its own Anomaly is never a blank node.
 The arrival text is separate too. The generic event line is written to
 undersell — "does not resolve into a shape yet" is right for something you
 rolled and wrong for the one fixed beat in the run.
+
+### Cards that move, in a UI where cards do not persist
+
+The hand is rebuilt from scratch on every render, so a card is not a thing that
+moves — it is a node that stops existing and a different node that starts. The
+two halves need opposite tricks, and both are in `anim.ts`.
+
+**Arriving** is a FLIP on the real node: it already exists at its resting place,
+so it animates *from* the deck pile back to zero. Nothing is cloned, and an
+interrupted deal simply goes with the next render.
+
+**Leaving** cannot use the real node — by the time we know a card is gone, the
+render has destroyed it. But a node removed from the document is still a live
+object, so the outgoing node is captured *before* the render and re-adopted
+into the effects layer as its own ghost. Better than cloning: it is not a copy
+of what was on screen, it is what was on screen, with every style it had.
+
+Rects have to be read before the render too. A detached node measures zero.
+
+**"Played" is told, not inferred.** The screen dispatches the action, so it
+knows which uid left by choice; it goes on the selection bag, which `build`
+already receives. Working it out afterwards from the log, or from how many
+cards vanished at once, would be guessing at something we were told — and a
+played card has to look different from a discarded one, or choosing a card
+means nothing on screen. A played card holds for a beat and brightens where it
+was, then goes; a discarded hand staggers straight to the pile at 45ms apart.
+
+### The detached-render trap, for the third time
+
+The opening deal silently did nothing. Every screen here builds its tree and is
+appended afterwards, so on the render that MOUNTS a fight every rect reads zero
+and `dealCardIn` bailed — on exactly the deal you most want to see.
+
+Same trap as the map scroll and the info panel's focus. `whenMeasurable` now
+wraps it: synchronous when the host is already connected, which is every render
+except the mount, so a fight pays nothing for it.
+
+Worth writing down as a rule rather than a third war story: **anything in a
+screen that needs a real rectangle cannot read one during the render that
+creates it.**
+
+### The timeline freezes with the tab
+
+Verified while chasing the above: in a hidden document the animation timeline
+stops, so `animation.finished` never resolves and ghosts stay in the layer
+until the player comes back. Harmless — they complete on return — but it is why
+`clearFloaters` became `clearEffects` and is called on unmount. A number still
+rising over a finished fight is litter; a full-size card ghost is more than
+that.

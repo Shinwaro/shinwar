@@ -247,6 +247,35 @@ input[type='text']:hover {
   overflow: hidden;
 }
 
+/* ---------- a card in flight ----------
+
+   This is the node that WAS in the hand, re-adopted rather than cloned — so it
+   already carries every card style it had a moment ago. All that is needed
+   here is to lift it out of the layout and stop it behaving like a button.
+
+   `transform-origin` at the top-left because the flight animates a translate
+   from the card's own top-left corner, which is where its fixed position was
+   pinned. Centring the origin would make it drift as it scales down. */
+
+.fx-card {
+  position: absolute;
+  margin: 0;
+  pointer-events: none;
+  transform-origin: 0 0;
+  will-change: transform, opacity;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
+}
+
+/* The card you chose. It brightens on the way out, and the accent edge is what
+   separates "I played this" from "this was swept up at the end of the turn". */
+.fx-card--play {
+  border-color: var(--accent);
+}
+
+.fx-card--exhaust {
+  border-color: var(--danger);
+}
+
 .fx-float {
   position: absolute;
   font-family: var(--mono);

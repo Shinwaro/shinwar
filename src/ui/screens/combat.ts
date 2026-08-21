@@ -38,7 +38,17 @@ import {
 import { envGetString } from '../../engine/combat/rules.ts';
 import { renderLog, scrollLogToEnd } from '../components/log.ts';
 import { bindCombatKeys } from '../input.ts';
-import { clearFloaters, playLogFx, setBarFill } from '../anim.ts';
+import {
+  cardExitDuration,
+  cardStagger,
+  clearEffects,
+  dealCardIn,
+  flyCardOut,
+  playLogFx,
+  prefersReducedMotion,
+  setBarFill,
+  type CardExit,
+} from '../anim.ts';
 import { combatInfo, renderInfoPanel } from '../components/info.ts';
 
 /* ---------- pacing ----------
@@ -78,6 +88,16 @@ interface Selection {
   logOpen: boolean;
   /** The rules panel. Never in `GameState` — it changes nothing about the world. */
   infoOpen: boolean;
+  /**
+   * The card the player just chose to play, if any.
+   *
+   * Known rather than inferred: whoever dispatched the action knows exactly
+   * which uid left by choice. Working it out afterwards from the log, or from
+   * how many cards vanished, would be guessing at something we were told — and
+   * "played" has to look different from "discarded", or choosing a card means
+   * nothing on screen. Cleared by the render that animates it.
+   */
+  playedUid: string | null;
 }
 
 export function renderCombat(store: Store): HTMLElement {
@@ -87,6 +107,7 @@ export function renderCombat(store: Store): HTMLElement {
     focusUid: null,
     logOpen: true,
     infoOpen: false,
+    playedUid: null,
   };
   const host = el('main', { class: 'combat screen' });
 
@@ -116,6 +137,17 @@ export function renderCombat(store: Store): HTMLElement {
 
   /** How long the floaters from the last render still need. */
   let fxRunning = 0;
+
+  /*
+   * The hand as it stood before the render about to happen.
+   *
+   * A card is not a thing that moves in this UI — the hand is rebuilt from
+   * scratch every render, so a card leaving is a node that stops existing. The
+   * node is captured here first, while it is still on screen and still has a
+   * position, and re-adopted as its own ghost afterwards. See `flyCardOut`.
+   */
+  let handBefore = new Map<string, { node: HTMLElement; rect: DOMRect }>();
+
 
   /*
    * Block, as displayed, lags Block as stored.
@@ -170,12 +202,21 @@ export function renderCombat(store: Store): HTMLElement {
     const fresh = state.log.slice(logCursor);
     logCursor = state.log.length;
 
+    // Positions first: after `replaceChildren` these nodes are detached and
+    // `getBoundingClientRect` on them reads zero.
+    const leaving = handBefore;
+    handBefore = captureHand(host);
+
     rendering = true;
     try {
       host.replaceChildren(build(store, state, selection, rerender, heldBlock));
     } finally {
       rendering = false;
     }
+
+    const moved = animateHand(host, state, leaving, selection.playedUid);
+    selection.playedUid = null;
+    handBefore = captureHand(host);
 
     /* The stage reads the fight. The background is CSS keyed off these two
        attributes rather than a second canvas — the asteroid scene already owns
@@ -201,6 +242,10 @@ export function renderCombat(store: Store): HTMLElement {
       },
     );
     if (played > 0) fxRunning = played + SETTLE_MS;
+    /* Cards in flight hold the enemy turn too. A hand discarding into the pile
+       while the first enemy is already swinging reads as two things happening
+       to two different games. */
+    if (moved > 0) fxRunning = Math.max(fxRunning, moved);
 
     /*
      * If Block fell while numbers are still flying, keep showing the old value
@@ -234,6 +279,7 @@ export function renderCombat(store: Store): HTMLElement {
       rerender();
     },
     play: (cardUid, targetUid) => {
+      selection.playedUid = cardUid;
       store.dispatch({ kind: 'playCard', cardUid, targetUid });
       selection.cardUid = null;
       selection.hoverUid = null;
@@ -254,8 +300,9 @@ export function renderCombat(store: Store): HTMLElement {
     unsubscribe();
     window.clearTimeout(enemyTimer);
     window.clearTimeout(blockTimer);
-    // A number still rising over a fight that has ended is just litter.
-    clearFloaters();
+    // A number still rising — or a card still flying — over a fight that has
+    // ended is just litter.
+    clearEffects();
   });
 
   rerender();
@@ -379,6 +426,7 @@ function build(
           const cardUid = selection.cardUid;
           selection.cardUid = null;
           selection.hoverUid = null;
+          selection.playedUid = cardUid;
           store.dispatch({ kind: 'playCard', cardUid, targetUid: enemy.uid });
         },
       });
@@ -443,6 +491,7 @@ function build(
             // interaction, and making the player click twice for a Block card
             // would be ceremony.
             selection.cardUid = null;
+            selection.playedUid = card.uid;
             store.dispatch({ kind: 'playCard', cardUid: card.uid, targetUid: null });
             return;
           }
@@ -472,9 +521,9 @@ function build(
 
   const tray = el('div', { class: 'tray' }, [
     el('div', { class: 'piles' }, [
-      pile('Deck', combat.draw.length),
-      pile('Discard', combat.discard.length),
-      pile('Exhaust', combat.exhaust.length),
+      pile('Deck', combat.draw.length, 'draw'),
+      pile('Discard', combat.discard.length, 'discard'),
+      pile('Exhaust', combat.exhaust.length, 'exhaust'),
     ]),
     el('div', { class: 'tray-actions' }, [
       // Sensor Fog only, and free. Pick an enemy, then read it — the cost is
@@ -517,8 +566,156 @@ function build(
   ]);
 }
 
-function pile(label: string, count: number): HTMLElement {
-  return el('span', { class: 'pile' }, [
+/* ---------- cards in motion ----------
+   The two halves of "a card moved", both of which have to work around the fact
+   that the hand is rebuilt from scratch on every render. See `anim.ts`. */
+
+interface HeldCard {
+  readonly node: HTMLElement;
+  readonly rect: DOMRect;
+}
+
+/**
+ * Run `fn` once the host is in the document and has a size.
+ *
+ * Screens here build detached and are appended afterwards, so anything that
+ * needs a real rect cannot simply read one at render time — it gets zeros and
+ * fails silently. Bounded, so a screen that never attaches cannot spin.
+ */
+function whenMeasurable(host: HTMLElement, fn: () => void): void {
+  const ready = (): boolean => host.isConnected && host.getBoundingClientRect().width > 0;
+
+  /* Tried synchronously first, which is the case for every render EXCEPT the
+     one that mounts the screen — so in a fight this costs nothing and waits for
+     nothing. Only the mount falls through to the frame loop. */
+  if (ready()) {
+    fn();
+    return;
+  }
+
+  let attempts = 0;
+  const tick = (): void => {
+    attempts += 1;
+    if (ready()) {
+      fn();
+      return;
+    }
+    if (attempts < 8) requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}
+
+/**
+ * The hand as it currently stands on screen, with positions.
+ *
+ * Called BEFORE the render that will destroy it. Rects have to be read here:
+ * a detached node measures zero, and by the time we know a card is gone it is
+ * already detached.
+ */
+function captureHand(host: HTMLElement): Map<string, HeldCard> {
+  const held = new Map<string, HeldCard>();
+  if (prefersReducedMotion()) return held;
+
+  for (const node of host.querySelectorAll<HTMLElement>('.hand .card[data-uid]')) {
+    const uid = node.dataset['uid'];
+    if (uid === undefined) continue;
+    held.set(uid, { node, rect: node.getBoundingClientRect() });
+  }
+  return held;
+}
+
+/** Where a card that left the hand actually ended up. */
+function exitFor(state: GameState, uid: string, playedUid: string | null): CardExit | null {
+  const combat = state.run?.combat ?? null;
+  if (combat === null) return null;
+  if (combat.exhaust.some((card) => card.uid === uid)) return 'exhaust';
+  if (uid === playedUid) return 'play';
+  if (combat.discard.some((card) => card.uid === uid)) return 'discard';
+  // Back in the draw pile — a shuffle, not a journey. Nothing to show.
+  return null;
+}
+
+/**
+ * Play the difference between the hand that was and the hand that is.
+ *
+ * Returns how long the motion occupies, so the caller can keep the enemy turn
+ * from starting on top of it.
+ */
+function animateHand(
+  host: HTMLElement,
+  state: GameState,
+  before: Map<string, HeldCard>,
+  playedUid: string | null,
+): number {
+  if (prefersReducedMotion()) return 0;
+
+  const now = new Set<string>();
+  const arrived: HTMLElement[] = [];
+  for (const node of host.querySelectorAll<HTMLElement>('.hand .card[data-uid]')) {
+    const uid = node.dataset['uid'];
+    if (uid === undefined) continue;
+    now.add(uid);
+    if (!before.has(uid)) arrived.push(node);
+  }
+
+  const pileRect = (key: string): DOMRect | null =>
+    host.querySelector<HTMLElement>(`.pile[data-pile="${key}"]`)?.getBoundingClientRect() ?? null;
+
+  /* ---- leaving ---- */
+  const discard = pileRect('discard');
+  const exhaust = pileRect('exhaust');
+
+  let index = 0;
+  let held = false;
+  for (const [uid, card] of before) {
+    if (now.has(uid)) continue;
+
+    const exit = exitFor(state, uid, playedUid);
+    if (exit === null) {
+      card.node.remove();
+      continue;
+    }
+
+    const target = exit === 'exhaust' ? exhaust : discard;
+    if (target === null) {
+      card.node.remove();
+      continue;
+    }
+
+    // The played card goes first and alone; a discarded hand staggers.
+    const delay = exit === 'play' ? 0 : cardStagger(index);
+    if (exit === 'play') held = true;
+    else index += 1;
+
+    flyCardOut(card.node, card.rect, target, exit, delay);
+  }
+
+  /* ---- arriving ----
+
+     Deferred until the screen can actually be measured.
+
+     On the render that MOUNTS this screen the host is still detached — every
+     screen in this app builds its tree and is appended afterwards — so every
+     rect reads zero and the opening hand would silently never deal in. That is
+     the same detached-render trap as the map scroll and the info panel's
+     focus, and it only shows up on the first render of a fight, which is
+     exactly the deal you most want to see.
+
+     Leaving cards do not need this: their rects were measured before the
+     render, while they were still on screen. */
+  whenMeasurable(host, () => {
+    const pile = host.querySelector<HTMLElement>('.pile[data-pile="draw"]')?.getBoundingClientRect();
+    if (pile === undefined) return;
+    arrived.forEach((node, slot) => dealCardIn(node, pile, cardStagger(slot)));
+  });
+
+  const exits = index + (held ? 1 : 0);
+  return Math.max(cardExitDuration(exits, held), arrived.length === 0 ? 0 : cardStagger(arrived.length - 1));
+}
+
+/** `data-pile` is how a card in flight finds where it is going. */
+function pile(label: string, count: number, key: string): HTMLElement {
+  return el('span', { class: 'pile', 'data-pile': key }, [
     el('span', { class: 'pile-label' }, [label]),
     el('span', { class: 'pile-count' }, [String(count)]),
   ]);
