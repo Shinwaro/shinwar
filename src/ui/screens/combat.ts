@@ -40,12 +40,32 @@ import { renderLog, scrollLogToEnd } from '../components/log.ts';
 import { bindCombatKeys } from '../input.ts';
 import { clearFloaters, playLogFx, setBarFill } from '../anim.ts';
 
-/** Beat before an enemy acts, so you see who is about to swing. */
-const ENEMY_LEAD_MS = 750;
+/* ---------- pacing ----------
+ *
+ * These were measured, not guessed, and then cut roughly in half at M7.
+ *
+ * A two-enemy turn used to take 5.4 seconds of watching, two of them before
+ * anything happened at all. At five turns a fight and twenty fights an act
+ * that is minutes of pure waiting inside a run already aiming at 45–70, and
+ * Act 2's three-enemy packs were worse.
+ *
+ * The pause was buying two things. **Reading order** — which blow landed on
+ * whom, in what sequence — is bought by spacing the floaters, and that is
+ * `BEAT_STEP`, which stays. **Attribution** — which enemy is swinging — is
+ * what the lead was for, and as of M7 the struck thing and the swinging thing
+ * both animate, so the picture says it better than a gap ever did. Cutting the
+ * lead only became honest once the hit feedback existed to replace it.
+ *
+ * `ENEMY_HIT_MS` was the clearest double-count: it spaced extra blows within
+ * one enemy's move, on top of the floaters already spacing themselves.
+ */
+
+/** Beat before an enemy acts, so it reads as its own event and not as yours. */
+const ENEMY_LEAD_MS = 380;
 /** Extra time per additional blow, so `2 x 4` reads as two blows and not one. */
-const ENEMY_HIT_MS = 620;
+const ENEMY_HIT_MS = 280;
 /** A last beat once the numbers have settled, before anything else moves. */
-const SETTLE_MS = 220;
+const SETTLE_MS = 160;
 
 interface Selection {
   /** The card the player has picked up, if any. */

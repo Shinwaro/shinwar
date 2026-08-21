@@ -2057,3 +2057,32 @@ gauge cannot reach.
 
 The star dusting is deliberately irregular. Evenly spaced stars read as a
 texture rather than as a sky.
+
+### The enemy turn was 5.4 seconds long, and it was measured that way
+
+Instrumented rather than eyeballed. A two-enemy turn: first blow landing 2.0s
+after End turn, second at 3.8s, everything settled around 5.4s. At five turns a
+fight and twenty fights an act that is minutes of pure waiting inside a run
+already aiming at 45-70 — and Act 2's three-enemy packs are worse.
+
+The pause was buying two separate things, and only one of them needed a pause:
+
+**Reading order** — which blow landed on whom, in what sequence — is bought by
+spacing the floaters, which is `BEAT_STEP`. It stays (tightened 260 -> 230, not
+cut). A four-hit card still has to arrive as four blows.
+
+**Attribution** — which enemy is swinging — is what `ENEMY_LEAD_MS` was for. As
+of this milestone the struck thing animates, so the picture says it better than
+a gap ever did. 750 -> 380. Worth being explicit that this cut only became
+honest once the hit feedback existed to replace it; making it a milestone
+earlier would have been removing the signal rather than moving it.
+
+`ENEMY_HIT_MS` was the clearest double-count: it spaced extra blows *within* one
+enemy's move on top of the floaters already spacing themselves. 620 -> 280.
+
+Re-measured after: first blow at 691ms, second enemy at 1662ms, turn done
+around 2.5s. More than halved, and both blows still land as separate events
+about a second apart with their own reaction.
+
+`DEATH_HOLD_MS` stays at 2200. It fires once in a run, on the blow that ends
+it, and that one is earned.

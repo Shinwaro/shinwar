@@ -213,9 +213,15 @@ export function shakeScreen(stage: Element, share: number, delay: number): void 
  * animation ones: the state has already changed, this is only how long the eye
  * is given to follow it.
  */
-const FIRST_BEAT = 180;
-/** Spacing between consecutive hits, so a multi-hit reads as several blows. */
-const BEAT_STEP = 260;
+const FIRST_BEAT = 140;
+/**
+ * Spacing between consecutive hits, so a multi-hit reads as several blows.
+ *
+ * This is the number that actually buys reading order, so it was tightened
+ * rather than cut when the enemy-turn pacing was halved at M7 — a four-hit
+ * card still has to arrive as four blows.
+ */
+const BEAT_STEP = 230;
 
 interface Hit {
   readonly target: string;
