@@ -164,6 +164,17 @@ export function renderTitle(store: Store): HTMLElement {
     store.dispatch({ kind: 'beginRun' });
   });
 
+  /* The introduction sits beside Begin run rather than in front of it. A run
+     is an hour with no saves, which is a lot to ask of somebody who does not
+     know what Heat is — but making everyone walk through a tutorial they did
+     not ask for is the other way to lose them. */
+  const learn = el('div', { class: 'title-learn' }, [
+    button('How to play', { class: 'btn' }, () => {
+      store.dispatch({ kind: 'beginTutorial' });
+    }),
+    el('span', { class: 'field-help' }, ['One fight, about two minutes. Nothing at stake.']),
+  ]);
+
   const warning = el('p', { class: 'title-warning' }, [
     'No saves, no accounts, no scores. Close the tab and the run is gone.',
   ]);
@@ -171,7 +182,7 @@ export function renderTitle(store: Store): HTMLElement {
   return el('main', { class: 'title screen' }, [
     el('div', { class: 'title-inner' }, [
       el('header', { class: 'title-head' }, [heading, tagline]),
-      el('div', { class: 'title-controls' }, [seedField, depthField, begin, warning]),
+      el('div', { class: 'title-controls' }, [seedField, depthField, begin, learn, warning]),
     ]),
   ]);
 }

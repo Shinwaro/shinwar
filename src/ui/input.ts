@@ -16,6 +16,7 @@ export interface CombatSelection {
   cardUid: string | null;
   hoverUid: string | null;
   focusUid: string | null;
+  keyboardTargeting: boolean;
   logOpen: boolean;
 }
 
@@ -74,7 +75,7 @@ export function bindCombatKeys(bindings: CombatKeyBindings): () => void {
       const index = alive.findIndex((enemy) => enemy.uid === selection.focusUid);
       const step = event.shiftKey ? -1 : 1;
       const next = alive[(((index + step) % alive.length) + alive.length) % alive.length];
-      bindings.setSelection({ focusUid: next?.uid ?? null });
+      bindings.setSelection({ focusUid: next?.uid ?? null, keyboardTargeting: true });
       return;
     }
 
@@ -102,6 +103,9 @@ export function bindCombatKeys(bindings: CombatKeyBindings): () => void {
       bindings.setSelection({
         cardUid: card.uid,
         focusUid: selection.focusUid ?? alive[0]?.uid ?? null,
+        // Reached for by key, so the ring is the only thing telling this player
+        // what they are aimed at.
+        keyboardTargeting: true,
       });
     }
   }

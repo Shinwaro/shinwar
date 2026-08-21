@@ -14,6 +14,8 @@ export type Action =
   | { readonly kind: 'setSeed'; readonly seed: string }
   | { readonly kind: 'setDepth'; readonly depth: number }
   | { readonly kind: 'beginRun' }
+  /** The introduction. One fight, a fixed deck, and no chart behind it. */
+  | { readonly kind: 'beginTutorial' }
   /* -- combat --
      Card selection is deliberately absent. Selecting a card is a UI state, not
      a decision — it changes nothing about the world and undoing it costs

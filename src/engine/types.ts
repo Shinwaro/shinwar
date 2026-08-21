@@ -948,6 +948,15 @@ export interface RunState {
   readonly rewardDrought: number;
   /** Card removals bought so far. The price rises with each one. */
   readonly removalsPurchased: number;
+  /**
+   * The introduction, not a run.
+   *
+   * One fight, a fixed deck, no map and no rewards. It is a real run through
+   * the real engine — that is the whole point of teaching with it — so it needs
+   * exactly one flag to say where it ends: winning finishes it instead of
+   * opening a reward screen onto a chart that does not exist.
+   */
+  readonly tutorial: boolean;
 }
 
 /* ---------- rng ---------- */

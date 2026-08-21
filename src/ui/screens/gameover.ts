@@ -21,6 +21,13 @@ export function renderGameOver(store: Store): HTMLElement {
   const state = store.getState();
   const outcome = state.run?.outcome ?? 'abandoned';
   const seed = currentSeed(state);
+
+  /* The introduction ends on its own screen. The epilogue is an account of a
+     RUN — where you got to, what you were carrying, what you left owed — and
+     none of that is true of one practice fight. Reading it here would teach a
+     first-time player that the end screen is meaningless. */
+  if (state.run?.tutorial === true) return renderTutorialEnd(store, outcome);
+
   const epilogue = epilogueFor(state);
 
   const seedRow = el('div', { class: 'over-seed' }, [
@@ -86,6 +93,44 @@ export function renderGameOver(store: Store): HTMLElement {
           store.dispatch({ kind: 'beginRun' });
         }),
         button('New seed', { class: 'btn' }, () => {
+          store.dispatch({ kind: 'returnToTitle' });
+          store.dispatch({ kind: 'setSeed', seed: newSeed() });
+          store.dispatch({ kind: 'beginRun' });
+        }),
+        button('Back to title', { class: 'btn' }, () => {
+          store.dispatch({ kind: 'returnToTitle' });
+        }),
+      ]),
+    ]),
+  ]);
+}
+
+/**
+ * The end of the introduction.
+ *
+ * Deliberately short, and it points at exactly one thing: the run you now know
+ * enough to start.
+ */
+function renderTutorialEnd(store: Store, outcome: string): HTMLElement {
+  const won = outcome === 'won';
+  return el('main', { class: 'over screen' }, [
+    el('div', { class: 'over-inner' }, [
+      el('header', { class: 'over-head' }, [
+        el('h1', { class: `over-title over-title--${won ? 'won' : 'abandoned'}` }, [
+          won ? 'That is the whole loop.' : 'Introduction ended.',
+        ]),
+        el('p', { class: 'over-standfirst' }, ['Introduction · nothing was at stake']),
+      ]),
+      el('p', { class: 'over-account' }, [
+        won
+          ? 'A real run is three acts of that, with a deck you build as you go, a chart you choose your way up, and no saves. It runs about an hour, and it is meant to be one sitting.'
+          : 'Nothing lost. A real run is three acts, a deck you build as you go, and a chart you choose your way up — and you can come back here any time.',
+      ]),
+      el('p', { class: 'over-account' }, [
+        'Two things the introduction did not have time for: relics change what a turn can do and come from Elites, and Threads are promises that come due later in the same run. Both are explained by the Info button on any screen.',
+      ]),
+      el('div', { class: 'over-actions' }, [
+        button('Start a real run', { class: 'btn btn-primary' }, () => {
           store.dispatch({ kind: 'returnToTitle' });
           store.dispatch({ kind: 'setSeed', seed: newSeed() });
           store.dispatch({ kind: 'beginRun' });

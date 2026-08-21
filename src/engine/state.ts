@@ -8,6 +8,7 @@ import type { CombatState, GameState, LogEntry, RunState, TitleState } from './t
 import { createRng } from './rng.ts';
 import { buildDeck } from './combat/instances.ts';
 import { PLAYER } from '../content/balance.ts';
+import { TUTORIAL_DECK } from '../content/tutorial.ts';
 import { STARTING_DECK } from '../content/cards/index.ts';
 
 /** Bumped when the shape of `GameState` changes, so a pasted dump identifies itself. */
@@ -76,6 +77,26 @@ export function createRunState(seed: string, depth: number): RunState {
     uidCounter: built.uidCounter,
     rewardDrought: 0,
     removalsPurchased: 0,
+    tutorial: false,
+  };
+}
+
+/**
+ * The introduction: one fight, a fixed strong deck, no chart.
+ *
+ * A real `RunState` on purpose. Teaching with a special case would mean the
+ * lesson and the game could drift, and the first thing a new player would
+ * learn is something that is not true any more.
+ */
+export function createTutorialRunState(seed: string): RunState {
+  const built = buildDeck(0, TUTORIAL_DECK);
+  const base = createRunState(seed, 0);
+  return {
+    ...base,
+    screen: 'combat',
+    tutorial: true,
+    pilot: { ...base.pilot, deck: built.deck },
+    uidCounter: built.uidCounter,
   };
 }
 

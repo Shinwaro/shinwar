@@ -24,12 +24,16 @@ import { ACT1_ENEMIES } from './act1.ts';
 import { ACT1_ELITES } from './act1elites.ts';
 import { ACT2_ENEMIES } from './act2.ts';
 import { ACT3_ENEMIES, HEAT_SIPHON, NULL_PRISM, TESSELLATE_SHARD } from './act3.ts';
+import { TUTORIAL_ENEMIES } from '../tutorial.ts';
 
 export const ENEMIES: readonly EnemyDef[] = [
   ...ACT1_ENEMIES,
   ...ACT1_ELITES,
   ...ACT2_ENEMIES,
   ...ACT3_ENEMIES,
+  // The introduction's training target. Reachable only by its own encounter,
+  // which `encountersFor` refuses to hand to the map generator.
+  ...TUTORIAL_ENEMIES,
 ];
 
 export function registerEnemyHooks(): void {

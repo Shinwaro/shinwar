@@ -2412,3 +2412,59 @@ on how hurt you are and how much Alloy you have, and both move while you shop.
 `repairOffer` is a query, so the Station screen renders it rather than working
 it out — the button and the result read the same function, which is the only
 way they cannot disagree.
+
+### The enemy ring was the keyboard cursor, always drawn
+
+With two enemies up, one wore an accent ring for the whole turn and read as
+"this one is selected" when nothing was. `focusUid` is the keyboard cursor — it
+has to exist the moment a card is picked up so a keyboard player never has to
+reach for the mouse — but it was being *shown* unconditionally.
+
+Tracked as before, drawn only once a key has moved it. Hover moved to CSS
+`:hover`, which is not a shortcut: doing it in JS means a re-render on
+pointerenter, which destroys the node under the cursor, which fires
+pointerleave, which re-renders. That is the exact loop that made the hand
+flicker twice before, and the browser can just do this.
+
+### The introduction
+
+One fight, about two minutes, a fixed twenty-card deck and a sixty-health
+target that cannot kill you by accident.
+
+**It is a real run through the real engine.** Teaching with a special case
+means the lesson and the game can drift, and the first thing a new player would
+learn is something that is not true any more. `RunState.tutorial` is the only
+concession: one flag saying where it ends, because winning has to finish it
+rather than open a reward screen onto a chart that was never generated.
+
+The encounter carries `tutorial: true` and `encountersFor` filters it out —
+same shape as `EventDef.pinnedOnly`, content reachable by name and by nothing
+else. Verified across 1800 generated maps that it never appears on one.
+
+**The coach lives in the app shell, not in the combat screen.** The combat
+screen replaces its entire subtree on every render, so anything mounted inside
+it would be destroyed the first time the player did anything. From the overlay
+it survives and re-measures its target on every state change — which is exactly
+when the screen it points at was rebuilt.
+
+**It never blocks the game.** A ring and a card, never a modal: the host takes
+no pointer events and only the card takes them back. A tutorial that disables
+the thing it is describing teaches the shape of the tutorial. Steps advance
+either on a click or on the game reaching a state — "play a card" is over when
+a card has been played, which is what keeps it two minutes rather than ten
+screens of prose.
+
+### The log and Info moved out of the tray
+
+They were sitting next to End turn, the one button pressed without looking, and
+they are things you reach for *between* decisions. Fixed to the top right,
+where a misclick costs nothing.
+
+### A rail for what you are carrying
+
+Relics, implants and masteries change what a turn can *do*, and mid-fight they
+were visible only behind the pause key — so the moment you most need to
+remember that every attack deals two more was the moment you had to leave the
+fight to check. Initials and a count down the left edge, full text on hover and
+on focus, and absent entirely when you carry nothing: an empty rail is
+furniture that teaches the eye to skip that corner.

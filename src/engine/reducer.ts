@@ -8,9 +8,14 @@
 
 import type { Action, ActionLog } from './actions.ts';
 import type { GameState } from './types.ts';
-import { appendLog, createInitialState, createRunState } from './state.ts';
+import {
+  appendLog,
+  createInitialState,
+  createRunState,
+  createTutorialRunState,
+} from './state.ts';
 import { normalizeSeed } from './rng.ts';
-import { advanceEnemyTurn, endPlayerTurn, playCard } from './combat/combat.ts';
+import { advanceEnemyTurn, endPlayerTurn, playCard, startCombat } from './combat/combat.ts';
 import {
   advanceAct,
   claimRewardAlloy,
@@ -32,6 +37,8 @@ import {
 import { chooseEventOption } from './run/events.ts';
 import { buyForge, buyImplant, buyMastery, buyRemoval, buyShopCard } from './run/shop.ts';
 import { MAX_DEPTH } from '../content/balance.ts';
+import { CLEAR_SPACE_ID } from '../content/environments.ts';
+import { TUTORIAL_ENCOUNTER_ID } from '../content/tutorial.ts';
 
 export function clampDepth(depth: number): number {
   if (!Number.isFinite(depth)) return 0;
@@ -74,6 +81,14 @@ function settleCombat(state: GameState): GameState {
   // where the Mastery comes from, and skipping it would make the boss the one
   // fight that gives nothing.
   const run = won.run;
+
+  /* The introduction ends when its one fight does. There is no chart behind it
+     to hand a reward screen onto, and `concludeNode` would be reaching for a
+     node that was never generated. */
+  if (run !== null && run.tutorial) {
+    return { ...won, phase: 'over', run: { ...run, outcome: 'won', combat: run.combat } };
+  }
+
   const atBoss = run !== null && run.map !== null && run.position === run.map.bossId;
   if (atBoss && run !== null && run.act >= 3) {
     return {
@@ -116,6 +131,28 @@ export function applyAction(state: GameState, action: Action): GameState {
           text: `Run started. Seed ${seed}, Depth ${depth}.`,
           detail: { seed, depth },
         }),
+      );
+    }
+
+    case 'beginTutorial': {
+      if (state.phase !== 'title') return state;
+      const seed = normalizeSeed(state.title.seed);
+      const opened: GameState = {
+        ...state,
+        phase: 'run',
+        title: { seed, depth: 0 },
+        run: createTutorialRunState(seed),
+        log: [],
+      };
+      return startCombat(
+        appendLog(opened, {
+          source: 'system',
+          kind: 'run',
+          text: 'A derelict hauler, and nobody watching. Good enough to practise on.',
+          detail: { tutorial: true },
+        }),
+        TUTORIAL_ENCOUNTER_ID,
+        CLEAR_SPACE_ID,
       );
     }
 

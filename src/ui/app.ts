@@ -19,6 +19,7 @@ import { renderStation } from './screens/station.ts';
 import { renderEvent } from './screens/event.ts';
 import { renderGameOver } from './screens/gameover.ts';
 import { renderPause } from './screens/pause.ts';
+import { renderCoach } from './screens/coach.ts';
 import { el } from './dom.ts';
 
 /** What is on screen right now: the phase, or the run's inner screen. */
@@ -73,14 +74,21 @@ export function mountApp(root: HTMLElement, store: Store): void {
   const vignette = el('div', { class: 'sky-vignette', 'aria-hidden': 'true' });
   const host = el('div', { class: 'screen-host' });
   const overlay = el('div', { class: 'overlay-host' });
+  /* Its own host, under the pause dialog: pausing mid-introduction should put
+     the pause screen on top rather than fight it for the same layer. */
+  const coachOverlay = el('div', { class: 'coach-host' });
 
-  root.replaceChildren(sky, key, vignette, host, overlay);
+  root.replaceChildren(sky, key, vignette, host, coachOverlay, overlay);
 
   const scene = createSpaceScene(sky);
 
   let mountedView: View | null = null;
   let mounted: HTMLElement | null = null;
   let paused = false;
+  /* The coach is mounted once per tutorial and never re-mounted — dismissing it
+     has to stick, or skipping would just bring it back on the next render. */
+  let coaching = false;
+  let coached = false;
   /** Set while the killing blow is being held on screen. */
   let deathHold: ReturnType<typeof setTimeout> | null = null;
   /**
@@ -106,6 +114,29 @@ export function mountApp(root: HTMLElement, store: Store): void {
       panel.tabIndex = -1;
       panel.focus({ preventScroll: true });
     }
+  }
+
+  function coachIfNeeded(state: GameState): void {
+    const tutorial = state.run?.tutorial === true && state.phase === 'run';
+    if (!tutorial) {
+      // Leaving the introduction resets it, so a second visit teaches again.
+      if (coaching) {
+        coachOverlay.replaceChildren();
+        coaching = false;
+      }
+      coached = false;
+      return;
+    }
+    if (coaching || coached) return;
+
+    coaching = true;
+    coachOverlay.replaceChildren(
+      renderCoach(store, () => {
+        coaching = false;
+        coached = true;
+        coachOverlay.replaceChildren();
+      }),
+    );
   }
 
   function render(state: GameState): void {
@@ -204,7 +235,11 @@ export function mountApp(root: HTMLElement, store: Store): void {
   });
 
   render(store.getState());
-  store.subscribe(render);
+  coachIfNeeded(store.getState());
+  store.subscribe((state) => {
+    render(state);
+    coachIfNeeded(state);
+  });
 
   // The run bar's Pause button lives inside a screen, so it asks through here.
   root.addEventListener('shinwar:pause', openPause);

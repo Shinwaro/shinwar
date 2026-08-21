@@ -51,6 +51,7 @@ import {
   type CardPile,
 } from '../anim.ts';
 import { combatInfo, renderInfoPanel } from '../components/info.ts';
+import { renderCarried } from '../components/carried.ts';
 
 /* ---------- pacing ----------
  *
@@ -86,6 +87,16 @@ interface Selection {
   hoverUid: string | null;
   /** Which enemy the keyboard is cycling through. */
   focusUid: string | null;
+  /**
+   * Whether the keyboard is the thing doing the aiming.
+   *
+   * `focusUid` has to exist the moment a card is picked up, so a keyboard
+   * player never has to reach for the mouse — but drawing a ring around it
+   * unconditionally meant that with two enemies up, one of them was outlined
+   * for the entire turn and looked selected when nothing was. The cursor is
+   * still tracked; it is only *shown* once a key has moved it.
+   */
+  keyboardTargeting: boolean;
   logOpen: boolean;
   /** The rules panel. Never in `GameState` — it changes nothing about the world. */
   infoOpen: boolean;
@@ -106,6 +117,7 @@ export function renderCombat(store: Store): HTMLElement {
     cardUid: null,
     hoverUid: null,
     focusUid: null,
+    keyboardTargeting: false,
     logOpen: true,
     infoOpen: false,
     playedUid: null,
@@ -416,9 +428,11 @@ function build(
     combat.enemies.map((enemy) => {
       return renderEnemy(state, enemy, {
         targetable: selection.cardUid !== null && enemy.hp > 0,
-        focused: selection.focusUid === enemy.uid,
+        focused: selection.keyboardTargeting && selection.focusUid === enemy.uid,
         acting: combat.actingUid === enemy.uid,
         onPick: () => {
+          // A click is the mouse taking over. The keyboard ring goes away.
+          selection.keyboardTargeting = false;
           if (selection.cardUid === null) {
             selection.focusUid = enemy.uid;
             rerender();
@@ -497,6 +511,7 @@ function build(
             return;
           }
           selection.cardUid = card.uid;
+          selection.keyboardTargeting = false;
           if (selection.focusUid === null) selection.focusUid = alive[0]?.uid ?? null;
           rerender();
         },
@@ -527,19 +542,6 @@ function build(
       pile('Exhaust', combat.exhaust.length, 'exhaust'),
     ]),
     el('div', { class: 'tray-actions' }, [
-      // Sensor Fog only, and free. Pick an enemy, then read it — the cost is
-      // the ordering, never a resource.
-      button(selection.logOpen ? 'Hide log' : 'Show log', { class: 'btn btn-quiet', 'aria-keyshortcuts': 'L' }, () => {
-        selection.logOpen = !selection.logOpen;
-        rerender();
-      }),
-      /* Everything the fight assumes you already know, one click from the
-         fight. An hour-long run cannot afford a tutorial and cannot afford a
-         player still guessing what Rust does in Act 3. */
-      button('Info', { class: 'btn btn-quiet', 'aria-label': 'How combat works' }, () => {
-        selection.infoOpen = true;
-        rerender();
-      }),
       button('End turn', { class: 'btn btn-primary', 'aria-keyshortcuts': 'E' }, () => {
         selection.cardUid = null;
         selection.hoverUid = null;
@@ -548,7 +550,32 @@ function build(
     ]),
   ]);
 
+  /* ---- the corner rail ----
+     The log and the reference panel are things you reach for *between*
+     decisions, and they were sitting next to End turn — the one button you
+     press without looking. Out of the tray, into the corner, where a misclick
+     costs nothing. */
+  const corner = el('div', { class: 'combat-corner' }, [
+    button(
+      selection.logOpen ? 'Hide log' : 'Show log',
+      { class: 'btn btn-quiet btn-corner', 'aria-keyshortcuts': 'L' },
+      () => {
+        selection.logOpen = !selection.logOpen;
+        rerender();
+      },
+    ),
+    /* Everything the fight assumes you already know, one click from the fight.
+       An hour-long run cannot afford a tutorial and cannot afford a player
+       still guessing what Rust does in Act 3. */
+    button('Info', { class: 'btn btn-quiet btn-corner', 'aria-label': 'How combat works' }, () => {
+      selection.infoOpen = true;
+      rerender();
+    }),
+  ]);
+
   return el('div', { class: 'combat-inner' }, [
+    corner,
+    renderCarried(state),
     topBar,
     renderEnvironmentBadge(state),
     enemyRow,

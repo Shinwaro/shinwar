@@ -11,6 +11,7 @@
  */
 
 import type { EncounterId, EnemyId } from '../engine/types.ts';
+import { TRAINING_HULK, TUTORIAL_ENCOUNTER_ID } from './tutorial.ts';
 import {
   CINDER_WISP,
   KILN_ADEPT,
@@ -60,9 +61,28 @@ export interface EncounterDef {
    * once the deck has had a chance to answer it.
    */
   readonly minRow?: number;
+  /**
+   * Never placed on a chart. The introduction's fight only.
+   *
+   * Same shape as `EventDef.pinnedOnly`: content that is reachable by name and
+   * by nothing else. Without it a training target with sixty health and no
+   * teeth would turn up in Act 1 as a free node.
+   */
+  readonly tutorial?: boolean;
 }
 
 export const ENCOUNTERS: readonly EncounterDef[] = [
+  {
+    // The introduction. `tutorial` keeps it out of `encountersFor`, which is
+    // the only thing mapgen ever asks.
+    id: TUTORIAL_ENCOUNTER_ID,
+    name: 'Derelict Hauler',
+    act: 1,
+    tier: 'normal',
+    tutorial: true,
+    enemyIds: [TRAINING_HULK],
+  },
+
   /* ---------- Act 1 ---------- */
   {
     id: 'hound_pair',
@@ -404,6 +424,7 @@ export function encountersFor(
 ): readonly EncounterDef[] {
   return ENCOUNTERS.filter(
     (entry) =>
+      entry.tutorial !== true &&
       entry.act === act &&
       entry.tier === tier &&
       (row === undefined || entry.minRow === undefined || row >= entry.minRow),
