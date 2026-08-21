@@ -27,6 +27,25 @@ function appendChildren(node: Element, children: readonly Child[]): void {
   }
 }
 
+/**
+ * The same, for SVG.
+ *
+ * `createElement` produces an HTML element whatever the tag says, so an
+ * `<svg><path>` built that way renders as nothing at all and gives no error.
+ * The namespace is the entire difference and it is easy to forget, which is
+ * why the marks share one door rather than each remembering.
+ */
+export function svgEl<K extends keyof SVGElementTagNameMap>(
+  tag: K,
+  attrs: Attrs = {},
+  children: readonly Child[] = [],
+): SVGElementTagNameMap[K] {
+  const node = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  applyAttrs(node, attrs);
+  appendChildren(node, children);
+  return node;
+}
+
 export function el<K extends keyof HTMLElementTagNameMap>(
   tag: K,
   attrs: Attrs = {},

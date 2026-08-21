@@ -3083,3 +3083,32 @@
 
 /* A stance you cannot change out of this turn is a stance you are stuck in. */
 .stance-strip.is-held .sigil { opacity: 0.45; }
+
+
+/* ---------- enemy marks ----------
+
+   Family first: everything in the Kiln line carries the same flame, every
+   machine is built from the same bracket, the ronin marks echo the player's
+   own. Things that behave alike look alike, so the roster teaches itself.
+
+   Muted rather than accented. The mark is for recognising a thing at a glance,
+   and it must not compete with the intent — which is the number the turn
+   actually turns on. */
+
+.glyph {
+  width: 1.9rem;
+  height: 1.9rem;
+  flex: 0 0 auto;
+  color: var(--muted);
+}
+
+/* Elites and bosses get the accent. It is the cheapest possible way to say
+   "this one is not like the others" on a chart you are reading quickly. */
+.enemy[data-tier='elite'] .glyph { color: var(--iai); }
+.enemy[data-tier='boss'] .glyph { color: var(--accent); }
+
+/* A dead thing stops asserting itself. */
+.enemy.is-dead .glyph { opacity: 0.5; }
+
+/* Whichever one is swinging at you. */
+.enemy.is-acting .glyph { color: var(--danger); }

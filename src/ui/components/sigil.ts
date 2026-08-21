@@ -29,8 +29,7 @@
 
 import type { StanceId } from '../../engine/types.ts';
 import { STANCES } from '../../content/balance.ts';
-
-const SVG_NS = 'http://www.w3.org/2000/svg';
+import { svgEl } from '../dom.ts';
 
 interface Plot {
   /** What one Focus becomes. The mark's whole argument. Stroked. */
@@ -115,18 +114,9 @@ function heatArrow(direction: 'up' | 'down'): readonly string[] {
     : ['M50 36 L50 64', 'M42 56 L50 66 L58 56'];
 }
 
-function node<K extends keyof SVGElementTagNameMap>(
-  tag: K,
-  attrs: Record<string, string>,
-): SVGElementTagNameMap[K] {
-  const made = document.createElementNS(SVG_NS, tag);
-  for (const [key, value] of Object.entries(attrs)) made.setAttribute(key, value);
-  return made;
-}
-
 export function renderSigil(stance: StanceId): SVGSVGElement {
   const plot = PLOTS[stance];
-  const svg = node('svg', {
+  const svg = svgEl('svg', {
     class: 'sigil',
     viewBox: '0 0 100 100',
     'data-stance': stance,
@@ -134,7 +124,7 @@ export function renderSigil(stance: StanceId): SVGSVGElement {
     'aria-label': `${STANCES[stance].name} stance`,
   });
 
-  const group = node('g', {
+  const group = svgEl('g', {
     fill: 'none',
     stroke: 'currentColor',
     'stroke-width': '7',
@@ -145,14 +135,14 @@ export function renderSigil(stance: StanceId): SVGSVGElement {
   /* Fills first, so a stroked line crossing a filled shape reads as crossing
      it rather than being buried under it. */
   for (const d of plot.solid ?? []) {
-    group.append(node('path', { class: 'sigil-solid', d, fill: 'currentColor', stroke: 'none' }));
+    group.append(svgEl('path', { class: 'sigil-solid', d, fill: 'currentColor', stroke: 'none' }));
   }
   for (const d of plot.form) {
-    group.append(node('path', { class: 'sigil-form', d }));
+    group.append(svgEl('path', { class: 'sigil-form', d }));
   }
   if (plot.heat !== null) {
     for (const d of heatArrow(plot.heat)) {
-      group.append(node('path', { class: 'sigil-heat', d }));
+      group.append(svgEl('path', { class: 'sigil-heat', d }));
     }
   }
 

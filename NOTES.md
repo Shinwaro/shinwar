@@ -2641,3 +2641,51 @@ and which are correct immediately, whatever is moving.
 
 The lesson is the same one as the flying cards, from the other side: a rect read
 during an animation is the animation's rect, not the element's.
+
+### A mark for every enemy
+
+Thirty of them, in `content/glyphs.ts` — a table of coordinates, sitting beside
+the enemy definitions because what a thing is called and what it looks like are
+the same kind of fact.
+
+**Family first, individual second.** Everything in the Kiln line carries the
+same flame. Every machine is built from the same bracket. The ronin marks reuse
+the player's own blade shape, because a thing that fights the way you do should
+look like it. Things that behave alike look alike, so the roster teaches itself:
+you learn one Kiln enemy and the next is already half familiar.
+
+That was the design constraint that made thirty marks tractable at all. Thirty
+unrelated drawings would have been thirty separate judgements about what a
+Rimewake looks like; six families and a variation each is one judgement per
+family.
+
+The point was never decoration. Target priority is real content now — Splint
+Chorus has to be the thing you kill first — and "kill the small one" only works
+if the small one looks like something. Two enemies used to be two identical text
+boxes with different words in them.
+
+Elites take the amber and bosses the accent, which is the cheapest possible way
+to say "this one is not like the others" on a board being read quickly.
+
+### The glyph tests caught two ids on the first run
+
+`mag_lathe_warden` for an enemy whose id is `mag_lathe`, and a `derelict_hauler`
+entry for an enemy whose id is `training_hulk` — it is *named* Derelict Hauler,
+which is exactly the trap. Neither would have thrown. Both would have rendered
+nothing, forever, and looked like an enemy that had simply not been drawn yet.
+
+So the tests assert both directions: every enemy has a mark, and every mark has
+an enemy. The second one is the half that rots, and it is the half nobody
+thinks to write.
+
+They also check the box bounds, coordinate pairs, and that filled shapes are
+closed — an unclosed fill gets closed by the renderer along whatever line joins
+the ends, which is rarely the line you drew.
+
+### `svgEl`
+
+There were two hand-rolled `createElementNS` helpers and a third about to be
+written. `createElement` produces an HTML element whatever the tag says, so an
+`<svg><path>` built that way renders nothing and reports no error — the
+namespace is the whole difference and it is exactly the sort of thing worth
+having one door for.

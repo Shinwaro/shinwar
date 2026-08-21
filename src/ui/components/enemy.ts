@@ -14,6 +14,7 @@ import { requireCombat } from '../../engine/state.ts';
 import { enemies as enemyTable, statuses as statusTable } from '../../content/registry.ts';
 import { el } from '../dom.ts';
 import { setBarFill } from '../anim.ts';
+import { renderGlyph } from './glyph.ts';
 
 export interface EnemyViewOptions {
   readonly targetable: boolean;
@@ -82,11 +83,19 @@ export function renderEnemy(
       type: 'button',
       class: classes.join(' '),
       'data-uid': enemy.uid,
+      // Elites and bosses accent their mark. The cheapest possible way to say
+      // "this one is not like the others" on a board you are reading quickly.
+      'data-tier': def.tier,
       disabled: dead || !options.targetable,
       'aria-label': `${def.name}, ${enemy.hp} of ${enemy.maxHp} hull`,
     },
     [
       el('div', { class: 'enemy-head' }, [
+        /* The mark first, so the eye lands on the silhouette before the
+           words. Two enemies used to be two identical boxes with different
+           text in them, and "kill the small one first" only works if the small
+           one looks like something. */
+        renderGlyph(def.id, def.name),
         el('span', { class: 'enemy-name' }, [def.name]),
         el('span', { class: 'enemy-hp' }, [`${enemy.hp}/${enemy.maxHp}`]),
         // Same shield as the player's, on the same row as the health it
