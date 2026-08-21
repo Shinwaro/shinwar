@@ -24,6 +24,9 @@ import type { GameState, RelicDef } from '../engine/types.ts';
 import { appendLog, withCombat, withRun } from '../engine/state.ts';
 import { defineHook, registerHooks } from '../engine/hooks.ts';
 import { draw } from '../engine/combat/piles.ts';
+import { PLAYER, applyDamage, enemyTarget, livingEnemies } from '../engine/combat/damage.ts';
+import { addStacks } from '../engine/combat/keywords.ts';
+import { VULNERABLE } from './statuses.ts';
 import { FOCUS_MAX, HOOK_PRIORITY } from './balance.ts';
 
 export const RELICS: readonly RelicDef[] = [
@@ -193,6 +196,86 @@ export const RELICS: readonly RelicDef[] = [
     rarity: 'uncommon',
     flavor: 'Something has to come out of it.',
   },
+
+  /* ---- the second batch ----
+
+     The first nineteen answered one question well — "how do I get more of what
+     I already do" — and left three whole systems with nothing pointing at them.
+     Nothing paid attention to a kill, nothing paid attention to a Thread coming
+     due, and nothing turned a fight into Alloy. Each of those is a decision the
+     player is already making, and a relic that reads one changes what the
+     decision is worth rather than making the numbers bigger. */
+
+  {
+    id: 'exchange_coil',
+    name: 'Exchange Coil',
+    // The conversion the gauge always wanted: pressure into patience, one a
+    // turn, without asking you to spend a card on it.
+    text: 'Vent 1 Heat and gain 1 Focus at the start of each turn.',
+    rarity: 'rare',
+    passive: { ventPerTurn: 1, focusPerTurn: 1 },
+    flavor: 'What comes off the reactor has to go somewhere. It may as well go into your hands.',
+  },
+  {
+    id: 'third_lung',
+    name: 'The Third Lung',
+    text: 'The overheat threshold rises by 2, and vent 2 Heat at the start of each turn.',
+    rarity: 'epic',
+    passive: { overheatThreshold: 2, ventPerTurn: 2 },
+    flavor: 'Grafted in by somebody who had clearly done it before, on somebody else.',
+  },
+  {
+    id: 'ash_rosary',
+    name: 'Ash Rosary',
+    text: 'Heal 4 after every fight you win.',
+    rarity: 'common',
+    flavor: 'Forty-one beads. One for each of them, and none for you.',
+  },
+  {
+    id: 'bounty_ledger',
+    name: 'Bounty Ledger',
+    text: 'Gain 18 Alloy whenever an enemy dies.',
+    rarity: 'uncommon',
+    flavor: 'Somebody is still keeping the books out here, and they are surprisingly prompt.',
+  },
+  {
+    id: 'scavengers_rig',
+    name: 'Scavenger’s Rig',
+    text: 'Draw 1 card whenever an enemy dies.',
+    rarity: 'rare',
+    flavor: 'It goes through the wreckage while you are still busy making it.',
+  },
+  {
+    id: 'cauterising_plate',
+    name: 'Cauterising Plate',
+    text: 'Gain 10 Block when you overheat.',
+    rarity: 'uncommon',
+    flavor: 'The plate does not mind the heat. That is the entire design brief.',
+  },
+  {
+    id: 'duelists_mark',
+    name: 'Duelist’s Mark',
+    text: 'Apply 1 Vulnerable to all enemies at the start of each fight.',
+    rarity: 'rare',
+    flavor: 'You are announced before you arrive, and it has stopped being a courtesy.',
+  },
+  {
+    id: 'splitfire_core',
+    name: 'Splitfire Core',
+    text: 'Every third card you play in a turn, deal 5 damage to all enemies.',
+    rarity: 'epic',
+    flavor: 'It discharges on a count of three whether or not you were counting.',
+  },
+  {
+    id: 'sect_reliquary',
+    name: 'The Sect Reliquary',
+    /* The only relic that reads the story layer. A run that engages with
+       Threads is a run that took risks it did not have to, and this is the one
+       thing in the game that pays for having done that. */
+    text: 'Heal 8 and gain 70 Alloy whenever a Thread comes due.',
+    rarity: 'legendary',
+    flavor: 'Everything the order still owned, in a box the size of a fist.',
+  },
 ];
 
 /* ---------- the handlers ----------
@@ -221,6 +304,39 @@ function grantDraw(state: GameState, count: number, source: string, why: string)
   return appendLog(
     withRun(state, (current) => ({ ...current, rng: pulled.rng, combat: pulled.combat })),
     { source, kind: 'combat', text: `${why} Draw ${count}.`, detail: { count } },
+  );
+}
+
+/** Alloy, from inside a fight. Same shape as the execution riders pay in. */
+function grantAlloy(state: GameState, amount: number, source: string, why: string): GameState {
+  if (state.run === null) return state;
+  return appendLog(
+    withRun(state, (current) => ({ ...current, alloy: current.alloy + amount })),
+    { source, kind: 'run', text: `${why} Alloy +${amount}.`, detail: { alloy: amount } },
+  );
+}
+
+/** Health, capped at max. Used by the two relics that pay in hull. */
+function grantHeal(state: GameState, amount: number, source: string, why: string): GameState {
+  const run = state.run;
+  if (run === null) return state;
+  const healed = Math.min(run.pilot.maxHealth, run.pilot.health + amount) - run.pilot.health;
+  if (healed <= 0) return state;
+  return appendLog(
+    withRun(state, (current) => ({
+      ...current,
+      pilot: { ...current.pilot, health: current.pilot.health + healed },
+    })),
+    { source, kind: 'run', text: `${why} Health +${healed}.`, detail: { health: healed } },
+  );
+}
+
+function grantBlock(state: GameState, amount: number, source: string, why: string): GameState {
+  const combat = state.run?.combat;
+  if (combat === undefined || combat === null) return state;
+  return appendLog(
+    withCombat(state, (current) => ({ ...current, block: current.block + amount })),
+    { source, kind: 'block', text: `${why} Block +${amount}.`, detail: { amount, to: 'player' } },
   );
 }
 
@@ -285,4 +401,112 @@ export function registerRelicHooks(): void {
       handle: (state) => grantDraw(state, 2, 'backdraft', 'Backdraft.'),
     }),
   ]);
+
+  registerHooks('ash_rosary', [
+    defineHook({
+      hook: 'onCombatEnd',
+      priority: HOOK_PRIORITY.module,
+      // Won only. A relic that pays out on the fight that killed you is a
+      // relic that has never once mattered.
+      handle: (state, payload) =>
+        payload.outcome === 'won' ? grantHeal(state, 4, 'ash_rosary', 'Ash Rosary.') : state,
+    }),
+  ]);
+
+  registerHooks('bounty_ledger', [
+    defineHook({
+      hook: 'onEnemyKilled',
+      priority: HOOK_PRIORITY.module,
+      handle: (state) => grantAlloy(state, 18, 'bounty_ledger', 'Bounty Ledger.'),
+    }),
+  ]);
+
+  registerHooks('scavengers_rig', [
+    defineHook({
+      hook: 'onEnemyKilled',
+      priority: HOOK_PRIORITY.module,
+      handle: (state) => {
+        const combat = state.run?.combat;
+        if (combat === undefined || combat === null || combat.outcome !== 'ongoing') return state;
+        return grantDraw(state, 1, 'scavengers_rig', 'Scavenger’s Rig.');
+      },
+    }),
+  ]);
+
+  registerHooks('cauterising_plate', [
+    defineHook({
+      hook: 'onOverheat',
+      priority: HOOK_PRIORITY.module,
+      handle: (state) => grantBlock(state, 10, 'cauterising_plate', 'Cauterising Plate.'),
+    }),
+  ]);
+
+  registerHooks('duelists_mark', [
+    defineHook({
+      hook: 'onCombatStart',
+      priority: HOOK_PRIORITY.module,
+      handle: (state) => {
+        const combat = state.run?.combat;
+        if (combat === undefined || combat === null) return state;
+        return appendLog(
+          withCombat(state, (current) => ({
+            ...current,
+            enemies: current.enemies.map((enemy) => ({
+              ...enemy,
+              statuses: addStacks(enemy.statuses, VULNERABLE, 1),
+            })),
+          })),
+          {
+            source: 'duelists_mark',
+            kind: 'status',
+            text: 'Duelist’s Mark. 1 Vulnerable to all enemies.',
+            detail: { status: VULNERABLE, stacks: 1 },
+          },
+        );
+      },
+    }),
+  ]);
+
+  registerHooks('splitfire_core', [
+    defineHook({
+      hook: 'onCardPlayed',
+      priority: HOOK_PRIORITY.module,
+      handle: (state) => {
+        // Reads `cardsPlayedThisTurn` rather than counting separately, the same
+        // way Long Form does — two counters for one fact drift.
+        const combat = state.run?.combat;
+        if (combat === undefined || combat === null || combat.outcome !== 'ongoing') return state;
+        if (combat.cardsPlayedThisTurn === 0 || combat.cardsPlayedThisTurn % 3 !== 0) return state;
+
+        let next = state;
+        for (const enemy of livingEnemies(combat)) {
+          next = applyDamage(
+            next,
+            {
+              amount: 5,
+              attacker: PLAYER,
+              target: enemyTarget(enemy.uid),
+              isAttack: false,
+              attackOrdinal: 0,
+              consumesFocus: false,
+            },
+            'splitfire_core',
+          );
+        }
+        return next;
+      },
+    }),
+  ]);
+
+  registerHooks('sect_reliquary', [
+    defineHook({
+      hook: 'onThreadResolved',
+      priority: HOOK_PRIORITY.module,
+      handle: (state) => {
+        const healed = grantHeal(state, 8, 'sect_reliquary', 'The Sect Reliquary.');
+        return grantAlloy(healed, 70, 'sect_reliquary', 'The Sect Reliquary.');
+      },
+    }),
+  ]);
+
 }

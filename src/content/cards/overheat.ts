@@ -7,6 +7,7 @@
  */
 
 import type { CardDef } from '../../engine/types.ts';
+import { SCALD, VULNERABLE } from '../statuses.ts';
 
 export const OVERHEAT_CARDS: readonly CardDef[] = [
   {
@@ -110,5 +111,109 @@ export const OVERHEAT_CARDS: readonly CardDef[] = [
       ],
     },
     flavor: 'The cutter was never rated for this. Neither were you.',
+  },
+
+  /* ---- the second batch ----
+     Scald had only ever been something enemies did to you. It is a debuff on
+     the PLAYER by construction — enemies have no gauge — so a card that applies
+     it to yourself is a Heat cost you pay on the instalment plan, which is a
+     different decision from a Heat cost you pay now. */
+
+  {
+    id: 'deferred_burn',
+    name: 'Deferred Burn',
+    type: 'attack',
+    rarity: 'uncommon',
+    archetype: 'overheat',
+    cost: 1,
+    effects: [
+      { op: 'damage', amount: 13, target: 'enemy' },
+      { op: 'applyStatus', status: SCALD, stacks: 2, target: 'self' },
+    ],
+    upgrade: {
+      name: 'Deferred Burn+',
+      effects: [
+        { op: 'damage', amount: 17, target: 'enemy' },
+        { op: 'applyStatus', status: SCALD, stacks: 2, target: 'self' },
+      ],
+    },
+    flavor: 'The reactor will bring this up again. It always does.',
+  },
+
+  {
+    id: 'blowdown',
+    name: 'Blowdown',
+    type: 'skill',
+    rarity: 'uncommon',
+    archetype: 'overheat',
+    cost: 1,
+    effects: [
+      { op: 'ventHeat', amount: 5 },
+      { op: 'draw', amount: 2 },
+    ],
+    upgrade: {
+      name: 'Blowdown+',
+      effects: [
+        { op: 'ventHeat', amount: 6 },
+        { op: 'draw', amount: 3 },
+      ],
+    },
+    flavor: 'Everything out at once, and a moment to think in the quiet after.',
+  },
+
+  {
+    id: 'thermal_lance',
+    name: 'Thermal Lance',
+    type: 'attack',
+    rarity: 'rare',
+    archetype: 'overheat',
+    cost: 2,
+    effects: [
+      { op: 'damage', amount: 9, target: 'enemy' },
+      { op: 'gainHeat', amount: 2 },
+      {
+        op: 'conditional',
+        when: { kind: 'heatAtLeast', value: 7 },
+        then: [{ op: 'applyStatus', status: VULNERABLE, stacks: 2, target: 'enemy' }],
+      },
+    ],
+    upgrade: {
+      name: 'Thermal Lance+',
+      effects: [
+        { op: 'damage', amount: 13, target: 'enemy' },
+        { op: 'gainHeat', amount: 2 },
+        {
+          op: 'conditional',
+          when: { kind: 'heatAtLeast', value: 6 },
+          then: [{ op: 'applyStatus', status: VULNERABLE, stacks: 2, target: 'enemy' }],
+        },
+      ],
+    },
+    flavor: 'Hot enough and the armour stops being the point.',
+  },
+
+  {
+    id: 'overpressure',
+    name: 'Overpressure',
+    type: 'skill',
+    rarity: 'epic',
+    archetype: 'overheat',
+    cost: 0,
+    exhaust: true,
+    // Three Energy for six Heat is most of a turn bought against most of the
+    // gauge. Exhausts, because a deck that can do this twice is not playing the
+    // gauge at all.
+    effects: [
+      { op: 'gainEnergy', amount: 3 },
+      { op: 'gainHeat', amount: 6 },
+    ],
+    upgrade: {
+      name: 'Overpressure+',
+      effects: [
+        { op: 'gainEnergy', amount: 3 },
+        { op: 'gainHeat', amount: 4 },
+      ],
+    },
+    flavor: 'Every warning at once, and about four seconds of being unstoppable.',
   },
 ];

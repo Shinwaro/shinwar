@@ -11,7 +11,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import type { GameState } from '../src/engine/types.ts';
 import { createInitialState } from '../src/engine/state.ts';
 import { applyAction } from '../src/engine/reducer.ts';
-import { handlersFor } from '../src/engine/hooks.ts';
+import { HOOK_NAMES, handlersFor } from '../src/engine/hooks.ts';
 import { rollRelics, rollMastery } from '../src/engine/run/rewards.ts';
 import { computeDamage, previewDamage, PLAYER, enemyTarget } from '../src/engine/combat/damage.ts';
 import { playCard, startPlayerTurn } from '../src/engine/combat/combat.ts';
@@ -22,27 +22,6 @@ import { reloadContent } from '../src/content/index.ts';
 import { relics as relicTable } from '../src/content/registry.ts';
 import { makeFight, combatOf, firstEnemy } from './helpers.ts';
 import { VECTOR_STEP } from '../src/content/cards/basic.ts';
-
-/** Every hook a relic could plausibly hang off. Kept local to this test. */
-const HOOK_NAMES = [
-  'onCombatStart',
-  'onCombatEnd',
-  'onTurnStart',
-  'onTurnEnd',
-  'onRoundStart',
-  'onRoundEnd',
-  'onCardPlayed',
-  'onCardDrawn',
-  'onCardExhausted',
-  'onStanceChange',
-  'onHeatGained',
-  'onHeatVented',
-  'onOverheat',
-  'onDamageDealt',
-  'onDamageTaken',
-  'onBlockGained',
-  'onEnemyKilled',
-] as const;
 
 function holding(state: GameState, ...ids: readonly string[]): GameState {
   if (state.run === null) throw new Error('test: no run');

@@ -8,7 +8,7 @@
  */
 
 import type { CardDef } from '../../engine/types.ts';
-import { STRENGTH, VULNERABLE } from '../statuses.ts';
+import { RUST, STRENGTH, VULNERABLE } from '../statuses.ts';
 
 export const NEUTRAL_CARDS: readonly CardDef[] = [
   {
@@ -155,5 +155,118 @@ export const NEUTRAL_CARDS: readonly CardDef[] = [
       ],
     },
     flavor: 'Every name you were taught, spoken once, in order, to nobody.',
+  },
+
+  /* ---- the second batch ----
+     Rust had one card. Healing had none — the `heal` op existed and only
+     Anomalies ever used it, which meant the deck could not answer the one
+     resource the run is actually about. And nothing outside an execution rider
+     had ever turned a fight into money. */
+
+  {
+    id: 'corrosive_edge',
+    name: 'Corrosive Edge',
+    type: 'attack',
+    rarity: 'common',
+    archetype: 'neutral',
+    cost: 1,
+    effects: [
+      { op: 'damage', amount: 5, target: 'enemy' },
+      { op: 'applyStatus', status: RUST, stacks: 2, target: 'enemy' },
+    ],
+    upgrade: {
+      name: 'Corrosive Edge+',
+      effects: [
+        { op: 'damage', amount: 7, target: 'enemy' },
+        { op: 'applyStatus', status: RUST, stacks: 3, target: 'enemy' },
+      ],
+    },
+    flavor: 'It is not the cut that finishes it. It is the week after.',
+  },
+
+  {
+    id: 'rust_bloom',
+    name: 'Rust Bloom',
+    type: 'skill',
+    rarity: 'uncommon',
+    archetype: 'neutral',
+    cost: 1,
+    // A clock nothing can Block, spread across the room. Against one enemy it
+    // is weak on purpose; against four it is the reason you brought it.
+    effects: [{ op: 'applyStatus', status: RUST, stacks: 2, target: 'allEnemies' }],
+    upgrade: {
+      name: 'Rust Bloom+',
+      effects: [{ op: 'applyStatus', status: RUST, stacks: 3, target: 'allEnemies' }],
+    },
+    flavor: 'Let the air do it.',
+  },
+
+  {
+    id: 'field_repair',
+    name: 'Field Repair',
+    type: 'skill',
+    rarity: 'uncommon',
+    archetype: 'neutral',
+    cost: 1,
+    exhaust: true,
+    /* The only card that heals. Exhausts, and heals a fraction of what a
+       Station does, because a deck that can repair itself for free removes the
+       reason to route toward anything. */
+    effects: [{ op: 'heal', amount: 7 }],
+    upgrade: {
+      name: 'Field Repair+',
+      effects: [{ op: 'heal', amount: 11 }],
+    },
+    flavor: 'Not fixed. Closed, and holding, and that will do.',
+  },
+
+  {
+    id: 'scavengers_eye',
+    name: 'Scavenger’s Eye',
+    type: 'skill',
+    rarity: 'common',
+    archetype: 'neutral',
+    cost: 0,
+    effects: [
+      { op: 'draw', amount: 1 },
+      { op: 'gainAlloy', amount: 12 },
+    ],
+    upgrade: {
+      name: 'Scavenger’s Eye+',
+      effects: [
+        { op: 'draw', amount: 1 },
+        { op: 'gainAlloy', amount: 22 },
+      ],
+    },
+    flavor: 'Everything in here used to belong to somebody who is not using it.',
+  },
+
+  {
+    id: 'desperate_line',
+    name: 'Desperate Line',
+    type: 'attack',
+    rarity: 'rare',
+    archetype: 'neutral',
+    cost: 1,
+    effects: [
+      { op: 'damage', amount: 6, target: 'enemy' },
+      {
+        op: 'conditional',
+        when: { kind: 'hullBelowPct', value: 50 },
+        then: [{ op: 'damage', amount: 9, target: 'enemy' }],
+      },
+    ],
+    upgrade: {
+      name: 'Desperate Line+',
+      effects: [
+        { op: 'damage', amount: 8, target: 'enemy' },
+        {
+          op: 'conditional',
+          when: { kind: 'hullBelowPct', value: 60 },
+          then: [{ op: 'damage', amount: 11, target: 'enemy' }],
+        },
+      ],
+    },
+    flavor: 'The sect had nothing to say about this one. They never got this far down.',
   },
 ];

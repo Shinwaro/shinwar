@@ -112,4 +112,142 @@ export const GUARD_CARDS: readonly CardDef[] = [
     upgrade: { name: 'Standing Wave+', effects: [{ op: 'block', amount: 32 }] },
     flavor: 'Hold the position long enough and the position starts holding you.',
   },
+
+  /* ---- the second batch ----
+     Written against gaps rather than to a count. GUARD had eleven ways to gain
+     Block and no way to be rewarded for having gained a lot of it beyond
+     Counterweight, and nothing at all that read the hull — a defensive
+     archetype with no desperation card is a defensive archetype that plays the
+     same on turn one and on your last four health. */
+
+  {
+    id: 'set_the_anchor',
+    name: 'Set the Anchor',
+    type: 'skill',
+    rarity: 'common',
+    archetype: 'guard',
+    cost: 0,
+    effects: [
+      { op: 'block', amount: 4 },
+      { op: 'gainHeat', amount: 1 },
+    ],
+    upgrade: {
+      name: 'Set the Anchor+',
+      effects: [
+        { op: 'block', amount: 7 },
+        { op: 'gainHeat', amount: 1 },
+      ],
+    },
+    flavor: 'Free is a word that means the bill comes later.',
+  },
+
+  {
+    id: 'riposte_plate',
+    name: 'Riposte Plate',
+    type: 'skill',
+    rarity: 'common',
+    archetype: 'guard',
+    cost: 1,
+    effects: [{ op: 'block', amount: 5 }],
+    // In GUARD the plate answers back. Everywhere else it is just a plate.
+    stanceRider: {
+      stance: 'guard',
+      effects: [{ op: 'damage', amount: 5, target: 'enemy' }],
+    },
+    upgrade: {
+      name: 'Riposte Plate+',
+      effects: [{ op: 'block', amount: 8 }],
+      stanceRider: {
+        stance: 'guard',
+        effects: [{ op: 'damage', amount: 7, target: 'enemy' }],
+      },
+    },
+    flavor: 'Meeting it is half of stopping it.',
+  },
+
+  {
+    id: 'ablative_layer',
+    name: 'Ablative Layer',
+    type: 'skill',
+    rarity: 'uncommon',
+    archetype: 'guard',
+    cost: 1,
+    // Rewards a turn already spent on Block rather than starting one, which is
+    // the difference between a defensive card and a defensive TURN.
+    effects: [
+      { op: 'block', amount: 5 },
+      { op: 'scaleWith', source: 'blockGainedThisTurn', per: 5, then: [{ op: 'block', amount: 3 }] },
+    ],
+    upgrade: {
+      name: 'Ablative Layer+',
+      effects: [
+        { op: 'block', amount: 7 },
+        { op: 'scaleWith', source: 'blockGainedThisTurn', per: 4, then: [{ op: 'block', amount: 3 }] },
+      ],
+    },
+    flavor: 'Layer over layer until the shape of it stops mattering.',
+  },
+
+  {
+    id: 'grounding_strap',
+    name: 'Grounding Strap',
+    type: 'skill',
+    rarity: 'uncommon',
+    archetype: 'guard',
+    cost: 1,
+    effects: [
+      { op: 'block', amount: 6 },
+      { op: 'ventHeat', amount: 3 },
+    ],
+    stanceRider: {
+      stance: 'guard',
+      effects: [{ op: 'draw', amount: 1 }],
+    },
+    upgrade: {
+      name: 'Grounding Strap+',
+      effects: [
+        { op: 'block', amount: 9 },
+        { op: 'ventHeat', amount: 4 },
+      ],
+      stanceRider: {
+        stance: 'guard',
+        effects: [{ op: 'draw', amount: 1 }],
+      },
+    },
+    flavor: 'Somewhere for it all to go that is not you.',
+  },
+
+  {
+    id: 'the_last_plate',
+    name: 'The Last Plate',
+    type: 'skill',
+    rarity: 'epic',
+    archetype: 'guard',
+    cost: 1,
+    exhaust: true,
+    /* The first card in the game that reads the hull. Dead weight at full
+       health and the reason you are still flying at a fifth of it — which is a
+       card that changes what your deck IS at the point the run gets hard,
+       rather than one that is good all the time by a bit. */
+    effects: [
+      {
+        op: 'conditional',
+        when: { kind: 'hullBelowPct', value: 40 },
+        then: [{ op: 'block', amount: 28 }],
+        else: [{ op: 'block', amount: 9 }],
+      },
+    ],
+    upgrade: {
+      name: 'The Last Plate+',
+      effects: [
+        {
+          op: 'conditional',
+          when: { kind: 'hullBelowPct', value: 50 },
+          then: [{ op: 'block', amount: 34 }],
+          else: [{ op: 'block', amount: 12 }],
+        },
+      ],
+    },
+    flavor: 'Kept back for the day it is the only one left. Today, apparently.',
+  },
 ];

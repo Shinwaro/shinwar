@@ -1176,4 +1176,337 @@ export const EVENTS: readonly EventDef[] = [
       },
     ],
   },
+
+  /* ---- the Voided batch ----
+
+     These exist because of a shape the pool kept producing and could not
+     price: an option that hands you something for nothing. A free 150 Alloy is
+     not a decision, and neither is a free relic — so the ones that should have
+     been the tempting, ugly choice were just the correct one.
+
+     A Voided card is the cost the reward screen cannot express. It is not
+     damage you heal off and it is not Alloy you earn back: it is a slot in
+     every hand it turns up in, for the rest of the run, and a removal fee to
+     end that. The only price in the game that gets worse the longer you leave
+     it, which is exactly the shape a bad decision should have.
+
+     The rule these are written to: the Voided option is always the one that
+     costs somebody ELSE something. The player is never punished for taking a
+     risk, only for taking the way out that somebody else pays for. */
+
+  {
+    id: 'the_lifeboat',
+    name: 'The Lifeboat',
+    body:
+      'A hauler is coming apart two hundred kilometres off your beam, and its lifeboat is ' +
+      'already burning toward you. Your hold takes four. The boat is carrying eleven, and ' +
+      'the pilot is on the open channel asking you to confirm you have room.',
+    options: [
+      {
+        id: 'take_four',
+        label: 'Take four and burn',
+        detail: 'You pick four. You do not explain the arithmetic and nobody asks you to.',
+        effects: [
+          { op: 'alloy', amount: 180 },
+          { op: 'card', cardId: 'voided_the_witness' },
+        ],
+        risk: 'Permanent',
+        payoff: 'Immediate, large',
+      },
+      {
+        id: 'take_all',
+        label: 'Take all eleven',
+        detail: 'Seven of them ride in the hold with the coolant, and it costs you the trim.',
+        effects: [
+          { op: 'health', amount: -14 },
+          { op: 'setThread', threadId: 'quiet_repair' },
+        ],
+        risk: 'The body',
+        payoff: 'Deferred',
+      },
+      {
+        id: 'tow',
+        label: 'Tow the boat instead',
+        detail: 'Slower, heavier, and everybody stays where they are.',
+        effects: [
+          { op: 'health', amount: -6 },
+          { op: 'alloy', amount: 60 },
+        ],
+        risk: 'The body',
+        payoff: 'Immediate, small',
+      },
+      {
+        id: 'leave',
+        label: 'Hold your heading',
+        detail: 'You were never on that channel.',
+        effects: [],
+        isLeave: true,
+        risk: 'None',
+        payoff: 'None',
+      },
+    ],
+  },
+
+  {
+    id: 'the_relay_station',
+    name: 'The Relay',
+    body:
+      'A collapse-warning relay, still transmitting, still crewed by two people who have not ' +
+      'been resupplied in a hundred days. Its power cells are the exact spec your cutter takes.',
+    acts: [2, 3],
+    options: [
+      {
+        id: 'strip_cells',
+        label: 'Take the cells',
+        detail: 'The relay goes quiet nine minutes after you leave. It was warning somebody.',
+        effects: [
+          { op: 'alloy', amount: 150 },
+          { op: 'maxHealth', amount: 8 },
+          { op: 'card', cardId: 'voided_scorched_lane' },
+        ],
+        risk: 'Permanent',
+        payoff: 'Immediate, large',
+      },
+      {
+        id: 'resupply',
+        label: 'Give them what you can spare',
+        detail: 'Water, two weeks of rations, and the last of your good sealant.',
+        effects: [
+          { op: 'alloy', amount: -90 },
+          { op: 'setThread', threadId: 'navigators_favour' },
+        ],
+        risk: 'Economic',
+        payoff: 'Deferred',
+      },
+      {
+        id: 'listen',
+        label: 'Sit and listen to the feed',
+        detail: 'Six hours of collapse telemetry. You come away knowing where not to be.',
+        effects: [{ op: 'upgradeRandomCard' }],
+        risk: 'None',
+        payoff: 'Immediate, specific',
+      },
+      {
+        id: 'leave',
+        label: 'Acknowledge and move on',
+        detail: 'You send the receipt they are legally owed and nothing else.',
+        effects: [],
+        isLeave: true,
+        risk: 'None',
+        payoff: 'None',
+      },
+    ],
+  },
+
+  {
+    id: 'the_debt_collector',
+    name: 'The Collector',
+    body:
+      'A thin man in a good coat is waiting at the mooring with a ledger and no visible weapon. ' +
+      'He is not here for you. He is here for the family two berths down, and he would like a ' +
+      'lift out afterwards.',
+    acts: [2, 3],
+    options: [
+      {
+        id: 'drive',
+        label: 'Give him the lift',
+        detail: 'You do not watch the berth. You hear it, though, and you hear it clearly.',
+        effects: [
+          { op: 'alloy', amount: 210 },
+          { op: 'card', cardId: 'voided_the_debt' },
+        ],
+        risk: 'Permanent',
+        payoff: 'Immediate, large',
+      },
+      {
+        id: 'warn',
+        label: 'Warn the berth',
+        detail: 'Nine minutes of head start, which is more than they had.',
+        effects: [
+          { op: 'setThread', threadId: 'marked' },
+          { op: 'health', amount: 12 },
+        ],
+        risk: 'Deferred',
+        payoff: 'Immediate, moderate',
+      },
+      {
+        id: 'buy',
+        label: 'Settle their book yourself',
+        detail: 'He is genuinely surprised, writes it off, and hands you the page.',
+        effects: [
+          { op: 'alloy', amount: -160 },
+          { op: 'maxHealth', amount: 12 },
+        ],
+        risk: 'Economic',
+        payoff: 'Permanent',
+      },
+      {
+        id: 'leave',
+        label: 'Cast off early',
+        detail: 'The mooring fees are somebody else’s problem now.',
+        effects: [],
+        isLeave: true,
+        risk: 'None',
+        payoff: 'None',
+      },
+    ],
+  },
+
+  {
+    id: 'the_open_channel',
+    name: 'The Open Channel',
+    body:
+      'Somebody is broadcasting the collapse front’s real position, unencrypted, to anyone who ' +
+      'will listen. A syndicate cutter is triangulating them and is offering good money for a ' +
+      'second bearing to cross with.',
+    options: [
+      {
+        id: 'give_bearing',
+        label: 'Give the bearing',
+        detail: 'It takes eleven seconds. The broadcast stops about an hour later.',
+        effects: [
+          { op: 'alloy', amount: 165 },
+          { op: 'card', cardId: 'voided_the_name' },
+        ],
+        risk: 'Permanent',
+        payoff: 'Immediate, large',
+      },
+      {
+        id: 'jam',
+        label: 'Jam the triangulation',
+        detail: 'You put your own reactor noise across the band until they give up.',
+        effects: [
+          { op: 'health', amount: -11 },
+          { op: 'setThread', threadId: 'navigators_favour' },
+        ],
+        risk: 'The body',
+        payoff: 'Deferred',
+      },
+      {
+        id: 'listen_front',
+        label: 'Just write down the front’s position',
+        detail: 'It is good data and it was free, which should have been the first clue.',
+        effects: [{ op: 'card', cardId: 'dead_reckoning' }],
+        risk: 'None',
+        payoff: 'Immediate, specific',
+      },
+      {
+        id: 'leave',
+        label: 'Close the channel',
+        detail: 'Not your band, not your war.',
+        effects: [],
+        isLeave: true,
+        risk: 'None',
+        payoff: 'None',
+      },
+    ],
+  },
+
+  {
+    id: 'the_ration_queue',
+    name: 'The Queue',
+    body:
+      'Four hundred people on a rock with eleven days of air, and a station master with a list. ' +
+      'Your cutter is the only hull in the system with a working scrubber, and he is willing to ' +
+      'discuss what that is worth.',
+    options: [
+      {
+        id: 'sell_scrubber',
+        label: 'Sell him the scrubber',
+        detail: 'Eleven days becomes forty. Your own air gets a great deal more interesting.',
+        effects: [
+          { op: 'alloy', amount: 200 },
+          { op: 'health', amount: -16 },
+        ],
+        risk: 'The body',
+        payoff: 'Immediate, large',
+      },
+      {
+        id: 'take_list',
+        label: 'Buy a place at the top of the list',
+        detail: 'Somebody at the bottom of it moves down four hundred places.',
+        effects: [
+          { op: 'alloy', amount: -60 },
+          { op: 'health', amount: 22 },
+          { op: 'card', cardId: 'voided_blood_price' },
+        ],
+        risk: 'Permanent',
+        payoff: 'Immediate, moderate',
+      },
+      {
+        id: 'run_ferry',
+        label: 'Run the ferry yourself',
+        detail: 'Nine trips, no cargo, and a fortnight you were not going to get back anyway.',
+        effects: [
+          { op: 'health', amount: -8 },
+          { op: 'setThread', threadId: 'quiet_repair' },
+        ],
+        risk: 'The body',
+        payoff: 'Deferred',
+      },
+      {
+        id: 'leave',
+        label: 'Undock',
+        detail: 'The list was never going to have your name on it.',
+        effects: [],
+        isLeave: true,
+        risk: 'None',
+        payoff: 'None',
+      },
+    ],
+  },
+
+  {
+    id: 'the_slow_wreck',
+    name: 'The Slow Wreck',
+    body:
+      'A sect cutter, your own pattern, drifting with its lights still on and one life sign ' +
+      'that has not moved in a long time. The reactor is intact. So is the pilot, technically.',
+    acts: [2, 3],
+    options: [
+      {
+        id: 'take_reactor',
+        label: 'Cut the reactor free',
+        detail: 'It takes six hours and the life sign stops somewhere in the middle of it.',
+        effects: [
+          { op: 'alloy', amount: 140 },
+          { op: 'card', cardId: 'voided_dead_weight' },
+          { op: 'maxHealth', amount: 10 },
+        ],
+        risk: 'Permanent',
+        payoff: 'Immediate, large',
+      },
+      {
+        id: 'wake',
+        label: 'Wake them',
+        detail: 'They are not grateful and they are not lucid, but they know the old forms.',
+        effects: [
+          { op: 'health', amount: -10 },
+          { op: 'setThread', threadId: 'sect_rites' },
+        ],
+        risk: 'The body',
+        payoff: 'Deferred',
+      },
+      {
+        id: 'rites',
+        label: 'Say the rites and let it drift',
+        detail: 'The whole thing, out loud, to nobody, exactly as you were taught.',
+        effects: [
+          { op: 'upgradeRandomCard' },
+          { op: 'removeRandomCard' },
+        ],
+        risk: 'None',
+        payoff: 'Immediate, specific',
+      },
+      {
+        id: 'leave',
+        label: 'Log the position and go',
+        detail: 'Somebody with more time will find it.',
+        effects: [],
+        isLeave: true,
+        risk: 'None',
+        payoff: 'None',
+      },
+    ],
+  },
 ];

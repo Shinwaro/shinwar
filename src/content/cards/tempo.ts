@@ -20,7 +20,7 @@
  */
 
 import type { CardDef } from '../../engine/types.ts';
-import { RUST, VULNERABLE } from '../statuses.ts';
+import { RUST, VULNERABLE, WEAK } from '../statuses.ts';
 
 export const TEMPO_CARDS: readonly CardDef[] = [
   {
@@ -464,5 +464,126 @@ export const TEMPO_CARDS: readonly CardDef[] = [
       ],
     },
     flavor: 'It does not cut. It starts something that finishes on its own.',
+  },
+
+  /* ---- the second batch ----
+     Stance changing had one shape: change it and get a small thing. These are
+     the versions where the change is the cost of something larger. */
+
+  {
+    id: 'weight_shift',
+    name: 'Weight Shift',
+    type: 'skill',
+    rarity: 'common',
+    archetype: 'neutral',
+    cost: 0,
+    exhaust: true,
+    effects: [
+      { op: 'cycleStance', direction: 1 },
+      { op: 'gainEnergy', amount: 1 },
+    ],
+    upgrade: {
+      name: 'Weight Shift+',
+      effects: [
+        { op: 'cycleStance', direction: 1 },
+        { op: 'gainEnergy', amount: 1 },
+        { op: 'draw', amount: 1 },
+      ],
+    },
+    flavor: 'Once a fight the footing is free. After that you are paying for it.',
+  },
+
+  {
+    id: 'the_turning',
+    name: 'The Turning',
+    type: 'skill',
+    rarity: 'rare',
+    archetype: 'neutral',
+    cost: 1,
+    effects: [
+      { op: 'cycleStance', direction: 1 },
+      { op: 'draw', amount: 2 },
+      { op: 'gainFocus', amount: 1 },
+    ],
+    upgrade: {
+      name: 'The Turning+',
+      effects: [
+        { op: 'cycleStance', direction: 1 },
+        { op: 'draw', amount: 2 },
+        { op: 'gainFocus', amount: 2 },
+      ],
+    },
+    flavor: 'The whole art, if you ask the wrong teacher, is knowing when.',
+  },
+
+  {
+    id: 'breath_count',
+    name: 'Breath Count',
+    type: 'skill',
+    rarity: 'common',
+    archetype: 'iai',
+    cost: 1,
+    effects: [
+      { op: 'gainFocus', amount: 2 },
+      { op: 'ventHeat', amount: 1 },
+    ],
+    upgrade: {
+      name: 'Breath Count+',
+      effects: [
+        { op: 'gainFocus', amount: 3 },
+        { op: 'ventHeat', amount: 2 },
+      ],
+    },
+    flavor: 'Four in, four held, four out. The rest of it is just fighting.',
+  },
+
+  {
+    id: 'chained_draw',
+    name: 'Chained Draw',
+    type: 'attack',
+    rarity: 'uncommon',
+    archetype: 'iai',
+    cost: 1,
+    effects: [
+      { op: 'damage', amount: 4, target: 'enemy' },
+      { op: 'draw', amount: 1 },
+    ],
+    stanceRider: {
+      stance: 'iai',
+      effects: [{ op: 'gainFocus', amount: 1 }],
+    },
+    upgrade: {
+      name: 'Chained Draw+',
+      effects: [
+        { op: 'damage', amount: 6, target: 'enemy' },
+        { op: 'draw', amount: 1 },
+      ],
+      stanceRider: {
+        stance: 'iai',
+        effects: [{ op: 'gainFocus', amount: 2 }],
+      },
+    },
+    flavor: 'One motion that has not finished when the next one starts.',
+  },
+
+  {
+    id: 'dead_stop',
+    name: 'Dead Stop',
+    type: 'skill',
+    rarity: 'uncommon',
+    archetype: 'guard',
+    cost: 1,
+    effects: [
+      { op: 'block', amount: 7 },
+      { op: 'applyStatus', status: WEAK, stacks: 1, target: 'enemy' },
+    ],
+    upgrade: {
+      name: 'Dead Stop+',
+      effects: [
+        { op: 'block', amount: 10 },
+        { op: 'applyStatus', status: WEAK, stacks: 2, target: 'enemy' },
+      ],
+    },
+    flavor: 'Not a parry. A refusal.',
   },
 ];

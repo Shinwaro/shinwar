@@ -63,6 +63,43 @@ export interface HookPayloads {
 
 export type HookName = keyof HookPayloads;
 
+/**
+ * Every hook name, at runtime.
+ *
+ * Built from a record keyed by `HookName` rather than written out as an array,
+ * so adding a hook to `HookPayloads` and forgetting this is a compile error
+ * instead of a list that quietly goes stale. It went stale once already: a
+ * hand-maintained copy in the relic tests stopped at `onEnemyKilled` and so
+ * reported a relic hanging off `onThreadResolved` as doing nothing at all.
+ */
+const HOOK_NAME_SET: { readonly [K in HookName]: true } = {
+  onCombatStart: true,
+  onCombatEnd: true,
+  onTurnStart: true,
+  onTurnEnd: true,
+  onRoundStart: true,
+  onRoundEnd: true,
+  onCardPlayed: true,
+  onCardDrawn: true,
+  onCardExhausted: true,
+  onStanceChange: true,
+  onHeatGained: true,
+  onHeatVented: true,
+  onOverheat: true,
+  onDamageDealt: true,
+  onDamageTaken: true,
+  onBlockGained: true,
+  onEnemyKilled: true,
+  onPlayerDeath: true,
+  onNodeEntered: true,
+  onRewardOffered: true,
+  onShopStocked: true,
+  onThreadSet: true,
+  onThreadResolved: true,
+};
+
+export const HOOK_NAMES: readonly HookName[] = Object.keys(HOOK_NAME_SET) as HookName[];
+
 export interface HookRegistration<N extends HookName> {
   readonly hook: N;
   /** Lower runs first. Defaults live in `content/balance.ts`. */
