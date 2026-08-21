@@ -33,13 +33,18 @@ export const STATUSES: readonly StatusDef[] = [
     decay: 'turn',
     damageTakenMult: 1.5,
   },
+  /* Capped at half. Stacks compound, so an uncapped 0.75 hits 0.32 at four
+     stacks — at which point Weak stops being a tempo play and becomes the
+     entire answer to a fight, and stacking it is strictly better than doing
+     anything else. The cap is in the data next to the number it caps. */
   {
     id: WEAK,
     name: 'Weak',
-    text: 'Deals 25% less damage. One stack falls off at the end of its turn.',
+    text: 'Deals 25% less damage per stack, to a maximum of 50% less. One stack falls off at the end of its turn.',
     kind: 'debuff',
     decay: 'turn',
     damageDealtMult: 0.75,
+    multFloor: 0.5,
   },
   {
     id: STRENGTH,

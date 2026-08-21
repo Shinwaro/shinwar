@@ -27,15 +27,16 @@ export const GUARD_CARDS: readonly CardDef[] = [
     rarity: 'uncommon',
     archetype: 'guard',
     cost: 1,
-    // 11, not 5. Bulwark is a *common* that gives 8 for the same Energy, so at
-    // 5 this was a strictly worse card one tier up -- the inversion Robin caught
-    // in the relics, sitting in the card pool too.
-    effects: [{ op: 'block', amount: 11 }],
+    /* 8, matching Bulwark's common yardstick, with the GUARD rider as the
+       whole of the tier difference. It was 11 to escape being a strictly worse
+       common; the rider does that job on its own, and 11 made this the only
+       defensive card worth drawing. */
+    effects: [{ op: 'block', amount: 8 }],
     stanceRider: {
       stance: 'guard',
       effects: [{ op: 'applyStatus', status: WEAK, stacks: 1, target: 'allEnemies' }],
     },
-    upgrade: { name: 'Deflection Field+', effects: [{ op: 'block', amount: 15 }] },
+    upgrade: { name: 'Deflection Field+', effects: [{ op: 'block', amount: 11 }] },
     flavor: 'Not a wall. A suggestion, made forcefully, about where things should go.',
   },
 

@@ -137,6 +137,37 @@ describe('the ordered steps', () => {
     ).toBe(0);
   });
 
+  it('caps Weak at half, however many stacks are held', () => {
+    /* Stacks compound, so an uncapped 0.75 reaches 0.32 at four stacks. A
+       debuff that can take two thirds of an enemy's output off the table stops
+       being a tempo play and becomes the whole answer to a fight. */
+    const shape = {
+      amount: 20,
+      isAttack: true,
+      attackOrdinal: 0,
+      consumesFocus: false,
+    } as const;
+
+    const at = (stacks: number): number => {
+      const state = makeFight({
+        playerStatuses: [{ status: WEAK, stacks, fresh: false }],
+        enemyHp: 999,
+      });
+      const enemy = firstEnemy(state);
+      return computeDamage(state, { ...shape, attacker: PLAYER, target: enemyTarget(enemy.uid) })
+        .toHull;
+    };
+
+    expect(at(1), 'one stack is the plain 25%').toBe(15);
+    // Two stacks still compound honestly: 0.75^2 = 0.5625, above the floor.
+    expect(at(2)).toBe(11);
+    // Three would be 0.42 and four 0.32. Both clamp to half, and stack five
+    // through nine buy nothing at all.
+    expect(at(3)).toBe(10);
+    expect(at(4)).toBe(10);
+    expect(at(9)).toBe(10);
+  });
+
   it('compounds Vulnerable per stack', () => {
     const state = makeFight({ enemyStatuses: [{ status: VULNERABLE, stacks: 2, fresh: false }], enemyHp: 999 });
     const enemy = firstEnemy(state);

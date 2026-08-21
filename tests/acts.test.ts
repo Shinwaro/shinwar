@@ -20,7 +20,7 @@ import { setStance } from '../src/engine/combat/stance.ts';
 import { intentVisible } from '../src/engine/combat/intents.ts';
 import { environmentRules, liveStance, stanceChangeLimit } from '../src/engine/combat/rules.ts';
 import { gainHeat, ventHeat } from '../src/engine/combat/heat.ts';
-import { ACTIVE_STANCES, BOSS_MAX_HEALTH, MASTERY, WAVEFRONT } from '../src/content/balance.ts';
+import { ACTIVE_STANCES, ACT_CLEAR_HEAL_PCT, BOSS_MAX_HEALTH, MASTERY, WAVEFRONT } from '../src/content/balance.ts';
 import {
   CHRONAL_SHEAR_ID,
   DEBRIS_FIELD_ID,
@@ -377,11 +377,16 @@ describe('the act ladder', () => {
     expect(after.act).toBe(2);
     expect(after.alloy).toBe(250);
     expect(after.pilot.masteries).toEqual([UNSHEATHED_MIND]);
-    // Beating an act is worth a permanent chunk of max health, and the healing
-    // rides along with it — that is the one progression beat a card reward
-    // cannot dilute.
-    expect(after.pilot.maxHealth).toBe(run.pilot.maxHealth + BOSS_MAX_HEALTH);
-    expect(after.pilot.health).toBe(41 + BOSS_MAX_HEALTH);
+
+    /* Beating an act is worth two separate things. The ceiling goes up — the
+       one progression beat a card reward cannot dilute — and a share of what
+       sits under the ceiling comes back, because arriving in a new sky on
+       whatever the boss left you made a won fight feel like a loss. */
+    const maxHealth = run.pilot.maxHealth + BOSS_MAX_HEALTH;
+    expect(after.pilot.maxHealth).toBe(maxHealth);
+    expect(after.pilot.health).toBe(
+      41 + BOSS_MAX_HEALTH + Math.floor(maxHealth * ACT_CLEAR_HEAL_PCT),
+    );
     expect(after.threads[0]?.progress).toBe(2);
 
     // A new sky, though: fresh map, nowhere visited, no shop held over.
@@ -389,6 +394,18 @@ describe('the act ladder', () => {
     expect(after.visited).toEqual([]);
     expect(after.shop).toBeNull();
     expect(after.map?.act).toBe(2);
+  });
+
+  it('never patches past the ceiling', () => {
+    // A boss cleared at near-full health should arrive at full, not above it.
+    let state = applyAction(createInitialState('ACTS-FULL'), { kind: 'beginRun' });
+    const run = state.run;
+    if (run === null) throw new Error('test: no run');
+    state = { ...state, run: { ...run, pilot: { ...run.pilot, health: run.pilot.maxHealth } } };
+
+    const after = advanceAct(state).run;
+    if (after === null) throw new Error('test: no run');
+    expect(after.pilot.health).toBe(after.pilot.maxHealth);
   });
 
   it('refuses to advance past the last act', () => {

@@ -100,8 +100,8 @@ export const EVENTS: readonly EventDef[] = [
         label: 'Sell them your spare plating',
         detail: 'The cutter flies lighter. It also flies thinner.',
         effects: [
-          { op: 'health', amount: -9 },
-          { op: 'alloy', amount: 75 },
+          { op: 'health', amount: -12 },
+          { op: 'alloy', amount: 150 },
         ],
         risk: 'The ship',
         payoff: 'Immediate, moderate',
@@ -164,8 +164,8 @@ export const EVENTS: readonly EventDef[] = [
         label: 'Take the drive core',
         detail: 'They cannot use it. Someone down the line will pay for it.',
         effects: [
-          { op: 'alloy', amount: 190 },
-          { op: 'health', amount: -6 },
+          { op: 'alloy', amount: 200 },
+          { op: 'health', amount: -13 },
         ],
         risk: 'Moral',
         payoff: 'Immediate, the ship',
@@ -255,8 +255,8 @@ export const EVENTS: readonly EventDef[] = [
         label: 'Cut out the reactor',
         detail: 'It is worth more than the ship it came out of. Cutting it free costs you.',
         effects: [
-          { op: 'alloy', amount: 210 },
-          { op: 'health', amount: -6 },
+          { op: 'alloy', amount: 220 },
+          { op: 'health', amount: -14 },
           { op: 'setThread', threadId: 'coolant_leak' },
         ],
         risk: 'The ship',
@@ -305,8 +305,8 @@ export const EVENTS: readonly EventDef[] = [
         label: 'Run it hot',
         detail: 'Straight through, grabbing what the grapples can hold.',
         effects: [
-          { op: 'health', amount: -8 },
-          { op: 'alloy', amount: 90 },
+          { op: 'health', amount: -12 },
+          { op: 'alloy', amount: 160 },
         ],
         risk: 'The ship',
         payoff: 'Immediate, large',
@@ -368,8 +368,8 @@ export const EVENTS: readonly EventDef[] = [
         label: 'Cut through',
         detail: 'The net is dead satellites. The people are not.',
         effects: [
-          { op: 'health', amount: -14 },
-          { op: 'alloy', amount: 40 },
+          { op: 'health', amount: -16 },
+          { op: 'alloy', amount: 190 },
         ],
         risk: 'The body',
         payoff: 'Immediate, small',
@@ -470,8 +470,8 @@ export const EVENTS: readonly EventDef[] = [
         label: 'Sell your spare plating',
         detail: 'A thinner hull and a heavier account.',
         effects: [
-          { op: 'health', amount: -8 },
-          { op: 'alloy', amount: 80 },
+          { op: 'health', amount: -12 },
+          { op: 'alloy', amount: 150 },
         ],
         risk: 'The ship',
         payoff: 'Immediate, moderate',
@@ -529,8 +529,8 @@ export const EVENTS: readonly EventDef[] = [
           // One health cost, not two. Deleting ship hull turned this option's
           // hull price into a health price and it already had one, so it
           // charged the player twice for the same decision.
-          { op: 'health', amount: -14 },
-          { op: 'alloy', amount: 130 },
+          { op: 'health', amount: -18 },
+          { op: 'alloy', amount: 240 },
         ],
         risk: 'Both',
         payoff: 'Immediate, large',
@@ -837,8 +837,8 @@ export const EVENTS: readonly EventDef[] = [
         label: 'Work the stacks',
         detail: 'Hours of it, in a suit, in the dark, and not unobserved.',
         effects: [
-          { op: 'alloy', amount: 110 },
-          { op: 'health', amount: -8 },
+          { op: 'alloy', amount: 175 },
+          { op: 'health', amount: -13 },
           { op: 'setThread', threadId: 'marked' },
         ],
         risk: 'The body, deferred',
@@ -946,8 +946,8 @@ export const EVENTS: readonly EventDef[] = [
         label: 'Wait for the last hour',
         detail: 'Cheap, and you spend the wait breathing what they have left.',
         effects: [
-          { op: 'alloy', amount: 90 },
-          { op: 'health', amount: -12 },
+          { op: 'alloy', amount: 180 },
+          { op: 'health', amount: -14 },
         ],
         risk: 'The body',
         payoff: 'Immediate, moderate',

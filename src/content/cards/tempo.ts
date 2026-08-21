@@ -53,27 +53,6 @@ export const TEMPO_CARDS: readonly CardDef[] = [
   },
 
   {
-    id: 'runaway_intake',
-    name: 'Runaway Intake',
-    type: 'skill',
-    rarity: 'uncommon',
-    archetype: 'overheat',
-    cost: 0,
-    effects: [
-      { op: 'gainEnergy', amount: 1 },
-      { op: 'gainHeat', amount: 3 },
-    ],
-    upgrade: {
-      name: 'Runaway Intake+',
-      effects: [
-        { op: 'gainEnergy', amount: 2 },
-        { op: 'gainHeat', amount: 3 },
-      ],
-    },
-    flavor: 'Everything the reactor has, right now, and the bill at the end of the turn.',
-  },
-
-  {
     id: 'open_the_line',
     name: 'Open the Line',
     type: 'skill',
@@ -240,6 +219,9 @@ export const TEMPO_CARDS: readonly CardDef[] = [
      that does three things is a design decision you have to unpick. Every one
      of these touches Heat, the stance, or Focus — and only one of them. */
 
+  /* Was two cards. `runaway_intake` was this exact card one rarity higher —
+     0 Energy, +1 Energy, +3 Heat, same upgrade — which is both a duplicate and
+     a tier inversion, since the uncommon offered nothing the common did not. */
   {
     id: 'stoke_the_core',
     name: 'Stoke the Core',
@@ -314,13 +296,13 @@ export const TEMPO_CARDS: readonly CardDef[] = [
     cost: 0,
     effects: [
       { op: 'cycleStance', direction: 1 },
-      { op: 'block', amount: 4 },
+      { op: 'block', amount: 3 },
     ],
     upgrade: {
       name: 'Turn the Shoulder+',
       effects: [
         { op: 'cycleStance', direction: 1 },
-        { op: 'block', amount: 7 },
+        { op: 'block', amount: 6 },
       ],
     },
     flavor: 'The guard and the turn are the same motion, taught twice.',
@@ -411,7 +393,7 @@ export const TEMPO_CARDS: readonly CardDef[] = [
     rarity: 'uncommon',
     archetype: 'guard',
     cost: 1,
-    effects: [{ op: 'damage', amount: 4, target: 'allEnemies' }],
+    effects: [{ op: 'damage', amount: 3, target: 'allEnemies' }],
     // The same card is a sweep in IAI and a wall in GUARD.
     stanceRider: {
       stance: 'guard',
@@ -419,38 +401,13 @@ export const TEMPO_CARDS: readonly CardDef[] = [
     },
     upgrade: {
       name: 'Sweeping Guard+',
-      effects: [{ op: 'damage', amount: 6, target: 'allEnemies' }],
+      effects: [{ op: 'damage', amount: 5, target: 'allEnemies' }],
       stanceRider: {
         stance: 'guard',
         effects: [{ op: 'block', amount: 9 }],
       },
     },
     flavor: 'Everything in reach, and then back where it started.',
-  },
-
-  {
-    id: 'scattering_arc',
-    name: 'Scattering Arc',
-    type: 'attack',
-    rarity: 'uncommon',
-    archetype: 'iai',
-    cost: 1,
-    effects: [{ op: 'damage', amount: 3, target: 'allEnemies' }],
-    // In IAI a stack is already adding damage; this makes the sweep the place
-    // to spend it rather than the single big swing.
-    stanceRider: {
-      stance: 'iai',
-      effects: [{ op: 'damage', amount: 3, target: 'allEnemies' }],
-    },
-    upgrade: {
-      name: 'Scattering Arc+',
-      effects: [{ op: 'damage', amount: 5, target: 'allEnemies' }],
-      stanceRider: {
-        stance: 'iai',
-        effects: [{ op: 'damage', amount: 4, target: 'allEnemies' }],
-      },
-    },
-    flavor: 'Drawn once, landing in several places.',
   },
 
   {

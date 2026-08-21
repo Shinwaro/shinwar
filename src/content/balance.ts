@@ -408,6 +408,20 @@ export const RARITY_LABEL: { readonly [r in Rarity]: string } = {
  */
 export const BOSS_MAX_HEALTH = 8;
 
+/**
+ * Health restored on the way into the next act, as a share of MAX.
+ *
+ * Separate from `BOSS_MAX_HEALTH`, which raises the ceiling — this fills some
+ * of what is under it. An act finale used to leave you starting the next sky on
+ * whatever the boss left you, which made a won fight feel like a loss with
+ * extra steps and pushed the whole run's difficulty onto how cheaply you
+ * cleared Act 1. A share of max rather than a flat number so it keeps meaning
+ * the same thing as the ceiling rises.
+ *
+ * Act 3's boss grants neither: there is no act after it.
+ */
+export const ACT_CLEAR_HEAL_PCT = 0.25;
+
 export const REWARDS = {
   cardChoices: 3,
   /** Relics offered at an act finale. You take one. */

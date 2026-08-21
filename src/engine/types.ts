@@ -257,6 +257,17 @@ export interface StatusDef {
   /** Multiplier on damage the holder takes. Vulnerable is 1.5. */
   readonly damageTakenMult?: number;
   /**
+   * Floor on the compounded multiplier, however many stacks are held.
+   *
+   * Stacks compound — `value ** stacks` — so an uncapped 0.75 reaches 0.32 at
+   * four stacks and keeps going. A debuff that can take two thirds of an
+   * enemy's output off the table stops being a tempo play and becomes the
+   * whole answer to a fight. Declared here rather than clamped in the pipeline
+   * so the cap is a property of the status, visible next to the number it
+   * caps, and so `describeStatus` can say it out loud.
+   */
+  readonly multFloor?: number;
+  /**
    * Unblockable damage per stack, at the start of the holder's turn.
    *
    * Declared rather than hooked so a rust is a row in a table instead of a

@@ -90,15 +90,38 @@ function blockOf(combat: CombatState, who: Combatant): number {
 function namedStatuses(
   stacks: readonly StatusStack[],
   field: 'damageDealtFlat' | 'damageDealtMult' | 'damageTakenMult',
-): { readonly name: string; readonly value: number; readonly stacks: number }[] {
-  const out: { name: string; value: number; stacks: number }[] = [];
+): {
+  readonly name: string;
+  readonly value: number;
+  readonly stacks: number;
+  readonly floor: number | null;
+}[] {
+  const out: { name: string; value: number; stacks: number; floor: number | null }[] = [];
   for (const held of stacks) {
     const def = statusTable.find(held.status);
     const value = def?.[field];
     if (value === undefined) continue;
-    out.push({ name: def?.name ?? held.status, value, stacks: held.stacks });
+    out.push({
+      name: def?.name ?? held.status,
+      value,
+      stacks: held.stacks,
+      floor: def?.multFloor ?? null,
+    });
   }
   return out;
+}
+
+/**
+ * Compound a multiplicative status across its stacks, respecting its floor.
+ *
+ * Both directions of clamp, because a status can multiply up or down: a floor
+ * on a reducing status (Weak) is a minimum, and on an amplifying one it would
+ * be a maximum. One helper rather than two branches at the call site.
+ */
+function compound(value: number, stacks: number, floor: number | null): number {
+  const raw = Math.pow(value, stacks);
+  if (floor === null) return raw;
+  return value < 1 ? Math.max(floor, raw) : Math.min(floor, raw);
 }
 
 /* ---------- the pipeline ----------
@@ -194,11 +217,11 @@ export function computeDamage(state: GameState, input: DamageInput): DamageBreak
 
   /* 4 — multiplicatives: what the attacker suffers, then what the target invites. */
   for (const status of namedStatuses(attackerStatuses, 'damageDealtMult')) {
-    const factor = Math.pow(status.value, status.stacks);
+    const factor = compound(status.value, status.stacks, status.floor);
     ctx = record(ctx, status.name, 'mult', ctx.amount * factor, factor);
   }
   for (const status of namedStatuses(targetStatuses, 'damageTakenMult')) {
-    const factor = Math.pow(status.value, status.stacks);
+    const factor = compound(status.value, status.stacks, status.floor);
     ctx = record(ctx, status.name, 'mult', ctx.amount * factor, factor);
   }
 

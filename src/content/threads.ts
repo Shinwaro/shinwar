@@ -40,13 +40,14 @@ export const THREAD_DEFS: readonly ThreadDef[] = [
     id: 'coolant_leak',
     name: 'Coolant Leak',
     description: 'A seam you welded shut instead of replacing. It is holding. It is not fixed.',
-    tone: 'mixed',
+    /* Costly, not mixed. The Alloy was here to make the Thread "balanced" and
+       it made it incoherent instead — a seam you welded shut does not pay you
+       when it finally goes. A Thread that hurts is allowed to just hurt; that
+       is what the tone is for, and the pool has positive ones to sit against. */
+    tone: 'costly',
     omen: 'It will fail somewhere. What it takes with it is the question.',
     trigger: { kind: 'nodes', count: 4 },
-    payoff: [
-      { op: 'health', amount: -7 },
-      { op: 'alloy', amount: 140 },
-    ],
+    payoff: [{ op: 'health', amount: -10 }],
   },
 
   /* ---- positive: the ones that make the pool worth engaging with ---- */
@@ -94,6 +95,63 @@ export const THREAD_DEFS: readonly ThreadDef[] = [
     payoff: [
       { op: 'alloy', amount: -110 },
       { op: 'health', amount: -8 },
+    ],
+  },
+
+  /* ---- the second batch ----
+     Written to a shape the first six only half kept: a Thread should change
+     what you *do*, not only what you have when it lands. A card that arrives
+     mid-act, a debt that comes due in the middle of a fight, a favour that
+     pays in upgrades rather than Alloy — each of those makes the next twenty
+     minutes read differently, which is the whole reason the mechanism exists. */
+
+  {
+    id: 'salvage_claim',
+    name: 'Salvage Claim',
+    description: 'You filed on a wreck you had no business filing on. The paperwork is travelling.',
+    tone: 'mixed',
+    omen: 'Somebody is checking whether the wreck was yours.',
+    trigger: { kind: 'nodes', count: 5 },
+    payoff: [
+      { op: 'alloy', amount: 190 },
+      { op: 'health', amount: -9 },
+    ],
+  },
+  {
+    id: 'the_passenger',
+    name: 'The Passenger',
+    description: 'Somebody is in the aft compartment. They have not said why, and you have not asked.',
+    tone: 'mixed',
+    omen: 'You will find out what they were running from.',
+    trigger: { kind: 'nodes', count: 6 },
+    payoff: [
+      { op: 'upgradeRandomCard' },
+      { op: 'maxHealth', amount: 6 },
+      { op: 'alloy', amount: -80 },
+    ],
+  },
+  {
+    id: 'borrowed_charts',
+    name: 'Borrowed Charts',
+    description: 'A pilot lent you their routes. They were not theirs to lend.',
+    tone: 'mixed',
+    omen: 'The lanes are good. Somebody wants them back.',
+    trigger: { kind: 'nodes', count: 4 },
+    payoff: [
+      { op: 'removeRandomCard' },
+      { op: 'alloy', amount: 120 },
+    ],
+  },
+  {
+    id: 'quiet_repair',
+    name: 'The Quiet Repair',
+    description: 'A yard crew worked on your cutter overnight and would not say who paid.',
+    tone: 'positive',
+    omen: 'Something was done for you, and it has not shown itself yet.',
+    trigger: { kind: 'nodes', count: 5 },
+    payoff: [
+      { op: 'maxHealth', amount: 10 },
+      { op: 'health', amount: 10 },
     ],
   },
 ];

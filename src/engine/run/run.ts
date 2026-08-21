@@ -27,6 +27,7 @@ import { clearEvent, openEvent } from './events.ts';
 import { advanceThreads, dueThreads, resolveThread } from './threads.ts';
 import { stockShop } from './shop.ts';
 import {
+  ACT_CLEAR_HEAL_PCT,
   BOSS_MAX_HEALTH,
   ECONOMY,
   PLAYER,
@@ -78,9 +79,15 @@ export function advanceAct(state: GameState): GameState {
   if (run.act >= 3) return state;
   const act = (run.act + 1) as 1 | 2 | 3;
 
-  // Beating an act is worth something permanent. A card reward can be diluted
-  // by the deck it joins; this cannot, and it is the one progression beat that
-  // reads as "I am more than I was" rather than "I have more than I had".
+  /* Beating an act is worth two things, and they are different things.
+     The ceiling goes up — a card reward can be diluted by the deck it joins,
+     this cannot, and it is the one beat that reads as "I am more than I was"
+     rather than "I have more than I had". And some of what is under the
+     ceiling comes back: arriving in a new sky on whatever the boss left you
+     made a won fight feel like a loss with extra steps. */
+  const maxHealth = run.pilot.maxHealth + BOSS_MAX_HEALTH;
+  const patched = Math.floor(maxHealth * ACT_CLEAR_HEAL_PCT);
+
   const moved = withRun(state, (current) => ({
     ...current,
     act,
@@ -89,16 +96,16 @@ export function advanceAct(state: GameState): GameState {
     forcedTier: null,
     pilot: {
       ...current.pilot,
-      maxHealth: current.pilot.maxHealth + BOSS_MAX_HEALTH,
-      health: current.pilot.health + BOSS_MAX_HEALTH,
+      maxHealth,
+      health: Math.min(maxHealth, current.pilot.health + BOSS_MAX_HEALTH + patched),
     },
   }));
 
   return appendLog(openMap(moved), {
     source: 'system',
     kind: 'run',
-    text: `Act ${act}. The frontier gets thinner from here.`,
-    detail: { act },
+    text: `Act ${act}. Hull patched for ${patched}, and the frontier gets thinner from here.`,
+    detail: { act, healed: patched, maxHealth },
   });
 }
 
