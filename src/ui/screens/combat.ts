@@ -556,21 +556,27 @@ function build(
      press without looking. Out of the tray, into the corner, where a misclick
      costs nothing. */
   const corner = el('div', { class: 'combat-corner' }, [
-    button(
-      selection.logOpen ? 'Hide log' : 'Show log',
-      { class: 'btn btn-quiet btn-corner', 'aria-keyshortcuts': 'L' },
-      () => {
-        selection.logOpen = !selection.logOpen;
+    el('div', { class: 'combat-corner-buttons' }, [
+      button(
+        selection.logOpen ? 'Hide log' : 'Show log',
+        { class: 'btn btn-quiet btn-corner', 'aria-keyshortcuts': 'L' },
+        () => {
+          selection.logOpen = !selection.logOpen;
+          rerender();
+        },
+      ),
+      /* Everything the fight assumes you already know, one click from the
+         fight. An hour-long run cannot afford a tutorial and cannot afford a
+         player still guessing what Rust does in Act 3. */
+      button('Info', { class: 'btn btn-quiet btn-corner', 'aria-label': 'How combat works' }, () => {
+        selection.infoOpen = true;
         rerender();
-      },
-    ),
-    /* Everything the fight assumes you already know, one click from the fight.
-       An hour-long run cannot afford a tutorial and cannot afford a player
-       still guessing what Rust does in Act 3. */
-    button('Info', { class: 'btn btn-quiet btn-corner', 'aria-label': 'How combat works' }, () => {
-      selection.infoOpen = true;
-      rerender();
-    }),
+      }),
+    ]),
+    /* The log hangs off its own button. It used to sit at the bottom of the
+       stage while the control that opened it was in the corner, so pressing
+       the button appeared to do nothing until you looked somewhere else. */
+    selection.logOpen ? renderLog(state, true) : null,
   ]);
 
   return el('div', { class: 'combat-inner' }, [
@@ -584,7 +590,6 @@ function build(
     hand,
     prompt,
     tray,
-    selection.logOpen ? renderLog(state, true) : null,
     selection.infoOpen
       ? renderInfoPanel('How the fight works', combatInfo(), () => {
           selection.infoOpen = false;

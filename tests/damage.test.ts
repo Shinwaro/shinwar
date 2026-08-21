@@ -10,6 +10,8 @@ import { describe, expect, it } from 'vitest';
 import type { StanceId, StatusStack } from '../src/engine/types.ts';
 import { PLAYER, computeDamage, enemyTarget, previewDamage } from '../src/engine/combat/damage.ts';
 import { previewCard } from '../src/engine/combat/preview.ts';
+import { damageFigures } from '../src/engine/combat/describe.ts';
+import { cards as cardTable } from '../src/content/registry.ts';
 import { playCard } from '../src/engine/combat/combat.ts';
 import { FOCUS_DAMAGE_PER_STACK, STANCES } from '../src/content/balance.ts';
 import { STRENGTH, VULNERABLE, WEAK } from '../src/content/statuses.ts';
@@ -246,6 +248,63 @@ describe('the stance passives', () => {
     expect(3 * FOCUS_DAMAGE_PER_STACK).toBe(6);
     // Exactly one stack gone, not the bank. Started at 3.
     expect(combatOf(after).focus).toBe(2);
+  });
+});
+
+describe('the figures printed on a card', () => {
+  /* The card face now folds the stance's hot bonus into its number and shows
+     one stack of Focus beside it. Both are read off `liveStance`, which is the
+     same source the pipeline reads — and this is the test that says so.
+
+     The property is `shown + focus === what actually lands`. If it ever fails,
+     a card is advertising a number it will not deliver, which is the single
+     fastest way to make the game feel unfair. */
+  const cases = [
+    { name: 'GUARD, cold, no Focus', stance: 'guard' as const, heat: 0, focus: 0 },
+    { name: 'IAI, cold, no Focus', stance: 'iai' as const, heat: 0, focus: 0 },
+    { name: 'IAI, over the hot line', stance: 'iai' as const, heat: 5, focus: 0 },
+    { name: 'IAI, hot and holding Focus', stance: 'iai' as const, heat: 5, focus: 3 },
+    { name: 'IAI, cold and holding Focus', stance: 'iai' as const, heat: 0, focus: 3 },
+    // GUARD spends Focus on Block, so the card must NOT advertise damage for it.
+    { name: 'GUARD, hot and holding Focus', stance: 'guard' as const, heat: 5, focus: 3 },
+  ];
+
+  for (const entry of cases) {
+    it(`agrees with the pipeline — ${entry.name}`, () => {
+      const state = makeFight({
+        stance: entry.stance,
+        heat: entry.heat,
+        focus: entry.focus,
+        enemyHp: 999,
+      });
+      const def = cardTable.get(IAI_SLASH);
+      const figures = damageFigures(6, def, state);
+      const enemy = firstEnemy(state);
+
+      const landed = computeDamage(state, {
+        amount: 6,
+        attacker: PLAYER,
+        target: enemyTarget(enemy.uid),
+        isAttack: true,
+        attackOrdinal: 0,
+        consumesFocus: true,
+      }).toHull;
+
+      expect(figures.shown + figures.focus, entry.name).toBe(landed);
+    });
+  }
+
+  it('never shows a Focus bonus on a card that keeps its Focus', () => {
+    // The Long Draw scales off the whole bank and spends none of it, so a "+2"
+    // beside its number would be describing a stack it never takes.
+    const state = makeFight({ stance: 'iai', focus: 4, enemyHp: 999 });
+    expect(damageFigures(6, cardTable.get('the_long_draw'), state).focus).toBe(0);
+  });
+
+  it('shows the bare number with no fight in progress', () => {
+    // Reward screens and the deck list render cards outside combat.
+    const figures = damageFigures(9, cardTable.get(IAI_SLASH), null);
+    expect(figures).toEqual({ shown: 9, hot: 0, focus: 0 });
   });
 });
 

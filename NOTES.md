@@ -2468,3 +2468,46 @@ remember that every attack deals two more was the moment you had to leave the
 fight to check. Initials and a count down the left edge, full text on hover and
 on focus, and absent entirely when you carry nothing: an empty rail is
 furniture that teaches the eye to skip that corner.
+
+### Every flying card started in the wrong place
+
+The card animations "worked" in the sense that every WAAPI call fired with the
+right duration, delay and keyframes — which is what three rounds of probing
+confirmed, and why the bug survived them. What none of those probes checked was
+where the ghost actually *was*.
+
+`.fx-card { position: absolute }` lives in shell.css. `.card { position:
+relative }` lives in game.css, which loads later. The ghost IS a `.card` — it
+is the node that was in the hand, re-adopted — so at equal specificity source
+order won and every flying card sat in normal flow inside the effects layer,
+animating perfectly from a position it was never given. Measured: ghost at
+(59, 408) for a card that was at (268, 360).
+
+Written as `.card.fx-card` now, which is load-bearing rather than fussy.
+
+The lesson worth keeping: "the animation fired" and "the animation looked
+right" are different claims, and only the first one is cheap to verify. When
+the report is "it doesn't seem to work" and the instrumentation says it does,
+measure the geometry, not the call.
+
+### The card face shows the two figures that move
+
+Reverses half of a documented decision, deliberately. The comment in the damage
+case says folding Focus into the printed number was tried and rejected, because
+a card whose number changes turn to turn is a card you cannot learn. That still
+stands — so Focus is shown as a separate bold `+N` beside the number, and the
+card's own figure never moves.
+
+The stance's hot bonus IS folded in, and turns red. It is not a resource you
+spend; it is a flat rule that is either on or off, and while it is on it
+applies to every attack. Folding it and colouring it says "this is not the
+card's number right now" in a way a reader cannot miss.
+
+Both come off `liveStance`, which is the same source the damage pipeline reads,
+and there is a test asserting `shown + focus === what actually lands` across
+every stance/heat/focus combination. Computing them a second way here is
+precisely how a card starts lying.
+
+`describeCardSegments` special-cases only the damage op and hands everything
+else to the existing string generator, so there is still one place prose is
+written.

@@ -13,6 +13,7 @@ import { KEYWORDS } from '../../content/keywords.ts';
 import type { CardDef, EffectOp, GameState, StanceId, Target } from '../types.ts';
 import { STANCES } from '../../content/balance.ts';
 import { cards as cardTable, statuses as statusTable } from '../../content/registry.ts';
+import { liveStance } from './rules.ts';
 import { activeCombat } from '../state.ts';
 
 function statusName(id: string): string {
@@ -246,6 +247,103 @@ export function describeOps(ops: readonly EffectOp[], state: GameState | null = 
     return text;
   });
   return parts.join(' ');
+}
+
+/* ---------- live damage figures ----------
+
+   The printed number used to be the card's own number, always — and there is a
+   comment in the damage case above explaining why folding Focus in was tried
+   and rejected. That reasoning still stands for Focus and is why Focus is shown
+   as a SEPARATE `+N` here rather than absorbed: the card's own number stays put
+   and the modifier is visibly the situation.
+
+   The stance's hot bonus is different. It is not a stacking resource you spend;
+   it is a flat rule that is either on or off, and while it is on it applies to
+   every attack you make. Folding that one in and colouring it says "this is
+   not the card's number right now" in a way a reader cannot miss.
+
+   Both figures are read off `liveStance`, which is the same source the damage
+   pipeline reads. Computing them a second way here is exactly how a card starts
+   lying about what it will do. */
+
+export interface DamageFigures {
+  /** What to print: the card's number plus the stance bonus, if it is live. */
+  readonly shown: number;
+  /** The stance's hot bonus, 0 when it is not applying. Non-zero prints red. */
+  readonly hot: number;
+  /** What one stack of Focus would add. 0 when Focus is dark for this card. */
+  readonly focus: number;
+}
+
+export function damageFigures(
+  amount: number,
+  def: CardDef,
+  state: GameState | null,
+): DamageFigures {
+  const combat = state === null ? null : activeCombat(state);
+  if (state === null || combat === null) return { shown: amount, hot: 0, focus: 0 };
+
+  const stance = liveStance(state);
+
+  // Mirrors step 3 of the pipeline: flat, while the gauge is over the line.
+  const hot =
+    stance.hotDamageAtHeat !== undefined && combat.heat >= stance.hotDamageAtHeat
+      ? (stance.hotDamage ?? 0)
+      : 0;
+
+  /* Mirrors the Focus step: one stack, only in a stance that spends Focus on
+     damage, only while there is a stack to spend, and never on a card that
+     declares it keeps its Focus. */
+  const focus =
+    stance.focusMode === 'damage' && combat.focus > 0 && def.keepsFocus !== true
+      ? stance.focusPerStack
+      : 0;
+
+  return { shown: amount + hot, hot, focus };
+}
+
+export type CardSegment =
+  | { readonly kind: 'text'; readonly text: string }
+  | { readonly kind: 'damage'; readonly figures: DamageFigures };
+
+/**
+ * The card's text, split so the UI can style the numbers that move.
+ *
+ * Only the top-level damage ops are broken out; everything else is handed
+ * straight to the string generator above. That keeps prose in one place — a
+ * second walk of the op tree here would drift from `describeCard` the first
+ * time either changed.
+ */
+export function describeCardSegments(
+  def: CardDef,
+  state: GameState | null = null,
+): readonly CardSegment[] {
+  const out: CardSegment[] = [];
+  let afterDamage = false;
+
+  for (const op of def.effects) {
+    if (op.op === 'damage') {
+      const figures = damageFigures(op.amount, def, state);
+      const times = Math.max(1, op.times ?? 1);
+      out.push({ kind: 'text', text: 'Deal ' });
+      out.push({ kind: 'damage', figures });
+      out.push({
+        kind: 'text',
+        text: ` damage${times > 1 ? ` ${times} times` : ''}${targetSuffix(op.target)}. `,
+      });
+      afterDamage = true;
+      continue;
+    }
+    out.push({ kind: 'text', text: `${describeOp(op, state, afterDamage)} ` });
+  }
+
+  const tail: string[] = [];
+  if (def.exhaust === true && !def.effects.some((op) => op.op === 'exhaustSelf')) tail.push('Exhaust.');
+  if (def.innate === true) tail.push('Innate.');
+  if (def.keepsFocus === true) tail.push('Does not consume Focus.');
+  if (tail.length > 0) out.push({ kind: 'text', text: tail.join(' ') });
+
+  return out;
 }
 
 /** The card's base rules text. The rider is described separately so the UI can grey it. */

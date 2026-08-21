@@ -182,11 +182,13 @@ export function renderCoach(store: Store, onDone: () => void): HTMLElement {
 
   host.addEventListener('shinwar:unmount', unsubscribe);
 
-  /* First paint is deferred: the coach is built before the screen it points at
-     is in the document, so measuring now would ring a rectangle of zeros.
-     Same detached-render trap as everywhere else in this UI. */
+  /* First paint is deferred, and ONLY deferred.
+     The coach is built before it is appended, so a synchronous draw here would
+     measure a rectangle of zeros. It used to do both — draw now and again next
+     frame — which was harmless only by luck, because step one points at
+     nothing and "centred" happened to be the right answer for it. Give step
+     one a target and it would flash in the wrong place for a frame. */
   requestAnimationFrame(draw);
-  draw();
 
   return host;
 }

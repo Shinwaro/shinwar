@@ -181,7 +181,7 @@ describe('passives reach the number they modify', () => {
   });
 
   it('grants Block and Focus at the start of the turn', () => {
-    const armed = startPlayerTurn(holding(makeFight(), 'ballast_weave', 'breath_marker'));
+    const armed = startPlayerTurn(holding(makeFight(), 'ballast_weave', 'exchange_coil'));
     expect(combatOf(armed).block).toBeGreaterThanOrEqual(3);
     expect(combatOf(armed).focus).toBeGreaterThanOrEqual(1);
   });

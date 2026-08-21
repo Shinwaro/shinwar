@@ -210,7 +210,9 @@ export const NEUTRAL_CARDS: readonly CardDef[] = [
     type: 'skill',
     rarity: 'uncommon',
     archetype: 'neutral',
-    cost: 1,
+    // Two, not one. It is the only card that heals, and at 1 Energy it was a
+    // free top-up rather than a turn you decided to spend not fighting.
+    cost: 2,
     exhaust: true,
     /* The only card that heals. Exhausts, and heals a fraction of what a
        Station does, because a deck that can repair itself for free removes the

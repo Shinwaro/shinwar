@@ -56,14 +56,6 @@ export const RELICS: readonly RelicDef[] = [
     flavor: 'It cracks instead of you. Once per crack.',
   },
   {
-    id: 'breath_marker',
-    name: 'Breath Marker',
-    text: 'Gain 1 Focus at the start of each turn.',
-    rarity: 'common',
-    passive: { focusPerTurn: 1 },
-    flavor: 'A bead on a cord. You move it without deciding to.',
-  },
-  {
     id: 'bleed_valve',
     name: 'Bleed Valve',
     text: 'Vent 1 Heat at the start of each turn.',

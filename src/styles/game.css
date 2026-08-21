@@ -2746,155 +2746,85 @@
 }
 
 .btn-corner {
-  min-height: 2.1rem;
-  padding: 0.3rem 0.7rem;
-  font-size: 0.78rem;
+  min-height: var(--tap);
+  padding: 0.5rem 1.05rem;
+  font-size: 0.92rem;
   background: var(--surface-solid);
 }
 
 /* ---------- what you are carrying ----------
 
-   A rail down the left, terse by design: initials and a count, with the whole
-   text on hover and on focus. The relics and implants are the half of the run
-   that changes what a turn can DO, and mid-fight they were only visible behind
-   the pause key — so the moment you most need to remember that every attack
-   deals two more was the moment you had to leave the fight to check.
+   Beside the health readout, because that is where the eye already goes at the
+   start of a turn — and open, all of it, all the time. It began as initials
+   with the text on hover, which is right for something you look UP and wrong
+   for something you need to remember: "every attack deals 2 more" changes how
+   you read your whole hand.
 
-   It must not compete with the hand, which is why it is marks rather than
-   prose, and why it is absent entirely when you carry nothing. */
+   Absent entirely when you carry nothing, which is most of Act 1. An empty
+   rail is furniture that teaches the eye to skip that corner. */
 
 .carried {
   position: fixed;
-  left: max(0.5rem, env(safe-area-inset-left));
-  top: 50%;
-  transform: translateY(-50%);
+  left: max(0.6rem, env(safe-area-inset-left));
+  top: max(0.6rem, env(safe-area-inset-top));
   z-index: 20;
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
-  max-height: 70dvh;
+  width: 12.5rem;
+  max-height: calc(100dvh - 2rem);
   overflow-y: auto;
-  overflow-x: visible;
-  padding: 0.2rem;
 }
 
-.carried-chip {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 2.1rem;
-  height: 2.1rem;
-  flex: 0 0 auto;
-  padding: 0;
+.carried-row {
+  display: grid;
+  gap: 0.1rem;
+  padding: 0.4rem 0.55rem;
   border: 1px solid var(--line);
   border-left: 3px solid var(--line-strong);
   border-radius: var(--radius-sm);
   background: var(--surface-solid);
-  color: var(--muted);
-  font-family: var(--mono);
-  font-size: 0.64rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  cursor: default;
 }
 
-.carried-chip--relic { border-left-color: var(--accent); }
-.carried-chip--implant { border-left-color: var(--guard); }
-.carried-chip--mastery { border-left-color: var(--iai); }
-
-.carried-chip:hover,
-.carried-chip:focus-visible {
-  color: var(--ink);
-  border-color: var(--line-strong);
-  outline: none;
-}
-
-/* Two of the same implant. Small, in the corner, and only when it is true. */
-.carried-count {
-  position: absolute;
-  right: -0.2rem;
-  bottom: -0.2rem;
-  min-width: 0.95rem;
-  padding: 0 0.15rem;
-  border-radius: 999px;
-  background: var(--guard);
-  color: var(--bg);
-  font-size: 0.58rem;
-  line-height: 1.05rem;
-  text-align: center;
-}
-
-/* The detail flies out to the right on hover and on focus. Absolutely
-   positioned so it never widens the rail and never pushes the stage. */
-.carried-detail {
-  position: absolute;
-  left: calc(100% + 0.4rem);
-  top: 50%;
-  transform: translateY(-50%);
-  display: grid;
-  gap: 0.15rem;
-  width: max-content;
-  max-width: 16rem;
-  padding: 0.5rem 0.7rem;
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-sm);
-  background: var(--surface-solid);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-  text-align: left;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.12s;
-}
-
-.carried-chip:hover .carried-detail,
-.carried-chip:focus-visible .carried-detail {
-  opacity: 1;
-}
+.carried-row--relic { border-left-color: var(--accent); }
+.carried-row--implant { border-left-color: var(--guard); }
+.carried-row--mastery { border-left-color: var(--iai); }
 
 .carried-name {
   color: var(--ink);
-  font-family: var(--font);
-  font-size: 0.82rem;
+  font-size: 0.76rem;
   font-weight: 600;
-  letter-spacing: 0;
+  letter-spacing: -0.005em;
 }
 
 .carried-text {
   color: var(--muted);
-  font-family: var(--font);
-  font-size: 0.76rem;
-  font-weight: 400;
-  letter-spacing: 0;
-  line-height: 1.4;
+  font-size: 0.7rem;
+  line-height: 1.35;
   text-wrap: pretty;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .carried-detail { transition: none; }
+/* The stage keeps clear of the rail, so a relic never sits on top of the
+   fight. Only once there is a rail to keep clear of. */
+@media (min-width: 78rem) {
+  .combat-inner:has(.carried) {
+    padding-left: 13.5rem;
+  }
 }
 
-/* Narrow: the rail goes along the bottom of the top bar instead of down the
-   side, because there is no side to spare. */
-@media (max-width: 60rem) {
+/* Narrow: along the top instead of down the side, because there is no side. */
+@media (max-width: 78rem) {
   .carried {
     position: static;
-    transform: none;
     flex-direction: row;
     flex-wrap: wrap;
+    width: auto;
     max-height: none;
-    padding: 0;
     margin-bottom: 0.4rem;
   }
 
-  .carried-detail {
-    left: 0;
-    top: calc(100% + 0.4rem);
-    transform: none;
-    max-width: min(16rem, 70vw);
-  }
+  .carried-row { flex: 1 1 11rem; }
 }
-
 
 /* ---------- the coach ----------
 
@@ -3003,4 +2933,34 @@
 
 @media (prefers-reduced-motion: reduce) {
   .coach-ring { transition: none; }
+}
+
+
+/* ---------- the two figures on a card that move ----------
+
+   The card's own number stays put; what changes is drawn as change. Red says
+   "this is not the printed number right now, the stance is adding to it", and
+   the bold white +N says "and one stack of Focus is about to add this on top".
+
+   Focus is shown ADDITIVELY rather than folded in, deliberately. Folding it was
+   tried and reverted once — see the damage case in describe.ts — because a card
+   whose number changes turn to turn is a card you cannot learn. The stance
+   bonus is folded because it is a flat rule that is either on or off, not a
+   resource you are spending. */
+
+.card-dmg {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.card-dmg.is-hot {
+  color: var(--iai);
+  text-shadow: 0 0 10px rgba(240, 161, 60, 0.45);
+}
+
+.card-dmg-focus {
+  margin-left: 0.12em;
+  color: var(--ink);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
 }

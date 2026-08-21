@@ -13,12 +13,14 @@ import type { CardDef, CardInstance, GameState } from '../../engine/types.ts';
 import { definitionOf } from '../../engine/combat/combat.ts';
 import {
   describeCard,
+  describeCardSegments,
   describeCost,
   describeRider,
   glossaryFor,
   riderIsLive,
 } from '../../engine/combat/describe.ts';
 import { STANCES } from '../../content/balance.ts';
+import type { Child } from '../dom.ts';
 import { el } from '../dom.ts';
 
 /* ---------- the static face ----------
@@ -105,6 +107,29 @@ export interface CardViewOptions {
   readonly onHover: (hovering: boolean) => void;
 }
 
+
+/**
+ * The card's text, with the two figures that move rendered as their own spans.
+ *
+ * The engine decides the numbers — `describeCardSegments` reads the same
+ * `liveStance` the damage pipeline does — and this only decides what they look
+ * like. A card that worked its own bonuses out would be a preview that can
+ * disagree with the result, which is the one thing the damage pipeline exists
+ * to make impossible.
+ */
+function cardTextNodes(def: CardDef, state: GameState | null): readonly Child[] {
+  return describeCardSegments(def, state).flatMap((segment): Child[] => {
+    if (segment.kind === 'text') return [segment.text];
+
+    const { shown, hot, focus } = segment.figures;
+    const nodes: Child[] = [
+      el('span', { class: `card-dmg${hot > 0 ? ' is-hot' : ''}` }, [String(shown)]),
+    ];
+    if (focus > 0) nodes.push(el('span', { class: 'card-dmg-focus' }, [`+${focus}`]));
+    return nodes;
+  });
+}
+
 export function renderCard(
   state: GameState,
   card: CardInstance,
@@ -123,7 +148,7 @@ export function renderCard(
       el('span', { class: 'card-cost', 'aria-label': `${describeCost(def)} Energy` }, [describeCost(def)]),
       el('span', { class: 'card-name' }, [def.name]),
     ]),
-    el('p', { class: 'card-text' }, [describeCard(def, state)]),
+    el('p', { class: 'card-text' }, cardTextNodes(def, state)),
   ];
 
   if (rider !== null && def.stanceRider !== undefined) {

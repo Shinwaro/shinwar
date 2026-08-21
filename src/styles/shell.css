@@ -257,7 +257,14 @@ input[type='text']:hover {
    from the card's own top-left corner, which is where its fixed position was
    pinned. Centring the origin would make it drift as it scales down. */
 
-.fx-card {
+/* Written as `.card.fx-card`, and that is load-bearing rather than fussy.
+   The ghost IS a `.card` — it is the node that was in the hand — and
+   `.card { position: relative }` lives in game.css, which loads after this
+   file. At equal specificity source order wins, so a plain `.fx-card` rule
+   lost the tie and every flying card sat in normal flow inside the effects
+   layer instead of at the rectangle it was measured from. The animation ran
+   perfectly the whole time, from the wrong place. */
+.card.fx-card {
   position: absolute;
   margin: 0;
   pointer-events: none;
@@ -268,11 +275,11 @@ input[type='text']:hover {
 
 /* The card you chose. It brightens on the way out, and the accent edge is what
    separates "I played this" from "this was swept up at the end of the turn". */
-.fx-card--play {
+.card.fx-card--play {
   border-color: var(--accent);
 }
 
-.fx-card--exhaust {
+.card.fx-card--exhaust {
   border-color: var(--danger);
 }
 
