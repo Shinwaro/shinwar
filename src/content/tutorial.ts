@@ -27,7 +27,11 @@ export const TUTORIAL_ENEMIES: readonly EnemyDef[] = [
   {
     id: TRAINING_HULK,
     name: 'Derelict Hauler',
-    maxHp: 60,
+    /* Short on purpose. The lesson is nine steps long and the fight has to fit
+       inside it — 28 means turn one's scripted Sever takes half of it and turn
+       two's hand finishes the job with room to spare. A tutorial that outlasts
+       its own explanation is a tutorial nobody completes. */
+    maxHp: 28,
     act: 1,
     tier: 'normal',
     /* A three-beat cycle you can learn inside one fight: a small hit, a
@@ -66,32 +70,46 @@ export const TUTORIAL_ENEMIES: readonly EnemyDef[] = [
 ];
 
 /**
- * Twenty cards, and every one of them does something visible.
+ * Twenty cards, and the ORDER is the script.
  *
- * Weighted toward GUARD and IAI because those are the two stances in rotation,
- * and repeated on purpose — seeing the same card three times in one fight is
- * how a first-time player learns what it does. Nothing here exhausts, nothing
- * has a condition that can fail silently, and nothing costs three.
+ * `startCombat` skips the shuffle for the introduction, so this array is the
+ * draw order: the first five are turn one's hand, the next five are turn two's.
+ * Each of the three cards the lesson asks for is placed in the hand it is
+ * asked for in — the Block card and the Heat card on turn one, the Focus card
+ * on turn two — and the rest is enough damage to finish inside that turn.
+ *
+ * Change the order and the lesson points at cards that are not there. There is
+ * a test for exactly that.
  */
 export const TUTORIAL_DECK: readonly string[] = [
-  'iai_slash',
-  'iai_slash',
-  'iai_slash',
+  // Turn one. Solar Shield is the Block lesson, Sever the Heat lesson.
   'solar_parry',
-  'solar_parry',
-  'solar_parry',
-  'bulwark',
-  'bulwark',
-  'measured_draw',
-  'measured_draw',
-  'kindled_edge',
-  'kindled_edge',
-  'vector_step',
-  'vector_step',
-  'recalibrate',
-  'settle',
-  'half_draw',
-  'pressure_cut',
   'sever',
+  'iai_slash',
+  'bulwark',
+  'vector_step',
+
+  // Turn two. Measured Draw is the Focus lesson; Meridian Cut finishes it.
+  'measured_draw',
   'meridian_cut',
+  'iai_slash',
+  'solar_parry',
+  'bulwark',
+
+  // Slack, in case a fight runs long. Never reached by the script.
+  'iai_slash',
+  'solar_parry',
+  'kindled_edge',
+  'measured_draw',
+  'half_draw',
+  'settle',
+  'recalibrate',
+  'pressure_cut',
+  'bulwark',
+  'vector_step',
 ];
+
+/** The cards the lesson names. Exported so a test can pin them to the hand. */
+export const TUTORIAL_BLOCK_CARD = 'solar_parry';
+export const TUTORIAL_HEAT_CARD = 'sever';
+export const TUTORIAL_FOCUS_CARD = 'measured_draw';

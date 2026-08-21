@@ -559,7 +559,7 @@ function build(
     el('div', { class: 'combat-corner-buttons' }, [
       button(
         selection.logOpen ? 'Hide log' : 'Show log',
-        { class: 'btn btn-quiet btn-corner', 'aria-keyshortcuts': 'L' },
+        { class: 'btn btn-quiet btn-corner btn-corner--log', 'aria-keyshortcuts': 'L' },
         () => {
           selection.logOpen = !selection.logOpen;
           rerender();

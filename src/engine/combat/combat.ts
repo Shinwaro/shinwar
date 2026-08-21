@@ -64,7 +64,14 @@ export function startCombat(state: GameState, encounterId: string, environmentId
     return minted.value;
   });
 
-  const shuffled = shuffle(run.rng, 'combat', run.pilot.deck);
+  /* The introduction deals its deck in written order.
+     It is a scripted lesson — "play the Block card, now play the one that
+     builds Heat" — and a shuffle makes that a lottery. Every other fight in the
+     game shuffles on the `combat` stream as normal; this is the one place the
+     order is the content. */
+  const shuffled = run.tutorial
+    ? { value: run.pilot.deck, rng: run.rng }
+    : shuffle(run.rng, 'combat', run.pilot.deck);
 
   // Innate cards start in hand rather than in the shuffle — that is the whole
   // promise of the keyword, and it has to survive the shuffle to mean anything.

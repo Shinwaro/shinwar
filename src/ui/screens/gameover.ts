@@ -108,37 +108,29 @@ export function renderGameOver(store: Store): HTMLElement {
 /**
  * The end of the introduction.
  *
- * Deliberately short, and it points at exactly one thing: the run you now know
- * enough to start.
+ * A fade and one line, then it takes itself back to the title. Not a screen to
+ * read — the practice is over and the run is the point, so anything here that
+ * asked to be clicked would be one more thing between the player and it.
+ *
+ * The timer is presentation only. The run is already over in state and nothing
+ * here can change that; this just holds the beat before the swap.
  */
+const SEND_OFF_MS = 3200;
+
 function renderTutorialEnd(store: Store, outcome: string): HTMLElement {
   const won = outcome === 'won';
-  return el('main', { class: 'over screen' }, [
-    el('div', { class: 'over-inner' }, [
-      el('header', { class: 'over-head' }, [
-        el('h1', { class: `over-title over-title--${won ? 'won' : 'abandoned'}` }, [
-          won ? 'That is the whole loop.' : 'Introduction ended.',
-        ]),
-        el('p', { class: 'over-standfirst' }, ['Introduction · nothing was at stake']),
-      ]),
-      el('p', { class: 'over-account' }, [
-        won
-          ? 'A real run is three acts of that, with a deck you build as you go, a chart you choose your way up, and no saves. It runs about an hour, and it is meant to be one sitting.'
-          : 'Nothing lost. A real run is three acts, a deck you build as you go, and a chart you choose your way up — and you can come back here any time.',
-      ]),
-      el('p', { class: 'over-account' }, [
-        'Two things the introduction did not have time for: relics change what a turn can do and come from Elites, and Threads are promises that come due later in the same run. Both are explained by the Info button on any screen.',
-      ]),
-      el('div', { class: 'over-actions' }, [
-        button('Start a real run', { class: 'btn btn-primary' }, () => {
-          store.dispatch({ kind: 'returnToTitle' });
-          store.dispatch({ kind: 'setSeed', seed: newSeed() });
-          store.dispatch({ kind: 'beginRun' });
-        }),
-        button('Back to title', { class: 'btn' }, () => {
-          store.dispatch({ kind: 'returnToTitle' });
-        }),
-      ]),
+  const host = el('main', { class: 'send-off screen' }, [
+    el('p', { class: 'send-off-line' }, [
+      won ? 'Now the real adventure begins.' : 'Come back when you are ready.',
     ]),
   ]);
+
+  const leave = window.setTimeout(() => {
+    store.dispatch({ kind: 'returnToTitle' });
+  }, SEND_OFF_MS);
+
+  // If anything else takes the screen down first, the timer goes with it.
+  host.addEventListener('shinwar:unmount', () => window.clearTimeout(leave));
+
+  return host;
 }

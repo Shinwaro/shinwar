@@ -190,6 +190,9 @@ export function renderCard(
       type: 'button',
       class: classes.join(' '),
       'data-uid': card.uid,
+      // Which card this is, as opposed to which copy. The introduction points
+      // at "the Block card" and needs something to aim at.
+      'data-card': def.id,
       'aria-pressed': options.selected ? 'true' : 'false',
       'aria-keyshortcuts': options.index < 9 ? String(options.index + 1) : null,
       title: options.playable ? null : (options.reason ?? null),

@@ -2741,8 +2741,26 @@
   top: max(0.6rem, env(safe-area-inset-top));
   right: max(0.6rem, env(safe-area-inset-right));
   z-index: 20;
+}
+
+.combat-corner-buttons {
   display: flex;
+  justify-content: flex-end;
   gap: 0.35rem;
+}
+
+/* The log hangs UNDER its own button and takes no space in the layout, so
+   opening it does not shove the buttons sideways — which is what happened when
+   it was a sibling in the same flex row, and it made the control that opened
+   it appear to move away from the cursor. */
+.combat-corner .log {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  right: 0;
+  width: min(26rem, calc(100vw - 1.6rem));
+  max-height: min(24rem, 60dvh);
+  margin: 0;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
 }
 
 .btn-corner {
@@ -2750,6 +2768,14 @@
   padding: 0.5rem 1.05rem;
   font-size: 0.92rem;
   background: var(--surface-solid);
+}
+
+/* Wide enough for both of its own labels. "Show log" and "Hide log" are not
+   the same width, so without this the button shifts a few pixels under the
+   cursor at the moment it is pressed — small, and exactly the kind of jitter
+   that reads as something being broken. */
+.btn-corner--log {
+  min-width: 7rem;
 }
 
 /* ---------- what you are carrying ----------
@@ -2963,4 +2989,50 @@
   color: var(--ink);
   font-weight: 800;
   font-variant-numeric: tabular-nums;
+}
+
+
+/* ---------- the end of the introduction ----------
+
+   A fade and one line, then back to the title on its own. It is not a screen
+   to read, it is a beat — the practice is over and the run is the point. */
+
+.send-off {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 2rem;
+  background: var(--bg);
+  animation: send-off-in 900ms ease both;
+}
+
+@keyframes send-off-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.send-off-line {
+  margin: 0;
+  max-width: 24ch;
+  text-align: center;
+  font-size: clamp(1.4rem, 5vw, 2.2rem);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  text-wrap: balance;
+  animation: send-off-line 1400ms 500ms ease both;
+}
+
+@keyframes send-off-line {
+  from { opacity: 0; transform: translateY(0.5rem); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .send-off,
+  .send-off-line {
+    animation: none;
+  }
 }

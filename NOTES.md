@@ -2511,3 +2511,47 @@ precisely how a card starts lying.
 `describeCardSegments` special-cases only the damage op and hands everything
 else to the existing string generator, so there is still one place prose is
 written.
+
+### The introduction is a script, so the deck is dealt in written order
+
+The lesson names cards — "play Solar Shield", "now play Sever" — and a shuffle
+turns that into a lottery. `startCombat` skips the shuffle when `run.tutorial`
+is set, so `TUTORIAL_DECK` is literally the draw order: the first five are turn
+one's hand, the next five are turn two's, and each named card sits in the hand
+it is named in. Every other fight shuffles on the `combat` stream as normal.
+
+Tests pin the deal order, both scripted hands, that the fight is short enough
+to finish inside the lesson, and that each hand fits in a turn of Energy.
+Reordering the deck now fails a test instead of quietly pointing the coach at
+a card that is not there.
+
+The hauler dropped from 60 to 28 for the same reason: a tutorial that outlasts
+its own explanation is a tutorial nobody completes. Turn one's Sever takes half
+of it and turn two's hand finishes the job.
+
+**Steps that ask for something ring the card AND the target.** "Play the Block
+card" with only the card lit leaves a first-time player holding a selected card
+with no idea what to click next, which is precisely where a tutorial loses
+somebody. Cards now carry `data-card` (which card, as opposed to which copy) so
+a lesson has something to aim at.
+
+The coach's card is placed against the whole set of rings rather than the first
+one — a "play this" step rings the hand and the enemy, which sit at opposite
+ends of the screen, and following only the first would put the words on top of
+the other.
+
+### The log hangs off its own button
+
+It was a sibling in the corner's flex row, so opening it shoved the buttons
+sideways. Absolutely positioned under them now: takes no layout space, right
+edge aligned. The button also has a `min-width`, because "Show log" and "Hide
+log" are not the same width and the button was shifting five pixels under the
+cursor at the moment it was pressed — small, and exactly the jitter that reads
+as something being broken.
+
+### The introduction ends on a beat, not a screen
+
+A fade, one line, and it takes itself back to the title after 3.2s. Nothing to
+click: the practice is over and the run is the point, so anything asking to be
+clicked would be one more thing between the player and it. The timer is
+presentation only and is cleared on unmount.
