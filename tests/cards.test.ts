@@ -20,8 +20,9 @@ import {
   VECTOR_STEP,
 } from '../src/content/cards/basic.ts';
 import { PLAYER, RARITY_WEIGHTS } from '../src/content/balance.ts';
+import type { Rarity } from '../src/engine/types.ts';
 import { RARITY_ORDER } from '../src/engine/types.ts';
-import { rollCardChoices } from '../src/engine/run/rewards.ts';
+import { offerableCards, rollCardChoices } from '../src/engine/run/rewards.ts';
 import { makeFight } from './helpers.ts';
 
 beforeEach(() => {
@@ -183,20 +184,47 @@ describe('the rarity ladder', () => {
     }
   });
 
-  it('weights every offerable tier in every act', () => {
+  it('weights every tier the reward pool can actually produce', () => {
+    /* Asserted against what `offerableCards` returns rather than against the
+       whole ladder, because the ladder is deliberately wider than the roll:
+       legendary and artifact exist and are unrollable, since the Reliquary is
+       their only source. A weight for a tier with nothing in it would silently
+       do nothing, and a tier with cards and no weight would silently never
+       appear — this catches the second, which is the dangerous one. */
+    // `basic` is filtered out by `offerableCards`, so this set only ever holds
+    // rarities the weight table actually has a column for.
+    const rollable = new Set(
+      offerableCards().map((card) => card.rarity as Exclude<Rarity, 'basic'>),
+    );
+    expect(rollable.size).toBeGreaterThan(2);
+
     for (const act of [1, 2, 3] as const) {
-      for (const rarity of RARITY_ORDER) {
-        if (rarity === 'basic') continue;
-        const weight = RARITY_WEIGHTS[act][rarity];
-        expect(weight, `act ${act} has no weight for '${rarity}'`).toBeGreaterThan(0);
+      for (const rarity of rollable) {
+        expect(
+          RARITY_WEIGHTS[act][rarity],
+          `act ${act} has no weight for '${rarity}'`,
+        ).toBeGreaterThan(0);
       }
     }
   });
 
+  it('keeps the top two tiers out of the roll entirely', () => {
+    for (const act of [1, 2, 3] as const) {
+      expect(RARITY_WEIGHTS[act].legendary, `act ${act}`).toBe(0);
+      expect(RARITY_WEIGHTS[act].artifact, `act ${act}`).toBe(0);
+    }
+    for (const card of offerableCards()) {
+      expect(card.rarity, `${card.id} is offerable`).not.toBe('legendary');
+      expect(card.rarity, `${card.id} is offerable`).not.toBe('artifact');
+    }
+  });
+
   it('tilts the ladder upward as the run goes on', () => {
-    // Act 3 should feel different from Act 1, not just hit harder.
+    // Act 3 should feel different from Act 1, not just hit harder. Measured on
+    // epic, which is the ceiling of the roll now that the Reliquary owns the
+    // two tiers above it.
     expect(RARITY_WEIGHTS[3].common).toBeLessThan(RARITY_WEIGHTS[1].common);
-    expect(RARITY_WEIGHTS[3].legendary).toBeGreaterThan(RARITY_WEIGHTS[1].legendary);
+    expect(RARITY_WEIGHTS[3].epic).toBeGreaterThan(RARITY_WEIGHTS[1].epic);
   });
 
   it('keeps the top tiers rare enough to stay special', () => {

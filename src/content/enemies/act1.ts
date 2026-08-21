@@ -36,6 +36,7 @@ export const LATHE_DRONE = 'lathe_drone';
 export const CINDER_WISP = 'cinder_wisp';
 export const RUST_TICK = 'rust_tick';
 export const KILN_ADEPT = 'kiln_adept';
+export const SLAG_WARDEN = 'slag_warden';
 
 export const ACT1_ENEMIES: readonly EnemyDef[] = [
   {
@@ -201,5 +202,50 @@ export const ACT1_ENEMIES: readonly EnemyDef[] = [
     ],
     script: { kind: 'sequence', moves: ['kindle', 'sear', 'flare'] },
     flavor: 'Praying, and getting hotter about it.',
+  },
+
+/* ---- the second batch ----
+
+   Written to one constraint that shapes every enemy in the game and is easy to
+   forget: **the telegraph is rendered from the static `intent` template**, not
+   from the effects. So an enemy must never put a `conditional` in front of a
+   damage number — the intent would show one figure and the resolver would land
+   another, which is the exact failure DESIGN.md calls a P1. Variety here comes
+   from move sequences, statuses and hit shapes, all of which the telegraph can
+   state honestly a turn ahead.
+*/
+
+  {
+    /* The wall that will not let you wait. Its damage is low enough that Block
+       trivially covers it, so the pressure is entirely the gauge — sit behind
+       plating for four turns and you overheat yourself. Act 1's first enemy
+       whose answer is not "block the spike". */
+    id: SLAG_WARDEN,
+    name: 'Slag Warden',
+    maxHp: 42,
+    act: 1,
+    tier: 'normal',
+    moves: [
+      {
+        id: 'plate',
+        label: 'Plate',
+        intent: [{ kind: 'block', amount: 10, times: 1, label: 'Plate 10' }],
+        effects: [{ op: 'block', amount: 10 }],
+      },
+      {
+        id: 'vent',
+        label: 'Vent',
+        intent: [{ kind: 'debuff', amount: 2, times: 1, label: 'Scald 2' }],
+        effects: [{ op: 'applyStatus', status: SCALD, stacks: 2, target: 'enemy' }],
+      },
+      {
+        id: 'crush',
+        label: 'Crush',
+        intent: [{ kind: 'attack', amount: 10, times: 1, label: 'Crush' }],
+        effects: [{ op: 'damage', amount: 10, target: 'enemy' }],
+      },
+    ],
+    script: { kind: 'sequence', moves: ['vent', 'plate', 'crush'] },
+    flavor: 'It is not defending the corridor. It is the corridor, slowly.',
   },
 ];

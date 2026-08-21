@@ -70,6 +70,13 @@ export function offerableCards(): readonly CardDef[] {
     .filter(
       (card) =>
         card.rarity !== 'basic' &&
+        /* The top two tiers are the Reliquary's, and nothing else may hand one
+           out. A legendary is by definition the card you build around, so a
+           die roll in Act 3 delivers it after the deck is already finished —
+           and a run that never rolled one never had the choice at all. One per
+           run, at a known place, chosen. See `content/events/reliquary.ts`. */
+        card.rarity !== 'legendary' &&
+        card.rarity !== 'artifact' &&
         card.type !== 'status' &&
         card.type !== 'voided' &&
         card.exclusive !== true,

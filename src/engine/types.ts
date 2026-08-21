@@ -380,6 +380,12 @@ export interface EventDef {
   readonly body: string;
   /** Which acts it can appear in. Absent means all of them. */
   readonly acts?: readonly (1 | 2 | 3)[];
+  /**
+   * Never rolled at an ordinary Anomaly — only reachable from a node that
+   * names it. The Reliquary is placed at one exact row and must not also turn
+   * up two nodes earlier by chance.
+   */
+  readonly pinnedOnly?: boolean;
   readonly options: readonly EventOption[];
 }
 
@@ -692,6 +698,14 @@ export interface MapNode {
   readonly type: NodeType;
   /** Combat nodes only. */
   readonly encounterId: EncounterId | null;
+  /**
+   * An Anomaly this node always shows, instead of rolling one.
+   *
+   * Exists for the Reliquary, which has to be at a known place rather than
+   * somewhere the events stream happens to put it. Generated with the map, so
+   * it is part of the seed like everything else on a node.
+   */
+  readonly eventId: EventId | null;
   /** Shown on the badge before the player commits to the route. */
   readonly environmentId: EnvironmentId | null;
   /** Node ids this leads to. Empty on the boss. */

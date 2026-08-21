@@ -36,7 +36,10 @@ export const EVENT_CARDS: readonly CardDef[] = [
     id: 'vareth_hatchling',
     name: 'Vareth Hatchling',
     type: 'attack',
-    rarity: 'legendary',
+    // Epic for the same reason as Starfall. It is a Thread payoff, so it was
+    // never in the reward pool — but a run could hold it AND a Reliquary card,
+    // and that is exactly the thing the gate exists to prevent.
+    rarity: 'epic',
     archetype: 'neutral',
     cost: 0,
     exclusive: true,

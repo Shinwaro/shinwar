@@ -25,6 +25,7 @@ import type {
   RunMap,
 } from '../types.ts';
 import { nextInt, pick, weightedPick } from '../rng.ts';
+import { RELIQUARY_EVENT_ID } from '../../content/events/reliquary.ts';
 import { MAP, NODE_WEIGHTS } from '../../content/balance.ts';
 import { ACT_FINALES, ARRIVAL_NAME, PLACE_DESIGNATIONS, PLACE_STEMS } from '../../content/places.ts';
 import { CLEAR_SPACE_ID } from '../../content/environments.ts';
@@ -181,14 +182,24 @@ function assignTypes(
   skeleton: Skeleton,
   rng: RngState,
   rows: number,
+  act: 1 | 2 | 3,
 ): { types: Map<string, NodeType>; rng: RngState } {
   const types = new Map<string, NodeType>();
   let current = rng;
-  // Clamped clear of the opening rows, the rest-before-boss and the boss.
-  const stationRow = Math.min(
+  /* Both guaranteed rows are clamped clear of the opening, the rest before the
+     boss, and the boss itself — and in Act 2 they collide.
+
+     18 rows puts `stationRowAt` 0.55 and `reliquaryRowAt` 0.5 both on row 9,
+     and whichever is checked first silently eats the other. The Reliquary wins
+     the tie because "the exact middle" is the whole of its definition, and the
+     Station moves one row later: the guaranteed Station exists so a route
+     cannot miss a shop, and one row along still satisfies that. */
+  const reliquaryRow = act === 2 ? reliquaryRowFor(rows) : -1;
+  const wanted = Math.min(
     rows - 3,
     Math.max(MAP.earliestSpecialRow, Math.round((rows - 1) * MAP.stationRowAt)),
   );
+  const stationRow = wanted === reliquaryRow ? Math.min(rows - 3, wanted + 1) : wanted;
 
   for (let row = 0; row < rows; row++) {
     for (const col of skeleton.cells[row] ?? []) {
@@ -206,6 +217,14 @@ function assignTypes(
       }
       if (MAP.restBeforeBoss && row === rows - 2) {
         types.set(id, 'safe');
+        continue;
+      }
+      /* The Reliquary row, in Act 2 only. A full row, so no route can miss it.
+         It reads as an Anomaly on the chart because that is what it is — the
+         node pins which one in `assemble`. Checked BEFORE the Station, because
+         the two rows collide in Act 2 and this one is not allowed to move. */
+      if (row === reliquaryRow) {
+        types.set(id, 'event');
         continue;
       }
       // The guaranteed Station row. See MAP.stationRowAt.
@@ -482,9 +501,19 @@ function positionOf(
   };
 }
 
+/**
+ * The Reliquary's row, kept in one place so the generator and anything that
+ * wants to check the invariant agree. Clamped clear of the boss and the rest
+ * before it, the same way the Station row is.
+ */
+export function reliquaryRowFor(rows: number): number {
+  return Math.min(rows - 3, Math.max(MAP.earliestSpecialRow, Math.round((rows - 1) * MAP.reliquaryRowAt)));
+}
+
 function assemble(skeleton: Skeleton, act: 1 | 2 | 3, rng: RngState): GeneratedMap {
   const rows = skeleton.cells.length;
-  const typed = assignTypes(skeleton, rng, rows);
+  const typed = assignTypes(skeleton, rng, rows, act);
+  const reliquaryRow = act === 2 ? reliquaryRowFor(rows) : -1;
   const fought = assignEncounters(skeleton, typed.types, typed.rng, rows, act);
   const scened = assignEnvironments(
     skeleton,
@@ -518,6 +547,7 @@ function assemble(skeleton: Skeleton, act: 1 | 2 | 3, rng: RngState): GeneratedM
         // Everything is on foot until ship combat exists. The vocabulary is in
         // place so the map, routing and the crash are built once — see SHIP.md.
         encounterId,
+        eventId: row === reliquaryRow && type === 'event' ? RELIQUARY_EVENT_ID : null,
         environmentId: encounterId === null ? null : (scened.environments.get(id) ?? CLEAR_SPACE_ID),
         next: outgoing.map((target) => nodeId(row + 1, target)),
       });

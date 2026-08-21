@@ -163,7 +163,14 @@ export function describeLanding(node: MapNode, enemyNames: readonly string[]): s
       return 'Nothing here wants anything from you. That is rarer than it sounds.';
 
     case 'event':
-      return 'There is something down here that does not resolve into a shape yet.';
+      /* A node that names its own Anomaly gets its own arrival. The generic
+         line is written to undersell — "does not resolve into a shape yet" is
+         right for a thing you rolled and wrong for the one fixed beat in the
+         run, and reading the same non-committal sentence on the way into the
+         Reliquary would flatten it into another Anomaly. */
+      return node.eventId === null
+        ? 'There is something down here that does not resolve into a shape yet.'
+        : 'The hail is your own order’s, on a channel nobody has used in forty years. It is still repeating.';
 
     case 'unknown':
       return 'The scan comes back inconclusive. You go down anyway.';

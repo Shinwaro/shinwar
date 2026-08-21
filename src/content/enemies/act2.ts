@@ -16,7 +16,7 @@
  */
 
 import type { EnemyDef } from '../../engine/types.ts';
-import { RUST, STRENGTH, VULNERABLE, WEAK } from '../statuses.ts';
+import { RUST, STRENGTH, TEMPERED, VULNERABLE, WEAK } from '../statuses.ts';
 
 export const SABLE_DRIFTER = 'sable_drifter';
 export const ARC_WELDER = 'arc_welder';
@@ -27,6 +27,8 @@ export const BLOOM_WEEVIL = 'bloom_weevil';
 export const IRON_PROCESSION = 'iron_procession';
 export const SIPHON_ENGINE = 'siphon_engine';
 export const WAVEFRONT_HERALD = 'wavefront_herald';
+export const TALLY_KEEPER = 'tally_keeper';
+export const SPLINT_CHORUS = 'splint_chorus';
 
 export const ACT2_ENEMIES: readonly EnemyDef[] = [
   {
@@ -338,5 +340,81 @@ export const ACT2_ENEMIES: readonly EnemyDef[] = [
     ],
     script: { kind: 'sequence', moves: ['shockfall', 'compression', 'arrival'] },
     flavor: 'It arrived here first. It has been waiting for the rest of the front to catch up.',
+  },
+
+/* ---- the second batch ----
+
+   Written to one constraint that shapes every enemy in the game and is easy to
+   forget: **the telegraph is rendered from the static `intent` template**, not
+   from the effects. So an enemy must never put a `conditional` in front of a
+   damage number — the intent would show one figure and the resolver would land
+   another, which is the exact failure DESIGN.md calls a P1. Variety here comes
+   from move sequences, statuses and hit shapes, all of which the telegraph can
+   state honestly a turn ahead.
+*/
+
+  {
+    /* Takes the shop, not the hull.
+
+       Block answers everything else in the game, and it cannot answer this —
+       the Alloy comes off whether or not the blow lands, so the only counter is
+       killing it, quickly. That is a new kind of clock: not "survive this" but
+       "you are being charged by the turn". */
+    id: TALLY_KEEPER,
+    name: 'Tally Keeper',
+    maxHp: 44,
+    act: 2,
+    tier: 'normal',
+    moves: [
+      {
+        id: 'levy',
+        label: 'Levy',
+        intent: [
+          { kind: 'attack', amount: 8, times: 1, label: 'Levy' },
+          { kind: 'debuff', amount: 35, times: 1, label: 'Alloy -35' },
+        ],
+        effects: [
+          { op: 'damage', amount: 8, target: 'enemy' },
+          { op: 'gainAlloy', amount: -35 },
+        ],
+      },
+      {
+        id: 'audit',
+        label: 'Audit',
+        intent: [{ kind: 'attack', amount: 16, times: 1, label: 'Audit' }],
+        effects: [{ op: 'damage', amount: 16, target: 'enemy' }],
+      },
+    ],
+    script: { kind: 'sequence', moves: ['levy', 'audit'] },
+    flavor: 'It has your registration, your tonnage, and a figure it considers reasonable.',
+  },
+
+  {
+    /* The reason to kill the small one first.
+
+       Tempered on the whole pack halves what you deal for two turns, so a fight
+       that was arithmetic becomes target priority — and it is fragile enough
+       that doing it is genuinely possible if you commit the turn to it. */
+    id: SPLINT_CHORUS,
+    name: 'Splint Chorus',
+    maxHp: 30,
+    act: 2,
+    tier: 'normal',
+    moves: [
+      {
+        id: 'brace',
+        label: 'Brace',
+        intent: [{ kind: 'buff', amount: 2, times: 1, label: 'Tempered 2 to all' }],
+        effects: [{ op: 'applyStatus', status: TEMPERED, stacks: 2, target: 'allEnemies' }],
+      },
+      {
+        id: 'splint',
+        label: 'Splint',
+        intent: [{ kind: 'attack', amount: 6, times: 2, label: 'Splint' }],
+        effects: [{ op: 'damage', amount: 6, target: 'enemy', times: 2 }],
+      },
+    ],
+    script: { kind: 'sequence', moves: ['brace', 'splint'] },
+    flavor: 'It sings the others back together faster than you are taking them apart.',
   },
 ];

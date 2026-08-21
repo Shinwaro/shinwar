@@ -75,7 +75,10 @@ export function canTakeOption(run: RunState, option: EventOption): boolean {
 }
 
 function poolFor(run: RunState): readonly EventDef[] {
-  const inAct = eventTable.all().filter((def) => def.acts === undefined || def.acts.includes(run.act));
+  const inAct = eventTable
+    .all()
+    .filter((def) => def.pinnedOnly !== true)
+    .filter((def) => def.acts === undefined || def.acts.includes(run.act));
   const unseen = inAct.filter((def) => !run.seenEvents.includes(def.id));
   // A repeat beats a node that does nothing. Only reachable once the pool is
   // exhausted, which at 10 events means a very long act.
@@ -88,6 +91,29 @@ function poolFor(run: RunState): readonly EventDef[] {
  */
 export function openEvent(state: GameState): GameState {
   const run = requireRun(state);
+
+  /* A node that names its own Anomaly gets that one, without touching the
+     events stream — the Reliquary has to be where the map says it is, and
+     rolling for it would put the whole point of Act 2 behind a die. */
+  const here = run.map?.nodes.find((node) => node.id === run.position) ?? null;
+  const pinned = here?.eventId ?? null;
+  if (pinned !== null && eventTable.has(pinned)) {
+    const opened = withRun(state, (current) => ({
+      ...current,
+      seenEvents: current.seenEvents.includes(pinned)
+        ? current.seenEvents
+        : [...current.seenEvents, pinned],
+      pendingEvent: { eventId: pinned, chosenOptionId: null, outcome: [] },
+      screen: 'event',
+    }));
+    return appendLog(opened, {
+      source: 'anomaly',
+      kind: 'run',
+      text: eventTable.get(pinned).name,
+      detail: { event: pinned, pinned: true },
+    });
+  }
+
   const pool = poolFor(run);
 
   if (pool.length === 0) {

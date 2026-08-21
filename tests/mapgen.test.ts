@@ -105,11 +105,17 @@ describe('the guarantees, across 1000 seeds', () => {
   });
 
   it('never puts two blank-looking nodes back to back on a path', () => {
-    // `event` and `unknown` are the two that show no encounter on the chart.
-    // Consecutively they read as a stretch where nothing is happening — you
-    // walk two nodes and have fought nothing — which is what a player notices,
-    // rather than the overall share of them.
-    const blank = (type: string): boolean => type === 'event' || type === 'unknown';
+    /* `event` and `unknown` are the two that show no encounter on the chart.
+       Consecutively they read as a stretch where nothing is happening — you
+       walk two nodes and have fought nothing — which is what a player notices,
+       rather than the overall share of them.
+
+       The Reliquary row is exempt, and the exemption is the point of the rule
+       rather than a hole in it: this test is a proxy for "nothing happened",
+       and the vault is the single largest decision in the run. A node that
+       pins its own Anomaly is never a blank node. */
+    const blank = (node: { type: string; eventId: string | null }): boolean =>
+      node.eventId === null && (node.type === 'event' || node.type === 'unknown');
 
     for (const seed of SEEDS) {
       for (const act of [1, 2, 3] as const) {
@@ -117,11 +123,11 @@ describe('the guarantees, across 1000 seeds', () => {
         const byId = new Map(map.nodes.map((node) => [node.id, node]));
 
         for (const node of map.nodes) {
-          if (!blank(node.type)) continue;
+          if (!blank(node)) continue;
           for (const id of node.next) {
             const ahead = byId.get(id);
             if (ahead === undefined) continue;
-            expect(blank(ahead.type), `${seed} act${act}: ${node.id} -> ${ahead.id}`).toBe(false);
+            expect(blank(ahead), `${seed} act${act}: ${node.id} -> ${ahead.id}`).toBe(false);
           }
         }
       }

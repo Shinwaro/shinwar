@@ -313,6 +313,15 @@ export const MAP = {
   /** No elite, station or safe planet before this row — Act 1 opens plain. */
   earliestSpecialRow: 4,
   /**
+   * Where the Reliquary sits, as a fraction of the act.
+   *
+   * Act 2 only, and dead centre of it — which is the centre of the run. It is
+   * a full row, so every route passes through it: the one legendary card a run
+   * can hold is not something you can be unlucky about, it is a fixed beat
+   * halfway through, and what you take from it is the decision.
+   */
+  reliquaryRowAt: 0.5,
+  /**
    * How many rows back a Safe Planet blocks another one, along real edges.
    *
    * At 1 you could meet two rests with a single node between them and arrive at
@@ -380,12 +389,18 @@ export const TREASURE_ALLOY = { min: 25, max: 45 } as const;
  * legendary you see every other screen is a common with a better border. These
  * are v0; the simulator moves them.
  */
+/* Legendary and artifact are zero in every act, and that is the rule rather
+   than a tuning number: the top two tiers come from the Reliquary and nowhere
+   else, exactly once a run, in the middle of Act 2. They are kept as rows
+   instead of removed from the type so the ladder still reads as a ladder — and
+   so the day one of them becomes rollable again, this is the one place to
+   change. See `content/events/reliquary.ts`. */
 export const RARITY_WEIGHTS: {
   readonly [act in 1 | 2 | 3]: { readonly [r in Exclude<Rarity, 'basic'>]: number };
 } = {
-  1: { common: 62, uncommon: 26, rare: 9, epic: 2.4, legendary: 0.5, artifact: 0.1 },
-  2: { common: 48, uncommon: 31, rare: 14, epic: 5, legendary: 1.6, artifact: 0.4 },
-  3: { common: 36, uncommon: 33, rare: 19, epic: 8.5, legendary: 2.6, artifact: 0.9 },
+  1: { common: 62, uncommon: 26, rare: 9, epic: 2.4, legendary: 0, artifact: 0 },
+  2: { common: 48, uncommon: 31, rare: 14, epic: 5, legendary: 0, artifact: 0 },
+  3: { common: 36, uncommon: 33, rare: 19, epic: 8.5, legendary: 0, artifact: 0 },
 };
 
 /** Display order and label for a tier. Colour lives in the stylesheet. */

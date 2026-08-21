@@ -25,8 +25,10 @@
  */
 
 import type { EventDef } from '../../engine/types.ts';
+import { RELIQUARY_EVENT } from './reliquary.ts';
 
 export const EVENTS: readonly EventDef[] = [
+  RELIQUARY_EVENT,
   {
     id: 'the_last_clutch',
     name: 'The Last Clutch',

@@ -11,7 +11,14 @@
  */
 
 import type { EncounterId, EnemyId } from '../engine/types.ts';
-import { CINDER_WISP, KILN_ADEPT, LATHE_DRONE, RUST_TICK, SCRAP_HOUND } from './enemies/act1.ts';
+import {
+  CINDER_WISP,
+  KILN_ADEPT,
+  LATHE_DRONE,
+  RUST_TICK,
+  SCRAP_HOUND,
+  SLAG_WARDEN,
+} from './enemies/act1.ts';
 import { KILN_ALPHA, KILN_SOVEREIGN, MAG_LATHE } from './enemies/act1elites.ts';
 import {
   ARC_WELDER,
@@ -20,6 +27,8 @@ import {
   BLOOM_WEEVIL,
   SABLE_DRIFTER,
   SIPHON_ENGINE,
+  SPLINT_CHORUS,
+  TALLY_KEEPER,
   VOID_RONIN,
   WAVEFRONT_HERALD,
 } from './enemies/act2.ts';
@@ -28,7 +37,9 @@ import {
   COLLAPSE_CHOIR,
   EVENT_HORIZON,
   HEAT_SIPHON,
+  CANTOR_OF_ASH,
   MIRROR_RONIN,
+  NULLWRIGHT,
   NULL_PRISM,
   RIMEWAKE,
   TESSELLATE_SHARD,
@@ -313,6 +324,65 @@ export const ENCOUNTERS: readonly EncounterDef[] = [
     act: 3,
     tier: 'normal',
     enemyIds: [RIMEWAKE, CHIRALITY_WARDEN],
+  },
+
+  /* ---- seating the second batch of enemies ----
+     An enemy nothing puts on the board is an enemy that does not exist. Each of
+     these exists to make one of the new five the *point* of the fight rather
+     than a body next to the real threat. */
+
+  {
+    id: 'warden_post',
+    name: 'The Post',
+    act: 1,
+    tier: 'normal',
+    enemyIds: [SLAG_WARDEN],
+  },
+  {
+    /* The Warden will not let you wait and the Wisp punishes you for hurrying.
+       Two clocks pulling opposite ways. */
+    id: 'warden_and_wisp',
+    name: 'Checkpoint',
+    act: 1,
+    tier: 'normal',
+    enemyIds: [SLAG_WARDEN, CINDER_WISP],
+  },
+  {
+    /* Kill order stated as a bill: every turn the Keeper lives costs Alloy, and
+       the Drifter is the thing that will kill you if you look away from it. */
+    id: 'the_levy',
+    name: 'The Levy',
+    act: 2,
+    tier: 'normal',
+    enemyIds: [TALLY_KEEPER, SABLE_DRIFTER],
+  },
+  {
+    id: 'braced_line',
+    name: 'Braced Line',
+    act: 2,
+    tier: 'normal',
+    enemyIds: [SPLINT_CHORUS, ARC_WELDER, VOID_RONIN],
+  },
+  {
+    id: 'the_counting_house',
+    name: 'The Counting House',
+    act: 2,
+    tier: 'normal',
+    enemyIds: [TALLY_KEEPER, SPLINT_CHORUS],
+  },
+  {
+    id: 'unwritten',
+    name: 'Unwritten',
+    act: 3,
+    tier: 'normal',
+    enemyIds: [NULLWRIGHT, NULL_PRISM],
+  },
+  {
+    id: 'the_cantor',
+    name: 'The Cantor',
+    act: 3,
+    tier: 'elite',
+    enemyIds: [CANTOR_OF_ASH],
   },
 ];
 

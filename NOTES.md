@@ -2217,3 +2217,88 @@ board before anything punishes reading it slowly.
 doing nothing at all. Fixed at the cause: `hooks.ts` now exports `HOOK_NAMES`
 built from a record keyed by `HookName`, so adding a hook and forgetting the
 list is a compile error.
+
+### Five more enemies, and the constraint that shaped all of them
+
+The telegraph renders from the static `intent` template, not from the effects.
+So an enemy must never put a `conditional` in front of a damage number — the
+intent would show one figure and the resolver would land another, which is the
+exact failure DESIGN.md calls a P1. That ruled out the first three designs I
+liked (an enemy that hits harder if you are in the wrong stance, one that reads
+your hand size, one that scales off your Block) and it is worth writing down,
+because all three read as obviously good ideas right up until you check what
+the player would have been shown a turn earlier.
+
+What is left is still plenty: sequences, statuses, and hit shapes, all of which
+the telegraph states honestly.
+
+- **Slag Warden** (Act 1) — low damage, heavy plate, and Scald. Block covers it
+  trivially, so the pressure is entirely the gauge: sit behind plating for four
+  turns and you overheat yourself. Act 1's first enemy whose answer is not
+  "block the spike".
+- **Tally Keeper** (Act 2) — takes Alloy, not hull. Block answers everything
+  else in the game and cannot answer this, because the Alloy comes off whether
+  or not the blow lands. A clock that says "you are being charged by the turn".
+- **Splint Chorus** (Act 2) — Tempered on the whole pack. Turns arithmetic into
+  target priority, and is fragile enough that acting on it is possible.
+- **Nullwright** (Act 3) — hardens itself every other turn, so damage spread
+  thin arrives halved. The Chirality Warden punishes one enormous hit; this
+  punishes the opposite, and a build now has to answer both.
+- **Cantor of Ash** (Act 3 elite) — Scald never falls off, so an overheat build
+  fighting this is on a timer it set itself.
+
+Seven encounters seat them, because an enemy nothing puts on the board is an
+enemy that does not exist.
+
+---
+
+## The Reliquary
+
+One legendary card a run, at the exact middle of Act 2, from a vault keyed to
+the ronin's own order.
+
+**Why it is a fixed beat rather than a drop.** The top two tiers used to arrive
+by die roll, which made the best cards in the game a thing that happened *to* a
+run rather than something a run was about — and a run that never rolled one
+never had the choice at all. Worse, a legendary is by definition the card you
+build around, so handing it out at a random Act 3 reward screen delivers it
+after the deck is already finished. Halfway is the last point where a card can
+still change what the rest of the run is.
+
+**Why it is about the sect.** The ronin is the last of a dead order. The
+strongest thing the game can hand them is not a better sword, it is the part of
+their own training they were never taught — and the price is deciding, once,
+which kind of ronin they are. Four sealed forms; you open one; the other three
+stay in the box.
+
+### What it took
+
+- `MapNode.eventId` — a node can name its own Anomaly. `EventDef.pinnedOnly`
+  keeps that one out of the roll, or the vault could turn up twice in a run.
+- `MAP.reliquaryRowAt: 0.5`, Act 2 only, as a **full row** — every route
+  crosses it. A guarantee that is merely likely is not a guarantee.
+- `offerableCards` refuses legendary and artifact, and their weights are zero
+  in every act. Both halves matter: the filter is the rule, the zeroed weights
+  are the data telling the truth about it.
+- Starfall and the Vareth Hatchling demoted legendary -> epic. The Hatchling was
+  already exclusive, so it never appeared in a reward screen — but a run could
+  hold it *and* a Reliquary card, which is exactly what the gate exists to stop.
+
+### Two collisions the tests found
+
+**The Station row and the Reliquary row are the same row in Act 2.** 18 rows
+puts `stationRowAt` 0.55 and `reliquaryRowAt` 0.5 both on row 9, and whichever
+was checked first silently ate the other. The Reliquary wins the tie because
+"the exact middle" is the whole of its definition; the Station moves one row
+later, which still satisfies why the guaranteed Station exists. It now reads
+vault, then shop — which is a good sequence, since the Alloy you did not spend
+has somewhere to go immediately.
+
+**A full row of `event` nodes broke the "no two blank nodes back to back"
+guarantee.** The right fix was the rule, not the map: that test is a proxy for
+"nothing happened", and the vault is the single largest decision in the run. A
+node that pins its own Anomaly is never a blank node.
+
+The arrival text is separate too. The generic event line is written to
+undersell — "does not resolve into a shape yet" is right for something you
+rolled and wrong for the one fixed beat in the run.

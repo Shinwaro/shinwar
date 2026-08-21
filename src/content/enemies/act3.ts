@@ -20,13 +20,15 @@
  */
 
 import type { EnemyDef } from '../../engine/types.ts';
-import { SCALD, STRENGTH, VULNERABLE, WEAK } from '../statuses.ts';
+import { SCALD, STRENGTH, TEMPERED, VULNERABLE, WEAK } from '../statuses.ts';
 
 export const CHIRALITY_WARDEN = 'chirality_warden';
 export const HEAT_SIPHON = 'heat_siphon';
 export const NULL_PRISM = 'null_prism';
 export const TESSELLATE_SHARD = 'tessellate_shard';
 export const RIMEWAKE = 'rimewake';
+export const NULLWRIGHT = 'nullwright';
+export const CANTOR_OF_ASH = 'cantor_of_ash';
 
 export const MIRROR_RONIN = 'mirror_ronin';
 export const COLLAPSE_CHOIR = 'collapse_choir';
@@ -359,5 +361,99 @@ export const ACT3_ENEMIES: readonly EnemyDef[] = [
     ],
     script: { kind: 'sequence', moves: ['tidal', 'accretion', 'crossing', 'silence'] },
     flavor: 'Not a thing that arrived. A place the frontier finished falling into.',
+  },
+
+/* ---- the second batch ----
+
+   Written to one constraint that shapes every enemy in the game and is easy to
+   forget: **the telegraph is rendered from the static `intent` template**, not
+   from the effects. So an enemy must never put a `conditional` in front of a
+   damage number — the intent would show one figure and the resolver would land
+   another, which is the exact failure DESIGN.md calls a P1. Variety here comes
+   from move sequences, statuses and hit shapes, all of which the telegraph can
+   state honestly a turn ahead.
+*/
+
+  {
+    /* The counter to a slow deck, stated as a race.
+
+       It hardens itself every other turn, so damage spread thinly over many
+       turns arrives halved and damage delivered in one turn does not. The
+       Chirality Warden punishes one enormous hit; this punishes the opposite,
+       and a build has to answer both. */
+    id: NULLWRIGHT,
+    name: 'Nullwright',
+    maxHp: 58,
+    act: 3,
+    tier: 'normal',
+    moves: [
+      {
+        id: 'anneal',
+        label: 'Anneal',
+        intent: [{ kind: 'buff', amount: 2, times: 1, label: 'Tempered 2' }],
+        effects: [{ op: 'applyStatus', status: TEMPERED, stacks: 2, target: 'self' }],
+      },
+      {
+        id: 'unwrite',
+        label: 'Unwrite',
+        intent: [
+          { kind: 'attack', amount: 13, times: 1, label: 'Unwrite' },
+          { kind: 'debuff', amount: 1, times: 1, label: 'Weak 1' },
+        ],
+        effects: [
+          { op: 'damage', amount: 13, target: 'enemy' },
+          { op: 'applyStatus', status: WEAK, stacks: 1, target: 'enemy' },
+        ],
+      },
+    ],
+    script: { kind: 'sequence', moves: ['anneal', 'unwrite'] },
+    flavor: 'Whatever you did to it, it is deciding that you did not.',
+  },
+
+  {
+    /* Act 3's third elite, and the one that comes for the gauge.
+
+       Scald stacks never fall off, so an overheat build fighting this is on a
+       timer it set itself. Everything else it does is honest damage — the trap
+       is entirely the choice to keep riding the line. */
+    id: CANTOR_OF_ASH,
+    name: 'Cantor of Ash',
+    maxHp: 104,
+    act: 3,
+    tier: 'elite',
+    moves: [
+      {
+        id: 'invocation',
+        label: 'Invocation',
+        intent: [
+          { kind: 'debuff', amount: 2, times: 1, label: 'Scald 2' },
+          { kind: 'debuff', amount: 2, times: 1, label: 'Vulnerable 2' },
+        ],
+        effects: [
+          { op: 'applyStatus', status: SCALD, stacks: 2, target: 'enemy' },
+          { op: 'applyStatus', status: VULNERABLE, stacks: 2, target: 'enemy' },
+        ],
+      },
+      {
+        id: 'antiphon',
+        label: 'Antiphon',
+        intent: [{ kind: 'attack', amount: 9, times: 3, label: 'Antiphon' }],
+        effects: [{ op: 'damage', amount: 9, target: 'enemy', times: 3 }],
+      },
+      {
+        id: 'benediction',
+        label: 'Benediction',
+        intent: [
+          { kind: 'attack', amount: 24, times: 1, label: 'Benediction' },
+          { kind: 'buff', amount: 3, times: 1, label: 'Strength +3' },
+        ],
+        effects: [
+          { op: 'damage', amount: 24, target: 'enemy' },
+          { op: 'applyStatus', status: STRENGTH, stacks: 3, target: 'self' },
+        ],
+      },
+    ],
+    script: { kind: 'sequence', moves: ['invocation', 'antiphon', 'benediction'] },
+    flavor: 'It is reading your order’s rites back to you and getting them slightly wrong.',
   },
 ];

@@ -113,7 +113,10 @@ export const NEUTRAL_CARDS: readonly CardDef[] = [
     id: 'starfall',
     name: 'Starfall',
     type: 'attack',
-    rarity: 'legendary',
+    // Epic, not legendary: the top two tiers are the Reliquary's four and
+    // nothing else, or "one legendary a run" is not a rule. Starfall is an
+    // exhausting 2-cost AoE, which is where epic already sits.
+    rarity: 'epic',
     archetype: 'neutral',
     cost: 2,
     exhaust: true,
