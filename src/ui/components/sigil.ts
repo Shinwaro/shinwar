@@ -42,16 +42,29 @@ interface Plot {
 /* Hand-plotted. The numbers matter to each other, not to anything else — if
    these need to be bigger, scale the SVG rather than re-plotting them. */
 const PLOTS: { readonly [id in StanceId]: Plot } = {
-  /* A strike leaving the box. Every line is straight and every corner is
-     sharp, and the point is off the edge — this is the stance that spends. */
+  /* A strike leaving the box, crossed by the sword that makes it.
+  
+     The arrow and the blade meet at dead centre (50,50) — the arrow runs
+     lower-left to upper-right and the sword upper-left to lower-right, so the
+     X is square rather than lopsided. The crossguard is what stops the second
+     stroke reading as a second arrow.
+     
+     No heat arrow on this one. The X is already two strokes and a guard, and a
+     third symbol at 38 pixels turns a mark into a scribble — the cost is that
+     IAI no longer shows its Heat rise, which the stance text beside it still
+     states in words. */
   iai: {
     form: [
-      // The blade, lower-left to upper-right, running past the corner.
+      // The arrow, lower-left to upper-right, running past the corner.
       'M14 86 L82 18',
-      // The head, opened back from the point.
+      // Its head, opened back from the point.
       'M58 18 L84 16 L82 42',
+      // The sword, hilt at the upper left, point down past the far corner.
+      'M22 22 L86 86',
+      // The crossguard, square across the blade at the hilt.
+      'M17 35 L35 17',
     ],
-    heat: 'up',
+    heat: null,
   },
   /* A wall that stays. Closed, symmetrical, and the only curves in the set —
      nothing here is going anywhere. */
