@@ -2351,3 +2351,27 @@ until the player comes back. Harmless — they complete on return — but it is 
 `clearFloaters` became `clearEffects` and is called on unmount. A number still
 rising over a finished fight is litter; a full-size card ghost is more than
 that.
+
+### A card drawn by a card was animating, and nobody could see it
+
+Reported as "it just pops up like before". It was not popping — the animation
+fired correctly every time, from the right place, on the right node. It started
+on the same frame as the played card's flight, ran 280ms, and was finished long
+before the 470ms play was. Your eye is on the card leaving; by the time it comes
+back the new card has already arrived and settled.
+
+Worth recording because the instinct was to look for a missing animation, and
+there wasn't one. Three separate probes said it was working: the WAAPI call was
+made, the node kept its identity across the render, and the keyframes read
+`translate3d(-432px, 170px) scale(0.18)` to zero. The bug was entirely in *when*.
+
+A card drawn by a card now waits until the card that drew it is most of the way
+to the pile. That also puts the two events in the order they actually happened,
+which is the better reason to do it.
+
+### Where it went and why it went are different facts
+
+Folding them into one enum meant Second Wind — played *and* exhausting — flew to
+the exhaust pile without the beat that says you chose it, so a card you spent a
+turn on looked exactly like one swept up at the end of it. `CardExit` is now a
+pile plus a `played` flag, and the ghost carries a class for each.

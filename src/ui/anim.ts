@@ -243,7 +243,21 @@ const CARD_STAGGER_MS = 45;
 /** Arriving cards. Slightly quicker than leaving — you want to read them. */
 const CARD_DEAL_MS = 280;
 
-export type CardExit = 'play' | 'discard' | 'exhaust';
+/** Which pile a card is flying to. Where it went, not why. */
+export type CardPile = 'discard' | 'exhaust';
+
+/**
+ * Why it left, which is a separate fact from where it landed.
+ *
+ * Second Wind is played *and* exhausts. Folding the two into one enum meant it
+ * flew to the exhaust pile without the beat that says you chose it — so the
+ * card you spent a turn on looked exactly like one swept up at the end of it.
+ */
+export interface CardExit {
+  readonly pile: CardPile;
+  /** The player chose this one. It holds and brightens before it goes. */
+  readonly played: boolean;
+}
 
 function centreOf(rect: DOMRect): { readonly x: number; readonly y: number } {
   return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
@@ -259,13 +273,14 @@ export function flyCardOut(
   node: HTMLElement,
   from: DOMRect,
   to: DOMRect,
-  kind: CardExit,
+  exit: CardExit,
   delay: number,
 ): void {
   if (prefersReducedMotion()) return;
   if (from.width === 0 || to.width === 0) return;
 
-  node.classList.add(CARD_FX_CLASS, `${CARD_FX_CLASS}--${kind}`);
+  node.classList.add(CARD_FX_CLASS, `${CARD_FX_CLASS}--${exit.pile}`);
+  if (exit.played) node.classList.add(`${CARD_FX_CLASS}--play`);
   node.style.left = `${from.left}px`;
   node.style.top = `${from.top}px`;
   node.style.width = `${from.width}px`;
@@ -280,7 +295,7 @@ export function flyCardOut(
   /* A played card holds for a beat first — it lifts and brightens where it
      was, and only then goes to the pile. Without that, playing a card and
      discarding a card look identical, and the one you chose should not. */
-  const held = kind === 'play';
+  const held = exit.played;
   const frames: Keyframe[] = held
     ? [
         { offset: 0, transform: 'translate3d(0,0,0) scale(1)', opacity: 1, filter: 'brightness(1)' },
@@ -353,6 +368,23 @@ export function dealCardIn(node: HTMLElement, from: DOMRect, delay: number): voi
 /** Spacing for a batch — a whole hand discarded should read as several cards. */
 export function cardStagger(index: number): number {
   return index * CARD_STAGGER_MS;
+}
+
+/**
+ * How long a card drawn BY a card waits before it deals in.
+ *
+ * Without this the deal starts on the same frame as the played card's flight,
+ * runs for 280ms, and is finished long before the 470ms play is — so the card
+ * never appears to move. It is not that it pops; it is that your eye is on the
+ * card leaving and the new one has already arrived and settled by the time you
+ * look back.
+ *
+ * Waiting until the played card is most of the way to the pile also puts the
+ * two events in the order they actually happened: the card that drew it goes
+ * first, and then the card it drew turns up. Causality, made visible.
+ */
+export function cardDealAfterPlay(): number {
+  return CARD_PLAY_HOLD_MS + Math.round(CARD_FLY_MS * 0.55);
 }
 
 /** How long a batch of exits occupies, so the caller can wait it out. */

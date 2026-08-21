@@ -39,6 +39,7 @@ import { envGetString } from '../../engine/combat/rules.ts';
 import { renderLog, scrollLogToEnd } from '../components/log.ts';
 import { bindCombatKeys } from '../input.ts';
 import {
+  cardDealAfterPlay,
   cardExitDuration,
   cardStagger,
   clearEffects,
@@ -47,7 +48,7 @@ import {
   playLogFx,
   prefersReducedMotion,
   setBarFill,
-  type CardExit,
+  type CardPile,
 } from '../anim.ts';
 import { combatInfo, renderInfoPanel } from '../components/info.ts';
 
@@ -624,12 +625,11 @@ function captureHand(host: HTMLElement): Map<string, HeldCard> {
   return held;
 }
 
-/** Where a card that left the hand actually ended up. */
-function exitFor(state: GameState, uid: string, playedUid: string | null): CardExit | null {
+/** Which pile a card that left the hand actually landed in. */
+function pileFor(state: GameState, uid: string): CardPile | null {
   const combat = state.run?.combat ?? null;
   if (combat === null) return null;
   if (combat.exhaust.some((card) => card.uid === uid)) return 'exhaust';
-  if (uid === playedUid) return 'play';
   if (combat.discard.some((card) => card.uid === uid)) return 'discard';
   // Back in the draw pile — a shuffle, not a journey. Nothing to show.
   return null;
@@ -670,24 +670,27 @@ function animateHand(
   for (const [uid, card] of before) {
     if (now.has(uid)) continue;
 
-    const exit = exitFor(state, uid, playedUid);
-    if (exit === null) {
+    const pile = pileFor(state, uid);
+    if (pile === null) {
       card.node.remove();
       continue;
     }
 
-    const target = exit === 'exhaust' ? exhaust : discard;
+    const target = pile === 'exhaust' ? exhaust : discard;
     if (target === null) {
       card.node.remove();
       continue;
     }
 
+    /* Where it went and why it went are separate: Second Wind is played AND
+       exhausts, and it should still read as the card you chose. */
+    const played = uid === playedUid;
     // The played card goes first and alone; a discarded hand staggers.
-    const delay = exit === 'play' ? 0 : cardStagger(index);
-    if (exit === 'play') held = true;
+    const delay = played ? 0 : cardStagger(index);
+    if (played) held = true;
     else index += 1;
 
-    flyCardOut(card.node, card.rect, target, exit, delay);
+    flyCardOut(card.node, card.rect, target, { pile, played }, delay);
   }
 
   /* ---- arriving ----
@@ -703,14 +706,16 @@ function animateHand(
 
      Leaving cards do not need this: their rects were measured before the
      render, while they were still on screen. */
+  const dealFrom = held ? cardDealAfterPlay() : 0;
   whenMeasurable(host, () => {
     const pile = host.querySelector<HTMLElement>('.pile[data-pile="draw"]')?.getBoundingClientRect();
     if (pile === undefined) return;
-    arrived.forEach((node, slot) => dealCardIn(node, pile, cardStagger(slot)));
+    arrived.forEach((node, slot) => dealCardIn(node, pile, dealFrom + cardStagger(slot)));
   });
 
   const exits = index + (held ? 1 : 0);
-  return Math.max(cardExitDuration(exits, held), arrived.length === 0 ? 0 : cardStagger(arrived.length - 1));
+  const dealing = arrived.length === 0 ? 0 : dealFrom + cardStagger(arrived.length - 1);
+  return Math.max(cardExitDuration(exits, held), dealing);
 }
 
 /** `data-pile` is how a card in flight finds where it is going. */
