@@ -522,7 +522,7 @@ function buildDeckList(
         sorted.map((card) =>
           renderCardFace(definitionOf(card), {
             state,
-            badge: card.upgraded ? 'Forged' : null,
+            badge: card.upgraded ? 'Upgraded' : null,
             changedVs: null,
             extraClass: null,
           }),

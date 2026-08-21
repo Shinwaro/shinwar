@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest';
 import type { StanceId, StatusStack } from '../src/engine/types.ts';
 import { PLAYER, computeDamage, enemyTarget, previewDamage } from '../src/engine/combat/damage.ts';
 import { previewCard } from '../src/engine/combat/preview.ts';
-import { damageFigures } from '../src/engine/combat/describe.ts';
+import { blockFigures, damageFigures } from '../src/engine/combat/describe.ts';
 import { cards as cardTable } from '../src/content/registry.ts';
 import { playCard } from '../src/engine/combat/combat.ts';
 import { FOCUS_DAMAGE_PER_STACK, STANCES } from '../src/content/balance.ts';
@@ -305,6 +305,38 @@ describe('the figures printed on a card', () => {
     // Reward screens and the deck list render cards outside combat.
     const figures = damageFigures(9, cardTable.get(IAI_SLASH), null);
     expect(figures).toEqual({ shown: 9, hot: 0, focus: 0 });
+  });
+});
+
+describe('the Block figure printed on a card', () => {
+  /* GUARD spends Focus on Block exactly as IAI spends it on damage, and the
+     card face was only saying so on one of the two — a player in GUARD holding
+     Focus had no way to know their 6-Block card was about to be an 8 except by
+     playing it. Same property as the damage side: shown + focus is what lands. */
+  const cases = [
+    { name: 'GUARD, no Focus', stance: 'guard' as const, focus: 0 },
+    { name: 'GUARD holding Focus', stance: 'guard' as const, focus: 3 },
+    // IAI spends Focus on damage, so a Block card must advertise nothing.
+    { name: 'IAI holding Focus', stance: 'iai' as const, focus: 3 },
+  ];
+
+  for (const entry of cases) {
+    it(`agrees with what is gained — ${entry.name}`, () => {
+      const state = makeFight({
+        stance: entry.stance,
+        focus: entry.focus,
+        hand: [SOLAR_PARRY],
+        enemyHp: 999,
+      });
+      const figures = blockFigures(6, cardTable.get(SOLAR_PARRY), state);
+      const after = playCard(state, handCard(state, 0).uid, firstEnemy(state).uid);
+      expect(figures.shown + figures.focus, entry.name).toBe(combatOf(after).block);
+    });
+  }
+
+  it('never claims a hot bonus — no stance adds flat Block over a Heat line', () => {
+    const state = makeFight({ stance: 'guard', heat: 9, focus: 2 });
+    expect(blockFigures(6, cardTable.get(SOLAR_PARRY), state).hot).toBe(0);
   });
 });
 

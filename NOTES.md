@@ -2555,3 +2555,46 @@ A fade, one line, and it takes itself back to the title after 3.2s. Nothing to
 click: the practice is over and the run is the point, so anything asking to be
 clicked would be one more thing between the player and it. The timer is
 presentation only and is cleared on unmount.
+
+### The forge panel's own fix had been overridden by a copy of itself
+
+Reported as the panel moving things around while the pointer travelled between
+cards. There were **two** `.forge-preview` blocks in game.css, and the later one
+— added when the preview was first built — overrode `flex-wrap: nowrap` and
+`min-height: 15rem` on the earlier one. Those two properties are the entire fix
+for "the panel used to resize with whatever card was under the pointer, which
+made the whole list jump under your hand", and there is a comment above them
+saying exactly that.
+
+So the fix was written, and then a duplicate quietly undid it. Deleted the
+duplicate, kept `.forge-side` (which only it defined), and moved the margin onto
+the surviving rule.
+
+Worth watching for: this file is long enough that a second block with the same
+selector is easy to add and impossible to see. Two rules for one selector is
+almost always one of them losing.
+
+### Forged is a place; upgraded is a state
+
+"Forged" on a card badge read as though the card belonged to a shop. The Forge
+is where upgrading happens; the card is upgraded. One word now, everywhere — the
+badge, the station heading, the run log, and the epilogue, which had been using
+a third word ("honed") for the same thing.
+
+### GUARD was only telling half the Focus story
+
+IAI showed the damage a stack would add; GUARD showed nothing, so a player
+holding Focus had no way to know their 6-Block card was about to be an 8 except
+by playing it. `blockFigures` mirrors `damageFigures` and reads the same
+`liveStance` the resolver does, with a test asserting `shown + focus` is what
+actually lands.
+
+There is no hot term on that side, and the test says so: no stance adds flat
+Block over a Heat line, so a Block figure claiming one would be inventing a rule.
+
+### The Heat lesson needed a card that keeps its Heat
+
+Sever was the obvious pick for "a two-cost card that builds Heat" and the wrong
+one: its GUARD rider vents 2 of the 3 it gains, so the lesson about Heat ended
+with the gauge reading 1 and nothing to look at. Thermal Lance adds 2 and leaves
+them. The hauler drops to 26 to match the smaller hit.

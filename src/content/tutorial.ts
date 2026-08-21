@@ -31,7 +31,7 @@ export const TUTORIAL_ENEMIES: readonly EnemyDef[] = [
        inside it — 28 means turn one's scripted Sever takes half of it and turn
        two's hand finishes the job with room to spare. A tutorial that outlasts
        its own explanation is a tutorial nobody completes. */
-    maxHp: 28,
+    maxHp: 26,
     act: 1,
     tier: 'normal',
     /* A three-beat cycle you can learn inside one fight: a small hit, a
@@ -82,9 +82,14 @@ export const TUTORIAL_ENEMIES: readonly EnemyDef[] = [
  * a test for exactly that.
  */
 export const TUTORIAL_DECK: readonly string[] = [
-  // Turn one. Solar Shield is the Block lesson, Sever the Heat lesson.
+  /* Turn one. Solar Shield is the Block lesson, Thermal Lance the Heat one.
+
+     Not Sever, which was the obvious pick and the wrong one: its GUARD rider
+     vents 2 of the 3 Heat it gains, so the lesson about Heat ended with the
+     gauge reading 1 and nothing to look at. Thermal Lance adds 2 and keeps
+     them. */
   'solar_parry',
-  'sever',
+  'thermal_lance',
   'iai_slash',
   'bulwark',
   'vector_step',
@@ -97,7 +102,7 @@ export const TUTORIAL_DECK: readonly string[] = [
   'bulwark',
 
   // Slack, in case a fight runs long. Never reached by the script.
-  'iai_slash',
+  'sever',
   'solar_parry',
   'kindled_edge',
   'measured_draw',
@@ -111,5 +116,5 @@ export const TUTORIAL_DECK: readonly string[] = [
 
 /** The cards the lesson names. Exported so a test can pin them to the hand. */
 export const TUTORIAL_BLOCK_CARD = 'solar_parry';
-export const TUTORIAL_HEAT_CARD = 'sever';
+export const TUTORIAL_HEAT_CARD = 'thermal_lance';
 export const TUTORIAL_FOCUS_CARD = 'measured_draw';

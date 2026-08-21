@@ -575,7 +575,7 @@ export function safePlanetUpgrade(state: GameState, cardUid: string): GameState 
   return appendLog(next, {
     source: 'safe',
     kind: 'run',
-    text: `Forged ${cardTable.find(card.defId)?.name ?? card.defId}.`,
+    text: `Upgraded ${cardTable.find(card.defId)?.name ?? card.defId}.`,
     detail: { card: card.defId },
   });
 }

@@ -81,7 +81,7 @@ const STEPS: readonly Step[] = [
   },
   {
     title: 'Now something that costs',
-    body: 'Play Sever. Two Energy and fourteen damage — and it puts Heat on the reactor.',
+    body: 'Play Thermal Lance. Two Energy, twelve damage — and it puts two Heat on the reactor and leaves it there.',
     targets: aim(TUTORIAL_HEAT_CARD),
     done: (state) => played(state, TUTORIAL_HEAT_CARD),
   },

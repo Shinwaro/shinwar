@@ -302,9 +302,39 @@ export function damageFigures(
   return { shown: amount + hot, hot, focus };
 }
 
+/**
+ * The same, for Block.
+ *
+ * GUARD spends Focus on Block exactly as IAI spends it on damage, and the card
+ * face was only saying so on one of the two. A player in GUARD holding Focus
+ * had no way to know their 6-Block card was about to be an 8 except by playing
+ * it, which is the sort of thing that makes a stance feel like it does nothing.
+ *
+ * There is no hot bonus on this side — no stance adds flat Block over a Heat
+ * line — so `shown` is always the card's own number and only the Focus term
+ * moves.
+ */
+export function blockFigures(
+  amount: number,
+  def: CardDef,
+  state: GameState | null,
+): DamageFigures {
+  const combat = state === null ? null : activeCombat(state);
+  if (state === null || combat === null) return { shown: amount, hot: 0, focus: 0 };
+
+  const stance = liveStance(state);
+  const focus =
+    stance.focusMode === 'block' && combat.focus > 0 && def.keepsFocus !== true
+      ? stance.focusPerStack
+      : 0;
+
+  return { shown: amount, hot: 0, focus };
+}
+
 export type CardSegment =
   | { readonly kind: 'text'; readonly text: string }
-  | { readonly kind: 'damage'; readonly figures: DamageFigures };
+  | { readonly kind: 'damage'; readonly figures: DamageFigures }
+  | { readonly kind: 'block'; readonly figures: DamageFigures };
 
 /**
  * The card's text, split so the UI can style the numbers that move.
@@ -332,6 +362,13 @@ export function describeCardSegments(
         text: ` damage${times > 1 ? ` ${times} times` : ''}${targetSuffix(op.target)}. `,
       });
       afterDamage = true;
+      continue;
+    }
+
+    if (op.op === 'block') {
+      out.push({ kind: 'text', text: 'Gain ' });
+      out.push({ kind: 'block', figures: blockFigures(op.amount, def, state) });
+      out.push({ kind: 'text', text: ' Block. ' });
       continue;
     }
     out.push({ kind: 'text', text: `${describeOp(op, state, afterDamage)} ` });

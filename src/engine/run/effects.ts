@@ -131,7 +131,7 @@ function applyOne(state: GameState, effect: RunEffect, source: string): Single {
             },
           })),
           source,
-          `Forged ${name}.`,
+          `Upgraded ${name}.`,
         ),
         line: `${name} is forged.`,
       };

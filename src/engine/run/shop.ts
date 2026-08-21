@@ -251,7 +251,7 @@ export function buyForge(state: GameState, cardUid: string): GameState {
   return appendLog(next, {
     source: 'station',
     kind: 'run',
-    text: `Forged ${name} for ${shop.forgePrice} Alloy.`,
+    text: `Upgraded ${name} for ${shop.forgePrice} Alloy.`,
     detail: { card: card.defId, cost: shop.forgePrice },
   });
 }

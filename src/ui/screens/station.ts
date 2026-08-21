@@ -319,10 +319,10 @@ function buildPicker(store: Store, state: GameState, local: Local, redraw: () =>
           ]),
           el('div', { class: 'forge-arrow', 'aria-hidden': 'true' }, ['→']),
           el('div', { class: 'forge-side' }, [
-            el('h2', { class: 'pause-heading' }, ['Forged']),
+            el('h2', { class: 'pause-heading' }, ['Upgraded']),
             renderCardFace(definitionOf({ ...chosen, upgraded: true }), {
               state,
-              badge: 'Forged',
+              badge: 'Upgraded',
               changedVs: definitionOf(chosen),
               extraClass: null,
             }),

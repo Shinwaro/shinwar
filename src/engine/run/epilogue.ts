@@ -267,7 +267,7 @@ function shipParagraph(run: RunState): string | null {
   }
 
   const deck = `${plural(pilot.deck.length, 'card', 'cards')}${
-    upgraded === 0 ? ', none of them honed' : `, ${upgraded} honed`
+    upgraded === 0 ? ', none of them upgraded' : `, ${upgraded} upgraded`
   }`;
 
   // Semicolons, not "and". Each entry already contains an em-dash sublist that
@@ -331,7 +331,7 @@ function ledgerFor(run: RunState): readonly LedgerEntry[] {
     { label: 'Reached', value: place === null ? `Act ${run.act}` : `Act ${run.act} — ${place}` },
     { label: 'Places', value: String(run.visited.length) },
     { label: 'Health', value: `${pilot.health} / ${pilot.maxHealth}` },
-    { label: 'Deck', value: `${pilot.deck.length} cards, ${upgraded} honed` },
+    { label: 'Deck', value: `${pilot.deck.length} cards, ${upgraded} upgraded` },
     { label: 'Alloy', value: String(run.alloy) },
     { label: 'Relics', value: pilot.relics.length === 0 ? '—' : String(pilot.relics.length) },
     { label: 'Implants', value: pilot.implants.length === 0 ? '—' : String(pilot.implants.length) },
