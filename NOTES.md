@@ -2598,3 +2598,46 @@ Sever was the obvious pick for "a two-cost card that builds Heat" and the wrong
 one: its GUARD rider vents 2 of the 3 it gains, so the lesson about Heat ended
 with the gauge reading 1 and nothing to look at. Thermal Lance adds 2 and leaves
 them. The hauler drops to 26 to match the smaller hit.
+
+### A card dealt at 0 Energy looked playable for a second
+
+`dealCardIn` finished with `fill: 'both'`, which holds the LAST keyframe on the
+element after the animation ends — and the last keyframe is `opacity: 1`. That
+then beat `.card.is-unplayable { opacity: 0.45 }` until the next render replaced
+the node, so a card you could not afford arrived looking affordable.
+
+`backwards` instead: still holds the FIRST keyframe through the delay, so a
+staggered deal does not flash at full opacity before its turn, and hands the
+element back to CSS the moment it is done. Worth remembering generally — `both`
+on any animation that touches a property CSS also owns is a silent override
+with no end.
+
+### The coach was dimming the things it was pointing at
+
+Each ring carried its own `box-shadow: 0 0 0 9999px` — which darkens everything
+outside *itself*. Perfect for one target; wrong the moment there were two,
+because ring A dimmed the inside of ring B and vice versa. Every step that asks
+the player to do something rings a card AND its target, so every one of those
+steps greyed out both of the things it was talking about.
+
+One dimming layer now, with a hole cut per target via `clip-path: path(evenodd,
+…)` — one subpath around the viewport, then one per hole. Behind `@supports`,
+because without `path()` the layer would cover the very thing it means to
+reveal, and no dim at all is a fine degradation.
+
+### And it was ringing the deck instead of the card
+
+`getBoundingClientRect` includes transforms, so a card still dealing in measures
+as its *animation*: scaled to 0.18 and sitting on the deck pile. The step that
+says "play Measured Draw" was ringing a 36x40 box in the corner, which reads
+exactly like the game pointing at the deck.
+
+Waiting for the animation to finish was the obvious fix and the wrong one — the
+document timeline freezes while a tab is hidden, so `finished` may not resolve
+for minutes and the ring would simply never appear. (Verified: the wait version
+still measured the animated box in a hidden pane.) `layoutRect` reads
+`offsetLeft`/`offsetTop`/`offsetWidth` instead, which transforms do not touch
+and which are correct immediately, whatever is moving.
+
+The lesson is the same one as the flying cards, from the other side: a rect read
+during an animation is the animation's rect, not the element's.

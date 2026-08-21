@@ -361,7 +361,19 @@ export function dealCardIn(node: HTMLElement, from: DOMRect, delay: number): voi
       },
       { offset: 1, transform: 'translate3d(0,0,0) scale(1)', opacity: 1 },
     ],
-    { duration: CARD_DEAL_MS, delay, easing: 'cubic-bezier(.2,.7,.3,1)', fill: 'both' },
+    /* `backwards`, never `both`.
+     *
+     * `both` holds the LAST keyframe on the element after the animation ends —
+     * and the last keyframe here is `opacity: 1`, which then beats
+     * `.card.is-unplayable { opacity: 0.45 }` until the next render replaces
+     * the node. A card drawn at 0 Energy looked playable for the better part of
+     * a second, which is worse than no animation: it is the card lying about
+     * whether you can play it.
+     *
+     * `backwards` still holds the FIRST keyframe through the delay, so a
+     * staggered deal does not flash at full opacity before its turn — and hands
+     * the element back to CSS the moment it is done. */
+    { duration: CARD_DEAL_MS, delay, easing: 'cubic-bezier(.2,.7,.3,1)', fill: 'backwards' },
   );
 }
 

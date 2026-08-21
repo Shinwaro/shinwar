@@ -87,10 +87,9 @@ export function renderCarried(state: GameState): HTMLElement | null {
      up and wrong for a thing you need to REMEMBER. The whole reason this rail
      exists is that "every attack deals 2 more" changes how you read your hand,
      and a reminder you have to go and ask for is not a reminder. */
-  return el(
-    'aside',
-    { class: 'carried', 'aria-label': 'What you are carrying' },
-    carried.map((entry) =>
+  return el('aside', { class: 'carried', 'aria-label': 'What you are carrying' }, [
+    el('h2', { class: 'carried-head' }, ['Carrying']),
+    ...carried.map((entry) =>
       el('div', { class: `carried-row carried-row--${entry.kind}` }, [
         el('span', { class: 'carried-name' }, [
           entry.count > 1 ? `${entry.name} x${entry.count}` : entry.name,
@@ -98,5 +97,5 @@ export function renderCarried(state: GameState): HTMLElement | null {
         el('span', { class: 'carried-text' }, [entry.text]),
       ]),
     ),
-  );
+  ]);
 }

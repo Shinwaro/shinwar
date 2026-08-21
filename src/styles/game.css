@@ -2787,6 +2787,17 @@
   overflow-y: auto;
 }
 
+/* Named, so the column is not three unexplained boxes. Quiet — it is a label
+   for a thing you already recognise, not a section that needs announcing. */
+.carried-head {
+  margin: 0 0 0.1rem;
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
 .carried-row {
   display: grid;
   gap: 0.1rem;
@@ -2857,15 +2868,34 @@
   pointer-events: none;
 }
 
-/* Drawn with an enormous spread shadow rather than four dimming panels: one
-   element, no seams, and the hole is exactly the target's rectangle. */
+/* One dimming layer for the whole screen, with a hole cut per target.
+   
+   It used to be a spread shadow on each ring, which is fine for one target and
+   wrong for two: each ring's shadow darkens everything outside itself, so two
+   rings dimmed each other's contents. Every step that points at a card AND its
+   target had both of them greyed out.
+   
+   Behind `@supports`, because without `path()` the layer would cover the very
+   thing it is meant to reveal. No dim at all is a fine degradation — the rings
+   still say where to look. */
+.coach-dim {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: transparent;
+}
+
+@supports (clip-path: path(evenodd, "M0 0 H1 V1 H0 Z")) {
+  .coach-dim {
+    background: rgba(5, 5, 7, 0.62);
+  }
+}
+
 .coach-ring {
   position: fixed;
   border: 2px solid var(--accent);
   border-radius: var(--radius-sm);
-  box-shadow:
-    0 0 0 9999px rgba(5, 5, 7, 0.62),
-    0 0 22px rgba(232, 168, 124, 0.45);
+  box-shadow: 0 0 22px rgba(232, 168, 124, 0.45);
   pointer-events: none;
   transition: all 0.18s cubic-bezier(0.2, 0.7, 0.3, 1);
 }

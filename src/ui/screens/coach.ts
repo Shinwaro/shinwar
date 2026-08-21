@@ -41,6 +41,39 @@ interface Step {
   readonly next?: string;
 }
 
+/**
+ * Where an element *sits*, ignoring anything currently moving it.
+ *
+ * `getBoundingClientRect` includes transforms, so a card still dealing in
+ * measures as its animation: scaled to 0.18 and sitting on the deck pile. The
+ * step that says "play Measured Draw" was therefore ringing a 36x40 box in the
+ * corner, which reads as the game pointing at the deck.
+ *
+ * Waiting for the animation to finish was the obvious fix and the wrong one —
+ * the document timeline freezes while a tab is hidden, so `finished` may not
+ * resolve for minutes and the ring would simply never appear. Layout offsets
+ * are unaffected by transforms and are correct immediately, whatever is moving.
+ *
+ * Falls back to the visual rect for positioned elements with no offset parent
+ * (the fixed corner rail), where the two agree anyway because nothing animates
+ * them.
+ */
+function layoutRect(node: Element): DOMRect {
+  const visual = node.getBoundingClientRect();
+  if (!(node instanceof HTMLElement)) return visual;
+
+  const parent = node.offsetParent;
+  if (!(parent instanceof HTMLElement)) return visual;
+
+  const base = parent.getBoundingClientRect();
+  const style = getComputedStyle(parent);
+  // `offsetLeft` is measured from the parent's PADDING box; the rect is its
+  // border box. Without the border widths the ring drifts by the frame.
+  const left = base.left + parseFloat(style.borderLeftWidth || '0') + node.offsetLeft;
+  const top = base.top + parseFloat(style.borderTopWidth || '0') + node.offsetTop;
+  return new DOMRect(left, top, node.offsetWidth, node.offsetHeight);
+}
+
 /** Has this card left the hand for good this fight? */
 function played(state: GameState, cardId: string): boolean {
   const combat = state.run?.combat;
@@ -143,17 +176,49 @@ export function renderCoach(store: Store, onDone: () => void): HTMLElement {
       return;
     }
 
-    /* Rings are drawn from each target's own rectangle, read fresh every time.
+    /* Rings are drawn from each target's LAYOUT box, read fresh every time.
        The screen underneath is rebuilt between renders, so a remembered rect
        belongs to a node that no longer exists. */
     const boxes = step.targets
-      .map((selector) => document.querySelector(selector)?.getBoundingClientRect() ?? null)
+      .map((selector) => document.querySelector(selector))
+      .map((node) => (node === null ? null : layoutRect(node)))
       .filter((box): box is DOMRect => box !== null && box.width > 0);
+
+    /* One dimming layer with a hole cut for every target, rather than a ring
+       per target carrying its own enormous spread shadow.
+
+       The spread-shadow version worked perfectly for one target and was wrong
+       the moment there were two: each ring's shadow darkens everything outside
+       ITSELF, so ring A dimmed the inside of ring B and vice versa. Every step
+       that pointed at a card and its target — which is every step that asks the
+       player to do something — had both of the things it was pointing at greyed
+       out.
+
+       `path(evenodd, …)` is one subpath around the viewport followed by one per
+       hole; the even-odd rule turns the inner ones into holes. */
+    const pad = 6;
+    const holes = boxes
+      .map((box) => {
+        const x = Math.round(box.left - pad);
+        const y = Math.round(box.top - pad);
+        const right = Math.round(box.right + pad);
+        const bottom = Math.round(box.bottom + pad);
+        return `M${x} ${y} H${right} V${bottom} H${x} Z`;
+      })
+      .join(' ');
+
+    const dim =
+      boxes.length === 0
+        ? el('div', { class: 'coach-dim' })
+        : el('div', {
+            class: 'coach-dim',
+            style: `clip-path: path(evenodd, "M0 0 H${Math.round(window.innerWidth)} V${Math.round(window.innerHeight)} H0 Z ${holes}")`,
+          });
 
     const rings = boxes.map((box) =>
       el('div', {
         class: 'coach-ring',
-        style: `left:${box.left - 6}px;top:${box.top - 6}px;width:${box.width + 12}px;height:${box.height + 12}px`,
+        style: `left:${box.left - pad}px;top:${box.top - pad}px;width:${box.width + pad * 2}px;height:${box.height + pad * 2}px`,
       }),
     );
 
@@ -194,7 +259,7 @@ export function renderCoach(store: Store, onDone: () => void): HTMLElement {
       ],
     );
 
-    host.replaceChildren(...rings, card);
+    host.replaceChildren(dim, ...rings, card);
   }
 
   /* Re-measure and re-check on every state change: that is precisely when the
