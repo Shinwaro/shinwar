@@ -107,6 +107,16 @@ const STEPS: readonly Step[] = [
     done: (state) => played(state, TUTORIAL_BLOCK_CARD),
   },
   {
+    /* The payoff for the step above, given its own beat.
+       Playing the card and reading what it did are two different moments, and
+       folding them into one meant the number appeared while the player was
+       still looking at their hand. */
+    title: 'There it is',
+    body: 'Six Block, sitting above your health. The hauler swings for six at the end of this turn — that is the whole of it absorbed, and nothing reaches you.',
+    targets: ['.shield'],
+    done: null,
+  },
+  {
     title: 'Energy',
     body: 'You get 3 Energy a turn, and it does not carry over to the next turn. Every card costs some.',
     targets: ['.resources'],

@@ -495,7 +495,9 @@
 .stance-strip {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
+  /* Centre, not baseline: the mark has no baseline to sit on, and aligning it
+     to one drops it below the text it belongs to. */
+  align-items: center;
   gap: 0.75rem;
   padding-bottom: 0.6rem;
   border-bottom: 1px solid var(--line);
@@ -3051,3 +3053,33 @@
     animation: none;
   }
 }
+
+
+/* ---------- the ronin's mark ----------
+
+   The only thing on screen that is *you*. Sized to the stance name beside it
+   and coloured by inheritance, so the stance accent is the one colour decision
+   — see `data-stance` on the strip.
+
+   It does not move. Everything around it already does, and a mark that holds
+   still is most of the point of having one. */
+
+.sigil {
+  width: 2.4rem;
+  height: 2.4rem;
+  flex: 0 0 auto;
+  color: var(--muted);
+  opacity: 0.9;
+}
+
+.stance-strip[data-stance='iai'] .sigil { color: var(--iai); }
+.stance-strip[data-stance='guard'] .sigil { color: var(--guard); }
+.stance-strip[data-stance='flow'] .sigil { color: var(--flow); }
+
+/* The blade is the part that says which stance this is, so it carries the
+   weight and the ring recedes behind it. */
+.sigil-ring { opacity: 0.55; }
+.sigil-base { opacity: 0.75; }
+
+/* A stance you cannot change out of this turn is a stance you are stuck in. */
+.stance-strip.is-held .sigil { opacity: 0.45; }

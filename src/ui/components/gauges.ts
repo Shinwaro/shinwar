@@ -20,6 +20,7 @@ import {
   masteries as masteryTable,
 } from '../../content/registry.ts';
 import { el } from '../dom.ts';
+import { renderSigil } from './sigil.ts';
 
 export function renderStanceStrip(state: GameState): HTMLElement {
   const combat = requireCombat(state);
@@ -31,6 +32,10 @@ export function renderStanceStrip(state: GameState): HTMLElement {
   const held = Number.isFinite(limit) && combat.stanceChangesThisTurn >= limit;
 
   return el('div', { class: `stance-strip${held ? ' is-held' : ''}`, 'data-stance': combat.stance }, [
+    /* The ronin, holding the stance. It goes here rather than in a panel of
+       its own because the mark and the stance are the same fact — one body,
+       differently held — and giving them separate homes would say otherwise. */
+    renderSigil(combat.stance),
     el('span', { class: 'stance-name' }, [`▶ ${stance.name} ◀`]),
     el('span', { class: 'stance-text' }, [stance.text]),
     stance.masteries.length === 0
