@@ -3076,10 +3076,9 @@
 .stance-strip[data-stance='guard'] .sigil { color: var(--guard); }
 .stance-strip[data-stance='flow'] .sigil { color: var(--flow); }
 
-/* The blade is the part that says which stance this is, so it carries the
-   weight and the ring recedes behind it. */
-.sigil-ring { opacity: 0.55; }
-.sigil-base { opacity: 0.75; }
+/* The form is the argument; the heat arrow is the footnote. */
+.sigil-form { opacity: 1; }
+.sigil-heat { opacity: 0.6; }
 
 /* A stance you cannot change out of this turn is a stance you are stuck in. */
 .stance-strip.is-held .sigil { opacity: 0.45; }

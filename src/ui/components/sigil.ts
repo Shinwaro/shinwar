@@ -7,22 +7,24 @@
  * everything is judged as illustration. A mark stays inside the language the
  * wordmark already speaks.
  *
- * **The same three parts in both stances, arranged differently.** That is what
- * a stance *is* — one body, differently held — so drawing IAI and GUARD as two
- * unrelated icons would be describing them wrongly. The parts:
+ * **It draws what the stance DOES, not how the ronin stands.** The first
+ * version drew posture — a ring, a blade, a footing, rearranged — which was a
+ * nice idea and said nothing a player could use. A stance here is a rule about
+ * where your Focus goes and which way your Heat moves, so that is what the
+ * mark shows:
  *
- *   the ring    the ronin
- *   the stroke  the blade
- *   the base    the footing
+ *   the form        what one Focus becomes — a point that leaves, or a wall
+ *                   that stays
+ *   the heat arrow  which way the gauge goes at the end of your turn
  *
- * IAI leans: the base is narrow and forward, and the blade leaves the ring
- * entirely — the cut is already on its way out. GUARD squares up: the base is
- * wide, and the blade is held across the ring rather than through it.
+ * The two forms are deliberately opposite in every way that survives being
+ * 38 pixels wide: angular against round, open against closed, leaving against
+ * holding. The heat arrow is the same shape in both, pointed the other way.
  *
- * Plotted on a 100-unit box like the wordmark, and stroked in `currentColor`
- * so the stance accent it inherits is the only colour decision. It does not
+ * Plotted on a 100-unit box like the wordmark, stroked in `currentColor` so
+ * the stance accent it inherits is the only colour decision. It does not
  * animate: everything around it already moves, and a mark that holds still is
- * the point of having one.
+ * most of the point of having one.
  */
 
 import type { StanceId } from '../../engine/types.ts';
@@ -31,39 +33,59 @@ import { STANCES } from '../../content/balance.ts';
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
 interface Plot {
-  /** The blade. Two points, in the 100-unit box. */
-  readonly blade: readonly [number, number, number, number];
-  /** The footing, as a polyline. */
-  readonly base: string;
-  /** Where the ring sits, and how open it is. */
-  readonly ring: { readonly cx: number; readonly cy: number; readonly r: number; readonly gap: number };
+  /** What one Focus becomes. The mark's whole argument. */
+  readonly form: readonly string[];
+  /** Which way the gauge moves at the end of the turn. `null` for neither. */
+  readonly heat: 'up' | 'down' | null;
 }
 
 /* Hand-plotted. The numbers matter to each other, not to anything else — if
    these need to be bigger, scale the SVG rather than re-plotting them. */
 const PLOTS: { readonly [id in StanceId]: Plot } = {
-  /* Coiled. The blade crosses the ring low and carries on past the box edge,
-     and the feet are close together with the weight over the front one. */
+  /* A strike leaving the box. Every line is straight and every corner is
+     sharp, and the point is off the edge — this is the stance that spends. */
   iai: {
-    blade: [16, 74, 92, 30],
-    base: 'M40 88 L52 96 L64 88',
-    ring: { cx: 44, cy: 40, r: 20, gap: 0.32 },
+    form: [
+      // The blade, lower-left to upper-right, running past the corner.
+      'M14 86 L82 18',
+      // The head, opened back from the point.
+      'M58 18 L84 16 L82 42',
+    ],
+    heat: 'up',
   },
-  /* Braced. The blade is held level across the front of the ring, and the feet
-     are planted wide. */
+  /* A wall that stays. Closed, symmetrical, and the only curves in the set —
+     nothing here is going anywhere. */
   guard: {
-    blade: [22, 52, 78, 52],
-    base: 'M28 90 L50 80 L72 90',
-    ring: { cx: 50, cy: 36, r: 20, gap: 0 },
+    form: [
+      'M50 14 L82 26 L82 52 C82 74 50 88 50 88 C50 88 18 74 18 52 L18 26 Z',
+    ],
+    heat: 'down',
   },
-  /* Benched, but plotted so the mark never has a hole in it if FLOW ever comes
-     back into rotation. Loose: the blade trails, the footing is a single point. */
+  /* Benched, but plotted so the mark never has a hole in it if FLOW comes back
+     into rotation. Neither spends nor holds: it slips past, and the gauge does
+     not move. */
   flow: {
-    blade: [24, 40, 84, 66],
-    base: 'M44 88 L52 94 L60 88',
-    ring: { cx: 46, cy: 44, r: 18, gap: 0.55 },
+    form: ['M16 62 C36 30 64 82 86 44'],
+    heat: null,
   },
 };
+
+/**
+ * The heat arrow, drawn once and flipped.
+ *
+ * The same three strokes in both stances so the eye reads it as one symbol
+ * pointing two ways, rather than as two symbols it has to learn separately.
+ */
+function heatArrow(direction: 'up' | 'down'): readonly string[] {
+  /* Placement is the fiddly part. IAI's blade runs corner to corner, so the
+     arrow goes in the upper-left quadrant the blade has already left — at
+     x=25 the blade sits at y≈75, well below it. GUARD's arrow goes inside the
+     shield rather than beside it: there is no "beside" on a closed form, and
+     against the right-hand edge it landed on the outline. */
+  return direction === 'up'
+    ? ['M25 56 L25 30', 'M17 38 L25 28 L33 38']
+    : ['M50 36 L50 64', 'M42 56 L50 66 L58 56'];
+}
 
 function node<K extends keyof SVGElementTagNameMap>(
   tag: K,
@@ -72,29 +94,6 @@ function node<K extends keyof SVGElementTagNameMap>(
   const made = document.createElementNS(SVG_NS, tag);
   for (const [key, value] of Object.entries(attrs)) made.setAttribute(key, value);
   return made;
-}
-
-/**
- * The ring, as an arc with a gap in it.
- *
- * A `<circle>` with a dash pattern would be shorter and would rotate its gap to
- * a different place at every size, because the dash is measured along the
- * circumference. Drawn as an arc, the opening is where it was plotted.
- */
-function ringPath(cx: number, cy: number, r: number, gap: number): string {
-  if (gap <= 0) {
-    return `M${cx - r} ${cy} A${r} ${r} 0 1 0 ${cx + r} ${cy} A${r} ${r} 0 1 0 ${cx - r} ${cy}`;
-  }
-  // The gap opens on the leading side, which is where the blade goes out.
-  const half = Math.PI * gap;
-  const from = -Math.PI / 4 + half;
-  const to = -Math.PI / 4 - half + Math.PI * 2;
-  const x1 = cx + r * Math.cos(from);
-  const y1 = cy + r * Math.sin(from);
-  const x2 = cx + r * Math.cos(to);
-  const y2 = cy + r * Math.sin(to);
-  const large = to - from > Math.PI ? 1 : 0;
-  return `M${x1.toFixed(2)} ${y1.toFixed(2)} A${r} ${r} 0 ${large} 1 ${x2.toFixed(2)} ${y2.toFixed(2)}`;
 }
 
 export function renderSigil(stance: StanceId): SVGSVGElement {
@@ -110,22 +109,19 @@ export function renderSigil(stance: StanceId): SVGSVGElement {
   const group = node('g', {
     fill: 'none',
     stroke: 'currentColor',
-    'stroke-width': '6',
+    'stroke-width': '7',
     'stroke-linecap': 'round',
     'stroke-linejoin': 'round',
   });
 
-  group.append(
-    node('path', { class: 'sigil-ring', d: ringPath(plot.ring.cx, plot.ring.cy, plot.ring.r, plot.ring.gap) }),
-    node('path', { class: 'sigil-base', d: plot.base }),
-    node('line', {
-      class: 'sigil-blade',
-      x1: String(plot.blade[0]),
-      y1: String(plot.blade[1]),
-      x2: String(plot.blade[2]),
-      y2: String(plot.blade[3]),
-    }),
-  );
+  for (const d of plot.form) {
+    group.append(node('path', { class: 'sigil-form', d }));
+  }
+  if (plot.heat !== null) {
+    for (const d of heatArrow(plot.heat)) {
+      group.append(node('path', { class: 'sigil-heat', d }));
+    }
+  }
 
   svg.append(group);
   return svg;
