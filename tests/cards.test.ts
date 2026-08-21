@@ -150,6 +150,9 @@ describe('every shipped card', () => {
 
   it('has an upgrade that actually changes the text or the cost', () => {
     for (const card of cardTable.all()) {
+      // Voided cards are the one exemption, and it is the definition of them:
+      // a curse you could improve is a card you would eventually want.
+      if (card.type === 'voided') continue;
       const upgraded = definitionOf({ uid: 'x', defId: card.id, upgraded: true });
       const changed =
         describeCard(upgraded) !== describeCard(card) ||
@@ -161,6 +164,7 @@ describe('every shipped card', () => {
 
   it('keeps the upgrade an upgrade — never a downgrade in name', () => {
     for (const card of cardTable.all()) {
+      if (card.type === 'voided') continue;
       const upgraded = definitionOf({ uid: 'x', defId: card.id, upgraded: true });
       expect(upgraded.name, card.id).not.toBe('');
       expect(upgraded.rarity, `${card.id} changed rarity on upgrade`).toBe(card.rarity);

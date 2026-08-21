@@ -39,7 +39,7 @@ import { telegraphAll } from './intents.ts';
 /** The upgraded definition, or the plain one. Cards never carry two shapes at runtime. */
 export function definitionOf(card: CardInstance): CardDef {
   const base = cardTable.get(card.defId);
-  if (!card.upgraded) return base;
+  if (!card.upgraded || base.upgrade === undefined) return base;
   return { ...base, ...base.upgrade };
 }
 
@@ -322,6 +322,17 @@ export function canPlay(state: GameState, cardUid: string): PlayCheck {
   if (combat.outcome !== 'ongoing') return { ok: false, reason: 'The fight is over.' };
   const card = findInHand(combat, cardUid);
   if (card === undefined) return { ok: false, reason: 'That card is not in your hand.' };
+
+  /* Voided cards are the cost of an Anomaly that offered something for
+     nothing. They cannot be played, which is the whole of their effect: they
+     take up a card of every hand they turn up in until you pay to be rid of
+     them. Refused here rather than by giving them an unpayable cost, so the
+     reason on the card says what is actually true. */
+  const def = definitionOf(card);
+  if (def.type === 'voided') {
+    return { ok: false, reason: 'Voided. It cannot be played — only removed.' };
+  }
+
   const cost = costOf(card);
   if (cost > combat.energy) {
     return { ok: false, reason: `Needs ${cost} Energy, you have ${combat.energy}.` };

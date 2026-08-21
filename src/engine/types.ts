@@ -62,7 +62,19 @@ export type Condition =
   | { readonly kind: 'targetHasStatus'; readonly status: StatusId }
   | { readonly kind: 'handSizeAtLeast'; readonly value: number }
   | { readonly kind: 'cardsPlayedThisTurnAtLeast'; readonly value: number }
-  | { readonly kind: 'hullBelowPct'; readonly value: number };
+  | { readonly kind: 'hullBelowPct'; readonly value: number }
+  /**
+   * Something died during this card's resolution.
+   *
+   * A condition rather than an op, which matters: effects run in order, so an
+   * execution card is a plain `damage` followed by a `conditional` that reads
+   * what the damage did. No new vocabulary, no trigger system, and the reward
+   * is written in the same place as everything else the card does.
+   *
+   * Scoped to the card, not the turn — otherwise every card played after a
+   * kill would collect the bounty.
+   */
+  | { readonly kind: 'killedThisPlay' };
 
 export type ScaleSource = 'currentHeat' | 'focus' | 'blockGainedThisTurn' | 'cardsPlayedThisTurn';
 
@@ -81,13 +93,32 @@ export type EffectOp =
   | { readonly op: 'exhaustSelf' }
   | { readonly op: 'addCardToHand'; readonly cardId: CardId; readonly upgraded?: boolean }
   | { readonly op: 'heal'; readonly amount: number }
+  /**
+   * Alloy, from inside a fight.
+   *
+   * The one place the combat vocabulary reaches into the run, and it earns it:
+   * a bounty you collect by killing something is a different promise from a
+   * bounty you collect by winning, and only the first one changes how you pick
+   * a target. Kept to a single scalar so it cannot grow into a second run-effect
+   * vocabulary living in the wrong file.
+   */
+  | { readonly op: 'gainAlloy'; readonly amount: number }
   | { readonly op: 'conditional'; readonly when: Condition; readonly then: readonly EffectOp[]; readonly else?: readonly EffectOp[] }
   | { readonly op: 'scaleWith'; readonly source: ScaleSource; readonly per: number; readonly then: readonly EffectOp[] };
 
 /* ---------- content definitions ----------
    Not state. Optionals are fine here. */
 
-export type CardType = 'attack' | 'skill' | 'power' | 'status' | 'curse';
+/**
+ * `voided` is the game's word for a curse.
+ *
+ * A card you did not choose, cannot play, and have to pay a Safe Planet or a
+ * Station to be rid of. It is the price tag on the Anomaly options that offer
+ * something for nothing — those are the ones that need a cost the reward
+ * screen cannot express, because the cost is *carrying it for the rest of the
+ * run*.
+ */
+export type CardType = 'attack' | 'skill' | 'power' | 'status' | 'voided';
 
 /**
  * The tier ladder. `basic` is the starting deck and is never offered.
@@ -130,7 +161,16 @@ export interface CardDef {
   readonly cost: number | 'X';
   readonly effects: readonly EffectOp[];
   readonly stanceRider?: StanceRider;
-  readonly upgrade: Partial<Pick<CardDef, 'cost' | 'effects' | 'stanceRider' | 'name'>>;
+  /**
+   * Optional in the type, required by the validator for everything except a
+   * `voided` card — which has nothing to become, by definition.
+   *
+   * The split is deliberate: the type says what is representable, the content
+   * validator says what is allowed, and only the validator knows the rule is
+   * about card type. Making this required would mean every curse shipping a
+   * fake upgrade nobody can ever reach.
+   */
+  readonly upgrade?: Partial<Pick<CardDef, 'cost' | 'effects' | 'stanceRider' | 'name'>>;
   readonly exhaust?: boolean;
   readonly innate?: boolean;
   /**

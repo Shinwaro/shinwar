@@ -71,7 +71,7 @@ export function offerableCards(): readonly CardDef[] {
       (card) =>
         card.rarity !== 'basic' &&
         card.type !== 'status' &&
-        card.type !== 'curse' &&
+        card.type !== 'voided' &&
         card.exclusive !== true,
     );
 }

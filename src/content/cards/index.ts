@@ -7,20 +7,27 @@
  * the most common cause of a game feeling unfair. Flavor text is separate and
  * hand-written.
  *
- * 41 cards: 4 basic, 33 offerable across the four archetypes and the rarity
- * ladder, and 4 that only an Anomaly or a Thread can hand you. The pool scales
- * to ~85 at M6.
+ * The pool, by what it is for: the basic starting deck, the offerable cards
+ * across the four archetypes and the rarity ladder, the execution cards that
+ * pay for a kill, the handful only an Anomaly or a Thread can give you, and
+ * the Voided cards you are stuck with until you pay to be rid of one.
+ *
+ * `EXECUTION_CARDS` is a file rather than a scattering across the archetypes
+ * because the mechanic is the point of them and it wants explaining once.
+ * `VOIDED_CARDS` is a file because none of them are cards in any other sense.
  */
 
 import type { CardDef } from '../../engine/types.ts';
 import { BASIC_CARDS } from './basic.ts';
 import { EVENT_CARDS } from './events.ts';
+import { EXECUTION_CARDS } from './execution.ts';
 import { FOCUS_CARDS } from './focus.ts';
 import { GUARD_CARDS } from './guard.ts';
 import { IAI_CARDS } from './iai.ts';
 import { NEUTRAL_CARDS } from './neutral.ts';
 import { OVERHEAT_CARDS } from './overheat.ts';
 import { TEMPO_CARDS } from './tempo.ts';
+import { VOIDED_CARDS } from './voided.ts';
 
 export const CARDS: readonly CardDef[] = [
   ...BASIC_CARDS,
@@ -30,7 +37,9 @@ export const CARDS: readonly CardDef[] = [
   ...NEUTRAL_CARDS,
   ...FOCUS_CARDS,
   ...TEMPO_CARDS,
+  ...EXECUTION_CARDS,
   ...EVENT_CARDS,
+  ...VOIDED_CARDS,
 ];
 
 export { STARTING_DECK } from './basic.ts';

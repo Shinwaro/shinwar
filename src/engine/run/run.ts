@@ -558,6 +558,8 @@ export function safePlanetUpgrade(state: GameState, cardUid: string): GameState 
   const run = requireRun(state);
   const card = run.pilot.deck.find((entry) => entry.uid === cardUid);
   if (card === undefined || card.upgraded) return state;
+  // Same rule as the Station forge: a Voided card has nothing to become.
+  if (cardTable.find(card.defId)?.type === 'voided') return state;
 
   const next = withRun(state, (current) => ({
     ...current,

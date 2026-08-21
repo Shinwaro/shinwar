@@ -99,16 +99,31 @@ function validateCards(issues: ValidationIssue[]): void {
   for (const card of cards.all()) {
     const where = `card '${card.id}'`;
 
-    // Every card has an upgrade. A card with nothing to upgrade into is a
-    // dead choice at every forge for the rest of the run.
-    if (card.upgrade === undefined) {
-      issues.push({ where, problem: 'missing `upgrade`' });
-    } else if (Object.keys(card.upgrade).length === 0) {
-      issues.push({ where, problem: '`upgrade` is empty — it must change something' });
-    }
+    /* Voided cards are exempt from both of the next two rules, and the
+       exemption is the definition. A curse with an upgrade path is a card you
+       would eventually want, and a curse that does something is a card. Doing
+       nothing, forever, is the entire mechanic — so the validator has to stop
+       asking them to be cards. It still demands they declare it: a `voided`
+       that DOES carry effects is almost certainly a typo in the type. */
+    if (card.type === 'voided') {
+      if (card.upgrade !== undefined) {
+        issues.push({ where, problem: 'a voided card must not have an `upgrade`' });
+      }
+      if (card.exclusive !== true) {
+        issues.push({ where, problem: 'a voided card must be `exclusive`' });
+      }
+    } else {
+      // Every other card has an upgrade. A card with nothing to upgrade into
+      // is a dead choice at every forge for the rest of the run.
+      if (card.upgrade === undefined) {
+        issues.push({ where, problem: 'missing `upgrade`' });
+      } else if (Object.keys(card.upgrade).length === 0) {
+        issues.push({ where, problem: '`upgrade` is empty — it must change something' });
+      }
 
-    if (card.effects.length === 0 && card.stanceRider === undefined) {
-      issues.push({ where, problem: 'no effects and no stance rider — the card does nothing' });
+      if (card.effects.length === 0 && card.stanceRider === undefined) {
+        issues.push({ where, problem: 'no effects and no stance rider — the card does nothing' });
+      }
     }
 
     if (typeof card.cost === 'number' && card.cost < 0) {

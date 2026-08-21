@@ -49,10 +49,17 @@ export interface EffectContext {
   readonly chosen: Combatant | null;
   /** Set by `exhaustSelf`. Read by the card resolver after the ops run. */
   readonly exhaustSelf: boolean;
+  /**
+   * Enemies this card has killed so far in its own resolution.
+   *
+   * Scoped to the card rather than the turn, so an execution rider pays once
+   * for what this card did and not for what the last one did.
+   */
+  readonly killsThisPlay: number;
 }
 
 export function createContext(source: string, actor: Combatant, chosen: Combatant | null): EffectContext {
-  return { source, actor, chosen, exhaustSelf: false, focusSpent: false };
+  return { source, actor, chosen, exhaustSelf: false, focusSpent: false, killsThisPlay: 0 };
 }
 
 export interface EffectResult {
@@ -149,6 +156,8 @@ export function testCondition(state: GameState, context: EffectContext, when: Co
       return combat.cardsPlayedThisTurn >= when.value;
     case 'hullBelowPct':
       return run.pilot.health / Math.max(1, run.pilot.maxHealth) < when.value / 100;
+    case 'killedThisPlay':
+      return context.killsThisPlay > 0;
     default: {
       const unreachable: never = when;
       return unreachable;
@@ -183,7 +192,21 @@ export function applyEffects(
 ): EffectResult {
   let current: EffectResult = { state, context };
   for (const op of effects) {
-    if (current.state.run?.combat?.outcome !== 'ongoing') break;
+    /*
+     * Stop when the player is dead, not when the fight is merely over.
+     *
+     * This used to break on anything other than `ongoing`, which meant the
+     * killing blow on the LAST enemy skipped every op after it — so an
+     * execution rider paid out on every kill except the one that ended the
+     * fight. A card that says "if this kills an enemy, gain 40 Alloy" and then
+     * does not, on the kill you most wanted it to, is the game lying about its
+     * own rules.
+     *
+     * Safe because the ops that could misbehave already refuse to: `applyDamage`
+     * will not hit a corpse, and `allEnemies` resolves to nothing once the
+     * board is clear. What is left is the card paying what it promised.
+     */
+    if (current.state.run?.combat?.outcome === 'lost') break;
     current = applyOp(current.state, op, current.context);
   }
   return current;
@@ -201,6 +224,12 @@ function applyOp(state: GameState, op: EffectOp, context: EffectContext): Effect
         for (let hit = 0; hit < times; hit++) {
           if (next.run?.combat?.outcome !== 'ongoing') break;
           const combat = requireCombat(next);
+          // Read before the blow so a kill is "was alive, now is not" rather
+          // than "is dead", which would also count hitting a corpse.
+          const wasAlive =
+            target.kind === 'player'
+              ? true
+              : (combat.enemies.find((enemy) => enemy.uid === target.uid)?.hp ?? 0) > 0;
           const spendsHere =
             !context.focusSpent && cardTable.find(context.source)?.keepsFocus !== true;
           next = applyDamage(
@@ -229,6 +258,13 @@ function applyOp(state: GameState, op: EffectOp, context: EffectContext): Effect
           );
           if (spendsHere && (next.run?.combat?.focus ?? 0) < combat.focus) {
             context = { ...context, focusSpent: true };
+          }
+
+          if (wasAlive && target.kind === 'enemy') {
+            const after = next.run?.combat?.enemies.find((enemy) => enemy.uid === target.uid);
+            if (after !== undefined && after.hp <= 0) {
+              context = { ...context, killsThisPlay: context.killsThisPlay + 1 };
+            }
           }
         }
       }
@@ -426,6 +462,22 @@ function applyOp(state: GameState, op: EffectOp, context: EffectContext): Effect
 
     case 'heal':
       return keep(healPlayer(state, op.amount, context.source));
+
+    case 'gainAlloy': {
+      if (op.amount === 0) return keep(state);
+      const paid = withRun(state, (current) => ({
+        ...current,
+        alloy: Math.max(0, current.alloy + op.amount),
+      }));
+      return keep(
+        appendLog(paid, {
+          source: context.source,
+          kind: 'run',
+          text: `Alloy ${op.amount > 0 ? '+' : ''}${op.amount}.`,
+          detail: { alloy: op.amount },
+        }),
+      );
+    }
 
     case 'conditional': {
       const branch = testCondition(state, context, op.when) ? op.then : op.else;

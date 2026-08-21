@@ -50,6 +50,8 @@ function describeCondition(when: Extract<EffectOp, { op: 'conditional' }>['when'
       return `you have played ${when.value} cards this turn`;
     case 'hullBelowPct':
       return `hull is below ${when.value}%`;
+    case 'killedThisPlay':
+      return 'this kills an enemy';
     default: {
       const unreachable: never = when;
       return unreachable;
@@ -160,6 +162,9 @@ function describeOp(op: EffectOp, state: GameState | null, afterDamage = false):
       const additive = afterDamage ? body.replace(/^deal (\d+) damage/, 'deal $1 extra') : body;
       return `For every ${per}${describeScaleSource(op.source)}, ${additive}${live}`;
     }
+    case 'gainAlloy':
+      return `${op.amount > 0 ? 'Gain' : 'Lose'} ${Math.abs(op.amount)} Alloy`;
+
     default: {
       const unreachable: never = op;
       return unreachable;
@@ -208,6 +213,15 @@ export function describeOps(ops: readonly EffectOp[], state: GameState | null = 
 
 /** The card's base rules text. The rider is described separately so the UI can grey it. */
 export function describeCard(def: CardDef, state: GameState | null = null): string {
+  /* Voided cards have no ops, so the generated text would be empty — and an
+     empty card reads as a bug rather than as a curse. The words come from the
+     type, which keeps the rule that no card text is hand-written: change what
+     `voided` means and every one of them says the new thing. */
+  if (def.type === 'voided') {
+    const stuck = def.innate === true ? ' It is in your opening hand every fight.' : '';
+    return `Unplayable.${stuck} Remove it at a Safe Planet or a Station.`;
+  }
+
   const parts = [describeOps(def.effects, state)];
   if (def.exhaust === true && !def.effects.some((op) => op.op === 'exhaustSelf')) parts.push('Exhaust.');
   if (def.innate === true) parts.push('Innate.');

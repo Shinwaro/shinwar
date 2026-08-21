@@ -228,7 +228,13 @@ export function buyForge(state: GameState, cardUid: string): GameState {
   const card = run.pilot.deck.find((entry) => entry.uid === cardUid);
   if (card === undefined || card.upgraded) return state;
 
-  const name = cardTable.find(card.defId)?.name ?? card.defId;
+  /* A Voided card has no upgrade to forge into — a curse you could improve is
+     a card you would eventually want. Removal is the only thing a Station can
+     do about one, and it is priced accordingly. */
+  const def = cardTable.find(card.defId);
+  if (def?.type === 'voided') return state;
+
+  const name = def?.name ?? card.defId;
   const paid = spendAlloy(state, shop.forgePrice, 'station');
 
   const next = withRun(paid, (current) => ({
