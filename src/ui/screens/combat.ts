@@ -39,6 +39,7 @@ import { envGetString } from '../../engine/combat/rules.ts';
 import { renderLog, scrollLogToEnd } from '../components/log.ts';
 import { bindCombatKeys } from '../input.ts';
 import { clearFloaters, playLogFx, setBarFill } from '../anim.ts';
+import { combatInfo, renderInfoPanel } from '../components/info.ts';
 
 /* ---------- pacing ----------
  *
@@ -75,10 +76,18 @@ interface Selection {
   /** Which enemy the keyboard is cycling through. */
   focusUid: string | null;
   logOpen: boolean;
+  /** The rules panel. Never in `GameState` — it changes nothing about the world. */
+  infoOpen: boolean;
 }
 
 export function renderCombat(store: Store): HTMLElement {
-  const selection: Selection = { cardUid: null, hoverUid: null, focusUid: null, logOpen: true };
+  const selection: Selection = {
+    cardUid: null,
+    hoverUid: null,
+    focusUid: null,
+    logOpen: true,
+    infoOpen: false,
+  };
   const host = el('main', { class: 'combat screen' });
 
   /*
@@ -474,6 +483,13 @@ function build(
         selection.logOpen = !selection.logOpen;
         rerender();
       }),
+      /* Everything the fight assumes you already know, one click from the
+         fight. An hour-long run cannot afford a tutorial and cannot afford a
+         player still guessing what Rust does in Act 3. */
+      button('Info', { class: 'btn btn-quiet', 'aria-label': 'How combat works' }, () => {
+        selection.infoOpen = true;
+        rerender();
+      }),
       button('End turn', { class: 'btn btn-primary', 'aria-keyshortcuts': 'E' }, () => {
         selection.cardUid = null;
         selection.hoverUid = null;
@@ -492,6 +508,12 @@ function build(
     prompt,
     tray,
     selection.logOpen ? renderLog(state, true) : null,
+    selection.infoOpen
+      ? renderInfoPanel('How the fight works', combatInfo(), () => {
+          selection.infoOpen = false;
+          rerender();
+        })
+      : null,
   ]);
 }
 

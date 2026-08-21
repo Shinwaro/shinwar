@@ -84,6 +84,16 @@ export function renderHeatGauge(state: GameState): HTMLElement {
         ? `OVERHEATING — end this turn and take ${heat.consequence}`
         : `Overheat at ${HEAT.overheatAt} → ${heat.consequence.replace(`Overheat at ${HEAT.overheatAt} — `, '')}`,
     ]),
+    /* The second threshold, said out loud and always.
+     *
+     * The gauge only ever announced the soft line, so the hard one arrived as
+     * a surprise — you hit the cap mid-turn, the turn ended under you, and
+     * nothing on screen had ever mentioned that it would. A cost you cannot
+     * read before paying it is the definition of unfair, and this is the most
+     * expensive one in the game. */
+    el('p', { class: 'heat-critical' }, [
+      `At ${HEAT.criticalAt} the turn ends immediately, the reactor takes the next one, and a card burns.`,
+    ]),
   ]);
 }
 

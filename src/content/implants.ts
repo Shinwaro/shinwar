@@ -29,7 +29,7 @@ export const IMPLANTS: readonly ImplantDef[] = [
     id: 'reactor_tuning',
     name: 'Reactor Tuning',
     rarity: 'legendary',
-    price: 320,
+    price: 400,
     maxStacks: 1,
     passive: { energyPerTurn: 1 },
     flavor: 'The sect rated this core for eleven years of service. You have other plans.',
@@ -75,10 +75,14 @@ export const IMPLANTS: readonly ImplantDef[] = [
     flavor: 'Weight where the weight should be.',
   },
   {
+    /* Swapped with Opening Stance. A Focus every turn compounds across a long
+       fight; two at the start of one does not, and pricing them the other way
+       round had the cheaper common be the strictly better buy in every fight
+       past turn three. */
     id: 'breath_governor',
     name: 'Breath Governor',
-    rarity: 'common',
-    price: 95,
+    rarity: 'uncommon',
+    price: 125,
     maxStacks: 2,
     passive: { focusPerTurn: 1 },
     flavor: 'It counts for you, so you do not have to.',
@@ -122,8 +126,8 @@ export const IMPLANTS: readonly ImplantDef[] = [
   {
     id: 'opening_stance',
     name: 'Opening Stance',
-    rarity: 'uncommon',
-    price: 125,
+    rarity: 'common',
+    price: 95,
     maxStacks: 2,
     passive: { startingFocus: 2 },
     flavor: 'You arrive already halfway into the cut.',

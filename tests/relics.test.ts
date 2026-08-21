@@ -9,15 +9,16 @@
 
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { GameState } from '../src/engine/types.ts';
-import { createInitialState } from '../src/engine/state.ts';
+import { createInitialState, createRunState } from '../src/engine/state.ts';
 import { applyAction } from '../src/engine/reducer.ts';
 import { HOOK_NAMES, handlersFor } from '../src/engine/hooks.ts';
+import { createRng } from '../src/engine/rng.ts';
 import { rollRelics, rollMastery } from '../src/engine/run/rewards.ts';
 import { computeDamage, previewDamage, PLAYER, enemyTarget } from '../src/engine/combat/damage.ts';
 import { playCard, startPlayerTurn } from '../src/engine/combat/combat.ts';
 import { overheatThreshold } from '../src/engine/combat/heat.ts';
 import { pilotRules, liveStance } from '../src/engine/combat/rules.ts';
-import { PLAYER as PLAYER_BALANCE, REWARDS } from '../src/content/balance.ts';
+import { PLAYER as PLAYER_BALANCE, RELIC_RARITY_WEIGHTS, REWARDS } from '../src/content/balance.ts';
 import { reloadContent } from '../src/content/index.ts';
 import { relics as relicTable } from '../src/content/registry.ts';
 import { makeFight, combatOf, firstEnemy } from './helpers.ts';
@@ -33,6 +34,45 @@ beforeEach(() => {
 });
 
 describe('the relic pool', () => {
+  it('can actually offer every relic it ships', () => {
+    /* The test that was missing, and its absence cost three legendary relics
+       and the artifact.
+
+       Relics used to share `RARITY_WEIGHTS` with cards. Zeroing the top two
+       tiers to gate legendary CARDS behind the Reliquary silently made every
+       legendary relic unrollable, and nothing failed — no test asserted that a
+       shipped relic could be reached. The artifact had been unobtainable for
+       longer still, filtered out by a rule that skipped any tier holding fewer
+       than three relics, which the artifact tier never will.
+
+       Rolled rather than reasoned about, because the failure was in the
+       interaction between a weight table, a pool filter and a tier filter, and
+       reading any one of them alone looked fine. */
+    const seen = new Set<string>();
+    for (let i = 0; i < 3000; i++) {
+      for (const act of [1, 2, 3] as const) {
+        const run = createRunState(`RELIC-${i}`, 0);
+        const rolled = rollRelics(createRng(`RELIC-${i}-${act}`), { ...run, act }, 'elite');
+        for (const id of rolled.relicIds) seen.add(id);
+      }
+    }
+
+    const missing = relicTable.all().filter((def) => !seen.has(def.id));
+    expect(missing.map((def) => `${def.id} (${def.rarity})`)).toEqual([]);
+  });
+
+  it('keeps the top tiers scarce rather than hidden', () => {
+    // The artifact is reachable, and it is meant to stay a once-in-many-runs
+    // thing — by weight, not by a filter that removes it from the game.
+    for (const act of [1, 2, 3] as const) {
+      const weights = RELIC_RARITY_WEIGHTS[act];
+      const total = Object.values(weights).reduce((sum, weight) => sum + weight, 0);
+      expect(weights.artifact, `act ${act} artifact weight`).toBeGreaterThan(0);
+      expect(weights.artifact / total, `act ${act} artifact share`).toBeLessThan(0.05);
+      expect(weights.legendary, `act ${act} legendary weight`).toBeGreaterThan(0);
+    }
+  });
+
   it('gives every relic text and something to do', () => {
     /*
      * "Something to do" is a passive OR a handler on the bus.
@@ -77,7 +117,7 @@ describe('the relic pool', () => {
     expect(combatOf(after).stance, 'the card should have changed stance').not.toBe(
       combatOf(carrying).stance,
     );
-    expect(combatOf(after).focus, 'Turning Point did not fire').toBe(before + 2);
+    expect(combatOf(after).focus, 'Turning Point did not fire').toBe(before + 1);
   });
 
   it('keeps Energy the rarest thing on the list', () => {

@@ -22,6 +22,13 @@ import { button, el, fill } from '../dom.ts';
 import { liveScreen } from '../screen.ts';
 import { renderRunBar } from '../components/runbar.ts';
 import { renderManifest } from '../components/manifest.ts';
+import {
+  implants as implantTable,
+  masteries as masteryTable,
+  relics as relicTable,
+} from '../../content/registry.ts';
+import { describeImplant } from '../../engine/run/describe.ts';
+import { MAP_INFO, renderInfoPanel } from '../components/info.ts';
 import { renderCardFace } from '../components/card.ts';
 import { definitionOf } from '../../engine/combat/combat.ts';
 
@@ -101,7 +108,7 @@ export function renderMap(store: Store): HTMLElement {
 
   /* Whether the deck list is open. UI state — it changes nothing about the
      world, so it never goes near the reducer. */
-  const view = { showDeck: false, recentre: false };
+  const view = { showDeck: false, showInfo: false, recentre: false };
   let host: HTMLElement | null = null;
 
   const rerender = (): void => {
@@ -173,7 +180,7 @@ function buildMap(
   store: Store,
   state: GameState,
   scroll: { top: number },
-  view: { showDeck: boolean },
+  view: { showDeck: boolean; showInfo: boolean },
   rerender: () => void,
 ): HTMLElement {
   const run = requireRun(state);
@@ -321,14 +328,26 @@ function buildMap(
          Deck size alone was on the run bar; the deck itself was only behind the
          pause key, which is a strange place to hide the thing the map decision
          is actually about. */
-      button(`Deck (${run.pilot.deck.length})`, { class: 'btn btn-quiet' }, () => {
+      button(`Inventory (${run.pilot.deck.length})`, { class: 'btn btn-quiet' }, () => {
         view.showDeck = true;
+        rerender();
+      }),
+      /* The legend. A chart with seven colours on it and no key is a puzzle
+         about the interface rather than about the route. */
+      button('Info', { class: 'btn btn-quiet', 'aria-label': 'What the chart means' }, () => {
+        view.showInfo = true;
         rerender();
       }),
     ]),
     readout,
     renderManifest(state, 'Carrying'),
     viewport,
+    view.showInfo
+      ? renderInfoPanel('Reading the chart', MAP_INFO, () => {
+          view.showInfo = false;
+          rerender();
+        })
+      : null,
   ]);
 }
 
@@ -366,16 +385,22 @@ function renderWavefront(run: RunState): HTMLElement | null {
 }
 
 /**
- * The deck, from the map.
+ * The inventory — everything the run is currently carrying.
  *
- * Reading a route means knowing what you will draw while you walk it. Deck size
- * was on the run bar and the list itself was behind the pause key, which is an
- * odd place to keep the thing the routing decision is actually about.
+ * It was the deck list and nothing else, which was a strange thing to call the
+ * one place you go to check what you have: the relics, implants and masteries
+ * are the half of the run that changes what a turn can *do*, and they were only
+ * visible behind the pause key. Reading a route means knowing what you walk it
+ * with, and that is not only the cards.
+ *
+ * Ordered by how much each part changes a turn: the passives first, then what
+ * you are owed, then the deck — which is the longest list and the one you
+ * scroll to on purpose.
  */
 function buildDeckList(
   store: Store,
   state: GameState,
-  view: { showDeck: boolean },
+  view: { showDeck: boolean; showInfo: boolean },
   rerender: () => void,
 ): HTMLElement {
   const run = requireRun(state);
@@ -387,26 +412,111 @@ function buildDeckList(
       : Number(left.cost) - Number(right.cost);
   });
 
+  const section = (heading: string, count: number, body: HTMLElement | null): HTMLElement | null =>
+    body === null
+      ? null
+      : el('section', { class: 'inv-section' }, [
+          el('h2', { class: 'inv-heading' }, [
+            heading,
+            el('span', { class: 'inv-count' }, [String(count)]),
+          ]),
+          body,
+        ]);
+
+  /* Implants are tallied rather than listed one per copy: two of the same
+     implant stack, and "Honed Edge, Honed Edge" reads as a rendering bug. */
+  const implantCounts = [...new Set(run.pilot.implants)].map((id) => ({
+    id,
+    count: run.pilot.implants.filter((held) => held === id).length,
+  }));
+
+  const relics =
+    run.pilot.relics.length === 0
+      ? null
+      : el(
+          'ul',
+          { class: 'mastery-list' },
+          run.pilot.relics.map((id) => {
+            const def = relicTable.find(id);
+            if (def === undefined) return null;
+            return el('li', { class: 'mastery-line', 'data-rarity': def.rarity }, [
+              el('span', { class: 'mastery-name' }, [def.name]),
+              el('span', { class: 'mastery-text' }, [def.text]),
+            ]);
+          }),
+        );
+
+  const implants =
+    implantCounts.length === 0
+      ? null
+      : el(
+          'ul',
+          { class: 'mastery-list' },
+          implantCounts.map(({ id, count }) => {
+            const def = implantTable.find(id);
+            if (def === undefined) return null;
+            return el('li', { class: 'mastery-line', 'data-rarity': def.rarity }, [
+              el('span', { class: 'mastery-name' }, [count > 1 ? `${def.name} x${count}` : def.name]),
+              el('span', { class: 'mastery-text' }, [describeImplant(def)]),
+            ]);
+          }),
+        );
+
+  const masteries =
+    run.pilot.masteries.length === 0
+      ? null
+      : el(
+          'ul',
+          { class: 'mastery-list' },
+          run.pilot.masteries.map((id) => {
+            const def = masteryTable.find(id);
+            if (def === undefined) return null;
+            return el('li', { class: `mastery-line mastery-line--${def.stance}` }, [
+              el('span', { class: 'mastery-name' }, [def.name]),
+              el('span', { class: 'mastery-text' }, [def.text]),
+            ]);
+          }),
+        );
+
+  const carrying =
+    run.pilot.relics.length + run.pilot.implants.length + run.pilot.masteries.length === 0
+      ? el('p', { class: 'pause-empty' }, [
+          'Nothing but the deck yet. Relics come from Elites and act finales, implants from Stations.',
+        ])
+      : null;
+
   return el('div', { class: 'map-inner' }, [
     renderRunBar(store, state),
-    el('h1', { class: 'screen-title' }, [`Deck (${sorted.length})`]),
+    el('h1', { class: 'screen-title' }, ['Inventory']),
     el('div', { class: 'picker-actions' }, [
       button('Back to the chart', { class: 'btn btn-primary' }, () => {
         view.showDeck = false;
         rerender();
       }),
     ]),
-    el(
-      'div',
-      { class: 'deck-list' },
-      sorted.map((card) =>
-        renderCardFace(definitionOf(card), {
-          state,
-          badge: card.upgraded ? 'Forged' : null,
-          changedVs: null,
-          extraClass: null,
-        }),
+
+    carrying,
+    section('Relics', run.pilot.relics.length, relics),
+    section('Implants', run.pilot.implants.length, implants),
+    section('Stance masteries', run.pilot.masteries.length, masteries),
+    renderManifest(state, 'Threads'),
+
+    section(
+      'Deck',
+      sorted.length,
+      el(
+        'div',
+        { class: 'deck-list' },
+        sorted.map((card) =>
+          renderCardFace(definitionOf(card), {
+            state,
+            badge: card.upgraded ? 'Forged' : null,
+            changedVs: null,
+            extraClass: null,
+          }),
+        ),
       ),
     ),
   ]);
 }
+

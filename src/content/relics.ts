@@ -108,9 +108,9 @@ export const RELICS: readonly RelicDef[] = [
   {
     id: 'coldforge_lining',
     name: 'Coldforge Lining',
-    text: 'Every attack deals 3 more and every attack that reaches you deals 1 less.',
+    text: 'Every attack deals 2 more and every attack that reaches you deals 1 less.',
     rarity: 'epic',
-    passive: { damageFlat: 3, damageTakenFlat: 1 },
+    passive: { damageFlat: 2, damageTakenFlat: 1 },
     flavor: 'Forged in a shadow. The sect argued about whether that mattered.',
   },
 
@@ -164,7 +164,7 @@ export const RELICS: readonly RelicDef[] = [
   {
     id: 'turning_point',
     name: 'Turning Point',
-    text: 'Gain 2 Focus whenever you change stance.',
+    text: 'Gain 1 Focus whenever you change stance.',
     rarity: 'uncommon',
     flavor: 'The sect taught that the turn is the technique. The cut is punctuation.',
   },
@@ -185,7 +185,7 @@ export const RELICS: readonly RelicDef[] = [
   {
     id: 'long_form_ledger',
     name: 'Long Form',
-    text: 'Every fourth card you play in a turn, gain 1 Focus.',
+    text: 'Every third card you play in a turn, gain 1 Focus.',
     rarity: 'rare',
     flavor: 'Counting is the discipline. The rest is only swordsmanship.',
   },
@@ -345,7 +345,7 @@ export function registerRelicHooks(): void {
     defineHook({
       hook: 'onStanceChange',
       priority: HOOK_PRIORITY.module,
-      handle: (state) => grantFocus(state, 2, 'turning_point', 'Turning Point.'),
+      handle: (state) => grantFocus(state, 1, 'turning_point', 'Turning Point.'),
     }),
   ]);
 
@@ -386,9 +386,9 @@ export function registerRelicHooks(): void {
       priority: HOOK_PRIORITY.module,
       handle: (state) => {
         // `cardsPlayedThisTurn` is already incremented by the time this fires,
-        // so the fourth card sees 4 -- read it, never count separately.
+        // so the third card sees 3 -- read it, never count separately.
         const played = state.run?.combat?.cardsPlayedThisTurn ?? 0;
-        if (played === 0 || played % 4 !== 0) return state;
+        if (played === 0 || played % 3 !== 0) return state;
         return grantFocus(state, 1, 'long_form_ledger', `Long Form, card ${played}.`);
       },
     }),

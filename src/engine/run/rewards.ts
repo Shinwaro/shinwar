@@ -20,7 +20,13 @@ import type {
   RunState,
 } from '../types.ts';
 import { nextFloat, pick, weightedPick } from '../rng.ts';
-import { ACTIVE_STANCES, MASTERY, RARITY_WEIGHTS, REWARDS } from '../../content/balance.ts';
+import {
+  ACTIVE_STANCES,
+  MASTERY,
+  RARITY_WEIGHTS,
+  RELIC_RARITY_WEIGHTS,
+  REWARDS,
+} from '../../content/balance.ts';
 import {
   cards as cardTable,
   masteries as masteryTable,
@@ -172,7 +178,8 @@ export function rollRelics(
 ): { readonly relicIds: readonly RelicId[]; readonly rng: RngState } {
   if (tier === 'combat') return { relicIds: [], rng };
 
-  const rarityWeights = RARITY_WEIGHTS[run.act];
+  // Relics have their own ladder. See RELIC_RARITY_WEIGHTS for why.
+  const rarityWeights = RELIC_RARITY_WEIGHTS[run.act];
   const pool = relicTable.all().filter((def) => !run.pilot.relics.includes(def.id));
   if (pool.length === 0) return { relicIds: [], rng };
 
@@ -185,13 +192,15 @@ export function rollRelics(
    * means the three are comparable, and the decision is which effect suits the
    * build rather than which border is shiniest.
    *
-   * Tiers with too little left in them are skipped rather than padded from a
-   * neighbour, for the same reason: a padded offer is a mixed offer again.
+   * A tier with fewer than `relicChoices` left in it makes a SHORT offer rather
+   * than being skipped or padded from a neighbour. Padding brings back the
+   * mixed screen this exists to prevent; skipping made the artifact tier
+   * unreachable forever, because there is exactly one artifact relic and there
+   * was never going to be a third. "Here is the one artifact, take it or leave
+   * it" is a perfectly good screen — and its weight is what keeps it rare, not
+   * a filter that hides it.
    */
-  const tiers = [...new Set(pool.map((def) => def.rarity))].filter(
-    (rarity) => pool.filter((def) => def.rarity === rarity).length >= REWARDS.relicChoices,
-  );
-  const usable = tiers.length > 0 ? tiers : [...new Set(pool.map((def) => def.rarity))];
+  const usable = [...new Set(pool.map((def) => def.rarity))];
 
   const tierRoll = weightedPick(
     rng,

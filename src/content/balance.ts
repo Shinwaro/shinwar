@@ -403,6 +403,32 @@ export const RARITY_WEIGHTS: {
   3: { common: 36, uncommon: 33, rare: 19, epic: 8.5, legendary: 0, artifact: 0 },
 };
 
+/**
+ * The same ladder, for relics — and it has to be its own table.
+ *
+ * Relics shared `RARITY_WEIGHTS` with cards until the Reliquary arrived and
+ * zeroed the top two tiers. That gate is about *cards*: one legendary card a
+ * run, from one place. Relics have nothing to do with it, and sharing the
+ * table meant zeroing two card tiers silently made three legendary relics and
+ * the artifact unobtainable — a regression nothing failed on, because no test
+ * asserted that every relic can actually be reached.
+ *
+ * Two tables, because the two systems now have genuinely different rules.
+ * There is a test that every relic in the pool can be offered.
+ *
+ * The top-tier numbers are small but real: an act finale is the only place a
+ * relic is offered, so a run sees three or four offers total, and 1.2% a screen
+ * is roughly a one-in-twenty run seeing the artifact. That is what "artifact"
+ * should mean.
+ */
+export const RELIC_RARITY_WEIGHTS: {
+  readonly [act in 1 | 2 | 3]: { readonly [r in Exclude<Rarity, 'basic'>]: number };
+} = {
+  1: { common: 55, uncommon: 30, rare: 12, epic: 2.5, legendary: 0.4, artifact: 0.1 },
+  2: { common: 34, uncommon: 34, rare: 21, epic: 8, legendary: 2.2, artifact: 0.8 },
+  3: { common: 18, uncommon: 30, rare: 28, epic: 16, legendary: 6, artifact: 2 },
+};
+
 /** Display order and label for a tier. Colour lives in the stylesheet. */
 export const RARITY_LABEL: { readonly [r in Rarity]: string } = {
   basic: 'Basic',
