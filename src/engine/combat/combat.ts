@@ -329,9 +329,30 @@ function drawForTurn(state: GameState): GameState {
   const combat = requireCombat(state);
   // Deep Void's penalty is turn 1 only: it costs you the opening, not the fight.
   const penalty = combat.turn === 1 ? (environmentRules(state).firstTurnDrawPenalty ?? 0) : 0;
+
+  /*
+   * Innate cards are seated in hand before turn 1 draws, so they have to come
+   * OUT of the draw, not on top of it — otherwise a deck holding one opens on
+   * six cards instead of five and the keyword is quietly a bonus card.
+   *
+   * That matters most for the cards you did not choose: The Witness is a
+   * Voided card whose whole cost is occupying a slot in every opening hand,
+   * and it was occupying nothing.
+   *
+   * Turn 1 only, and only because that is the one turn the hand is not empty
+   * when this runs — `endPlayerTurn` discards. Written as "what is already in
+   * hand" rather than "count the innates" so it stays true if anything else
+   * ever puts a card there first.
+   */
+  const seated = combat.turn === 1 ? combat.hand.length : 0;
+
   const count = Math.max(
     0,
-    PLAYER_BALANCE.drawPerTurn + liveStance(state).extraDraw + pilotRules(state).drawPerTurn - penalty,
+    PLAYER_BALANCE.drawPerTurn +
+      liveStance(state).extraDraw +
+      pilotRules(state).drawPerTurn -
+      penalty -
+      seated,
   );
   const run = requireRun(state);
   if (run.combat === null) return state;

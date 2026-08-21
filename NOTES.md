@@ -2375,3 +2375,40 @@ Folding them into one enum meant Second Wind — played *and* exhausting — fle
 the exhaust pile without the beat that says you chose it, so a card you spent a
 turn on looked exactly like one swept up at the end of it. `CardExit` is now a
 pile plus a `played` flag, and the ghost carries a class for each.
+
+### An innate card was not taking a slot
+
+Reported as "I drew The Witness plus five other cards". Innate cards are seated
+in hand before turn 1 draws, and the draw then took the full hand size on top —
+so a deck holding one opened on six cards and the keyword was quietly a bonus
+card rather than a commitment.
+
+It matters most for the cards you did not choose. A Voided card's entire cost
+is occupying a slot in every opening hand, and The Witness was occupying
+nothing at all: strictly better than not having it, which is the opposite of a
+curse.
+
+Written as "however many cards are already in hand" rather than "count the
+innates", so it stays correct if anything else ever seats a card first. Turn 1
+only, because that is the one turn the hand is not empty when the draw runs.
+
+### The Station charges by the point now
+
+3 Alloy a point in Act 1, 4 in Act 2, 5 in Act 3, and it fills you up.
+
+The flat "150 for half your maximum" priced badly at both ends: a dead button at
+full health, and the cheapest Alloy in the game on a bad run — which is exactly
+when you had least else to spend it on. A rate that climbs with the act keeps
+health you buy late competing with an implant rather than undercutting it.
+
+**All of it or none of it, deliberately.** Selling as much as you can afford
+sounds kinder and is a trap: one click would quietly empty a wallet you were
+saving for an implant. The old code had a comment making exactly this argument
+and a test pinning it, and the first version of this rework broke both before
+either was re-read. They were right.
+
+`ShopState` holds the *rate* rather than a price, because what you pay depends
+on how hurt you are and how much Alloy you have, and both move while you shop.
+`repairOffer` is a query, so the Station screen renders it rather than working
+it out — the button and the result read the same function, which is the only
+way they cannot disagree.

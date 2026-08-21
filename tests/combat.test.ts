@@ -14,6 +14,7 @@ import {
   endTurnImmediately,
   needsTarget,
   playCard,
+  startCombat,
   startPlayerTurn,
 } from '../src/engine/combat/combat.ts';
 import { definitionOf } from '../src/engine/combat/combat.ts';
@@ -22,6 +23,8 @@ import { nextStance } from '../src/engine/combat/stance.ts';
 import { overheatDamageAt } from '../src/engine/combat/heat.ts';
 import { addStacks, clearFresh, decayStatuses } from '../src/engine/combat/keywords.ts';
 import { SCALD, WEAK } from '../src/content/statuses.ts';
+import { cards as cardTable } from '../src/content/registry.ts';
+import { CLEAR_SPACE_ID } from '../src/content/environments.ts';
 import { ACTIVE_STANCES, HEAT, PLAYER, STANCES } from '../src/content/balance.ts';
 import { IAI_SLASH, SEVER, SOLAR_PARRY, VECTOR_STEP } from '../src/content/cards/basic.ts';
 import { VULNERABLE } from '../src/content/statuses.ts';
@@ -260,6 +263,38 @@ describe('stance', () => {
   it('vents in GUARD at the end of the turn', () => {
     const state = makeFight({ stance: 'guard', heat: 5, drawPile: [IAI_SLASH] });
     expect(combatOf(endTurnImmediately(state)).heat).toBe(5 - STANCES.guard.ventAtTurnEnd);
+  });
+});
+
+describe('innate', () => {
+  it('takes a hand slot rather than adding one', () => {
+    /* The bug: draw The Witness plus five other cards, for six.
+
+       Innate cards are seated in hand before turn 1 draws, so the draw has to
+       come out of the hand size rather than on top of it. It matters most for
+       the cards you did not choose — a Voided card's entire cost is occupying
+       a slot in every opening hand, and it was occupying nothing. */
+    const withInnate = cardTable
+      .all()
+      .find((card) => card.innate === true && card.type === 'voided');
+    expect(withInnate, 'no innate voided card to test with').toBeDefined();
+
+    const state = makeFight();
+    const run = state.run!;
+    const deck = [
+      { uid: 'innate-1', defId: withInnate!.id, upgraded: false },
+      ...run.pilot.deck,
+    ];
+
+    const opened = startCombat(
+      { ...state, run: { ...run, pilot: { ...run.pilot, deck }, combat: null } },
+      'hound_pair',
+      CLEAR_SPACE_ID,
+    );
+
+    const hand = combatOf(opened).hand;
+    expect(hand).toHaveLength(PLAYER.drawPerTurn);
+    expect(hand.some((card) => card.defId === withInnate!.id), 'the innate is in hand').toBe(true);
   });
 });
 

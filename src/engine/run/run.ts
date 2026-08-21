@@ -633,28 +633,54 @@ export function safePlanetTrade(state: GameState): GameState {
  * are missing capacity for, so arriving hurt is a real problem and the Station
  * is a real choice rather than a reset button.
  */
+/**
+ * What the Station will patch, and what it will cost.
+ *
+ * It fills you up, and charges by the point at a rate that climbs with the act.
+ * The flat "150 for half your maximum" it replaced priced badly at both ends:
+ * a dead button at full health, and the cheapest Alloy in the game on a bad
+ * run — which is exactly when you had least else to spend it on.
+ *
+ * **All of it or none of it, deliberately.** Selling as much as you can afford
+ * sounds kinder and is a trap: one click would quietly empty a wallet you were
+ * saving for an implant. That is the kind of thing nobody notices until they
+ * are twenty Alloy short of the thing that would have saved them, so the offer
+ * is a single price you either meet or walk away from.
+ *
+ * A query, so the Station screen renders this rather than working it out. The
+ * resolver below uses the identical function, which is the only way the button
+ * and the result cannot disagree.
+ */
+export function repairOffer(run: RunState): {
+  readonly rate: number;
+  readonly healed: number;
+  readonly price: number;
+  readonly affordable: boolean;
+} {
+  const shop = run.shop;
+  const rate = shop?.repairRate ?? ECONOMY.repairPerHealth[run.act];
+  const healed = shop === null || shop.repairUsed ? 0 : run.pilot.maxHealth - run.pilot.health;
+  const price = healed * rate;
+  return { rate, healed, price, affordable: price > 0 && run.alloy >= price };
+}
+
 export function stationRepair(state: GameState): GameState {
   const run = requireRun(state);
-  const shop = run.shop;
-  if (shop === null || shop.repairUsed || run.alloy < shop.repairPrice) return state;
+  const offer = repairOffer(run);
+  if (!offer.affordable) return state;
 
-  const amount = Math.round(run.pilot.maxHealth * ECONOMY.repairPct);
-  const healed = Math.min(run.pilot.maxHealth, run.pilot.health + amount);
-  const gained = healed - run.pilot.health;
-  if (gained === 0) return state;
-
-  const paid = spendAlloy(state, shop.repairPrice, 'station');
+  const paid = spendAlloy(state, offer.price, 'station');
   const next = withRun(paid, (current) => ({
     ...current,
-    pilot: { ...current.pilot, health: healed },
+    pilot: { ...current.pilot, health: current.pilot.health + offer.healed },
     shop: current.shop === null ? null : { ...current.shop, repairUsed: true },
   }));
 
   return appendLog(next, {
     source: 'station',
     kind: 'run',
-    text: `Patched ${gained} for ${shop.repairPrice} Alloy.`,
-    detail: { repaired: gained, cost: shop.repairPrice },
+    text: `Patched ${offer.healed} for ${offer.price} Alloy.`,
+    detail: { repaired: offer.healed, cost: offer.price, rate: offer.rate },
   });
 }
 

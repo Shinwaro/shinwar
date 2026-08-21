@@ -101,7 +101,7 @@ export function stockShop(state: GameState, nodeId: string): GameState {
     masterySold: false,
     forgePrice: SHOP.forgePrice,
     forgeUsed: false,
-    repairPrice: ECONOMY.repairPrice,
+    repairRate: ECONOMY.repairPerHealth[run.act],
     repairUsed: false,
     implants,
   };

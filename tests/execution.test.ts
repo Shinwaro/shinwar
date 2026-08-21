@@ -208,7 +208,7 @@ describe('voided cards', () => {
           masterySold: true,
           forgePrice: 10,
           forgeUsed: false,
-          repairPrice: 150,
+          repairRate: 3,
           repairUsed: false,
           implants: [],
         },

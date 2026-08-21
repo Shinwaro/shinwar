@@ -870,8 +870,15 @@ export interface ShopState {
    */
   readonly forgePrice: number;
   readonly forgeUsed: boolean;
-  /** One patch-up per Station, at a fixed price for a fixed fraction. */
-  readonly repairPrice: number;
+  /**
+   * Alloy per point of health, one patch-up per Station.
+   *
+   * The rate rather than a price, because what you pay depends on how hurt you
+   * are and how much Alloy you have — both of which move while you shop. Held
+   * from arrival like the rest of the stock, so the act's rate cannot change
+   * under you mid-visit.
+   */
+  readonly repairRate: number;
   readonly repairUsed: boolean;
   /** The implant shelf. What Alloy is actually for. */
   readonly implants: readonly ShopImplantStock[];

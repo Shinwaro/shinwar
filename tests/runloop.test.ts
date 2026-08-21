@@ -17,6 +17,7 @@ import { canPlay } from '../src/engine/combat/combat.ts';
 import { archetypeLean } from '../src/engine/run/rewards.ts';
 import { removalCost } from '../src/engine/run/economy.ts';
 import { stockShop } from '../src/engine/run/shop.ts';
+import { repairOffer } from '../src/engine/run/run.ts';
 import { reloadContent } from '../src/content/index.ts';
 import { cards as cardTable } from '../src/content/registry.ts';
 import { ECONOMY, PLAYER } from '../src/content/balance.ts';
@@ -286,18 +287,28 @@ describe('the Station', () => {
       run: { ...run, screen: 'station', alloy: 400, pilot: { ...run.pilot, health: 20 } },
     };
 
-    const patch = Math.round(run.pilot.maxHealth * ECONOMY.repairPct);
+    /* Priced by the point, at a rate that climbs with the act, and it fills
+       you up rather than paying for a fraction. */
+    const offer = repairOffer(parked.run!);
+    const missing = run.pilot.maxHealth - 20;
+    expect(offer.rate).toBe(ECONOMY.repairPerHealth[parked.run!.act]);
+    expect(offer.healed).toBe(missing);
+    expect(offer.price).toBe(missing * offer.rate);
+
     const repaired = applyAction(parked, { kind: 'stationRepair' });
-    expect(repaired.run?.pilot.health).toBe(20 + patch);
-    expect(repaired.run?.alloy).toBe(400 - ECONOMY.repairPrice);
+    expect(repaired.run?.pilot.health).toBe(run.pilot.maxHealth);
+    expect(repaired.run?.alloy).toBe(400 - offer.price);
 
     // One per Station. A second attempt changes nothing at all.
     expect(applyAction(repaired, { kind: 'stationRepair' })).toBe(repaired);
 
-    // And a repair the Alloy cannot cover is refused outright rather than
-    // partially paid — a half-purchase is the kind of thing nobody notices
-    // until they are 20 Alloy short of the implant that would have saved them.
+    /* And a repair the Alloy cannot cover is refused outright rather than
+       partially paid. Selling as much as you can afford sounds kinder and is a
+       trap: one click would quietly empty a wallet you were saving for an
+       implant, which is the kind of thing nobody notices until they are twenty
+       Alloy short of the thing that would have saved them. */
     const broke: GameState = { ...parked, run: { ...parked.run!, alloy: 5 } };
+    expect(repairOffer(broke.run!).affordable).toBe(false);
     expect(applyAction(broke, { kind: 'stationRepair' })).toBe(broke);
   });
 

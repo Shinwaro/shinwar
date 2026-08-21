@@ -12,10 +12,10 @@
 
 import type { GameState } from '../../engine/types.ts';
 import type { Store } from '../store.ts';
+import { RARITY_LABEL } from '../../content/balance.ts';
 import { requireRun } from '../../engine/state.ts';
 import { definitionOf } from '../../engine/combat/combat.ts';
 import { describeCard, describeCost } from '../../engine/combat/describe.ts';
-import { ECONOMY, RARITY_LABEL } from '../../content/balance.ts';
 import {
   cards as cardTable,
   implants as implantTable,
@@ -23,6 +23,7 @@ import {
 } from '../../content/registry.ts';
 import { button, el } from '../dom.ts';
 import { liveScreen } from '../screen.ts';
+import { repairOffer } from '../../engine/run/run.ts';
 import { renderRunBar } from '../components/runbar.ts';
 import { renderCardFace } from '../components/card.ts';
 import { renderManifest } from '../components/manifest.ts';
@@ -61,9 +62,9 @@ function build(store: Store, state: GameState, local: Local, redraw: () => void)
   if (local.picking !== null && shop !== null) return buildPicker(store, state, local, redraw);
 
   const bodyMissing = run.pilot.maxHealth - run.pilot.health;
-  // One fixed patch, not a slider. What it restores is a fraction of MAX health,
-  // capped by what is actually missing.
-  const patch = Math.min(bodyMissing, Math.round(run.pilot.maxHealth * ECONOMY.repairPct));
+  // Computed by the engine, never here — the button and the result read the
+  // same function or they can disagree, which is the fastest way to feel cheated.
+  const repair = repairOffer(run);
 
   return el('div', { class: 'station-inner' }, [
     renderRunBar(store, state),
@@ -215,15 +216,15 @@ function build(store: Store, state: GameState, local: Local, redraw: () => void)
           ? null
           : serviceOption(
               shop.repairUsed ? 'Patched up' : 'Patch up',
-              `${shop.repairPrice} Alloy for ${patch} health, one per Station.`,
+              `${repair.rate} Alloy a point, one per Station.`,
               shop.repairUsed
                 ? 'This station has done its one.'
                 : bodyMissing === 0
                   ? 'Nothing to repair.'
-                  : run.alloy < shop.repairPrice
-                    ? 'Not enough Alloy.'
-                    : `You are down ${bodyMissing}.`,
-              shop.repairUsed || bodyMissing === 0 || run.alloy < shop.repairPrice,
+                  : repair.affordable
+                    ? `All ${repair.healed} back, for ${repair.price}.`
+                    : `${repair.healed} back would cost ${repair.price}. You have ${run.alloy}.`,
+              shop.repairUsed || !repair.affordable,
               () => store.dispatch({ kind: 'stationRepair' }),
             ),
       ]),

@@ -218,8 +218,18 @@ export const ECONOMY = {
    * an implant and a card for the same Alloy, which is the decision the Station
    * is supposed to pose. Once per Station, like the forge and the removal.
    */
-  repairPct: 0.5,
-  repairPrice: 150,
+  /**
+   * Alloy per point of health at a Station, by act.
+   *
+   * Was a flat 150 for half your maximum, which priced badly at both ends: at
+   * full health it was a dead button, and on a bad run it was the cheapest
+   * Alloy in the game precisely when you had the least to spend it on. Per
+   * point, you buy exactly what you need and pay exactly for it.
+   *
+   * The rate climbs because everything else in Act 3 does. Health you buy late
+   * should compete with an implant, not undercut it.
+   */
+  repairPerHealth: { 1: 3, 2: 4, 3: 5 } as { readonly [act in 1 | 2 | 3]: number },
   /** Safe Planet: trade health for Alloy. */
   refuelHullCost: 8,
   refuelAlloyGain: 60,

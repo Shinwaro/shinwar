@@ -16,6 +16,7 @@
  */
 
 import type { CardInstance, EventDef, GameState, MapNode, RunState } from '../src/engine/types.ts';
+import { repairOffer } from '../src/engine/run/run.ts';
 import { applyAction } from '../src/engine/reducer.ts';
 import { createInitialState } from '../src/engine/state.ts';
 import { canPlay, definitionOf, needsTarget } from '../src/engine/combat/combat.ts';
@@ -32,7 +33,7 @@ import {
   events as eventTable,
   implants as implantTable,
 } from '../src/content/registry.ts';
-import { ACTIVE_STANCES, ECONOMY } from '../src/content/balance.ts';
+import { ACTIVE_STANCES } from '../src/content/balance.ts';
 
 function eventDefOf(id: string): EventDef | null {
   return eventTable.find(id) ?? null;
@@ -396,9 +397,13 @@ function station(state: GameState): GameState {
    * it costs about what an implant does, which is the trade the Station means
    * to pose.
    */
+  /* Priced by the point now, and all-or-nothing: `repairOffer` is the same
+     query the Station screen renders, so the bot cannot be shopping against a
+     different price from the one a player sees. Leaves 60 spare so a repair
+     never eats the implant it was saving for. */
+  const offer = repairOffer(run);
   const missing = run.pilot.maxHealth - run.pilot.health;
-  const patch = Math.round(run.pilot.maxHealth * ECONOMY.repairPct);
-  if (missing >= patch * 0.7 && run.alloy >= (shop.repairPrice ?? 0) + 60) {
+  if (offer.affordable && missing >= run.pilot.maxHealth * 0.3 && run.alloy >= offer.price + 60) {
     next = applyAction(next, { kind: 'stationRepair' });
   }
 
