@@ -31,8 +31,15 @@ export interface Weighted<T> {
 
 /* ---------- primitives ---------- */
 
-/** xmur3: string -> well-mixed uint32. Used only to derive stream seeds. */
-function hashString(input: string): number {
+/**
+ * xmur3: string -> well-mixed uint32.
+ *
+ * Derives the stream seeds. Exported because the epilogue picks its phrasing
+ * from the run rather than from a die — a run has already ended by then, and
+ * advancing a stream to choose an adjective would make the same seed's *next*
+ * run differ depending on how the last one was worded.
+ */
+export function hashString(input: string): number {
   let h = 1779033703 ^ input.length;
   for (let i = 0; i < input.length; i++) {
     h = Math.imul(h ^ input.charCodeAt(i), 3432918353);

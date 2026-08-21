@@ -1934,3 +1934,64 @@ recover.
 grew. What actually matters is that the pool outlasts a run, so it asserts ≥20 —
 plus a new one that every act has at least twelve to draw from, since `acts` is
 also the way a pool accidentally empties for Act 1.
+
+
+---
+
+## M7 — Feel
+
+### The epilogue is generated, and it is generated from facts
+
+`gameover.ts` was still the M1 screen: four numbers, a roster, and a line
+admitting the run loop had not been built yet. With no saves and no scores that
+screen is the *entire* artefact of an hour's play, so it now runs
+`engine/run/epilogue.ts` — where it ended, what ended it, what was in the hold,
+and what was still owed.
+
+Three constraints shaped it more than the prose did:
+
+**Nothing is invented.** Every sentence is a fact already in `RunState`. An
+epilogue that embellishes is a review of your own run that you cannot check,
+which is worth nothing. The near-misses are the load-bearing parts and the
+reason the file exists at all — "you died in Act 2" is a fact, and "you died
+with the Kiln Sovereign on four health" is a run you talk about. The unspent
+Alloy line is the same idea pointed the other way: dying with a Station's worth
+of money aboard is not bad luck, and the screen says so rather than being
+polite about it. It is suppressed on a win, where it would be a rebuke for
+nothing.
+
+**Varying phrasing is hashed, never rolled.** The headline has a few variants
+per situation, picked with `hashString` over the run's own facts. It never
+touches an RNG stream, and there is a test pinning that: if choosing an
+adjective advanced `rewards`, the *wording of one death* would change the
+contents of the next run on that seed. Same reason `describeCard` is generated
+and not written — text that can drift from the thing it describes will.
+
+**Every lookup goes through `find`, never `get`.** The registry's `get` throws
+on an unknown id, and the one screen in the game that must never throw is the
+one that runs after the run is already over. If content drops a relic a live
+run happens to be carrying, the epilogue should be one name shorter, not gone.
+
+The unresolved Threads get their own block rather than a clause. They are the
+part of the run the player *chose*, and one that never came due is the
+strongest thing the end screen can say — the same left-border tone language as
+the landing plate, so an obligation looks like the same kind of object wherever
+the run shows it.
+
+Two prose bugs worth recording because both were invisible until read aloud:
+joining the hold entries with `list()` produced "2 relics — X and Y and 2
+implants — Z", one sentence pretending to be two (semicolons now); and before
+the first move there is no place and no distance, so the general sentence
+degenerated into "0 places into the act", which reads as a bug rather than as a
+fact. That branch still has to know the outcome — quitting at the open chart is
+the ordinary way a run ends without starting, and it should not read like a
+death.
+
+**`hashString` is exported from `rng.ts` for this.** It was already the right
+function; a second hash next to it would have been the wrong kind of tidy.
+
+One thing to note about the guard test: it greps `src/engine/` for the platform
+generator's name, and it caught the *comment* in the new file explaining that
+the file does not use it. The guard is right to be that blunt — a grep that
+understood comments would be a grep that could be talked around — so the
+comment was reworded instead.
