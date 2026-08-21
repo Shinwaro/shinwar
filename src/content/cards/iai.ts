@@ -176,17 +176,33 @@ export const IAI_CARDS: readonly CardDef[] = [
     rarity: 'uncommon',
     archetype: 'iai',
     cost: 1,
-    // The only card that names a stance rather than cycling to the next one.
+    /* The only card that names a stance rather than cycling to the next one,
+       and it pays you for already being there.
+
+       **Order is the whole card.** The conditional runs first: setting the
+       stance and then asking whether you are in it answers yes every time, and
+       the card becomes an unconditional 2 Focus with a stance change attached.
+       Effects resolve in written order, so written order is the rule. */
     effects: [
+      {
+        op: 'conditional',
+        when: { kind: 'stanceIs', stance: 'iai' },
+        then: [{ op: 'gainFocus', amount: 2 }],
+      },
       { op: 'setStance', stance: 'iai' },
-      { op: 'gainFocus', amount: 2 },
     ],
     upgrade: {
       name: 'Silent Form+',
       effects: [
+        {
+          op: 'conditional',
+          when: { kind: 'stanceIs', stance: 'iai' },
+          then: [
+            { op: 'gainFocus', amount: 3 },
+            { op: 'draw', amount: 1 },
+          ],
+        },
         { op: 'setStance', stance: 'iai' },
-        { op: 'gainFocus', amount: 2 },
-        { op: 'draw', amount: 1 },
       ],
     },
     flavor: 'Arriving somewhere on purpose, for once.',

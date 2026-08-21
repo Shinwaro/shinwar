@@ -169,22 +169,22 @@ export const OVERHEAT_CARDS: readonly CardDef[] = [
     archetype: 'overheat',
     cost: 2,
     effects: [
-      { op: 'damage', amount: 9, target: 'enemy' },
+      { op: 'damage', amount: 12, target: 'enemy' },
       { op: 'gainHeat', amount: 2 },
       {
         op: 'conditional',
-        when: { kind: 'heatAtLeast', value: 7 },
+        when: { kind: 'heatAtLeast', value: 6 },
         then: [{ op: 'applyStatus', status: VULNERABLE, stacks: 2, target: 'enemy' }],
       },
     ],
     upgrade: {
       name: 'Thermal Lance+',
       effects: [
-        { op: 'damage', amount: 13, target: 'enemy' },
+        { op: 'damage', amount: 16, target: 'enemy' },
         { op: 'gainHeat', amount: 2 },
         {
           op: 'conditional',
-          when: { kind: 'heatAtLeast', value: 6 },
+          when: { kind: 'heatAtLeast', value: 5 },
           then: [{ op: 'applyStatus', status: VULNERABLE, stacks: 2, target: 'enemy' }],
         },
       ],

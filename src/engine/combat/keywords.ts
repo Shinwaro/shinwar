@@ -82,6 +82,22 @@ export function describeStatus(status: StatusId, stacks: number): string {
 }
 
 /**
+ * Extra Energy from statuses, flat while held rather than per stack.
+ *
+ * See `StatusDef.energyWhileHeld`: for this one the stacks are the duration,
+ * so two different statuses granting Energy would add, but two stacks of the
+ * same one do not.
+ */
+export function statusEnergy(held: readonly StatusStack[]): number {
+  let total = 0;
+  for (const stack of held) {
+    if (stack.stacks <= 0) continue;
+    total += statusTable.find(stack.status)?.energyWhileHeld ?? 0;
+  }
+  return total;
+}
+
+/**
  * Everything a status does *per turn*, for one holder.
  *
  * One tick, in one place, driven by `damagePerTurn` and `heatPerTurn` on the

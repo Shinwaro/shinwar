@@ -6,7 +6,14 @@
  *
  * Target is <= 14 keywords at 1.0. Counting the ones that need explaining:
  * Block, Heat, Focus, Vulnerable, Weak, Strength, Exhaust, Innate, Irradiate,
- * Rust, Scald. Eleven.
+ * Rust, Scald, Tempered, Overclock. Thirteen — one under, and the last one
+ * should be spent very deliberately.
+ *
+ * Tempered and Overclock exist because Strength was the ONLY lasting buff in
+ * the game, so every "power" card was the same card with a different number.
+ * Neither needed new machinery worth the name: Tempered is the existing
+ * `damageTakenMult` pointed the other way, capped by the same `multFloor` that
+ * caps Weak.
  *
  * Rust and Scald exist because every enemy was asking the same question --
  * "can you out-damage this" -- and the answer was always the same shape. A
@@ -23,6 +30,8 @@ export const STRENGTH = 'strength';
 export const IRRADIATE = 'irradiate';
 export const RUST = 'rust';
 export const SCALD = 'scald';
+export const TEMPERED = 'tempered';
+export const OVERCLOCK = 'overclock';
 
 export const STATUSES: readonly StatusDef[] = [
   {
@@ -74,6 +83,29 @@ export const STATUSES: readonly StatusDef[] = [
     kind: 'debuff',
     decay: 'turn',
     damagePerTurn: 1,
+  },
+  /* The mirror of Weak, and capped for the same reason. Reuses
+     `damageTakenMult` and `multFloor` exactly as Weak and Vulnerable do, so it
+     is a row rather than a branch. */
+  {
+    id: TEMPERED,
+    name: 'Tempered',
+    text: 'Takes 25% less damage per stack, to a maximum of 50% less. One stack falls off at the end of your turn.',
+    kind: 'buff',
+    decay: 'turn',
+    damageTakenMult: 0.75,
+    multFloor: 0.5,
+  },
+  /* The expensive one. Stacks are turns, not Energy — see `energyWhileHeld`.
+     The only status in the game that changes how many cards a turn you get to
+     play, which is why it is priced like a relic rather than like a buff. */
+  {
+    id: OVERCLOCK,
+    name: 'Overclock',
+    text: 'Gain 1 extra Energy at the start of your turn. One stack falls off at the end of your turn, so the stacks are how many turns it lasts.',
+    kind: 'buff',
+    decay: 'turn',
+    energyWhileHeld: 1,
   },
   /* Pushes you up the gauge you were managing. Against a deck that never went
      near the overheat line this is nothing; against one riding it, it is the

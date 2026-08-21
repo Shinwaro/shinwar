@@ -23,9 +23,11 @@ import { EVENT_CARDS } from './events.ts';
 import { EXECUTION_CARDS } from './execution.ts';
 import { FOCUS_CARDS } from './focus.ts';
 import { GUARD_CARDS } from './guard.ts';
+import { LEGENDARY_CARDS } from './legendary.ts';
 import { IAI_CARDS } from './iai.ts';
 import { NEUTRAL_CARDS } from './neutral.ts';
 import { OVERHEAT_CARDS } from './overheat.ts';
+import { POWER_CARDS } from './powers.ts';
 import { TEMPO_CARDS } from './tempo.ts';
 import { VOIDED_CARDS } from './voided.ts';
 
@@ -37,7 +39,9 @@ export const CARDS: readonly CardDef[] = [
   ...NEUTRAL_CARDS,
   ...FOCUS_CARDS,
   ...TEMPO_CARDS,
+  ...POWER_CARDS,
   ...EXECUTION_CARDS,
+  ...LEGENDARY_CARDS,
   ...EVENT_CARDS,
   ...VOIDED_CARDS,
 ];

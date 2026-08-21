@@ -28,7 +28,7 @@ import { ENCOUNTERS } from '../../content/encounters.ts';
 import { PLAYER, enemyTarget, livingEnemies } from './damage.ts';
 import { applyEffects, createContext, retireCard } from './effects.ts';
 import { gainHeat, resolveOverheat, ventHeat } from './heat.ts';
-import { addStacks, clearFresh, decayStatuses, tickStatuses } from './keywords.ts';
+import { addStacks, clearFresh, decayStatuses, statusEnergy, tickStatuses } from './keywords.ts';
 import { environmentRules, liveStance, pilotRules, stanceRulesFor } from './rules.ts';
 import { mintEnemy } from './instances.ts';
 import { discardHand, draw, findInHand, moveToDiscard, narrateDraw } from './piles.ts';
@@ -178,9 +178,20 @@ export function startPlayerTurn(state: GameState): GameState {
   // is.
   const relics = pilotRules(state);
   const skipping = combat.skipNextTurn;
+  /* Overclock is read here rather than in the status tick, because this is the
+     expression that answers "how much Energy do you get this turn" — and the
+     `skipping` branch then denies it for free. A turn the reactor took must not
+     be quietly refunded by a buff. */
+  const overclock = statusEnergy(combat.statuses);
   const energy = skipping
     ? 0
-    : Math.max(0, PLAYER_BALANCE.energyPerTurn + relics.energyPerTurn - combat.energyPenaltyNextTurn);
+    : Math.max(
+        0,
+        PLAYER_BALANCE.energyPerTurn +
+          relics.energyPerTurn +
+          overclock -
+          combat.energyPenaltyNextTurn,
+      );
 
   let next = withCombat(state, (current) => ({
     ...current,

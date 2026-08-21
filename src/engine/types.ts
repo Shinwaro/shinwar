@@ -317,6 +317,20 @@ export interface StatusDef {
   readonly damagePerTurn?: number;
   /** Heat gained per stack at the start of the turn. Player only — enemies have no gauge. */
   readonly heatPerTurn?: number;
+  /**
+   * Extra Energy each turn while ANY stack is held. Player only.
+   *
+   * The one status field that is deliberately not per-stack, because for this
+   * one the stacks are the **duration** rather than the size: three stacks is
+   * three turns of the same bonus, not one turn of three Energy. Per-stack
+   * would make the same card either a brief enormous spike or a long
+   * negligible one, and neither is "you are faster for a while".
+   *
+   * Read where the turn's Energy is computed rather than in the status tick,
+   * so a turn the reactor took still grants nothing — an overheat that costs
+   * you a turn must not be quietly refunded.
+   */
+  readonly energyWhileHeld?: number;
 }
 
 /* ---------- run-scope effects ----------

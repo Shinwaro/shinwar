@@ -20,7 +20,7 @@
  */
 
 import type { CardDef } from '../../engine/types.ts';
-import { RUST, VULNERABLE, WEAK } from '../statuses.ts';
+import { RUST, VULNERABLE } from '../statuses.ts';
 
 export const TEMPO_CARDS: readonly CardDef[] = [
   {
@@ -564,26 +564,5 @@ export const TEMPO_CARDS: readonly CardDef[] = [
       },
     },
     flavor: 'One motion that has not finished when the next one starts.',
-  },
-
-  {
-    id: 'dead_stop',
-    name: 'Dead Stop',
-    type: 'skill',
-    rarity: 'uncommon',
-    archetype: 'guard',
-    cost: 1,
-    effects: [
-      { op: 'block', amount: 7 },
-      { op: 'applyStatus', status: WEAK, stacks: 1, target: 'enemy' },
-    ],
-    upgrade: {
-      name: 'Dead Stop+',
-      effects: [
-        { op: 'block', amount: 10 },
-        { op: 'applyStatus', status: WEAK, stacks: 2, target: 'enemy' },
-      ],
-    },
-    flavor: 'Not a parry. A refusal.',
   },
 ];

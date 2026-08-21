@@ -49,7 +49,10 @@ function describeCondition(when: Extract<EffectOp, { op: 'conditional' }>['when'
     case 'cardsPlayedThisTurnAtLeast':
       return `you have played ${when.value} cards this turn`;
     case 'hullBelowPct':
-      return `hull is below ${when.value}%`;
+      // "health", to match the bar and the heal op. The condition is still
+      // named hullBelowPct in the data because renaming a shipped condition
+      // kind would churn every card that uses it for a word.
+      return `health is below ${when.value}%`;
     case 'killedThisPlay':
       return 'this kills an enemy';
     default: {
@@ -101,7 +104,16 @@ function describeOp(op: EffectOp, state: GameState | null, afterDamage = false):
     case 'block':
       return `Gain ${op.amount} Block.`;
     case 'applyStatus':
-      return `Apply ${op.stacks} ${statusName(op.status)}${targetSuffix(op.target)}.`;
+      /* "Gain 2 Tempered", not "Apply 2 Tempered".
+       *
+       * A bare "Apply N X" means the chosen enemy — that is the convention the
+       * whole pool reads by, since `targetSuffix` only speaks up for the plural
+       * targets. So a self-buff rendered bare said the opposite of what it did,
+       * and it only became visible once buffs other than Strength existed.
+       * "Gain" is also the verb the card already uses for Block and Focus. */
+      return op.target === 'self'
+        ? `Gain ${op.stacks} ${statusName(op.status)}.`
+        : `Apply ${op.stacks} ${statusName(op.status)}${targetSuffix(op.target)}.`;
     case 'gainHeat':
       return `Gain ${op.amount} Heat.`;
     case 'ventHeat':
@@ -123,10 +135,16 @@ function describeOp(op: EffectOp, state: GameState | null, afterDamage = false):
     case 'addCardToHand':
       return `Add ${cardTable.find(op.cardId)?.name ?? op.cardId}${op.upgraded === true ? '+' : ''} to your hand.`;
     case 'heal':
-      return `Repair ${op.amount} hull.`;
+      /* "Health", never "hull". The bar on the combat screen says HEALTH and
+         the Station calls it a repair, and a card that used a third word for
+         the same number made the player check whether it was a third thing. */
+      return `Regain ${op.amount} health.`;
     case 'conditional': {
-      const then = describeOps(op.then, state);
-      const otherwise = op.else === undefined ? '' : ` Otherwise ${lowerFirst(describeOps(op.else, state))}`;
+      const then = joinClause(describeOps(op.then, state));
+      const otherwise =
+        op.else === undefined
+          ? ''
+          : ` Otherwise ${lowerFirst(joinClause(describeOps(op.else, state)))}`;
 
       /*
        * "deal 13 additional damage", not "deal 13 damage".
@@ -192,6 +210,25 @@ function currentScale(
 
 function lowerFirst(text: string): string {
   return text.charAt(0).toLowerCase() + text.slice(1);
+}
+
+/**
+ * Fold several sentences into one clause.
+ *
+ * A conditional's branch is a single promise however many ops are in it, and
+ * `describeOps` returns them full-stopped: "If this kills an enemy, gain 3
+ * Energy. Draw 2 cards." reads as though the draw happens either way. The card
+ * was lying about itself, and only a branch with two ops in it could show that
+ * — every conditional in the pool until now had exactly one.
+ */
+function joinClause(text: string): string {
+  const sentences = text
+    .split('. ')
+    .map((part) => part.trim().replace(/\.$/, ''))
+    .filter((part) => part !== '');
+  if (sentences.length <= 1) return text;
+  const last = sentences[sentences.length - 1] as string;
+  return `${sentences.slice(0, -1).join(', ')} and ${lowerFirst(last)}.`;
 }
 
 export function describeOps(ops: readonly EffectOp[], state: GameState | null = null): string {

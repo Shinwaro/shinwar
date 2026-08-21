@@ -50,28 +50,6 @@ export const FOCUS_CARDS: readonly CardDef[] = [
   },
 
   {
-    id: 'gathering',
-    name: 'Gathering',
-    type: 'skill',
-    rarity: 'uncommon',
-    archetype: 'iai',
-    cost: 1,
-    effects: [
-      { op: 'gainFocus', amount: 2 },
-      { op: 'draw', amount: 1 },
-    ],
-    stanceRider: { stance: 'guard', effects: [{ op: 'gainFocus', amount: 1 }] },
-    upgrade: {
-      name: 'Gathering+',
-      effects: [
-        { op: 'gainFocus', amount: 3 },
-        { op: 'draw', amount: 1 },
-      ],
-    },
-    flavor: 'Collect it the way you collect debts. Quietly, and all at once.',
-  },
-
-  {
     id: 'the_long_draw',
     name: 'The Long Draw',
     type: 'attack',
