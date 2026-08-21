@@ -3078,6 +3078,7 @@
 
 /* The form is the argument; the heat arrow is the footnote. */
 .sigil-form { opacity: 1; }
+.sigil-solid { opacity: 1; }
 .sigil-heat { opacity: 0.6; }
 
 /* A stance you cannot change out of this turn is a stance you are stuck in. */

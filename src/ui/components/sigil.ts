@@ -33,8 +33,17 @@ import { STANCES } from '../../content/balance.ts';
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
 interface Plot {
-  /** What one Focus becomes. The mark's whole argument. */
+  /** What one Focus becomes. The mark's whole argument. Stroked. */
   readonly form: readonly string[];
+  /**
+   * Filled shapes, drawn under the strokes.
+   *
+   * A blade that tapers has to be a shape rather than a line — a line with a
+   * crossbar on it is a hammer, which is what the first attempt looked like.
+   * Filled rather than outlined because at 38 pixels an outlined triangle with
+   * a stroked arrow crossing it is four edges where the eye wants one form.
+   */
+  readonly solid?: readonly string[];
   /** Which way the gauge moves at the end of the turn. `null` for neither. */
   readonly heat: 'up' | 'down' | null;
 }
@@ -54,15 +63,21 @@ const PLOTS: { readonly [id in StanceId]: Plot } = {
      IAI no longer shows its Heat rise, which the stance text beside it still
      states in words. */
   iai: {
+    /* The blade is an isosceles triangle about the diagonal: the two base
+       corners sit the same distance either side of the axis and the point is
+       on it, so it is symmetrical by construction rather than by eye. Base
+       corners are 26,26 offset by ±8 along the perpendicular; the point runs
+       to 90,90. */
+    solid: ['M31.7 20.3 L90 90 L20.3 31.7 Z'],
     form: [
       // The arrow, lower-left to upper-right, running past the corner.
       'M14 86 L82 18',
       // Its head, opened back from the point.
       'M58 18 L84 16 L82 42',
-      // The sword, hilt at the upper left, point down past the far corner.
-      'M22 22 L86 86',
-      // The crossguard, square across the blade at the hilt.
-      'M17 35 L35 17',
+      // The guard, square across the blade and wider than its base.
+      'M36 16 L16 36',
+      // The grip, running back from the guard to the pommel.
+      'M24 24 L13 13',
     ],
     heat: null,
   },
@@ -127,6 +142,11 @@ export function renderSigil(stance: StanceId): SVGSVGElement {
     'stroke-linejoin': 'round',
   });
 
+  /* Fills first, so a stroked line crossing a filled shape reads as crossing
+     it rather than being buried under it. */
+  for (const d of plot.solid ?? []) {
+    group.append(node('path', { class: 'sigil-solid', d, fill: 'currentColor', stroke: 'none' }));
+  }
   for (const d of plot.form) {
     group.append(node('path', { class: 'sigil-form', d }));
   }
