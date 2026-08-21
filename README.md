@@ -49,39 +49,49 @@ if it ever comes back.
 
 ## Status
 
-**M2 complete — a playable Act 1.** A branching star map with environment badges shown before you
-commit to a route, node types, rewards with a real Skip, the Safe Planet menu, Alloy, the Station,
-the pause screen, replay-from-log, and the `beforeunload` guard. Mapgen's guarantees are asserted
-across 1000 seeds.
+**M8 — ship it.** The game is complete: three acts, a run of about an hour, and an ending that
+says something true about the run you actually had.
 
-Before it: **M1** put a fight underneath — stance and heat, the damage pipeline with previews that
-cannot disagree with the result, telegraphed intents, and three Act 1 enemies. **M0** laid the
-ground — seeded RNG with named streams, the hook bus, the pure reducer, and the content registry.
+What is in it: **91 cards**, **30 enemies** each with its own hand-plotted mark, **29 Anomalies**,
+**27 relics**, **11 implants**, **8 environments**, **41 encounters**, **10 Threads**, **4 Stance
+Masteries**. One legendary card per run, at the exact middle of Act 2, from an event about the
+ronin's past. An introduction that teaches the fight inside a real fight rather than beside one.
+
+The bundle is **269 kB / 78 kB gzipped** of JavaScript and **46 kB / 10 kB gzipped** of CSS, with
+**zero runtime dependencies**, no web fonts, no CDN and no network call of any kind — the last is
+asserted against the *built bundle*, not just the source.
+
+### How it got here
+
+**M0** laid the ground: seeded RNG with named streams, the hook bus, the pure reducer, the content
+registry. **M1** put a fight underneath — stance and heat, a damage pipeline whose previews cannot
+disagree with the result, telegraphed intents. **M2** made it a run: a branching star map with
+environment badges shown before you commit to a route, rewards with a real Skip, Alloy, the
+Station, replay-from-log.
 
 **M3 built the ship — and playtest pass 9 cut it.** Space nodes, the module grid, the packing
-puzzle, the crash, the loadout screen and grid-versus-grid ship combat all existed and all came out:
-it was a second ruleset you met four times in an hour-long run, and three reworks each made it a
-better version of a thing that should not have been separate. What survives from M3 is the animation
-pass. There is one combat system now, and it is the deck.
+puzzle and grid-versus-grid ship combat all existed and all came out: it was a second ruleset you
+met four times in an hour, and three reworks each made a better version of a thing that should not
+have been separate. There is one combat system now, and it is the deck.
 
-**M4 gave the run a memory.** Ten Anomalies, each three real options plus a "leave" that is
-validated to be worthless; six Threads that come due four or five nodes later and can hand you an
-ally, a bill, or a Vareth reprisal that takes the node it lands on; a Manifest that is always on
-screen; and a Station that finally sells cards, a Stance Mastery and a card removal out of the same
-Alloy pool. Events are data — a new one is one file edit, and its rules text is generated from its effects.
+**M4 gave the run a memory** — Anomalies with three real options plus a "leave" that is validated
+to be worthless, Threads that come due four or five nodes later, a Manifest always on screen.
+**M5 is the whole run** — three acts, three bosses, all eight environments changing the rules for
+both sides, Act 3 enemies that counter *your build* rather than out-stat you, and the Wavefront,
+which prices every detour to the shop at a row of your lead.
 
-**M5 is the whole run.** Three acts with their own rosters and three bosses; all eight environments,
-shown on the node before you commit to the route and changing the rules of that fight for both
-sides; Act 3 enemies that counter *your build* rather than out-stat you; Stance Masteries that
-permanently rewrite a stance and make the deck you already have read differently; and the Wavefront
-from Act 2, which prices every detour to the shop at a row of your lead.
+**M6 was content and the simulator**, which arrived with a verdict — attrition was about three
+times sustainable, and 86% of runs died in Act 1. That drove the tuning that followed; how far it
+moved the win rate has not been re-measured. **M7 was feel**: hit feedback,
+screen shake that respects `prefers-reduced-motion`, card motion, the generated epilogue, the
+combat-stage background, the introduction, and the marks.
 
-**Next**, in order:
+### Known gaps
 
-1. **Finish M6.** The simulator is built and already has a verdict: **attrition is about three
-   times sustainable** — 15 health a fight against a 70-health pilot, so 86% of runs end in Act 1
-   and nothing has ever won. That is the first thing to tune, and until a run is winnable the
-   pick-rate-against-win-rate table can only show half of itself. Content is also short of target:
-   41 cards against ~85, 20 enemies against ~28, 10 Anomalies against ~35.
-2. **M7** — feel: animation timings, hit feedback, screen shake, the epilogue generator, the
-   combat-stage background. Not the Depth ladder — it stops at 5 deliberately.
+- **`BALANCE.md` does not exist**, though `CLAUDE.md` points at it as the record of every tuning
+  number. The numbers live in `src/content/balance.ts` with comments; the document that explains
+  *why* each one is what it is has not been written.
+- **The pick-rate pass is not done.** `npm run sim` reports pick rate against win rate and the
+  8–60% band, and nobody has yet acted on the table it prints.
+- **Depth stops at 5**, deliberately. The ladder is specced to 20.
+- **Enemy scaling within an act** is deferred, not cancelled.

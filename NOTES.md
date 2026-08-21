@@ -2689,3 +2689,59 @@ written. `createElement` produces an HTML element whatever the tag says, so an
 `<svg><path>` built that way renders nothing and reports no error — the
 namespace is the whole difference and it is exactly the sort of thing worth
 having one door for.
+
+---
+
+## M8 — ship it
+
+### The bundler wrote a network call
+
+The no-persistence guard greps `src/`. It passed, and the shipped bundle still
+contained `fetch(`.
+
+Vite injects a modulepreload polyfill that `fetch()`es preload links for
+browsers that lack `modulepreload`. Nothing here is code-split, so there were no
+preload links and it never fired — but "no network calls, no analytics, no
+accounts by the back door" is a promise about **the artifact**, and a guard that
+only reads the source tree cannot keep it. The source was innocent the whole
+time.
+
+It is off now (`build.modulePreload: { polyfill: false }`), which also took
+0.7 kB off the bundle. And there is a second guard that greps `dist/` for the
+same list plus `new WebSocket`, and for any off-machine URL. It is skipped when
+`dist/` is absent — a fresh clone has no build and that is not a defect — and
+Vitest prints the skip, so it stays visible rather than quietly not running.
+
+The general lesson is worth keeping: **guard what ships, not what you wrote.**
+Every build step between the two is somewhere a promise can be broken by
+something that never appears in a diff.
+
+### What the browser could and could not verify
+
+`dist/` was served from `npm run preview` and driven through the title screen,
+mapgen, the chart's info panel, the Inventory, the pause screen and two turns of
+a real fight — correct damage, correct Scald tick, correct draw, no console
+output at all and no network requests.
+
+What could **not** be verified here is anything that waits on
+`requestAnimationFrame`. The pane reports `document.hidden === true` even when
+fronted, so rAF never fires in it: animations are frozen, and so is the info
+panel's bounded focus retry. That retry is why Esc appeared not to close the
+panel under instrumentation — the handler lives on the backdrop and needs focus
+inside the dialog to receive the key. The code path is correct by reading; it is
+untested by observation, and it is the one thing in this milestone taken on
+trust.
+
+Worth remembering as a measurement trap in its own right: a hidden tab does not
+merely animate slower. rAF does not fire at all, `animation.finished` never
+resolves, and anything scheduled behind either simply does not happen — so an
+instrument that reports "this never runs" may be describing the instrument.
+
+### The README was three milestones stale
+
+It said "M2 complete" and listed M6 and M7 as what was next. It is the front
+door of a repo about to be public for the first time, so it now says what the
+game actually is, what is in it, and — in its own section — what is still
+missing: `BALANCE.md`, the pick-rate pass, Depth stopping at 5, and enemy
+scaling within an act. A status section that only lists wins is a status section
+nobody trusts twice.

@@ -9,7 +9,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -116,6 +116,50 @@ describe('no persistence', () => {
   it('index.html stores nothing either', () => {
     const hits = grep([join(ROOT, 'index.html')], FORBIDDEN);
     expect(report(hits)).toBe('');
+  });
+});
+
+describe('the shipped bundle', () => {
+  /* The greps above read the source. This one reads what actually goes on the
+     wire, because the two are not the same file and the difference is where a
+     network call got in.
+
+     It caught exactly that at M8: Vite's modulepreload polyfill puts a
+     `fetch()` in the bundle to warm preload links. Nothing here is code-split,
+     so it never ran — but "no network calls" is a promise about the artifact,
+     not about the source tree, and a guard that only reads `src/` cannot keep
+     it. The polyfill is off in `vite.config.ts`; this is what notices if it
+     ever comes back.
+
+     Skipped without a build rather than failing: a fresh clone has no `dist/`
+     and that is not a defect. Vitest prints the skip, so it stays visible. */
+  const DIST = join(ROOT, 'dist');
+  const built = existsSync(DIST);
+
+  describe.skipIf(!built)('dist/ (run `npm run build` first)', () => {
+    it('ships no network call and no storage', () => {
+      const files = walk(DIST, ['.js', '.css', '.html']);
+      expect(files.length).toBeGreaterThan(0);
+      const hits = grep(files, [
+        /localStorage/,
+        /sessionStorage/,
+        /document\.cookie/,
+        /indexedDB/,
+        /\bfetch\(/,
+        /XMLHttpRequest/,
+        /navigator\.sendBeacon/,
+        /new WebSocket/,
+      ]);
+      /* Minified output is one enormous line, so a hit's `text` would be the
+         whole bundle. The file and the pattern are the useful part. */
+      expect(hits.map((hit) => `${hit.file}  /${hit.pattern}/`).join('\n')).toBe('');
+    });
+
+    it('asks for nothing off the machine', () => {
+      const files = walk(DIST, ['.js', '.css', '.html']);
+      const hits = grep(files, [/https?:\/\/(?!www\.w3\.org)/]);
+      expect(hits.map((hit) => `${hit.file}  /${hit.pattern}/`).join('\n')).toBe('');
+    });
   });
 });
 
