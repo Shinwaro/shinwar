@@ -202,7 +202,7 @@ export const ACT2_ENEMIES: readonly EnemyDef[] = [
   {
     id: IRON_PROCESSION,
     name: 'Iron Procession',
-    maxHp: 122,
+    maxHp: 136,
     act: 2,
     tier: 'elite',
     moves: [
@@ -250,7 +250,7 @@ export const ACT2_ENEMIES: readonly EnemyDef[] = [
   {
     id: SIPHON_ENGINE,
     name: 'Siphon Engine',
-    maxHp: 114,
+    maxHp: 98,
     act: 2,
     tier: 'elite',
     moves: [

@@ -348,11 +348,17 @@ export const ENCOUNTERS: readonly EncounterDef[] = [
     enemyIds: [ARC_WELDER, ARC_WELDER],
   },
   {
+    /* The things that arrive ahead of the front, not the front itself.
+    
+       This held the actual Act 2 boss, at its full 182 hull, on a NORMAL node
+       paying normal rewards — 244 total against an act average of 125, and it
+       meant you could meet the Herald before you met the Herald. The validator
+       refuses a boss in a normal encounter now. */
     id: 'herald_and_weevil',
     name: 'Forerunners',
     act: 2,
     tier: 'normal',
-    enemyIds: [WAVEFRONT_HERALD, BLOOM_WEEVIL],
+    enemyIds: [ASH_CHOIR, BLOOM_WEEVIL],
   },
   {
     id: 'prism_field',

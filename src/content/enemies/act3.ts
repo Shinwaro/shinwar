@@ -253,7 +253,7 @@ export const ACT3_ENEMIES: readonly EnemyDef[] = [
   {
     id: COLLAPSE_CHOIR,
     name: 'Collapse Choir',
-    maxHp: 155,
+    maxHp: 130,
     act: 3,
     tier: 'elite',
     moves: [
@@ -447,7 +447,7 @@ export const ACT3_ENEMIES: readonly EnemyDef[] = [
        is entirely the choice to keep riding the line. */
     id: CANTOR_OF_ASH,
     name: 'Cantor of Ash',
-    maxHp: 104,
+    maxHp: 160,
     act: 3,
     tier: 'elite',
     moves: [

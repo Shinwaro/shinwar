@@ -465,6 +465,57 @@ function validateEncounters(issues: ValidationIssue[]): void {
     }
   }
 
+  /* A boss belongs to its own node.
+  
+     `herald_and_weevil` was a NORMAL Act 2 encounter containing the Act 2 boss
+     at its full 182 hull — 244 total against an act average of 125, on a node
+     paying normal rewards, and it meant you could meet the Herald before you
+     met the Herald. */
+  for (const encounter of ENCOUNTERS) {
+    if (encounter.tier === 'boss') continue;
+    for (const id of encounter.enemyIds) {
+      const def = enemies.find(id);
+      if (def?.tier === 'boss') {
+        issues.push({
+          where: `encounter '${encounter.id}'`,
+          problem: `a ${encounter.tier} fight contains the boss '${id}'`,
+        });
+      }
+    }
+  }
+
+  /* Every elite fight in an act is the same size.
+  
+     Routing into an Elite is a choice with a fixed price — a relic, elite Alloy
+     — so two Elites in the same act have to be the same bet. They were not: Act
+     1 offered 76 hull or 104 depending on which one the chart gave you, and the
+     escorted ones were always the expensive end because the escort was free on
+     top of an elite already sized to stand alone.
+
+     Total hull rather than the elite's own, which is the whole point: a
+     companion comes OUT of the budget instead of being added to it. */
+  for (const act of [1, 2, 3] as const) {
+    const elites = ENCOUNTERS.filter(
+      (entry) => entry.act === act && entry.tier === 'elite' && entry.tutorial !== true,
+    ).map((entry) => ({
+      id: entry.id,
+      hull: entry.enemyIds.reduce((sum, id) => sum + (enemies.find(id)?.maxHp ?? 0), 0),
+    }));
+    if (elites.length < 2) continue;
+
+    const hulls = elites.map((entry) => entry.hull);
+    const low = Math.min(...hulls);
+    const high = Math.max(...hulls);
+    if (low > 0 && high / low > 1.15) {
+      issues.push({
+        where: `act ${act} elites`,
+        problem: `hull spread ${low}-${high} is over 15% — ${elites
+          .map((entry) => `${entry.id} ${entry.hull}`)
+          .join(', ')}`,
+      });
+    }
+  }
+
   // Every act needs every tier. A missing roster used to fall back to the
   // normal pool, which made an elite a normal fight with elite rewards.
   for (const act of [1, 2, 3] as const) {

@@ -20,7 +20,7 @@ export const ACT1_ELITES: readonly EnemyDef[] = [
   {
     id: KILN_ALPHA,
     name: 'Kiln Alpha',
-    maxHp: 76,
+    maxHp: 90,
     act: 1,
     tier: 'elite',
     moves: [
@@ -62,7 +62,7 @@ export const ACT1_ELITES: readonly EnemyDef[] = [
   {
     id: MAG_LATHE,
     name: 'Mag-Lathe Warden',
-    maxHp: 86,
+    maxHp: 72,
     act: 1,
     tier: 'elite',
     moves: [

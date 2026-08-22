@@ -541,3 +541,64 @@ describe('the Wavefront', () => {
     expect(WAVEFRONT.timeAtStop).toBeGreaterThan(WAVEFRONT.timePerNode);
   });
 });
+
+describe('what an Elite costs you', () => {
+  /* Routing into an Elite is a choice with a fixed price — a relic and elite
+     Alloy — so two Elites in the same act have to be the same bet.
+
+     They were not. Act 1 offered 76 hull or 104 depending on which one the
+     chart gave you, because an escorted elite was an elite already sized to
+     stand alone with a free Wisp added on top. The escort now comes OUT of the
+     budget rather than being added to it, which is what makes a solo elite and
+     an escorted one the same fight. */
+
+  function hullOfEncounter(ids: readonly string[]): number {
+    return ids.reduce((sum, id) => sum + enemyTable.get(id).maxHp, 0);
+  }
+
+  it('is the same size whether or not it brought company', () => {
+    for (const act of [1, 2, 3] as const) {
+      const elites = ENCOUNTERS.filter(
+        (entry) => entry.act === act && entry.tier === 'elite' && entry.tutorial !== true,
+      );
+      expect(elites.length, `act ${act} has no elites`).toBeGreaterThan(0);
+      if (elites.length < 2) continue;
+
+      const hulls = elites.map((entry) => hullOfEncounter(entry.enemyIds));
+      const spread = Math.max(...hulls) / Math.min(...hulls);
+      expect(
+        spread,
+        `act ${act}: ${elites.map((e, i) => `${e.name} ${hulls[i]}`).join(', ')}`,
+      ).toBeLessThanOrEqual(1.15);
+    }
+  });
+
+  it('is a bigger fight than a normal one and a smaller one than the boss', () => {
+    // The ladder the tiers are supposed to describe, asserted rather than assumed.
+    for (const act of [1, 2, 3] as const) {
+      const median = (tier: 'normal' | 'elite' | 'boss'): number => {
+        const hulls = ENCOUNTERS.filter(
+          (entry) => entry.act === act && entry.tier === tier && entry.tutorial !== true,
+        )
+          .map((entry) => hullOfEncounter(entry.enemyIds))
+          .sort((a, b) => a - b);
+        return hulls[Math.floor(hulls.length / 2)] ?? 0;
+      };
+      expect(median('elite'), `act ${act} elite vs normal`).toBeGreaterThan(median('normal'));
+      expect(median('elite'), `act ${act} elite vs boss`).toBeLessThan(median('boss'));
+    }
+  });
+
+  it('never puts a boss on a node that is not its own', () => {
+    /* A normal Act 2 encounter held the Act 2 boss at full hull, so you could
+       meet the Herald before you met the Herald — for normal rewards. */
+    const offenders: string[] = [];
+    for (const encounter of ENCOUNTERS) {
+      if (encounter.tier === 'boss') continue;
+      for (const id of encounter.enemyIds) {
+        if (enemyTable.get(id).tier === 'boss') offenders.push(`${encounter.id}/${id}`);
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+});
