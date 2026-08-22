@@ -27,6 +27,9 @@
 
 import type { CardDef } from '../../engine/types.ts';
 
+/** Named because the starting deck holds one — see `STARTING_DECK`. */
+export const JETTISON = 'jettison';
+
 export const DISCARD_CARDS: readonly CardDef[] = [
   {
     /* Net two cards for one Energy, at the cost of not choosing which one goes.
@@ -58,7 +61,7 @@ export const DISCARD_CARDS: readonly CardDef[] = [
        re-deal, and paying an Energy for the same number of cards is only worth
        it when the ones you have are worth nothing. Free at +, which is when it
        becomes a thing you can afford to do on the turn you needed it. */
-    id: 'jettison',
+    id: JETTISON,
     name: 'Jettison',
     type: 'skill',
     rarity: 'uncommon',
@@ -295,13 +298,17 @@ export const DISCARD_CARDS: readonly CardDef[] = [
     archetype: 'neutral',
     cost: 1,
     exhaust: true,
+    /* Two, not three. At three it was Empty the Rack's number applied to the
+       whole board for the same Energy, which makes the single-target card
+       pointless in every fight with more than one enemy — and Empty the Rack is
+       a rare that has to still be worth taking. */
     effects: [
       { op: 'discard', amount: 0, all: true },
       {
         op: 'scaleWith',
         source: 'discardedThisPlay',
         per: 1,
-        then: [{ op: 'damage', amount: 3, target: 'allEnemies' }],
+        then: [{ op: 'damage', amount: 2, target: 'allEnemies' }],
       },
     ],
     upgrade: {
@@ -312,7 +319,7 @@ export const DISCARD_CARDS: readonly CardDef[] = [
           op: 'scaleWith',
           source: 'discardedThisPlay',
           per: 1,
-          then: [{ op: 'damage', amount: 4, target: 'allEnemies' }],
+          then: [{ op: 'damage', amount: 3, target: 'allEnemies' }],
         },
       ],
     },

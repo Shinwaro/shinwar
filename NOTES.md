@@ -3286,3 +3286,24 @@ Two text bugs the new cards surfaced, both in `scaleWith`:
     so the figure was true, useless, and read as a promise of nothing. Per-play
     sources get no live term.
 
+### Jettison joins the starting deck
+
+Thirteen cards now. It is the one card in the opening deck that is not a thing
+you do to the fight — it is a thing you do to your own hand.
+
+The reason is a sequencing one rather than a power one: the opening deck could
+draw five cards that did not combine and offer no answer but ending the turn,
+which is the exact complaint the discard file exists to fix. Leaving the fix
+entirely in the reward pool meant a new player met the problem several fights
+before they could ever meet the answer.
+
+One copy at 1 Energy, so it is a card you have rather than a plan you run. The
+introduction's deck is a separate ordered list and does not get one, which is
+right — the tutorial is teaching what a card does, not what to do about a bad
+hand.
+
+Broken Formation came down to 2. At 3 it was Empty the Rack's number applied to
+the whole board for the same Energy, which makes the single-target card
+pointless in every fight with more than one enemy — and Empty the Rack is a rare
+that has to still be worth taking.
+
