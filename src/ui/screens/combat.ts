@@ -16,7 +16,7 @@
  * and undoing it costs nothing, so it is not a decision worth logging.
  */
 
-import type { GameState } from '../../engine/types.ts';
+import type { CombatState, GameState } from '../../engine/types.ts';
 import type { Store } from '../store.ts';
 import { requireCombat, requireRun } from '../../engine/state.ts';
 import {
@@ -181,6 +181,15 @@ export function renderCombat(store: Store): HTMLElement {
    */
   let handBefore = new Map<string, { node: HTMLElement; rect: DOMRect }>();
 
+  /*
+   * The last fight this screen drew.
+   *
+   * Kept only so the final frame of a won fight can be reconstructed — see the
+   * branch in `rerender`. It is a snapshot for drawing, never read for a
+   * decision, and it dies with the screen.
+   */
+  let lastCombat: CombatState | null = null;
+
 
   /*
    * The shield used to be held here, at display level, because the engine
@@ -242,20 +251,51 @@ export function renderCombat(store: Store): HTMLElement {
     logCursor = state.log.length;
 
     /*
-     * A won fight clears `combat` in the same dispatch as the blow that won
-     * it, and this listener sees that state before the app swaps the screen.
+     * The last frame of a won fight.
      *
-     * It used to return here, which is why the killing blow was never drawn:
-     * the numbers for it were in `fresh`, and the one function that turns log
-     * lines into floaters had already been skipped. The fight simply paused on
-     * a board that still showed a living enemy and then cut to salvage.
+     * A win clears `combat` in the same dispatch as the blow that caused it, so
+     * the board's final state — everything dead — is a state that never reaches
+     * this listener. Returning here left the killing blow undrawn; rendering
+     * nothing but the floaters left the enemy sitting at 6/18 with a `-6`
+     * rising off it and then a cut to salvage, which is worse, because now the
+     * number is visibly wrong rather than merely missing.
      *
-     * So the tree is not rebuilt — there is no combat to build it from — but
-     * the effects still play, over the board as it last stood, which is
-     * exactly the board the blow belongs to. `fxHoldMs` is what the app shell
-     * reads to know how long to wait before the swap.
+     * So the frame is reconstructed from the last combat this screen actually
+     * rendered, with every enemy at zero. That is not the UI deciding anything:
+     * a won fight means an empty board, and it is the engine that decided the
+     * fight was won. The bar animates down, the dead styling lands, and the
+     * numbers from `fresh` rise off it.
+     *
+     * `fxRemainingMs()` is what the app shell reads to know how long to hold
+     * before the swap.
      */
     if (state.run === null || state.run.combat === null) {
+      const finished =
+        lastCombat === null || state.run === null
+          ? null
+          : {
+              ...state,
+              run: {
+                ...state.run,
+                combat: {
+                  ...lastCombat,
+                  outcome: 'won' as const,
+                  actingUid: null,
+                  pendingEnemies: [],
+                  enemies: lastCombat.enemies.map((enemy) => ({ ...enemy, hp: 0, block: 0 })),
+                },
+              },
+            };
+
+      if (finished !== null) {
+        rendering = true;
+        try {
+          host.replaceChildren(build(store, finished, selection, rerender));
+        } finally {
+          rendering = false;
+        }
+      }
+
       playLogFx(
         fresh,
         (target) =>
@@ -290,6 +330,7 @@ export function renderCombat(store: Store): HTMLElement {
        attributes rather than a second canvas — the asteroid scene already owns
        a loop, and a second one running behind every fight for the length of a
        run is a battery bug wearing an atmosphere costume. */
+    lastCombat = state.run.combat;
     host.dataset['stance'] = state.run.combat.stance;
     host.dataset['heat'] = state.run.combat.heat >= HEAT.overheatAt ? 'hot' : 'cool';
 

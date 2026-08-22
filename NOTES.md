@@ -3144,3 +3144,25 @@ service and in flavour, which is what it is: somewhere you go.
 The result line and the log line for the same event had already drifted apart —
 the log said "Upgraded Sever." and the screen said "Sever is forged." — four
 lines from each other in the same function.
+
+### The last frame of a won fight
+
+Drawing the killing blow's numbers was half the fix and made the other half
+visible: the enemy sat at 6/18 with a `-6` rising off it, then the screen cut to
+salvage. The number never reached zero, which is worse than the number being
+missing — now it is visibly wrong.
+
+The cause is the same one: a win clears `combat` in the same dispatch as the
+blow, so the board's final state is a state this listener never receives. There
+is no frame in which the engine says "everything is dead"; it says "there is no
+fight" instead.
+
+So the frame is reconstructed from the last combat the screen actually rendered,
+with every enemy at zero. That is not the UI deciding anything — a won fight
+means an empty board, and it was the engine that decided the fight was won. It
+goes through the same `build()` as every other frame, so `is-dead`, the `0/28`
+and the bar draining all follow from `hp` exactly as they always do.
+
+`lastCombat` is a snapshot for drawing, never read for a decision, and it dies
+with the screen.
+
