@@ -351,22 +351,16 @@
   display: grid;
   gap: 0.4rem;
   align-content: start;
-  /* Share the line, but never past 21rem.
-   *
-   * `flex: 1 1 13rem` lets three enemies divide a narrow stage between them
-   * rather than wrapping the third onto a second row — wrapping is what pushed
-   * the hand and the tray off the bottom of a 700px-tall window. The 13rem
-   * basis is the point where dividing stops being sensible and they wrap to
-   * one per row instead, which is what a phone gets.
-   *
-   * `max-width` is the half that fixes the original complaint: a lone enemy
-   * grows to 21rem and stops, instead of stretching across the whole stage.
-   * `min-width: 0` because a grid item's automatic minimum is its content, and
-   * without it a long enemy name would refuse to shrink and force the overflow
-   * back. */
-  flex: 1 1 13rem;
+  /* Size is tier. A normal takes a third of the row, an Elite two thirds, a
+     boss the whole thing — see the grow factors below.
+  
+     `flex-basis: 0` means every pixel of width comes from the grow
+     distribution, so the ratio between tiers holds at any stage width and in
+     any combination. `min-width: 0` because a flex item's automatic minimum is
+     its content, and without it a long enemy name would refuse to shrink and
+     force the row to overflow. */
+  flex: 1 1 0;
   min-width: 0;
-  max-width: 21rem;
   padding: 0.85rem;
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
@@ -377,6 +371,40 @@
   transition:
     border-color 0.15s,
     transform 0.1s;
+}
+
+/* ---- size is tier ----
+ *
+ * Everything was the same width, which made a boss look like a Cinder Wisp
+ * with more health. Now the silhouette says what you are looking at before you
+ * read a word of it — and it says so on the first frame, which is when the
+ * player is deciding whether this fight is the one they thought they picked.
+ *
+ * The grow factors carry the ratio and the max-widths cap it, and the two do
+ * different jobs. With room to spare the caps bind: a lone normal is a third of
+ * the row rather than stretching across it. When the row is over-subscribed —
+ * a boss with an escort wants 133% of the line — the caps stop binding and the
+ * grow factors take over, so the pair lands at roughly 75/25 instead of
+ * wrapping onto two rows. The ratio survives; only the absolute size gives.
+ *
+ * The percentages are deliberately a little under a true third and two thirds,
+ * because the gaps between the cards come out of the same line and CSS cannot
+ * know how many siblings there are to divide them by.
+ */
+.enemy[data-tier='normal'] { flex-grow: 1; max-width: 32%; }
+.enemy[data-tier='elite'] { flex-grow: 2; max-width: 66%; }
+.enemy[data-tier='boss'] { flex-grow: 3; max-width: 100%; }
+
+/* Below this the thirds stop being readable — a third of a phone is 120px, and
+   an enemy card has a name, a bar, a status row and a telegraph in it. One per
+   row instead, where the glyph and the tier colour still say which is which. */
+@media (max-width: 46rem) {
+  .enemy[data-tier='normal'],
+  .enemy[data-tier='elite'],
+  .enemy[data-tier='boss'] {
+    flex: 1 1 100%;
+    max-width: 100%;
+  }
 }
 
 /* No glow on every enemy the moment a card is picked up — it lit the whole row

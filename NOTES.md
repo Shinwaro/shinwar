@@ -2906,3 +2906,24 @@ so the badge cannot disagree with the rule.
 
 The forge is where cards are upgraded; the effect upgrades one. "Forge a random
 card" read like a card was being created. It says *Upgrade* now.
+
+### Size is tier
+
+Every enemy the same width made a boss look like a Cinder Wisp with more
+health. A normal now takes a third of the row, an Elite two thirds, a boss the
+whole thing — so the silhouette says what you are looking at before you read a
+word of it, on the first frame, which is when the player is deciding whether
+this fight is the one they thought they picked.
+
+Grow factors carry the ratio, max-widths cap it, and the two do different jobs.
+With room to spare the caps bind, so a lone normal is a third rather than
+stretching. When the row is over-subscribed the caps stop binding and the grow
+factors take over: the two encounters that break a strict thirds layout —
+`herald_and_weevil` (boss + normal, 133% of a line) and `the_procession`
+(normal + elite + normal, also 133%) — land at 73/26 and 25/48/25 instead of
+wrapping onto a second row. The ratio survives; only the absolute size gives.
+
+Measured at 420 / 1024 / 1440 across all eight tier combinations the content
+actually ships: one row at every desktop width, one card per row below 46rem,
+no horizontal overflow anywhere.
+
