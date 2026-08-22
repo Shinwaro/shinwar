@@ -27,6 +27,7 @@ import { draw } from '../engine/combat/piles.ts';
 import { PLAYER, applyDamage, enemyTarget, livingEnemies } from '../engine/combat/damage.ts';
 import { addStacks } from '../engine/combat/keywords.ts';
 import { VULNERABLE } from './statuses.ts';
+import { ventHeat } from '../engine/combat/heat.ts';
 import { FOCUS_MAX, HOOK_PRIORITY } from './balance.ts';
 
 export const RELICS: readonly RelicDef[] = [
@@ -156,7 +157,7 @@ export const RELICS: readonly RelicDef[] = [
   {
     id: 'turning_point',
     name: 'Turning Point',
-    text: 'Gain 1 Focus whenever you change stance.',
+    text: 'Gain 1 Focus whenever you enter IAI.',
     rarity: 'uncommon',
     flavor: 'The sect taught that the turn is the technique. The cut is punctuation.',
   },
@@ -201,11 +202,14 @@ export const RELICS: readonly RelicDef[] = [
   {
     id: 'exchange_coil',
     name: 'Exchange Coil',
-    // The conversion the gauge always wanted: pressure into patience, one a
-    // turn, without asking you to spend a card on it.
-    text: 'Vent 1 Heat and gain 1 Focus at the start of each turn.',
+    /* A conversion, so it needs something to convert.
+    
+       As two independent passives it vented 1 and granted 1 whether or not
+       there was any Heat to trade — free Focus every turn in a cold deck, which
+       is not what the name says and not what the rarity is priced for. Now it
+       is one exchange: no Heat, no Focus. */
+    text: 'At the start of each turn, convert 1 Heat into 1 Focus.',
     rarity: 'rare',
-    passive: { ventPerTurn: 1, focusPerTurn: 1 },
     flavor: 'What comes off the reactor has to go somewhere. It may as well go into your hands.',
   },
   {
@@ -333,11 +337,33 @@ function grantBlock(state: GameState, amount: number, source: string, why: strin
 }
 
 export function registerRelicHooks(): void {
+  registerHooks('exchange_coil', [
+    defineHook({
+      hook: 'onTurnStart',
+      priority: HOOK_PRIORITY.module,
+      /* A trade, not two gifts. It has to see Heat on the gauge before it hands
+         anything back, which is what the name always claimed and what the two
+         independent passives never did — in a cold deck it was a free Focus a
+         turn and the vent did nothing. */
+      handle: (state) => {
+        const combat = state.run?.combat;
+        if (combat === undefined || combat === null || combat.heat <= 0) return state;
+        const cooled = ventHeat(state, 1, 'exchange_coil');
+        return grantFocus(cooled, 1, 'exchange_coil', 'Exchange Coil.');
+      },
+    }),
+  ]);
+
   registerHooks('turning_point', [
     defineHook({
       hook: 'onStanceChange',
       priority: HOOK_PRIORITY.module,
-      handle: (state) => grantFocus(state, 1, 'turning_point', 'Turning Point.'),
+      /* Entering IAI only. On any change it paid for the round trip, so the
+         optimal line was to flip back and forth for Focus — which is the stance
+         axis being farmed rather than used, and it made the relic best in the
+         deck that cared least about either stance. */
+      handle: (state, payload) =>
+        payload.to === 'iai' ? grantFocus(state, 1, 'turning_point', 'Turning Point.') : state,
     }),
   ]);
 

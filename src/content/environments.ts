@@ -93,7 +93,7 @@ export const ENVIRONMENTS: readonly EnvironmentDef[] = [
   {
     id: RADIATION_BELT_ID,
     name: 'Radiation Belt',
-    text: 'Everyone gains 1 Irradiate each turn, and takes 1 damage per stack. Rewards fast kills.',
+    text: 'Everyone gains 1 Irradiate each turn, and takes 1 damage per stack.',
     acts: [2, 3],
   },
 

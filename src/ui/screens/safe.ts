@@ -148,9 +148,15 @@ function buildPicker(store: Store, state: GameState, local: Local, redraw: () =>
         ? 'Pick a card to see what it becomes. Nothing is spent until you confirm.'
         : 'Removal is the anti-bloat valve. One card, free, here.',
     ]),
+    /* Same frame whether or not a card is picked — see the note in
+       `station.ts`. An empty state that is a bare paragraph is a different
+       height from the preview it is standing in for, and the list below moves
+       every time you change your mind. */
     preview === null
-      ? el('p', { class: 'forge-empty' }, [
-          forging ? 'Pick a card to see what it upgrades into.' : 'Pick a card to strip.',
+      ? el('div', { class: 'forge-preview forge-preview--empty' }, [
+          el('p', { class: 'forge-empty' }, [
+            forging ? 'Pick a card to see what it upgrades into.' : 'Pick a card to strip.',
+          ]),
         ])
       : renderPreview(state, preview, forging),
     el('div', { class: 'picker-actions' }, [

@@ -180,10 +180,22 @@ describe('passives reach the number they modify', () => {
     expect(combatOf(armed).hand.length).toBe(combatOf(base).hand.length + 1);
   });
 
-  it('grants Block and Focus at the start of the turn', () => {
-    const armed = startPlayerTurn(holding(makeFight(), 'ballast_weave', 'exchange_coil'));
+  it('grants Block at the start of the turn', () => {
+    const armed = startPlayerTurn(holding(makeFight(), 'ballast_weave'));
     expect(combatOf(armed).block).toBeGreaterThanOrEqual(3);
-    expect(combatOf(armed).focus).toBeGreaterThanOrEqual(1);
+  });
+
+  it('trades Heat for Focus, and only when there is Heat', () => {
+    /* Exchange Coil is a conversion. As two independent passives it vented 1
+       and granted 1 whether or not there was anything on the gauge, which is
+       free Focus every turn in a cold deck — not what the name says, and not
+       what a rare is priced for. */
+    const hot = startPlayerTurn(holding(makeFight({ heat: 4 }), 'exchange_coil'));
+    expect(combatOf(hot).focus, 'no Focus from a hot gauge').toBeGreaterThanOrEqual(1);
+    expect(combatOf(hot).heat, 'the Heat was not spent').toBeLessThan(4);
+
+    const cold = startPlayerTurn(holding(makeFight({ heat: 0 }), 'exchange_coil'));
+    expect(combatOf(cold).focus, 'Focus out of nothing').toBe(0);
   });
 
   it('moves the overheat threshold', () => {

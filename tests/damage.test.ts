@@ -7,7 +7,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import type { StanceId, StatusStack } from '../src/engine/types.ts';
+import type { EffectOp, StanceId, StatusStack } from '../src/engine/types.ts';
 import { PLAYER, computeDamage, enemyTarget, previewDamage } from '../src/engine/combat/damage.ts';
 import { previewCard } from '../src/engine/combat/preview.ts';
 import { blockFigures, damageFigures } from '../src/engine/combat/describe.ts';
@@ -170,20 +170,64 @@ describe('the ordered steps', () => {
     expect(at(9)).toBe(10);
   });
 
-  it('compounds Vulnerable per stack', () => {
-    const state = makeFight({ enemyStatuses: [{ status: VULNERABLE, stacks: 2, fresh: false }], enemyHp: 999 });
-    const enemy = firstEnemy(state);
-    // 8 x 1.5 x 1.5 = 18.
-    expect(
-      computeDamage(state, {
+  it('compounds Vulnerable per stack, up to the cap', () => {
+    /* One stack is 1.5. Two would compound to 2.25 and are held at 2 — the cap
+       is the point of the status: uncapped, 1.5 reaches 5.06 at four stacks and
+       the correct play against anything with real health becomes "stack
+       Vulnerable, then hit it once". Same argument as Weak, other side of the
+       pipeline. */
+    const hit = (stacks: number): number => {
+      const state = makeFight({
+        enemyStatuses: [{ status: VULNERABLE, stacks, fresh: false }],
+        enemyHp: 999,
+      });
+      return computeDamage(state, {
         amount: 8,
         attacker: PLAYER,
-        target: enemyTarget(enemy.uid),
+        target: enemyTarget(firstEnemy(state).uid),
         isAttack: true,
         attackOrdinal: 0,
         consumesFocus: false,
-      }).toHull,
-    ).toBe(18);
+      }).toHull;
+    };
+
+    expect(hit(1), 'one stack').toBe(12);
+    expect(hit(2), 'two stacks, at the cap').toBe(16);
+    expect(hit(4), 'four stacks, still at the cap').toBe(16);
+  });
+
+  it('never lets a card amplify itself with its own Vulnerable', () => {
+    /* Effects resolve in order, so a card that applied Vulnerable before its
+       own damage op would be hitting a target it had just made softer — the
+       number on the face and the number that lands would disagree, and the face
+       has no way to know. Nothing does this today; this is what stops the next
+       card from being the first. */
+    const flat = (list: readonly EffectOp[]): EffectOp[] =>
+      list.flatMap((op) =>
+        op.op === 'conditional'
+          ? [op, ...flat(op.then), ...flat(op.else ?? [])]
+          : op.op === 'scaleWith'
+            ? [op, ...flat(op.then)]
+            : [op],
+      );
+
+    const offenders: string[] = [];
+    for (const def of cardTable.all()) {
+      const lists: readonly (readonly EffectOp[])[] = [
+        def.effects,
+        def.stanceRider?.effects ?? [],
+        def.upgrade?.effects ?? [],
+      ];
+      for (const ops of lists) {
+        const seq = flat(ops);
+        const vuln = seq.findIndex(
+          (op) => op.op === 'applyStatus' && op.status === VULNERABLE && op.target !== 'self',
+        );
+        if (vuln === -1) continue;
+        if (seq.slice(vuln + 1).some((op) => op.op === 'damage')) offenders.push(def.id);
+      }
+    }
+    expect(offenders, 'cards that soften a target before hitting it').toEqual([]);
   });
 });
 

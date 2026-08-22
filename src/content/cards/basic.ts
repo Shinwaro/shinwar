@@ -63,12 +63,16 @@ export const BASIC_CARDS: readonly CardDef[] = [
       stance: 'iai',
       effects: [{ op: 'damage', amount: 2, target: 'enemy' }],
     },
+    /* 8 and 4, not 9 and 3. The upgrade leans on the stance rather than on the
+       base number: out of IAI it is a point worse than it was, in IAI it is a
+       point better, and the card's whole argument is that it wants you standing
+       somewhere specific. */
     upgrade: {
       name: 'IAI Slash+',
-      effects: [{ op: 'damage', amount: 9, target: 'enemy' }],
+      effects: [{ op: 'damage', amount: 8, target: 'enemy' }],
       stanceRider: {
         stance: 'iai',
-        effects: [{ op: 'damage', amount: 3, target: 'enemy' }],
+        effects: [{ op: 'damage', amount: 4, target: 'enemy' }],
       },
     },
     flavor: 'The cut is finished before the blade is seen to move.',
@@ -89,12 +93,15 @@ export const BASIC_CARDS: readonly CardDef[] = [
       stance: 'guard',
       effects: [{ op: 'applyStatus', status: WEAK, stacks: 1, target: 'enemy' }],
     },
+    /* The upgrade buys Block, not a second stack of Weak. Two stacks is the
+       Weak cap, so the upgraded card was handing you the whole status off a
+       basic — and the basics should not be where a debuff gets maxed out. */
     upgrade: {
       name: 'Solar Shield+',
-      effects: [{ op: 'block', amount: 9 }],
+      effects: [{ op: 'block', amount: 10 }],
       stanceRider: {
         stance: 'guard',
-        effects: [{ op: 'applyStatus', status: WEAK, stacks: 2, target: 'enemy' }],
+        effects: [{ op: 'applyStatus', status: WEAK, stacks: 1, target: 'enemy' }],
       },
     },
     flavor: 'Receive. Do not resist. The star does not notice you either way.',

@@ -72,6 +72,17 @@ export interface DamageInput {
   readonly attackOrdinal: number;
   /** Only the first instance of an attack spends the Focus stack. */
   readonly consumesFocus: boolean;
+  /**
+   * This hit comes from a card's stance rider rather than its base effects.
+   *
+   * The rider is the stance's own bonus. Letting the stance's *other* bonus —
+   * IAI's flat +2 while hot — apply on top of it charged the same passive
+   * twice for one card, and worse, the card face never said so: rider text is
+   * generated from the raw ops, so "IAI: Deal 2 damage" was printed while 4
+   * landed. A preview that can disagree with the result is the failure this
+   * project calls a P1, and this was one.
+   */
+  readonly fromRider?: boolean;
 }
 
 /* ---------- reading the combatants ---------- */
@@ -206,7 +217,11 @@ export function computeDamage(state: GameState, input: DamageInput): DamageBreak
      * half, and it is declared here rather than hooked because it modifies a
      * number the pipeline is in the middle of producing.
      */
-    if (stance.hotDamageAtHeat !== undefined && combat.heat >= stance.hotDamageAtHeat) {
+    if (
+      input.fromRider !== true &&
+      stance.hotDamageAtHeat !== undefined &&
+      combat.heat >= stance.hotDamageAtHeat
+    ) {
       ctx = record(ctx, `${stance.name} hot`, 'add', ctx.amount + (stance.hotDamage ?? 0));
     }
 

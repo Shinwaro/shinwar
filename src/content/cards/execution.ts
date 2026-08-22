@@ -20,7 +20,6 @@
  */
 
 import type { CardDef } from '../../engine/types.ts';
-import { VULNERABLE } from '../statuses.ts';
 
 export const EXECUTION_CARDS: readonly CardDef[] = [
   {
@@ -156,9 +155,11 @@ export const EXECUTION_CARDS: readonly CardDef[] = [
     archetype: 'iai',
     cost: 2,
     exhaust: true,
+    /* No Vulnerable. The card is the execution rider — a debuff stapled on
+       pointed it at a target it was trying to finish, which is the one case
+       where softening it up next turn is worth nothing. */
     effects: [
       { op: 'damage', amount: 10, target: 'enemy' },
-      { op: 'applyStatus', status: VULNERABLE, stacks: 1, target: 'enemy' },
       {
         op: 'conditional',
         when: { kind: 'killedThisPlay' },
@@ -172,7 +173,6 @@ export const EXECUTION_CARDS: readonly CardDef[] = [
       name: 'The Last Word+',
       effects: [
         { op: 'damage', amount: 14, target: 'enemy' },
-        { op: 'applyStatus', status: VULNERABLE, stacks: 2, target: 'enemy' },
         {
           op: 'conditional',
           when: { kind: 'killedThisPlay' },

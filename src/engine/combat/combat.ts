@@ -463,10 +463,18 @@ export function playCard(state: GameState, cardUid: string, targetUid: string | 
   const context = createContext(def.id, PLAYER, target);
   let result = applyEffects(next, def.effects, context);
 
-  // The rider resolves after the base effect, and only in its stance.
+  /* The rider resolves after the base effect, and only in its stance.
+  
+     Flagged, so the damage pipeline knows these ops are the stance's own bonus
+     and does not stack IAI's hot bonus on top of them. The flag is dropped
+     again afterwards, since nothing beyond this point is the rider. */
   const rider = def.stanceRider;
   if (rider !== undefined && requireCombat(result.state).stance === rider.stance) {
-    result = applyEffects(result.state, rider.effects, result.context);
+    const inRider = applyEffects(result.state, rider.effects, {
+      ...result.context,
+      fromRider: true,
+    });
+    result = { state: inRider.state, context: { ...inRider.context, fromRider: false } };
   }
 
   next = retireCard(result.state, card, result.context.exhaustSelf || def.exhaust === true);

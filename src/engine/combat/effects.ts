@@ -63,6 +63,13 @@ export interface EffectContext {
    * discarded" is a promise about what this card threw away.
    */
   readonly discardedThisPlay: number;
+  /**
+   * These ops are a card's stance rider rather than its base effects.
+   *
+   * Read by the damage op so the stance's flat hot bonus is not charged on top
+   * of the stance's own rider — see `DamageInput.fromRider`.
+   */
+  readonly fromRider: boolean;
 }
 
 export function createContext(source: string, actor: Combatant, chosen: Combatant | null): EffectContext {
@@ -74,6 +81,7 @@ export function createContext(source: string, actor: Combatant, chosen: Combatan
     focusSpent: false,
     killsThisPlay: 0,
     discardedThisPlay: 0,
+    fromRider: false,
   };
 }
 
@@ -256,6 +264,7 @@ function applyOp(state: GameState, op: EffectOp, context: EffectContext): Effect
               attacker: context.actor,
               target,
               isAttack: true,
+              fromRider: context.fromRider,
               attackOrdinal: combat.attacksThisTurn,
               /*
                * One stack per CARD, not per turn.

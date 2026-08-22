@@ -82,9 +82,10 @@ describe('generated rules text', () => {
   });
 
   it('follows the numbers when the card is upgraded', () => {
+    // 8 and 4: the upgrade leans on the stance rather than the base number.
     const upgraded = definitionOf({ uid: 'x', defId: IAI_SLASH, upgraded: true });
-    expect(describeCard(upgraded)).toBe('Deal 9 damage.');
-    expect(describeRider(upgraded)).toBe('Deal 3 damage.');
+    expect(describeCard(upgraded)).toBe('Deal 8 damage.');
+    expect(describeRider(upgraded)).toBe('Deal 4 damage.');
   });
 
   it('knows whether the rider is live in the current stance', () => {

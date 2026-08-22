@@ -99,13 +99,16 @@ export const ENCOUNTERS: readonly EncounterDef[] = [
     enemyIds: [SCRAP_HOUND, CINDER_WISP],
   },
   {
-    /* One alone. The opening fight should teach the loop -- block the spike,
-       hit on the quiet turns -- without also asking who to kill first. */
+    /* Two, the smallest two in the game. It was one Drone alone, on the
+       argument that the opening fight should teach the loop without also
+       asking who to kill first — and the introduction does that job now, with
+       a hulk that does not fight back. A normal fight is a board, and a board
+       is at least two things. */
     id: 'lone_drone',
     name: 'Stray',
     act: 1,
     tier: 'normal',
-    enemyIds: [LATHE_DRONE],
+    enemyIds: [LATHE_DRONE, CINDER_WISP],
   },
   {
     /* The clock and the wall. Burrow makes the Tick slow to kill, and the
@@ -170,11 +173,13 @@ export const ENCOUNTERS: readonly EncounterDef[] = [
     enemyIds: [ARC_WELDER, ASH_CHOIR],
   },
   {
+    /* A duel with a second. The Ronin still decides the fight — the Wisp is
+       there so the board is a board. */
     id: 'ronin_duel',
     name: 'A Rival School',
     act: 2,
     tier: 'normal',
-    enemyIds: [VOID_RONIN],
+    enemyIds: [VOID_RONIN, SABLE_DRIFTER],
   },
   {
     id: 'choir_and_drifter',
@@ -321,9 +326,16 @@ export const ENCOUNTERS: readonly EncounterDef[] = [
   },
   {
     /* Three questions at once: the Choir wants you slow, the Siphon wants you
-       rich, and the Ronin wants you in the wrong stance. */
-    id: 'the_procession',
-    name: 'The Procession',
+       rich, and the Ronin wants you in the wrong stance.
+
+       Renamed off `the_procession`, which the elite above already owned.
+       `startCombat` resolves an encounter with `ENCOUNTERS.find(id)` and the
+       elite is listed first, so a normal node that rolled THIS pack opened the
+       Iron Procession instead — an elite enemy, alone, on a normal node, paying
+       normal rewards. Nothing threw and nothing looked wrong except the fight.
+       There is a test for duplicate ids now. */
+    id: 'the_long_column',
+    name: 'The Long Column',
     act: 2,
     tier: 'normal',
     enemyIds: [ASH_CHOIR, SIPHON_ENGINE, VOID_RONIN],
@@ -363,11 +375,13 @@ export const ENCOUNTERS: readonly EncounterDef[] = [
      than a body next to the real threat. */
 
   {
+    /* The Warden is the point of the fight; the Wisp is the reason you cannot
+       simply take your time over it. */
     id: 'warden_post',
     name: 'The Post',
     act: 1,
     tier: 'normal',
-    enemyIds: [SLAG_WARDEN],
+    enemyIds: [SLAG_WARDEN, CINDER_WISP],
   },
   {
     /* The Warden will not let you wait and the Wisp punishes you for hurrying.

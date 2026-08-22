@@ -305,8 +305,16 @@ function buildPicker(store: Store, state: GameState, local: Local, redraw: () =>
      * greys the parts that did not move — so the comparison is the card's own
      * generated text rather than a second description that could drift.
      */
+    /* The box is always here, empty or full.
+    
+       It used to be absent until a card was chosen, so picking one pushed the
+       whole deck list down by the height of a card — and picking a second card
+       moved the list under the hand that was reaching for it. The frame stays;
+       only what is inside it changes. */
     chosen === null || !forging
-      ? null
+      ? el('div', { class: 'forge-preview forge-preview--empty' }, [
+          el('p', { class: 'forge-empty' }, ['Pick a card to see what it upgrades into.']),
+        ])
       : el('div', { class: 'forge-preview' }, [
           el('div', { class: 'forge-side' }, [
             el('h2', { class: 'pause-heading' }, ['Now']),

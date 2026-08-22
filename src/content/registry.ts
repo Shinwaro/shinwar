@@ -421,9 +421,37 @@ function validateEncounters(issues: ValidationIssue[]): void {
   // shipped roster as dangling, so the pool checks want a loaded roster.
   if (known.size === 0) return;
 
+  /* Ids have to be unique, and this is not pedantry.
+  
+     `startCombat` resolves a node's encounter with `ENCOUNTERS.find(id)`, so a
+     duplicate means the first one wins wherever the second is rolled. Two
+     encounters called `the_procession` shipped that way: a normal node would
+     roll the three-wide pack and open the elite Iron Procession instead —
+     alone, for normal rewards. Nothing threw. Nothing looked wrong except the
+     fight in front of you. */
+  const seenEncounters = new Set<string>();
+  for (const encounter of ENCOUNTERS) {
+    if (seenEncounters.has(encounter.id)) {
+      issues.push({ where: `encounter '${encounter.id}'`, problem: 'duplicate id' });
+    }
+    seenEncounters.add(encounter.id);
+  }
+
   for (const encounter of ENCOUNTERS) {
     const where = `encounter '${encounter.id}'`;
     if (encounter.enemyIds.length === 0) issues.push({ where, problem: 'no enemies' });
+
+    /* A normal fight is a board, and a board is at least two things. One enemy
+       is a damage race with no kill order and no target priority, which is the
+       decision a wide board exists to ask. Elites and bosses are allowed to be
+       one, because they are the fight rather than a member of it. */
+    if (
+      encounter.tier === 'normal' &&
+      encounter.tutorial !== true &&
+      encounter.enemyIds.length < 2
+    ) {
+      issues.push({ where, problem: 'a normal fight needs at least two enemies' });
+    }
     for (const id of encounter.enemyIds) {
       if (!known.has(id)) issues.push({ where, problem: `names unknown enemy '${id}'` });
     }

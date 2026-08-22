@@ -34,13 +34,19 @@ export const TEMPERED = 'tempered';
 export const OVERCLOCK = 'overclock';
 
 export const STATUSES: readonly StatusDef[] = [
+  /* Capped at double, which is two stacks. Same argument as Weak on the other
+     side of the pipeline: stacks compound, so an uncapped 1.5 reaches 5.06 at
+     four stacks and the correct play against anything with real health becomes
+     "stack Vulnerable, then hit it once". The cap sits in the data next to the
+     number it caps. */
   {
     id: VULNERABLE,
     name: 'Vulnerable',
-    text: 'Takes 50% more damage. One stack falls off at the end of its turn.',
+    text: 'Takes 50% more damage per stack, to a maximum of 100% more. One stack falls off at the end of its turn.',
     kind: 'debuff',
     decay: 'turn',
     damageTakenMult: 1.5,
+    multFloor: 2,
   },
   /* Capped at half. Stacks compound, so an uncapped 0.75 hits 0.32 at four
      stacks — at which point Weak stops being a tempo play and becomes the

@@ -2265,15 +2265,6 @@
   font-size: 0.85rem;
 }
 
-.forge-empty {
-  padding: 1.4rem 0.9rem;
-  border: 1px dashed var(--line);
-  border-radius: var(--radius);
-  color: var(--muted);
-  font-size: 0.85rem;
-  text-align: center;
-}
-
 .picker-actions {
   display: flex;
   flex-wrap: wrap;
@@ -2311,10 +2302,21 @@
   margin-top: auto;
 }
 
-.forge-empty {
-  min-height: 15rem;
+/* Inside the frame now, so it carries no box of its own — the frame is what
+   holds the height, and the message just sits in the middle of it. Two boxes
+   was how the empty state ended up a different size from the full one. */
+.forge-preview--empty {
   display: grid;
   place-items: center;
+}
+
+.forge-empty {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+  text-align: center;
 }
 
 /* The enemy taking its turn. Deliberately loud — the whole point of pacing the
@@ -2955,9 +2957,30 @@
   background: var(--surface-solid);
 }
 
-.carried-row--relic { border-left-color: var(--accent); }
-.carried-row--implant { border-left-color: var(--guard); }
+/* The edge is the tier, on the same ladder as cards, relics and the inventory —
+   so the colour means one thing everywhere rather than one thing per panel.
+   Masteries have no tier and keep their stance's accent, which is the fact
+   about them that matters. */
+.carried-row[data-rarity='common'] { border-left-color: var(--rarity-common); }
+.carried-row[data-rarity='uncommon'] { border-left-color: var(--rarity-uncommon); }
+.carried-row[data-rarity='rare'] { border-left-color: var(--rarity-rare); }
+.carried-row[data-rarity='epic'] { border-left-color: var(--rarity-epic); }
+.carried-row[data-rarity='legendary'] { border-left-color: var(--rarity-legendary); }
+.carried-row[data-rarity='artifact'] { border-left-color: var(--rarity-artifact); }
 .carried-row--mastery { border-left-color: var(--iai); }
+
+/* Which pile this is. Quieter than the panel's own heading — it is a divider,
+   not an announcement. */
+.carried-sub {
+  margin: 0.45rem 0 0.1rem;
+  font-size: 0.58rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--faint, rgba(242, 240, 236, 0.42));
+}
+
+.carried-sub:first-of-type { margin-top: 0.1rem; }
 
 .carried-name {
   color: var(--ink);
@@ -2973,16 +2996,24 @@
   text-wrap: pretty;
 }
 
-/* The stage keeps clear of the rail, so a relic never sits on top of the
-   fight. Only once there is a rail to keep clear of. */
-@media (min-width: 78rem) {
-  .combat-inner:has(.carried) {
-    padding-left: 13.5rem;
-  }
-}
-
-/* Narrow: along the top instead of down the side, because there is no side. */
-@media (max-width: 78rem) {
+/* The board is 68rem, dead centre, always — carrying something must not change
+   that.
+ *
+ * It used to keep clear of the rail with `padding-left: 13.5rem` on the stage
+ * itself, and because everything here is border-box that came out of the
+ * board's own 68rem: picking up your first relic narrowed the fight from 1088
+ * to 872 and slid it 108px off centre, for the whole rest of the run. Measured,
+ * because it is the sort of thing that sounds like a rounding error and is not.
+ *
+ * The rail is fixed, so it costs the layout nothing. What it needs is somewhere
+ * to be — and above 95rem the margin beside a centred 68rem board is wider than
+ * the rail, so it simply sits there. Below that there is no margin to sit in,
+ * and it goes along the top as part of the board rather than over it.
+ *
+ * 95rem is the arithmetic, not a guess: the rail ends at 12.5rem + its 0.6rem
+ * inset, and the board's left edge at (100vw - 68rem) / 2 clears that from
+ * about 94.6rem up. */
+@media (max-width: 95rem) {
   .carried {
     position: static;
     flex-direction: row;
