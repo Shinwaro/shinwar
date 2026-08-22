@@ -24,7 +24,12 @@ import { roundOwed } from '../src/engine/combat/combat.ts';
 import { chooseMove } from '../src/engine/combat/ai.ts';
 import { createRng } from '../src/engine/rng.ts';
 import { nextStance } from '../src/engine/combat/stance.ts';
-import { overheatDamageAt } from '../src/engine/combat/heat.ts';
+import {
+  heatStatus,
+  overheatDamageAt,
+  overheatThreshold,
+  projectedTurnEndHeat,
+} from '../src/engine/combat/heat.ts';
 import { addStacks, clearFresh, decayStatuses } from '../src/engine/combat/keywords.ts';
 import { SCALD, WEAK } from '../src/content/statuses.ts';
 import { cards as cardTable } from '../src/content/registry.ts';
@@ -647,5 +652,55 @@ describe('the gap between the last blow and your turn', () => {
     const settled = endTurnImmediately(telegraphAll(makeFight({ enemyIds: ['cinder_wisp'] })));
     expect(roundOwed(settled)).toBe(false);
     if (combatOf(settled).outcome === 'ongoing') expect(combatOf(settled).turn).toBe(2);
+  });
+});
+
+describe('what the gauge promises', () => {
+  /* The complaint: you end a turn on 6 in IAI and overheat, because the stance
+     adds 2 after you have stopped deciding. The number on the gauge was not the
+     number you were judged on, and the stance strip said so in words in a
+     different panel — arithmetic across two panels, every turn, with 8 damage
+     and a burnt card for getting it wrong.
+
+     This file's own note on the hard cap already stated the standard: a cost
+     you cannot read before paying it is unfair. So the gauge forecasts. */
+
+  it('projects exactly what ending the turn would produce', () => {
+    /* The assertion that matters. A forecast that can disagree with the
+       resolution is worse than no forecast — the same rule the damage pipeline
+       lives under, applied to the gauge. */
+    for (const stance of ACTIVE_STANCES) {
+      for (const heat of [0, 3, 5, 6, 7, 9]) {
+        const state = makeFight({ stance, heat, enemyIds: ['scrap_hound'] });
+        const promised = projectedTurnEndHeat(state);
+        const actual = combatOf(endTurnImmediately(state)).heat;
+
+        /* Compared before the overheat reset, so this is the projection's own
+           correctness rather than the consequence's. Once heat crosses the
+           threshold the turn end zeroes it, which the forecast does not model
+           and should not — it answers "where does this land", and the
+           consequence line answers "and then what". */
+        if (promised < overheatThreshold(state)) {
+          expect(actual, `${stance} at ${heat}`).toBe(promised);
+        }
+      }
+    }
+  });
+
+  it('warns before the gauge itself reads hot', () => {
+    // IAI at 6 with a threshold of 8: not overheating, but ending here is.
+    const state = makeFight({ stance: 'iai', heat: 6, enemyIds: ['scrap_hound'] });
+    const status = heatStatus(state);
+    expect(status.overheating, 'the gauge should not read hot yet').toBe(false);
+    expect(status.willOverheat, 'but ending the turn here overheats').toBe(true);
+    expect(status.projected).toBe(8);
+  });
+
+  it('says nothing alarming when the stance is carrying you the other way', () => {
+    // GUARD vents. The forecast should sit at or below the current reading.
+    const state = makeFight({ stance: 'guard', heat: 6, enemyIds: ['scrap_hound'] });
+    const status = heatStatus(state);
+    expect(status.willOverheat).toBe(false);
+    expect(status.projected).toBeLessThanOrEqual(status.heat);
   });
 });

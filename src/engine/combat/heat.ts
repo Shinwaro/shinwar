@@ -25,7 +25,7 @@ import { HEAT } from '../../content/balance.ts';
 import { cards as cardTable } from '../../content/registry.ts';
 import { PLAYER, applyDirectDamage } from './damage.ts';
 import { moveToExhaust, randomFromHand } from './piles.ts';
-import { environmentRules, pilotRules } from './rules.ts';
+import { environmentRules, liveStance, pilotRules } from './rules.ts';
 
 /** Where the line sits for this run. Relics can move it; nothing else does. */
 export function overheatThreshold(state: GameState): number {
@@ -51,6 +51,40 @@ export function overheatDamageAt(
 }
 
 /** Everything a Heat gauge needs to state its own consequences. Queried, never recomputed in the UI. */
+/**
+ * Where the gauge will sit when this turn ends, if you play nothing more.
+ *
+ * The stance charges Heat at turn end, and until this existed the gauge showed
+ * you a number that was not the one you would be judged on: in IAI you read 6
+ * against a threshold of 8, ended the turn, and overheated. The stance strip
+ * said "+2 Heat at turn end" in words, in a different part of the screen, and
+ * combining the two was left to the player — every turn, under time pressure,
+ * with the cost of getting it wrong being 8 damage and a burnt card.
+ *
+ * This file's own comment on the hard cap says it: a cost you cannot read
+ * before paying it is the definition of unfair. The same standard applies to a
+ * cost you *can* read only by doing arithmetic across two panels.
+ *
+ * It is a projection, so it is written here rather than in the UI and it walks
+ * the same three steps `endPlayerTurn` walks, in the same order — the stance's
+ * charge (with the environment's bonus, exactly as `gainHeat` applies it), the
+ * stance's vent, and the environment's own decay. A projection that can
+ * disagree with the resolution is worse than none.
+ */
+export function projectedTurnEndHeat(state: GameState): number {
+  const combat = requireCombat(state);
+  const stance = liveStance(state);
+  const rules = environmentRules(state);
+
+  let heat = combat.heat;
+  if (stance.heatAtTurnEnd > 0) {
+    heat = Math.min(HEAT.max, heat + stance.heatAtTurnEnd + (rules.heatGainBonus ?? 0));
+  }
+  heat = Math.max(HEAT.min, heat - stance.ventAtTurnEnd);
+  heat = Math.max(HEAT.min, heat - (rules.heatDecayPerTurn ?? 0));
+  return heat;
+}
+
 export function heatStatus(state: GameState): {
   readonly heat: number;
   readonly max: number;
@@ -59,6 +93,10 @@ export function heatStatus(state: GameState): {
   readonly critical: boolean;
   readonly damageIfTurnEnded: number;
   readonly consequence: string;
+  /** Where the gauge lands if you stop here. See `projectedTurnEndHeat`. */
+  readonly projected: number;
+  /** True when stopping here overheats even though the gauge does not yet. */
+  readonly willOverheat: boolean;
 } {
   const combat = requireCombat(state);
   const maxHealth = state.run?.pilot.maxHealth ?? 1;
@@ -67,12 +105,15 @@ export function heatStatus(state: GameState): {
   const atThreshold = overheatDamageAt(threshold, maxHealth, threshold);
   const critical = combat.heat >= HEAT.criticalAt;
   const lostTurn = HEAT.overheatSkipsTurn ? ', gain 0 Energy next turn' : '';
+  const projected = projectedTurnEndHeat(state);
   return {
     heat: combat.heat,
     max: HEAT.max,
     threshold,
     overheating: combat.heat >= threshold,
     critical,
+    projected,
+    willOverheat: combat.heat < threshold && projected >= threshold,
     damageIfTurnEnded: damage,
     consequence:
       damage === 0

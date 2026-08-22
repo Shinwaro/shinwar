@@ -3333,3 +3333,49 @@ right frequency for a hand reset you did not have to build toward — and it mea
 the opening deck thins by one card a fight, which is a small, real cost that
 arrives exactly when you chose to take it.
 
+## The gauge forecasts now
+
+Robin: "sometimes you end turn on 6 heat and get overheated — what about gaining
+the 2 at turn start instead?"
+
+The surprise is real. The diagnosis I would put differently: it is not a timing
+problem, it is an **information** problem. The gauge showed 6 against a threshold
+of 8 and the stance strip said "+2 Heat at turn end" in words, in a different
+panel. Combining them was left to the player, every turn, with 8 damage and a
+burnt card for getting it wrong. This file's own note on the hard cap already
+set the standard — *a cost you cannot read before paying it is the definition of
+unfair* — and the same standard covers a cost you can only read by doing
+arithmetic across two panels.
+
+So the gauge forecasts, the way everything else in this game already telegraphs.
+`projectedTurnEndHeat` walks the same three steps `endPlayerTurn` walks in the
+same order: the stance's charge with the environment's bonus exactly as
+`gainHeat` applies it, the stance's vent, the environment's decay. Ticks between
+the current reading and the projection are hatched. When the projection crosses
+the threshold and the gauge does not yet, the line says so before you decide.
+
+There is a test asserting the forecast equals the resolution across both stances
+and six heat levels, which is the damage pipeline's rule applied to the gauge: a
+projection that can disagree with the result is worse than none.
+
+### Why not move the charge to turn start
+
+Two reasons, and the second is the one that decided it.
+
+**It makes a one-turn dip into IAI free.** Turn-end charges the stance you
+committed to ending in; turn-start charges the stance you happened to begin in.
+Under turn-start, entering IAI, taking the +2 damage at 5+ Heat for a turn, and
+leaving before your next turn begins costs nothing at all — and "GUARD most
+turns, IAI for the alpha strike" is already the strongest tempo pattern in the
+game. It does not need a discount.
+
+**It moves the surprise rather than removing it.** You would still be reading a
+gauge that does not include what the next turn is about to add; you would simply
+meet it at the top of the turn instead of the bottom. The player who plans two
+turns ahead — which is most of what this game asks — has the same arithmetic to
+do, one step further out.
+
+Both are arguable and the call is Robin's. Moving the timing is a two-line change
+to `endPlayerTurn`/`startPlayerTurn` and the projection would simply return the
+current heat.
+
