@@ -154,7 +154,7 @@ const STEPS: readonly Step[] = [
   },
   {
     title: 'The rest is for you to explore.',
-    body: 'The log in the corner records every number and where it came from. Info explains anything you are confused about. Now finish the hauler.',
+    body: 'Show log opens a record of every number and where it came from, newest first. Info explains anything you are confused about. Now finish the hauler.',
     targets: ['.combat-corner'],
     done: null,
     next: 'I understand',

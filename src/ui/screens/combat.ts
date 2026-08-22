@@ -42,7 +42,7 @@ import {
   renderStanceStrip,
 } from '../components/gauges.ts';
 import { envGetString } from '../../engine/combat/rules.ts';
-import { renderLog, scrollLogToEnd } from '../components/log.ts';
+import { renderLog, scrollLogToNewest } from '../components/log.ts';
 import { bindCombatKeys } from '../input.ts';
 import {
   cardDealAfterPlay,
@@ -138,7 +138,11 @@ export function renderCombat(store: Store): HTMLElement {
     hoverUid: null,
     focusUid: null,
     keyboardTargeting: false,
-    logOpen: true,
+    /* Closed. It opened itself on every fight, which put a panel over the
+       board before the player had asked a question — and the log is an answer
+       to a question. `L` and the corner button both still open it, and the
+       introduction says so. */
+    logOpen: false,
     infoOpen: false,
     playedUid: null,
   };
@@ -331,6 +335,10 @@ export function renderCombat(store: Store): HTMLElement {
        a loop, and a second one running behind every fight for the length of a
        run is a battery bug wearing an atmosphere costume. */
     lastCombat = state.run.combat;
+    /* The stage steps aside for the log rather than being covered by it — see
+       `.combat.screen[data-log='open']`. An attribute rather than a class so it
+       sits with the other two the stage background already reads. */
+    host.dataset['log'] = selection.logOpen ? 'open' : 'closed';
     host.dataset['stance'] = state.run.combat.stance;
     host.dataset['heat'] = state.run.combat.heat >= HEAT.overheatAt ? 'hot' : 'cool';
 
@@ -357,7 +365,7 @@ export function renderCombat(store: Store): HTMLElement {
     if (moved > 0) fxRunning = Math.max(fxRunning, moved);
 
     const log = host.querySelector('.log');
-    if (log !== null) scrollLogToEnd(log);
+    if (log !== null) scrollLogToNewest(log);
 
     scheduleEnemy();
   };

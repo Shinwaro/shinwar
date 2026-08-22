@@ -3166,3 +3166,36 @@ and the bar draining all follow from `hp` exactly as they always do.
 `lastCombat` is a snapshot for drawing, never read for a decision, and it dies
 with the screen.
 
+## The log is a panel now, and it is closed
+
+Three faults, one shape. It opened itself on every fight, it hung off its own
+button as a 24rem dropdown over the enemy row and the top bar, and the newest
+line was at the bottom of a box that had to be chased there on every render.
+
+A log is an *answer to a question*. It should not be on screen before the
+question, it should not cover the thing the question is about, and the answer
+should be the first line rather than the last.
+
+  - Closed until asked for. `L` and the corner button both open it, and the
+    introduction now says so.
+  - Newest first, reversed at the point of display -- `state.log` is an
+    append-only record and stays in the order things happened. `scrollLogToEnd`
+    became `scrollLogToNewest` and scrolls to the top, which is now a no-op in
+    the common case, which is the point.
+  - A full-height panel pinned to the right edge.
+
+Pinning it was not enough on its own. The content column is 68rem centred, so at
+1440 it already reached within 176px of the right edge and a 24rem panel still
+sat on a fifth of the board. So the **stage steps aside**: an attribute on the
+screen root reserves the width in the screen's padding, and `.combat-inner`
+recentres in what is left, entirely through rules it already had.
+
+Measured at 1440: closed, the stage is 169-1257 and there is no panel. Open, the
+stage is 20-1041 and the panel starts at exactly 1041 -- they abut, nothing
+overlaps, and the hand stays on one row at 197px a card. Toggling back restores
+it exactly.
+
+Below 62rem the shift is suppressed and the panel overlays instead. There are no
+margins to give at that width, and by then it is something the player asked for
+rather than something that happened to them.
+

@@ -22,7 +22,19 @@ const PLAYER_FACING: ReadonlySet<LogEntry['kind']> = new Set([
 ]);
 
 export function renderLog(state: GameState, open: boolean): HTMLElement {
-  const entries = state.log.filter((entry) => PLAYER_FACING.has(entry.kind)).slice(-120);
+  /* Newest first.
+   *
+   * A log you consult is not a log you read: the question is always "what just
+   * happened", and the answer was at the bottom of a scrolling box that had to
+   * be chased there on every render. At the top it is simply the first thing
+   * in the panel, and the scroll position stops mattering.
+   *
+   * Reversed at the point of display rather than in `state.log`, which is an
+   * append-only record and stays in the order things occurred. */
+  const entries = state.log
+    .filter((entry) => PLAYER_FACING.has(entry.kind))
+    .slice(-120)
+    .reverse();
 
   const list = el(
     'ol',
@@ -47,8 +59,15 @@ export function renderLog(state: GameState, open: boolean): HTMLElement {
   );
 }
 
-/** Keep the newest line in view without yanking the page around. */
-export function scrollLogToEnd(node: Element): void {
+/**
+ * Keep the newest line in view.
+ *
+ * The newest line is the first one now, so this is a scroll to the top — and
+ * it only fires when the reader has not scrolled away themselves. Yanking
+ * somebody back to the top while they are reading three lines down is exactly
+ * what a log should never do.
+ */
+export function scrollLogToNewest(node: Element): void {
   const list = node.querySelector('.log-list');
-  if (list instanceof HTMLElement) list.scrollTop = list.scrollHeight;
+  if (list instanceof HTMLElement) list.scrollTop = 0;
 }

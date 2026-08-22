@@ -2855,18 +2855,63 @@
   gap: 0.35rem;
 }
 
-/* The log hangs UNDER its own button and takes no space in the layout, so
-   opening it does not shove the buttons sideways — which is what happened when
-   it was a sibling in the same flex row, and it made the control that opened
-   it appear to move away from the cursor. */
+/* The stage steps aside rather than being covered.
+ *
+ * Pinning the panel to the edge was not enough on its own: the content column
+ * is 68rem centred, so at 1440 it already reached within 176px of the right
+ * edge and a 24rem panel still sat on top of a fifth of the board — including
+ * the enemy row, which is the thing you open the log to check against.
+ *
+ * Reserving the width on the screen's padding makes `.combat-inner` recentre
+ * in what is left, entirely through rules it already had. Only where there is
+ * room to give: below this the panel overlays, which is fine, because by then
+ * it is something the player asked for on a screen that has no margins to
+ * spare anyway. */
+@media (min-width: 62rem) {
+  .combat.screen[data-log='open'] {
+    padding-right: min(24rem, 92vw);
+  }
+}
+
+/* A full-height panel down the right edge, not a dropdown.
+ *
+ * As a 24rem box hanging off its own button it sat on top of the enemy row and
+ * the top bar — the two things you open the log to cross-check against. Pinned
+ * to the edge it lands in the margin the stage already leaves itself: the
+ * content column is capped at 68rem and centred, so on a wide window the panel
+ * costs nothing at all. On a narrow one it overlaps, which is why it is now
+ * closed until asked for.
+ *
+ * Below the corner buttons rather than over them, so "Hide log" stays where it
+ * was put — see the z-index pair. */
 .combat-corner .log {
-  position: absolute;
-  top: calc(100% + 0.4rem);
-  right: 0;
-  width: min(26rem, calc(100vw - 1.6rem));
-  max-height: min(24rem, 60dvh);
+  position: fixed;
+  inset: 0 0 0 auto;
+  width: min(24rem, 92vw);
+  padding: 3.4rem 0.6rem 0.6rem;
   margin: 0;
-  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
+  z-index: 19;
+  background: var(--surface-solid);
+  border-left: 1px solid var(--line);
+  box-shadow: -18px 0 50px rgba(0, 0, 0, 0.55);
+}
+
+/* The buttons keep the top corner; the panel starts under them. */
+.combat-corner-buttons {
+  position: relative;
+  z-index: 21;
+}
+
+/* Inside the panel the list is the panel: it owns the whole height and does
+   its own scrolling, and the chrome moves up to the wrapper so there are not
+   two nested boxes with two borders. */
+.combat-corner .log-list {
+  height: 100%;
+  max-height: none;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  padding: 0 0.15rem;
 }
 
 .btn-corner {
