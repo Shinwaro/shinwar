@@ -76,7 +76,20 @@ export type Condition =
    */
   | { readonly kind: 'killedThisPlay' };
 
-export type ScaleSource = 'currentHeat' | 'focus' | 'blockGainedThisTurn' | 'cardsPlayedThisTurn';
+export type ScaleSource =
+  | 'currentHeat'
+  | 'focus'
+  | 'blockGainedThisTurn'
+  | 'cardsPlayedThisTurn'
+  /**
+   * Cards this card has discarded so far in its own resolution.
+   *
+   * Scoped to the play, like `killsThisPlay` and for the same reason: "for
+   * each card discarded" has to mean the ones this card threw away, not the
+   * ones the last one did. It reads the effect context rather than the combat
+   * state, which is why `scaleValue` takes both.
+   */
+  | 'discardedThisPlay';
 
 export type EffectOp =
   | { readonly op: 'damage'; readonly amount: number; readonly target: Target; readonly times?: number }
@@ -88,7 +101,19 @@ export type EffectOp =
   | { readonly op: 'setStance'; readonly stance: StanceId }
   | { readonly op: 'cycleStance'; readonly direction: 1 | -1 }
   | { readonly op: 'draw'; readonly amount: number }
-  | { readonly op: 'discard'; readonly amount: number; readonly random?: boolean }
+  /**
+   * `all` throws the whole hand and ignores `amount`.
+   *
+   * A flag rather than a large number, so the generated text can say "Discard
+   * your hand" instead of "Discard 99" — which is what the player would have
+   * read, and which is a lie about the rule as well as ugly.
+   */
+  | {
+      readonly op: 'discard';
+      readonly amount: number;
+      readonly random?: boolean;
+      readonly all?: boolean;
+    }
   | { readonly op: 'gainEnergy'; readonly amount: number }
   | { readonly op: 'exhaustSelf' }
   | { readonly op: 'addCardToHand'; readonly cardId: CardId; readonly upgraded?: boolean }

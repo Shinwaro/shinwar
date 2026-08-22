@@ -73,6 +73,8 @@ function describeScaleSource(source: Extract<EffectOp, { op: 'scaleWith' }>['sou
       return 'Block gained this turn';
     case 'cardsPlayedThisTurn':
       return 'card played this turn';
+    case 'discardedThisPlay':
+      return 'card discarded';
     default: {
       const unreachable: never = source;
       return unreachable;
@@ -128,7 +130,9 @@ function describeOp(op: EffectOp, state: GameState | null, afterDamage = false):
     case 'draw':
       return `Draw ${op.amount} card${op.amount === 1 ? '' : 's'}.`;
     case 'discard':
-      return `Discard ${op.amount}${op.random === true ? ' at random' : ''}.`;
+      return op.all === true
+        ? 'Discard your hand.'
+        : `Discard ${op.amount}${op.random === true ? ' at random' : ''}.`;
     case 'gainEnergy':
       return `Gain ${op.amount} Energy.`;
     case 'exhaustSelf':

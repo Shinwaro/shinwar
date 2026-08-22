@@ -335,10 +335,6 @@ export function renderCombat(store: Store): HTMLElement {
        a loop, and a second one running behind every fight for the length of a
        run is a battery bug wearing an atmosphere costume. */
     lastCombat = state.run.combat;
-    /* The stage steps aside for the log rather than being covered by it — see
-       `.combat.screen[data-log='open']`. An attribute rather than a class so it
-       sits with the other two the stage background already reads. */
-    host.dataset['log'] = selection.logOpen ? 'open' : 'closed';
     host.dataset['stance'] = state.run.combat.stance;
     host.dataset['heat'] = state.run.combat.heat >= HEAT.overheatAt ? 'hot' : 'cool';
 

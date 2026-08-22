@@ -8,9 +8,11 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { CardDef, EffectOp } from '../src/engine/types.ts';
 import { describeCard, describeRider, riderIsLive } from '../src/engine/combat/describe.ts';
-import { definitionOf } from '../src/engine/combat/combat.ts';
+import { definitionOf, playCard } from '../src/engine/combat/combat.ts';
 import { reloadContent } from '../src/content/index.ts';
 import { cards as cardTable } from '../src/content/registry.ts';
+import { makeFight, combatOf, firstEnemy } from './helpers.ts';
+import type { GameState } from '../src/engine/types.ts';
 import {
   FANNED_CUT,
   IAI_SLASH,
@@ -23,7 +25,6 @@ import { PLAYER, RARITY_WEIGHTS } from '../src/content/balance.ts';
 import type { Rarity } from '../src/engine/types.ts';
 import { RARITY_ORDER } from '../src/engine/types.ts';
 import { offerableCards, rollCardChoices } from '../src/engine/run/rewards.ts';
-import { makeFight } from './helpers.ts';
 
 beforeEach(() => {
   reloadContent();
@@ -298,5 +299,95 @@ describe('what leaves the fight with you', () => {
     // Guards the guard: if the ops are ever renamed this test would quietly
     // pass over an empty set and stop protecting anything.
     expect(cardTable.all().filter(grantsPermanent).length).toBeGreaterThan(0);
+  });
+});
+
+describe('spending the hand', () => {
+  /* The whole-hand cards scale on what THIS card threw away, so the ordering
+     inside the card is load-bearing: discard first, then read the count. A
+     version written the other way round scales on zero and always does nothing,
+     which is the failure these tests exist to catch — it would look like a card
+     that simply does not work rather than like a bug. */
+
+  function withHand(cardId: string, others: readonly string[]): GameState {
+    /* A real draw pile, because an empty one changes the answer. Drawing from
+       nothing reshuffles the discard back in, and in a fight with no deck that
+       discard is precisely the cards just thrown away — so Jettison hands them
+       straight back and looks broken. In a real fight the pile holds the rest
+       of the deck and the odds of that are negligible; here it has to be set
+       up, or the test is measuring the fixture. */
+    return makeFight({
+      enemyIds: ['scrap_hound'],
+      hand: [cardId, ...others],
+      drawPile: ['solar_shield', 'solar_shield', 'measured_draw', 'bulwark', 'iai_slash'],
+      energy: 3,
+    });
+  }
+
+  function play(state: GameState, targeted = true): GameState {
+    const card = combatOf(state).hand[0];
+    if (card === undefined) throw new Error('test: no card');
+    return playCard(state, card.uid, targeted ? firstEnemy(state).uid : null);
+  }
+
+  it('turns a dead hand into damage, one card at a time', () => {
+    const state = withHand('empty_the_rack', ['iai_slash', 'iai_slash', 'bulwark']);
+    const before = firstEnemy(state).hp;
+    const after = play(state);
+
+    // Three cards left in hand once the played one has gone: 3 x 3 damage.
+    expect(combatOf(after).hand).toHaveLength(0);
+    expect(before - firstEnemy(after).hp).toBe(9);
+  });
+
+  it('does nothing on an empty hand rather than something strange', () => {
+    const state = withHand('empty_the_rack', []);
+    const before = firstEnemy(state).hp;
+    expect(firstEnemy(play(state)).hp).toBe(before);
+  });
+
+  it('turns the same hand into Block on the other side', () => {
+    const state = withHand('shed_weight', ['iai_slash', 'iai_slash']);
+    const after = play(state, false);
+    expect(combatOf(after).block).toBe(8);
+  });
+
+  it('deals the hand back, one for one', () => {
+    const state = withHand('jettison', ['iai_slash', 'iai_slash', 'bulwark']);
+    const thrown = new Set(combatOf(state).hand.slice(1).map((card) => card.uid));
+    const after = play(state, false);
+
+    // Three thrown, three drawn. Asserted on the uids rather than on the
+    // discard pile, because a draw that empties the deck reshuffles the discard
+    // straight back into it — the cards are gone from your hand, which is what
+    // the card promised, and where they physically are afterwards is the draw
+    // engine's business.
+    expect(combatOf(after).hand).toHaveLength(3);
+    for (const card of combatOf(after).hand) {
+      expect(thrown.has(card.uid), 'drew back a card it had just thrown').toBe(false);
+    }
+  });
+
+  it('counts only what this card discarded', () => {
+    /* `discardedThisPlay` is scoped to the play like `killsThisPlay`. If it
+       leaked across cards, a Sift earlier in the turn would silently make the
+       next Empty the Rack hit harder. */
+    let state = withHand('sift', ['iai_slash', 'iai_slash', 'bulwark', 'empty_the_rack']);
+    state = play(state, false);
+
+    const rack = combatOf(state).hand.find((card) => card.defId === 'empty_the_rack');
+    if (rack === undefined) throw new Error('test: Sift discarded the card under test');
+
+    const handAfterSift = combatOf(state).hand.length;
+    const before = firstEnemy(state).hp;
+    const after = playCard(state, rack.uid, firstEnemy(state).uid);
+    expect(before - firstEnemy(after).hp).toBe((handAfterSift - 1) * 3);
+  });
+
+  it('says what it does, in generated words', () => {
+    expect(describeCard(cardTable.get('empty_the_rack'))).toBe(
+      'Discard your hand. For every card discarded, deal 3 damage.',
+    );
+    expect(describeCard(cardTable.get('sift'))).toBe('Discard 1 at random. Draw 3 cards.');
   });
 });

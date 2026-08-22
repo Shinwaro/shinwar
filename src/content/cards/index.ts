@@ -20,6 +20,7 @@
 import type { CardDef } from '../../engine/types.ts';
 import { BASIC_CARDS } from './basic.ts';
 import { EVENT_CARDS } from './events.ts';
+import { DISCARD_CARDS } from './discard.ts';
 import { EXECUTION_CARDS } from './execution.ts';
 import { FOCUS_CARDS } from './focus.ts';
 import { GUARD_CARDS } from './guard.ts';
@@ -39,6 +40,7 @@ export const CARDS: readonly CardDef[] = [
   ...NEUTRAL_CARDS,
   ...FOCUS_CARDS,
   ...TEMPO_CARDS,
+  ...DISCARD_CARDS,
   ...POWER_CARDS,
   ...EXECUTION_CARDS,
   ...LEGENDARY_CARDS,

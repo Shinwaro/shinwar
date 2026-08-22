@@ -56,10 +56,25 @@ export interface EffectContext {
    * for what this card did and not for what the last one did.
    */
   readonly killsThisPlay: number;
+  /**
+   * Cards this card has discarded so far in its own resolution.
+   *
+   * Scoped to the play for the same reason as the kills above: "for each card
+   * discarded" is a promise about what this card threw away.
+   */
+  readonly discardedThisPlay: number;
 }
 
 export function createContext(source: string, actor: Combatant, chosen: Combatant | null): EffectContext {
-  return { source, actor, chosen, exhaustSelf: false, focusSpent: false, killsThisPlay: 0 };
+  return {
+    source,
+    actor,
+    chosen,
+    exhaustSelf: false,
+    focusSpent: false,
+    killsThisPlay: 0,
+    discardedThisPlay: 0,
+  };
 }
 
 export interface EffectResult {
@@ -165,7 +180,7 @@ export function testCondition(state: GameState, context: EffectContext, when: Co
   }
 }
 
-export function scaleValue(state: GameState, source: ScaleSource): number {
+export function scaleValue(state: GameState, source: ScaleSource, context: EffectContext): number {
   const combat = requireCombat(state);
   switch (source) {
     case 'currentHeat':
@@ -176,6 +191,8 @@ export function scaleValue(state: GameState, source: ScaleSource): number {
       return combat.blockGainedThisTurn;
     case 'cardsPlayedThisTurn':
       return combat.cardsPlayedThisTurn;
+    case 'discardedThisPlay':
+      return context.discardedThisPlay;
     default: {
       const unreachable: never = source;
       return unreachable;
@@ -401,9 +418,15 @@ function applyOp(state: GameState, op: EffectOp, context: EffectContext): Effect
     case 'discard': {
       const run = requireRun(state);
       if (run.combat === null || run.combat.hand.length === 0) return keep(state);
-      const rolled = op.random === true
-        ? randomFromHand(run.combat, run.rng, op.amount)
-        : { picked: run.combat.hand.slice(0, op.amount), rng: run.rng };
+      /* Throwing the whole hand needs no roll: there is nothing to choose
+         between when the answer is "all of them", and spending a number from
+         the combat stream for a non-choice would shift every later roll in the
+         fight for no reason. */
+      const rolled = op.all === true
+        ? { picked: run.combat.hand, rng: run.rng }
+        : op.random === true
+          ? randomFromHand(run.combat, run.rng, op.amount)
+          : { picked: run.combat.hand.slice(0, op.amount), rng: run.rng };
       let next = withRun(state, (current) => ({ ...current, rng: rolled.rng }));
       for (const card of rolled.picked) {
         next = withCombat(next, (combat) => ({
@@ -412,14 +435,16 @@ function applyOp(state: GameState, op: EffectOp, context: EffectContext): Effect
           discard: [...combat.discard, card],
         }));
       }
-      return keep(
-        appendLog(next, {
+      return {
+        state: appendLog(next, {
           source: context.source,
           kind: 'card',
           text: `Discarded ${rolled.picked.length}.`,
           detail: null,
         }),
-      );
+        // What the ops after this one scale against.
+        context: { ...context, discardedThisPlay: context.discardedThisPlay + rolled.picked.length },
+      };
     }
 
     case 'gainEnergy': {
@@ -486,7 +511,7 @@ function applyOp(state: GameState, op: EffectOp, context: EffectContext): Effect
     }
 
     case 'scaleWith': {
-      const times = Math.floor(scaleValue(state, op.source) / Math.max(1, op.per));
+      const times = Math.floor(scaleValue(state, op.source, context) / Math.max(1, op.per));
       let current: EffectResult = { state, context };
       for (let i = 0; i < times; i++) {
         if (current.state.run?.combat?.outcome !== 'ongoing') break;

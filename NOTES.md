@@ -3199,3 +3199,66 @@ Below 62rem the shift is suppressed and the panel overlays instead. There are no
 margins to give at that width, and by then it is something the player asked for
 rather than something that happened to them.
 
+
+## The log, third time
+
+The full-height panel came out. It made the log furniture that was always there
+once opened, it stretched its own lines apart to fill the height — a grid with
+`height: 100%` shares the slack out between the rows, so four lines spread
+evenly down the whole box — and paying for it by shifting the stage traded one
+complaint for a worse one: the board sliding sideways whenever you glanced at
+the log.
+
+Back to a popup under its own button, and **the layout never hears about it**.
+On a window wide enough for the 68rem board to sit centred with margin — which
+is the desktop this is built for — it lands in that margin and overlaps nothing.
+Measured at 1920: stage 409-1497 in every state, popup at 1543, board identical
+open and closed.
+
+Two caps on the height, smaller wins: 34rem, or the viewport minus 11rem. The
+fixed one keeps it clear of the tray on a normal desktop; the viewport term
+takes over on a short window where the tray has climbed. Measured: popup bottom
+392, End turn top 468.
+
+`align-content: start` on `.log-list` is the line-spacing fix, and it is worth
+naming because it will happen again: a grid taller than its content distributes
+the leftover height into the rows unless told not to.
+
+## Discard cards
+
+The gap was real and worth naming: some turns you draw five cards that do not
+combine, there is no play worth making, and the only option is to end the turn
+and hope. That is not a decision, it is a wait.
+
+Two shapes. **Trade a card for cards** — Sift throws one at random and draws
+three; the randomness is the price, because a version that let you choose would
+be a strictly better Measured Draw. **Spend the whole hand** — Jettison turns it
+over, Empty the Rack and Shed Weight convert it into damage or Block.
+
+They are deliberately weak on a good hand. Playing Empty the Rack with four
+cards you wanted is a bad play and should feel like one; what these buy is a
+floor under the turn you drew badly.
+
+Two additions to the vocabulary, both inside existing ops rather than new ones:
+
+  - `discard` takes `all`, so the generated text can say "Discard your hand"
+    instead of "Discard 99" — which is what the player would have read, and
+    which is a lie about the rule as well as ugly. It spends nothing from the
+    combat stream: there is nothing to choose between when the answer is all of
+    them, and a roll for a non-choice would shift every later roll in the fight.
+  - `discardedThisPlay` joins the `ScaleSource` list and lives on the effect
+    context beside `killsThisPlay`, scoped the same way and for the same reason:
+    "for each card discarded" is a promise about what THIS card threw away.
+
+Ordering inside the card is load-bearing — discard first, then read the count.
+Written the other way round the card scales on zero and always does nothing,
+which would look like a card that simply does not work rather than like a bug.
+There is a test for it.
+
+### A test that was measuring its own fixture
+
+Jettison appeared to draw back the very cards it had just thrown. It does, in a
+fight with an empty draw pile: drawing from nothing reshuffles the discard, and
+in a fixture with no deck that discard is exactly the cards thrown a moment ago.
+In a real fight the pile holds the rest of the deck and the odds are negligible.
+The fixture got a deck; the card was never wrong.
