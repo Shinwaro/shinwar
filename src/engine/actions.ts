@@ -26,6 +26,15 @@ export type Action =
   /** Resolve one enemy. The UI dispatches these on a timer so the enemy turn
       can be watched rather than arriving in a single frame. */
   | { readonly kind: 'advanceEnemies' }
+  /**
+   * Close the round and begin the player's turn.
+   *
+   * Its own step so the UI can hold the gap open while the last enemy's blow is
+   * still being drawn. Starting the turn is what drops Block, and doing that in
+   * the same step as the blow showed the armour giving up before the hit
+   * landed.
+   */
+  | { readonly kind: 'closeRound' }
   /** Leave the arrival screen; the node resolves into whatever it is. */
   | { readonly kind: 'leaveLanding' }
   /* -- the map -- */

@@ -3085,3 +3085,62 @@ anything would have squeezed. Starting at 10.5rem and growing into the line
 keeps five together and then makes them as big as the line allows. Measured: 5
 cards at 200px on one row at 1440, 5 at 191px on one row at 1050 (was two rows),
 7 wrapping to two rows as they should.
+
+## The gap between the last blow and your turn
+
+### The shield was right; the moment was wrong
+
+`closeRound` starts your turn, and starting your turn drops Block to whatever
+the stance retains. It ran in the *same step* as the last enemy's blow — so
+Block was already gone before the number for the hit it had just absorbed
+existed. The armour appeared to give up a beat early, every turn, in every
+fight.
+
+M7 papered over it at display level: `heldBlock` kept the old number on screen
+until the floaters landed. That is a label disagreeing with the state, which is
+a bug waiting for its second reader, and it only ever half worked because the
+release timer and the last floater were racing.
+
+The round is now genuinely left open. `advanceEnemyTurn` stops after the last
+enemy acts; `roundOwed` is true; the UI holds the gap for `fxRunning +
+SETTLE_MS` and then dispatches `closeRound`. The shield reads the real number
+again because the real number is finally right at that moment.
+
+No new field on `CombatState`. The round is owed exactly when nobody is queued
+and somebody has just acted, which `actingUid` already said —
+`GameState` keeps its shape and every serialised replay still means what it
+meant.
+
+`endTurnImmediately` closes it at once: nothing is watching in the simulator or
+the tests, and the pause is entirely for the eye.
+
+### The killing blow was never drawn
+
+The other half of the same story, and worse: a won fight clears `combat` in the
+same dispatch as the blow that won it, and the combat screen's re-render
+*returned early* on a null combat. The numbers for that blow were sitting in
+`fresh`, and the one function that turns log lines into floaters had already
+been skipped. The fight paused on a board still showing a living enemy, then cut
+to salvage.
+
+Now the tree is not rebuilt — there is no combat to build it from — but the
+effects still play over the board as it last stood, which is exactly the board
+the blow belongs to.
+
+The hold then has to wait for them, and the shell cannot ask the screen: it is
+in the middle of replacing it. `fxRemainingMs()` is a timestamp in `anim.ts`
+that both can read. It is sampled after a zero-delay yield, because the combat
+screen subscribes to the store *after* the shell does — reading it synchronously
+would read the previous turn's effects.
+
+### Forged vs upgraded
+
+The forge is the place. Upgrading is what happens to the card. Every string
+about the card now says upgrade — the anomaly result line, the `(upgraded)` tag,
+the confirm buttons at both the Station and the Safe Planet, the picker titles,
+and "nothing left to upgrade". `Forge` survives as the name of the Safe Planet
+service and in flavour, which is what it is: somewhere you go.
+
+The result line and the log line for the same event had already drifted apart —
+the log said "Upgraded Sever." and the screen said "Sever is forged." — four
+lines from each other in the same function.

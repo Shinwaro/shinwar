@@ -20,6 +20,7 @@ import {
 } from '../src/engine/combat/combat.ts';
 import { definitionOf } from '../src/engine/combat/combat.ts';
 import { intentOf, telegraphAll } from '../src/engine/combat/intents.ts';
+import { roundOwed } from '../src/engine/combat/combat.ts';
 import { chooseMove } from '../src/engine/combat/ai.ts';
 import { createRng } from '../src/engine/rng.ts';
 import { nextStance } from '../src/engine/combat/stance.ts';
@@ -584,5 +585,67 @@ describe('a phased boss', () => {
     const rng = createRng('phase');
     const choice = chooseMove(DEF, fresh, rng, 100);
     expect(choice.rng).toEqual(rng);
+  });
+});
+
+describe('the gap between the last blow and your turn', () => {
+  /* Starting the turn is what drops Block to whatever the stance retains, and
+     it used to happen in the same step as the last enemy's blow. So the shield
+     was already gone before the number for the hit it had just absorbed was
+     drawn — the armour appeared to give up a beat early, every turn, in every
+     fight.
+
+     The UI had a display-level hack holding the old number on screen. A label
+     that disagrees with the state is a bug waiting for its second reader, so
+     the gap is real now: the round stays open, and closing it is its own
+     action the UI dispatches once the blow has been shown. */
+
+  it('leaves the round owed once every enemy has swung', () => {
+    // Telegraphed first: an enemy with no committed move is never queued, and
+    // then there is no last blow for the round to be waiting on.
+    let state = applyAction(telegraphAll(makeFight({ enemyIds: ['cinder_wisp'], block: 12 })), {
+      kind: 'endTurn',
+    });
+    let guard = 0;
+    while (guard++ < 16 && combatOf(state).pendingEnemies.length > 0) {
+      state = applyAction(state, { kind: 'advanceEnemies' });
+    }
+
+    expect(roundOwed(state), 'the round closed itself').toBe(true);
+    // Still the player's old turn number: the next one has not begun.
+    expect(combatOf(state).turn).toBe(1);
+  });
+
+  it('keeps the Block that did the absorbing until the round closes', () => {
+    let state = applyAction(telegraphAll(makeFight({ enemyIds: ['cinder_wisp'], block: 40 })), {
+      kind: 'endTurn',
+    });
+    let guard = 0;
+    while (guard++ < 16 && combatOf(state).pendingEnemies.length > 0) {
+      state = applyAction(state, { kind: 'advanceEnemies' });
+    }
+
+    // Whatever the blow ate, the rest is still standing — the stance has not
+    // had its say yet.
+    const held = combatOf(state).block;
+    expect(held, 'Block was reset before the round closed').toBeGreaterThan(3);
+
+    const closed = applyAction(state, { kind: 'closeRound' });
+    expect(combatOf(closed).turn).toBe(2);
+    expect(combatOf(closed).block, 'the stance never got its say').toBeLessThan(held);
+  });
+
+  it('refuses to close a round that is not owed', () => {
+    // A stray dispatch must not start a second turn on top of the first.
+    const fresh = makeFight({ enemyIds: ['cinder_wisp'] });
+    expect(roundOwed(fresh)).toBe(false);
+    expect(applyAction(fresh, { kind: 'closeRound' })).toBe(fresh);
+  });
+
+  it('closes it anyway for anything not watching', () => {
+    // The simulator and the tests have no floaters to wait for.
+    const settled = endTurnImmediately(telegraphAll(makeFight({ enemyIds: ['cinder_wisp'] })));
+    expect(roundOwed(settled)).toBe(false);
+    if (combatOf(settled).outcome === 'ongoing') expect(combatOf(settled).turn).toBe(2);
   });
 });

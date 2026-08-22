@@ -80,6 +80,22 @@ export interface FloatRequest {
  */
 const FLOAT_MS = 1180;
 
+/**
+ * When the last number currently scheduled will have finished rising.
+ *
+ * `playLogFx` returns how long its sequence takes, which is enough for callers
+ * that scheduled it. This is for the one that did not: the app shell has to
+ * hold the board while the killing blow plays, and the screen that scheduled
+ * that blow is a different module which the shell is in the middle of
+ * replacing. A timestamp is the smallest thing they can agree on.
+ */
+let fxEndsAt = 0;
+
+/** Milliseconds until the last scheduled floater is done. Zero if none are. */
+export function fxRemainingMs(): number {
+  return Math.max(0, fxEndsAt - performance.now());
+}
+
 export function floatText(request: FloatRequest): void {
   if (prefersReducedMotion()) return;
 
@@ -89,6 +105,8 @@ export function floatText(request: FloatRequest): void {
   node.style.left = `${request.x}px`;
   node.style.top = `${request.y}px`;
   fxLayer().append(node);
+
+  fxEndsAt = Math.max(fxEndsAt, performance.now() + request.delay + FLOAT_MS);
 
   const animation = node.animate(
     [
@@ -118,6 +136,8 @@ export function floatText(request: FloatRequest): void {
  */
 export function clearEffects(): void {
   layer?.replaceChildren();
+  // Nothing is in the air any more, so nothing should be waiting on it.
+  fxEndsAt = 0;
 }
 
 /* ---------- bars that drain ----------

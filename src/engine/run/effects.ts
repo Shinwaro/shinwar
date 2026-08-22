@@ -113,7 +113,7 @@ function applyOne(state: GameState, effect: RunEffect, source: string): Single {
 
     case 'upgradeRandomCard': {
       const candidates = run.pilot.deck.filter((card) => !card.upgraded);
-      if (candidates.length === 0) return { state, line: 'Nothing left to forge.' };
+      if (candidates.length === 0) return { state, line: 'Nothing left to upgrade.' };
       const rolled = nextInt(run.rng, 'events', 0, candidates.length);
       const chosen = candidates[rolled.value];
       if (chosen === undefined) return { state, line: null };
@@ -133,7 +133,7 @@ function applyOne(state: GameState, effect: RunEffect, source: string): Single {
           source,
           `Upgraded ${name}.`,
         ),
-        line: `${name} is forged.`,
+        line: `${name} is upgraded.`,
       };
     }
 

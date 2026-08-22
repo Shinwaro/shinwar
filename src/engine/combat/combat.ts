@@ -620,9 +620,46 @@ export function advanceEnemyTurn(state: GameState): GameState {
 
   next = checkOutcome(next);
   if (requireCombat(next).outcome !== 'ongoing') return next;
-  if (requireCombat(next).pendingEnemies.length > 0) return next;
 
-  return closeRound(next);
+  /* The round is NOT closed here, even when this was the last enemy.
+   *
+   * `closeRound` starts your turn, and starting your turn drops Block to what
+   * the stance retains. Doing that in the same step as the last enemy's blow
+   * meant Block was already gone before the number for the hit it absorbed had
+   * been drawn — the armour appeared to give up a beat before the blow landed,
+   * every single turn.
+   *
+   * The UI's held-Block hack was papering over exactly this, and a display
+   * that disagrees with the state is a bug waiting for its second reader. So
+   * the step stops here and `closeRound` is its own action, dispatched once the
+   * blow has actually been shown. `roundOwed` is how anything else knows.
+   *
+   * Nothing is derived from a new field: the round is owed exactly when nobody
+   * is queued and somebody has just acted, which `actingUid` already says. */
+  return next;
+}
+
+/**
+ * Has every enemy acted, with the round still open?
+ *
+ * The gap between the last blow landing and your turn beginning. The UI holds
+ * it open for as long as the hit needs to be seen; `endTurnImmediately` closes
+ * it at once.
+ */
+export function roundOwed(state: GameState): boolean {
+  const combat = state.run?.combat ?? null;
+  return (
+    combat !== null &&
+    combat.outcome === 'ongoing' &&
+    combat.pendingEnemies.length === 0 &&
+    combat.actingUid !== null
+  );
+}
+
+/** Close the round and start the player's turn. Dispatched when `roundOwed`. */
+export function closeRoundNow(state: GameState): GameState {
+  if (!roundOwed(state)) return state;
+  return closeRound(state);
 }
 
 /** End the turn and run the whole enemy turn at once. Tests and the simulator. */
@@ -630,7 +667,8 @@ export function endTurnImmediately(state: GameState): GameState {
   let next = endPlayerTurn(state);
   let guard = 0;
   while (guard++ < 64 && enemiesPending(next)) next = advanceEnemyTurn(next);
-  return next;
+  // Nobody is watching, so the pause the UI takes here is not wanted.
+  return closeRoundNow(next);
 }
 
 /* ---------- outcome ---------- */

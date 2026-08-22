@@ -196,7 +196,7 @@ function build(store: Store, state: GameState, local: Local, redraw: () => void)
         shop === null
           ? null
           : serviceOption(
-              shop.forgeUsed ? 'Forge used' : 'Forge a card',
+              shop.forgeUsed ? 'Forge used' : 'Upgrade a card',
               `${shop.forgePrice} Alloy, one per Station.`,
               shop.forgeUsed
                 ? 'This station has done its one.'
@@ -265,7 +265,7 @@ function buildPicker(store: Store, state: GameState, local: Local, redraw: () =>
 
   return el('div', { class: 'station-inner' }, [
     renderRunBar(store, state),
-    el('h1', { class: 'screen-title' }, [forging ? 'Forge a card' : 'Strip a card']),
+    el('h1', { class: 'screen-title' }, [forging ? 'Upgrade a card' : 'Strip a card']),
     el('p', { class: 'safe-note' }, [
       forging
         ? `${price} Alloy. One per Station — a deck that gets better beats a deck that gets bigger.`
@@ -280,7 +280,7 @@ function buildPicker(store: Store, state: GameState, local: Local, redraw: () =>
       chosen === null
         ? null
         : button(
-            `${forging ? 'Forge' : 'Strip'} ${definitionOf(chosen).name}`,
+            `${forging ? 'Upgrade' : 'Strip'} ${definitionOf(chosen).name}`,
             { class: 'btn btn-primary' },
             () => {
               const uid = chosen.uid;

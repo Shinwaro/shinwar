@@ -84,7 +84,7 @@ function build(store: Store, state: GameState, local: Local, redraw: () => void)
       option(
         'Forge',
         'Upgrade one card, permanently.',
-        allUpgraded ? 'Every card is already forged.' : 'You will see the result before you commit.',
+        allUpgraded ? 'Every card is already upgraded.' : 'You will see the result before you commit.',
         allUpgraded,
         () => openPicker('upgrade'),
       ),
@@ -142,7 +142,7 @@ function buildPicker(store: Store, state: GameState, local: Local, redraw: () =>
 
   return el('div', { class: 'safe-inner' }, [
     renderRunBar(store, state),
-    el('h1', { class: 'screen-title' }, [forging ? 'Forge a card' : 'Strip a card']),
+    el('h1', { class: 'screen-title' }, [forging ? 'Upgrade a card' : 'Strip a card']),
     el('p', { class: 'safe-note' }, [
       forging
         ? 'Pick a card to see what it becomes. Nothing is spent until you confirm.'
@@ -150,7 +150,7 @@ function buildPicker(store: Store, state: GameState, local: Local, redraw: () =>
     ]),
     preview === null
       ? el('p', { class: 'forge-empty' }, [
-          forging ? 'Pick a card to preview the forge.' : 'Pick a card to strip.',
+          forging ? 'Pick a card to see what it upgrades into.' : 'Pick a card to strip.',
         ])
       : renderPreview(state, preview, forging),
     el('div', { class: 'picker-actions' }, [
@@ -163,7 +163,7 @@ function buildPicker(store: Store, state: GameState, local: Local, redraw: () =>
       preview === null || local.chosen === null
         ? null
         : button(
-            forging ? `Forge ${definitionOf(preview).name}` : `Strip ${definitionOf(preview).name}`,
+            forging ? `Upgrade ${definitionOf(preview).name}` : `Strip ${definitionOf(preview).name}`,
             { class: 'btn btn-primary' },
             () => {
               const uid = preview.uid;

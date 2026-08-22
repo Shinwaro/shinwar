@@ -28,7 +28,7 @@ export function describeRunEffect(effect: RunEffect): string {
 
     case 'card': {
       const name = cardTable.find(effect.cardId)?.name ?? effect.cardId;
-      return `Gain ${name}${effect.upgraded === true ? ' (forged)' : ''}`;
+      return `Gain ${name}${effect.upgraded === true ? ' (upgraded)' : ''}`;
     }
 
     case 'upgradeRandomCard':

@@ -19,7 +19,13 @@
 import type { GameState } from '../../engine/types.ts';
 import type { Store } from '../store.ts';
 import { requireCombat, requireRun } from '../../engine/state.ts';
-import { canPlay, definitionOf, enemiesPending, needsTarget } from '../../engine/combat/combat.ts';
+import {
+  canPlay,
+  definitionOf,
+  enemiesPending,
+  needsTarget,
+  roundOwed,
+} from '../../engine/combat/combat.ts';
 import { intentOf, intentVisible } from '../../engine/combat/intents.ts';
 import { livingEnemies } from '../../engine/combat/damage.ts';
 import { describeStatus } from '../../engine/combat/keywords.ts';
@@ -89,9 +95,8 @@ const ENEMY_HIT_MS = 340;
 /**
  * A last beat once the numbers have settled, before anything else moves.
  *
- * This one carries the shield: `heldBlock` releases on `played + SETTLE_MS`, so
- * it is the gap between the last number landing and the armour dropping. At 160
- * the two were the same moment.
+ * This one carries the shield: the round close waits `fxRunning + SETTLE_MS`,
+ * so it is the gap between the last number landing and the armour dropping.
  */
 const SETTLE_MS = 420;
 
@@ -178,24 +183,33 @@ export function renderCombat(store: Store): HTMLElement {
 
 
   /*
-   * Block, as displayed, lags Block as stored.
+   * The shield used to be held here, at display level, because the engine
+   * dropped Block in the same dispatch as the last enemy's blow. It does not
+   * any more — `closeRound` is its own action and this schedules it once the
+   * blow has been drawn — so the number on screen is simply the number in
+   * state, which is the only arrangement that cannot drift.
    *
-   * The engine drops Block at the start of your turn — GUARD keeps 3 — and that
-   * happens in the same dispatch as the last enemy's blow. So the shield used to
-   * snap to 3 while the damage numbers from the hit it just absorbed were still
-   * in the air, which reads as the armour giving up early. The number shown is
-   * held at its old value until the floaters land, then released.
-   *
-   * Presentation only: the engine is already correct and is never consulted
-   * about this. `null` means "show whatever state says".
+   * Block still falls live while it absorbs a hit. That is the shield working,
+   * and watching it go is the point of having it.
    */
-  let heldBlock: number | null = null;
-  let blockTimer = 0;
-  let lastBlockShown = 0;
 
   const scheduleEnemy = (): void => {
     if (enemyTimer !== 0) return;
     const state = store.getState();
+
+    /* Every enemy has swung and the round is still open, waiting on us. Hold it
+       for as long as the numbers still in the air need, then start the turn —
+       which is the moment Block drops to what the stance retains. */
+    if (roundOwed(state)) {
+      const wait = fxRunning + SETTLE_MS;
+      fxRunning = 0;
+      enemyTimer = window.setTimeout(() => {
+        enemyTimer = 0;
+        store.dispatch({ kind: 'closeRound' });
+      }, wait);
+      return;
+    }
+
     if (!enemiesPending(state)) return;
 
     const combat = state.run?.combat ?? null;
@@ -221,14 +235,40 @@ export function renderCombat(store: Store): HTMLElement {
   const rerender = (): void => {
     if (rendering) return;
     const state = store.getState();
-    // A won fight clears `combat` before the app swaps the screen out, and the
-    // listener fires on that state first. Render nothing rather than throw.
-    if (state.run === null || state.run.combat === null) return;
 
     // The rolling log window can shrink; never slice from a stale index.
     if (state.log.length < logCursor) logCursor = state.log.length;
     const fresh = state.log.slice(logCursor);
     logCursor = state.log.length;
+
+    /*
+     * A won fight clears `combat` in the same dispatch as the blow that won
+     * it, and this listener sees that state before the app swaps the screen.
+     *
+     * It used to return here, which is why the killing blow was never drawn:
+     * the numbers for it were in `fresh`, and the one function that turns log
+     * lines into floaters had already been skipped. The fight simply paused on
+     * a board that still showed a living enemy and then cut to salvage.
+     *
+     * So the tree is not rebuilt — there is no combat to build it from — but
+     * the effects still play, over the board as it last stood, which is
+     * exactly the board the blow belongs to. `fxHoldMs` is what the app shell
+     * reads to know how long to wait before the swap.
+     */
+    if (state.run === null || state.run.combat === null) {
+      playLogFx(
+        fresh,
+        (target) =>
+          target === 'player'
+            ? host.querySelector('.stat--hull')
+            : host.querySelector(`.enemy[data-uid="${CSS.escape(target)}"]`),
+        {
+          stage: host.querySelector('.combat-inner'),
+          playerMaxHealth: state.run?.pilot.maxHealth ?? 0,
+        },
+      );
+      return;
+    }
 
     // Positions first: after `replaceChildren` these nodes are detached and
     // `getBoundingClientRect` on them reads zero.
@@ -237,7 +277,7 @@ export function renderCombat(store: Store): HTMLElement {
 
     rendering = true;
     try {
-      host.replaceChildren(build(store, state, selection, rerender, heldBlock));
+      host.replaceChildren(build(store, state, selection, rerender));
     } finally {
       rendering = false;
     }
@@ -275,24 +315,6 @@ export function renderCombat(store: Store): HTMLElement {
        to two different games. */
     if (moved > 0) fxRunning = Math.max(fxRunning, moved);
 
-    /*
-     * If Block fell while numbers are still flying, keep showing the old value
-     * until they land. Only when it FELL — a gain should appear immediately,
-     * because that is the player's own card doing something.
-     */
-    const shown = state.run.combat.block;
-    if (played > 0 && lastBlockShown > shown && lastBlockShown > 0) {
-      heldBlock = lastBlockShown;
-      window.clearTimeout(blockTimer);
-      blockTimer = window.setTimeout(() => {
-        blockTimer = 0;
-        heldBlock = null;
-        rerender();
-      }, played + SETTLE_MS);
-    } else if (blockTimer === 0) {
-      lastBlockShown = shown;
-    }
-
     const log = host.querySelector('.log');
     if (log !== null) scrollLogToEnd(log);
 
@@ -327,7 +349,6 @@ export function renderCombat(store: Store): HTMLElement {
     detachKeys();
     unsubscribe();
     window.clearTimeout(enemyTimer);
-    window.clearTimeout(blockTimer);
     // A number still rising — or a card still flying — over a fight that has
     // ended is just litter.
     clearEffects();
@@ -342,7 +363,6 @@ function build(
   state: GameState,
   selection: Selection,
   rerender: () => void,
-  heldBlock: number | null = null,
 ): HTMLElement {
   const run = requireRun(state);
   const combat = requireCombat(state);
@@ -357,13 +377,10 @@ function build(
    * and it will be needed the moment anything wants to ask. Nothing on this
    * screen asks.
    */
-  /*
-   * What the shield reads. `heldBlock` is set only while damage floaters from a
-   * blow this Block already absorbed are still in the air — see the comment on
-   * the declaration. Everything that computes with Block still uses the real
-   * value; this is the label alone.
-   */
-  const shownBlock = heldBlock ?? combat.block;
+  /* The shield reads the real number, with no display-level lag any more. The
+     round no longer closes until the blow has been drawn, so the state and the
+     label agree at every moment they are both on screen. */
+  const shownBlock = combat.block;
 
   const alive = livingEnemies(combat);
   const selectedDef = selection.cardUid === null

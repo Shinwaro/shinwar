@@ -9,6 +9,7 @@ import type { GameState, Phase, RunScreen } from '../engine/types.ts';
 import type { Store } from './store.ts';
 import { shouldGuardUnload } from '../engine/queries.ts';
 import { createSpaceScene } from './space.ts';
+import { fxRemainingMs } from './anim.ts';
 import { renderTitle } from './screens/title.ts';
 import { renderCombat } from './screens/combat.ts';
 import { renderLanding } from './screens/landing.ts';
@@ -41,7 +42,7 @@ const DEATH_HOLD_MS = 2200;
  * is a beat, not an ending: long enough for the last number to land and the
  * enemy to finish dying, short enough that clearing a pack of Wisps does not
  * become four pauses in a row. */
-const WIN_HOLD_MS = 900;
+const WIN_HOLD_MS = 1000;
 
 function viewOf(state: GameState): View {
   if (state.phase !== 'run' || state.run === null) return state.phase;
@@ -182,11 +183,26 @@ export function mountApp(root: HTMLElement, store: Store): void {
     if (ending !== null) {
       if (outcomeHold !== null) return;
       if (ending.dying) mounted?.classList.add('is-dying');
+
+      /* Two stages, and the zero-delay first one is the point.
+       *
+       * The combat screen subscribes to the store AFTER this shell does, so on
+       * the notification that ends a fight this listener runs first — before
+       * the screen has scheduled the floaters for the blow that ended it.
+       * Reading `fxRemainingMs()` here would read the previous turn's. Yielding
+       * once lets every subscriber finish, and then the number is the real one.
+       *
+       * The death hold keeps its flat figure: it is already long enough to
+       * cover any blow, and the game-over screen is not a beat you want to
+       * measure to the millisecond. */
       outcomeHold = setTimeout(() => {
-        outcomeHold = null;
-        outcomeHeld = true;
-        render(store.getState());
-      }, ending.ms);
+        const wait = ending.dying ? ending.ms : fxRemainingMs() + ending.ms;
+        outcomeHold = setTimeout(() => {
+          outcomeHold = null;
+          outcomeHeld = true;
+          render(store.getState());
+        }, wait);
+      }, 0);
       return;
     }
     if (outcomeHold !== null) {

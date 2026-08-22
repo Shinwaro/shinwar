@@ -16,7 +16,13 @@ import {
 } from './state.ts';
 import { normalizeSeed } from './rng.ts';
 import { fireHook } from './hooks.ts';
-import { advanceEnemyTurn, endPlayerTurn, playCard, startCombat } from './combat/combat.ts';
+import {
+  advanceEnemyTurn,
+  closeRoundNow,
+  endPlayerTurn,
+  playCard,
+  startCombat,
+} from './combat/combat.ts';
 import {
   advanceAct,
   claimRewardAlloy,
@@ -190,6 +196,13 @@ export function applyAction(state: GameState, action: Action): GameState {
     case 'advanceEnemies': {
       if (state.run?.combat?.outcome !== 'ongoing') return state;
       return settleCombat(advanceEnemyTurn(state));
+    }
+
+    case 'closeRound': {
+      if (state.run?.combat?.outcome !== 'ongoing') return state;
+      // A no-op unless the round is genuinely owed, so a stray dispatch cannot
+      // start a second turn on top of the one already running.
+      return settleCombat(closeRoundNow(state));
     }
 
     case 'leaveLanding': {

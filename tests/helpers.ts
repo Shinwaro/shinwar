@@ -138,7 +138,10 @@ export function endTurnVia(state: GameState): GameState {
   while (guard++ < 64 && next.run?.combat?.pendingEnemies.length) {
     next = applyActions(next, [{ kind: 'advanceEnemies' }]);
   }
-  return next;
+  /* The round no longer closes itself when the last enemy has swung — the UI
+     holds that gap open so the blow can be drawn before Block drops. Nothing
+     here is watching, so close it at once. A no-op if the fight ended. */
+  return applyActions(next, [{ kind: 'closeRound' }]);
 }
 
 export function combatOf(state: GameState): CombatState {
