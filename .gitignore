@@ -10,3 +10,7 @@ desktop.ini
 *~
 .vscode/
 .idea/
+
+# Scratch dumps for the reference pages. Regenerate with `npm run dump`.
+.tmpdump/
+tools/out/

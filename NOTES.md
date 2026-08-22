@@ -3358,3 +3358,56 @@ answer there is the same. See the `heat.ts` note on the hard cap for where the
 line actually sits: a cost you cannot *read* is unfair; a cost you have to *add
 up* is a game.
 
+
+## An Elite is the same bet however it arrives
+
+Robin: "are elites with normal mobs as strong as elites that are alone? that
+would be a bit unfair."
+
+Measured, and no. Act 1 offered 76 hull or 104 depending on which Elite the
+chart gave you; Act 2, 122 or 152. The escorted ones were always the expensive
+end, and the reason is structural rather than an oversight in any one number:
+an escorted elite was an elite already sized to stand alone, with a companion
+added on top for free.
+
+Routing into an Elite is a choice with a fixed price — a relic and elite Alloy —
+so two Elites in the same act have to be the same bet. The escort comes out of
+the budget now instead of being added to it:
+
+  act 1   90 / 90        Kiln Alpha 76 -> 90, Mag-Lathe 86 -> 72
+  act 2  136 / 136       Iron Procession 122 -> 136, Siphon Engine 114 -> 98
+  act 3  160 / 162 / 165 Cantor 104 -> 160, Collapse Choir 155 -> 130
+
+Every elite appears in exactly one elite encounter, which is what made this
+tunable without one enemy having two different health bars in two different
+fights. That was Robin's suggested mechanism and it would have worked; it is
+worth recording why the content fix was preferred, because the runtime one is
+the obvious answer and it is subtly worse. A creature whose bar is 86 here and
+72 there teaches the player nothing they can carry between fights.
+
+The validator refuses more than 15% spread inside an act now.
+
+### And the Act 2 boss was on a normal node
+
+Found while measuring. `herald_and_weevil` was a NORMAL Act 2 encounter
+containing `WAVEFRONT_HERALD` — the Act 2 boss, at its full 182 hull. 244 total
+against an act average of 125, paying normal rewards, and it meant you could
+meet the Herald before you met the Herald.
+
+Same family as the duplicate `the_procession` id: content that validated, typed
+and rendered fine, and was simply wrong about the game. A boss in a non-boss
+encounter is a validation error now.
+
+## Keeping the reference pages honest
+
+`npm run dump` writes `tools/out/pools.json` — every pool, with the rules text
+from `describeCard`, `describeRider` and `describeImplant`, which are the same
+functions that print it on screen.
+
+It also carries the derived figures the pages cannot compute for themselves: an
+encounter's total hull, an enemy's average damage a turn. Those belong in the
+dump rather than in a page, because they are game arithmetic and a page that
+does its own arithmetic is a page that can disagree with the game.
+
+The output is gitignored. It is derived, and a derived file in a diff is noise
+that is stale the moment anything changes.
