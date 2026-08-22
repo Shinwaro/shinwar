@@ -9,7 +9,7 @@
 
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { GameState } from '../src/engine/types.ts';
-import { createInitialState } from '../src/engine/state.ts';
+import { createInitialState, requireCombat } from '../src/engine/state.ts';
 import { createRng } from '../src/engine/rng.ts';
 import { applyAction } from '../src/engine/reducer.ts';
 import { advanceAct } from '../src/engine/run/run.ts';
@@ -186,11 +186,29 @@ describe('environments that act at a moment', () => {
 });
 
 describe('Sensor Fog', () => {
-  it('hides the telegraph, with no way to buy it back', () => {
-    // A free reveal once a turn made the environment a click you paid before
-    // getting the information anyway. Blind is the environment.
-    const fogged = startPlayerTurn(inEnvironment(SENSOR_FOG_ID, { enemyIds: ['scrap_hound'] }));
-    expect(intentVisible(fogged)).toBe(false);
+  it('hides the telegraph on every other round, starting with the first', () => {
+    /* It used to hide it for the whole fight, which made Sensor Fog a
+       different game rather than a harder one: with nothing ever readable
+       there is no plan to make, only Block to hold, and a whole fight of that
+       is one decision repeated.
+
+       There is still no way to buy the reveal back. A free reveal once a turn
+       made the environment a click you paid before getting the information
+       anyway. The rhythm is the mitigation, not a button. */
+    let fogged = inEnvironment(SENSOR_FOG_ID, { enemyIds: ['scrap_hound'] });
+    const seen: { round: number; visible: boolean }[] = [];
+    for (let i = 0; i < 4; i++) {
+      seen.push({ round: requireCombat(fogged).round, visible: intentVisible(fogged) });
+      fogged = startPlayerTurn(fogged);
+    }
+
+    // Odd rounds blind, even rounds clear — and what you read on a clear round
+    // is worth carrying into the blind one, which is the whole point.
+    for (const { round, visible } of seen) {
+      expect(visible, `round ${round}`).toBe(round % 2 === 0);
+    }
+    expect(seen.some((entry) => entry.visible), 'never clear').toBe(true);
+    expect(seen.some((entry) => !entry.visible), 'never blind').toBe(true);
   });
 
   it('hides nothing anywhere else', () => {

@@ -48,6 +48,10 @@ export const CHRONAL_SHEAR_ID = 'chronal_shear';
 /** Rock damage and radiation rate live here rather than inline in a handler. */
 const DEBRIS_DAMAGE = 7;
 const CHRONAL_EVERY = 3;
+/* Sensor Fog's cadence. 2 is blind, clear, blind, clear -- the fog is on the
+   turn you arrive, and every clear round is one you can plan the next blind one
+   from. */
+const FOG_EVERY = 2;
 
 export const ENVIRONMENTS: readonly EnvironmentDef[] = [
   {
@@ -94,8 +98,8 @@ export const ENVIRONMENTS: readonly EnvironmentDef[] = [
   {
     id: SENSOR_FOG_ID,
     name: 'Sensor Fog',
-    text: 'Enemy intents are hidden. You fight it blind.',
-    rules: { hideIntents: true },
+    text: `Enemy intents are hidden every ${FOG_EVERY} rounds, starting with the first.`,
+    rules: { hideIntentsEvery: FOG_EVERY },
   },
 
   {

@@ -7,7 +7,7 @@
  */
 
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { GameState, RunState } from '../src/engine/types.ts';
+import type { EventDef, GameState, RunState } from '../src/engine/types.ts';
 import { createInitialState, createRunState } from '../src/engine/state.ts';
 import { applyAction } from '../src/engine/reducer.ts';
 import { enterNode } from '../src/engine/run/run.ts';
@@ -425,5 +425,111 @@ describe('the station', () => {
     expect(runOf(nextStation).shop?.removalPrice).toBeGreaterThan(
       runOf(stocked).shop?.removalPrice ?? 0,
     );
+  });
+});
+
+describe('what health costs', () => {
+  /* One exchange rate, both directions.
+   *
+   * It used to be 13.4 Alloy a point sold and 3.6 bought, which made "sell
+   * health at every Anomaly and buy it back at the next" worth about 3.7x on
+   * every point traded. That is not a strategy the player discovers, it is a
+   * tax on players who do not. The band is deliberately wide enough to write
+   * round numbers in and narrow enough that no option is the obvious one. */
+  const LOW = 7;
+  const HIGH = 9.2;
+
+  /** What an option really costs in health, counting the Coolant Leak it opens. */
+  function pointsSpent(option: EventDef['options'][number]): number {
+    const immediate = option.effects.reduce(
+      (sum, effect) => sum + (effect.op === 'health' && effect.amount < 0 ? -effect.amount : 0),
+      0,
+    );
+    const leaks = option.effects.some(
+      (effect) => effect.op === 'setThread' && effect.threadId === 'coolant_leak',
+    );
+    // A deferred, uncertain loss is not worth the same as one taken now, so
+    // the leak's 10 points are counted and the total discounted.
+    return leaks ? (immediate + 10) / 1.5 : immediate;
+  }
+
+  function gained(option: EventDef['options'][number], op: 'alloy' | 'health'): number {
+    return option.effects.reduce((sum, effect) => {
+      if (effect.op !== op) return sum;
+      return sum + effect.amount;
+    }, 0);
+  }
+
+  it('pays the same for health as it charges', () => {
+    const offenders: string[] = [];
+    for (const event of eventTable.all()) {
+      for (const option of event.options) {
+        const alloy = gained(option, 'alloy');
+        const health = gained(option, 'health');
+        const spent = pointsSpent(option);
+
+        // Selling: Alloy in, health out.
+        if (alloy > 0 && spent > 0) {
+          const rate = alloy / spent;
+          if (rate < LOW || rate > HIGH) {
+            offenders.push(`${event.id}/${option.id} sells at ${rate.toFixed(1)}`);
+          }
+        }
+        // Buying: Alloy out, health in.
+        if (alloy < 0 && health > 0) {
+          const rate = -alloy / health;
+          if (rate < LOW || rate > HIGH) {
+            offenders.push(`${event.id}/${option.id} buys at ${rate.toFixed(1)}`);
+          }
+        }
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it('prices max health above health, because it does not come back', () => {
+    const offenders: string[] = [];
+    for (const event of eventTable.all()) {
+      for (const option of event.options) {
+        const alloy = gained(option, 'alloy');
+        const maxLost = option.effects.reduce(
+          (sum, effect) => sum + (effect.op === 'maxHealth' && effect.amount < 0 ? -effect.amount : 0),
+          0,
+        );
+        if (alloy > 0 && maxLost > 0) {
+          const rate = alloy / maxLost;
+          if (rate < 14 || rate > 16) {
+            offenders.push(`${event.id}/${option.id} sells max health at ${rate.toFixed(1)}`);
+          }
+        }
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it('never lends more than the debt collects', () => {
+    /* Yard Debt is the one Thread that is purely a bill. If any option could
+       borrow more than it repays, credit would be free money with a delay on
+       it, and the "risk" label on those options would be a lie. */
+    const debt = threadTable.get('yard_debt');
+    const owed = -debt.payoff.reduce(
+      (sum, effect) => sum + (effect.op === 'alloy' ? effect.amount : 0),
+      0,
+    );
+    expect(owed).toBeGreaterThan(0);
+
+    for (const event of eventTable.all()) {
+      for (const option of event.options) {
+        const opens = option.effects.some(
+          (effect) => effect.op === 'setThread' && effect.threadId === 'yard_debt',
+        );
+        if (!opens) continue;
+        const lent = option.effects.reduce(
+          (sum, effect) => sum + (effect.op === 'alloy' ? effect.amount : 0),
+          0,
+        );
+        expect(lent, `${event.id}/${option.id}`).toBeLessThan(owed);
+      }
+    }
   });
 });

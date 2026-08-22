@@ -91,7 +91,7 @@ export const EVENTS: readonly EventDef[] = [
         label: 'Open a line of credit',
         detail: 'You sign for it. They keep the paperwork, and a courier.',
         effects: [
-          { op: 'alloy', amount: 140 },
+          { op: 'alloy', amount: 120 },
           { op: 'setThread', threadId: 'yard_debt' },
         ],
         risk: 'Deferred',
@@ -102,8 +102,8 @@ export const EVENTS: readonly EventDef[] = [
         label: 'Sell them your spare plating',
         detail: 'The cutter flies lighter. It also flies thinner.',
         effects: [
+          { op: 'alloy', amount: 95 },
           { op: 'health', amount: -12 },
-          { op: 'alloy', amount: 150 },
         ],
         risk: 'The ship',
         payoff: 'Immediate, moderate',
@@ -166,7 +166,7 @@ export const EVENTS: readonly EventDef[] = [
         label: 'Take the drive core',
         detail: 'They cannot use it. Someone down the line will pay for it.',
         effects: [
-          { op: 'alloy', amount: 200 },
+          { op: 'alloy', amount: 105 },
           { op: 'health', amount: -13 },
         ],
         risk: 'Moral',
@@ -227,7 +227,7 @@ export const EVENTS: readonly EventDef[] = [
         label: 'Strip it and sell the alloy',
         detail: 'It is a rock with a good metal seam and no one left to be offended.',
         effects: [
-          { op: 'alloy', amount: 110 },
+          { op: 'alloy', amount: 60 },
           { op: 'maxHealth', amount: -4 },
         ],
         risk: 'Something you will not name',
@@ -257,7 +257,7 @@ export const EVENTS: readonly EventDef[] = [
         label: 'Cut out the reactor',
         detail: 'It is worth more than the ship it came out of. Cutting it free costs you.',
         effects: [
-          { op: 'alloy', amount: 220 },
+          { op: 'alloy', amount: 130 },
           { op: 'health', amount: -14 },
           { op: 'setThread', threadId: 'coolant_leak' },
         ],
@@ -268,7 +268,10 @@ export const EVENTS: readonly EventDef[] = [
         id: 'hold',
         label: 'Strip the hold',
         detail: 'Whatever they were running, they were running a lot of it.',
-        effects: [{ op: 'alloy', amount: 85 }],
+        effects: [
+          { op: 'alloy', amount: 40 },
+          { op: 'health', amount: 8 },
+        ],
         risk: 'None',
         payoff: 'Immediate, moderate',
       },
@@ -277,8 +280,8 @@ export const EVENTS: readonly EventDef[] = [
         label: 'Read the flight log',
         detail: 'You find out what they were carrying, and why they stopped.',
         effects: [
+          { op: 'health', amount: 4 },
           { op: 'removeRandomCard' },
-          { op: 'health', amount: 8 },
         ],
         risk: 'The deck',
         payoff: 'Information',
@@ -307,8 +310,8 @@ export const EVENTS: readonly EventDef[] = [
         label: 'Run it hot',
         detail: 'Straight through, grabbing what the grapples can hold.',
         effects: [
+          { op: 'alloy', amount: 95 },
           { op: 'health', amount: -12 },
-          { op: 'alloy', amount: 160 },
         ],
         risk: 'The ship',
         payoff: 'Immediate, large',
@@ -359,7 +362,7 @@ export const EVENTS: readonly EventDef[] = [
         label: 'Pay the toll',
         detail: 'They throw in the field medicine. They are not monsters, they are a business.',
         effects: [
-          { op: 'alloy', amount: -80 },
+          { op: 'alloy', amount: -110 },
           { op: 'health', amount: 14 },
         ],
         risk: 'Economic',
@@ -370,8 +373,8 @@ export const EVENTS: readonly EventDef[] = [
         label: 'Cut through',
         detail: 'The net is dead satellites. The people are not.',
         effects: [
+          { op: 'alloy', amount: 130 },
           { op: 'health', amount: -16 },
-          { op: 'alloy', amount: 190 },
         ],
         risk: 'The body',
         payoff: 'Immediate, small',
@@ -381,9 +384,8 @@ export const EVENTS: readonly EventDef[] = [
         label: 'Give them the ship’s name',
         detail: 'They mark your hull instead of charging you. Everyone will know the mark.',
         effects: [
-          { op: 'alloy', amount: 90 },
-          { op: 'card', cardId: 'syndicate_mark' },
           { op: 'setThread', threadId: 'marked' },
+          { op: 'card', cardId: 'syndicate_mark' },
         ],
         risk: 'Deferred',
         payoff: 'Immediate, large',
@@ -417,11 +419,11 @@ export const EVENTS: readonly EventDef[] = [
       },
       {
         id: 'feed',
-        label: 'Feed them',
-        detail: 'They eat like someone who has forgotten it was an option.',
+        label: 'Eat with them',
+        detail: 'They eat like someone who has forgotten it was an option. You sit down as well.',
         effects: [
-          { op: 'alloy', amount: -50 },
-          { op: 'health', amount: 18 },
+          { op: 'alloy', amount: -80 },
+          { op: 'health', amount: 10 },
         ],
         risk: 'Economic',
         payoff: 'Immediate, the body',
@@ -461,7 +463,7 @@ export const EVENTS: readonly EventDef[] = [
         label: 'Buy on credit',
         detail: 'They are selling below value and smiling about it. That is the tell.',
         effects: [
-          { op: 'alloy', amount: 160 },
+          { op: 'alloy', amount: 130 },
           { op: 'setThread', threadId: 'yard_debt' },
         ],
         risk: 'Deferred',
@@ -472,8 +474,8 @@ export const EVENTS: readonly EventDef[] = [
         label: 'Sell your spare plating',
         detail: 'A thinner hull and a heavier account.',
         effects: [
+          { op: 'alloy', amount: 95 },
           { op: 'health', amount: -12 },
-          { op: 'alloy', amount: 150 },
         ],
         risk: 'The ship',
         payoff: 'Immediate, moderate',
@@ -488,7 +490,7 @@ export const EVENTS: readonly EventDef[] = [
         detail: 'Sealant, sutures, and something that smells like it works.',
         effects: [
           { op: 'alloy', amount: -70 },
-          { op: 'health', amount: 16 },
+          { op: 'health', amount: 9 },
         ],
         risk: 'None',
         payoff: 'Immediate, small',
@@ -528,11 +530,8 @@ export const EVENTS: readonly EventDef[] = [
         label: 'Burn ahead of it',
         detail: 'You reach the next field before anyone else does. It costs the drive.',
         effects: [
-          // One health cost, not two. Deleting ship hull turned this option's
-          // hull price into a health price and it already had one, so it
-          // charged the player twice for the same decision.
+          { op: 'alloy', amount: 145 },
           { op: 'health', amount: -18 },
-          { op: 'alloy', amount: 240 },
         ],
         risk: 'Both',
         payoff: 'Immediate, large',
@@ -599,7 +598,9 @@ export const EVENTS: readonly EventDef[] = [
         id: 'strip',
         label: 'Strip the transmitter',
         detail: 'Good parts, and nobody left to mind.',
-        effects: [{ op: 'alloy', amount: 95 }],
+        effects: [
+          { op: 'alloy', amount: 55 },
+        ],
         risk: 'None',
         payoff: 'Immediate, moderate',
       },
@@ -651,7 +652,7 @@ export const EVENTS: readonly EventDef[] = [
         detail: 'They have more drive parts than drive.',
         effects: [
           { op: 'alloy', amount: -60 },
-          { op: 'health', amount: 20 },
+          { op: 'health', amount: 8 },
         ],
         risk: 'None',
         payoff: 'Immediate, moderate',
@@ -661,7 +662,7 @@ export const EVENTS: readonly EventDef[] = [
         label: 'Take what you need',
         detail: 'Nobody here is armed. That is the whole of the situation.',
         effects: [
-          { op: 'alloy', amount: 170 },
+          { op: 'alloy', amount: 60 },
           { op: 'maxHealth', amount: -4 },
         ],
         risk: 'Moral',
@@ -712,7 +713,7 @@ export const EVENTS: readonly EventDef[] = [
         label: 'Strip the shop',
         detail: 'Tools, stock, and the good steel he never got to.',
         effects: [
-          { op: 'alloy', amount: 130 },
+          { op: 'alloy', amount: 115 },
           { op: 'setThread', threadId: 'yard_debt' },
         ],
         risk: 'Deferred',
@@ -743,7 +744,9 @@ export const EVENTS: readonly EventDef[] = [
         id: 'collect',
         label: 'Collect what they owe you',
         detail: 'They pay. It is most of what they have, and they knew it was coming.',
-        effects: [{ op: 'alloy', amount: 150 }],
+        effects: [
+          { op: 'alloy', amount: 75 },
+        ],
         risk: 'None',
         payoff: 'Immediate, large',
       },
@@ -760,7 +763,7 @@ export const EVENTS: readonly EventDef[] = [
         label: 'Trade registries',
         detail: 'Their debts, your clean name. The debts travel faster than you do.',
         effects: [
-          { op: 'alloy', amount: 200 },
+          { op: 'alloy', amount: 140 },
           { op: 'setThread', threadId: 'yard_debt' },
         ],
         risk: 'Deferred',
@@ -800,7 +803,7 @@ export const EVENTS: readonly EventDef[] = [
         label: 'Tap the housing',
         detail: 'There is more power here than forty people need in order to sing.',
         effects: [
-          { op: 'alloy', amount: 140 },
+          { op: 'alloy', amount: 55 },
           { op: 'setThread', threadId: 'coolant_leak' },
         ],
         risk: 'Deferred',
@@ -810,7 +813,9 @@ export const EVENTS: readonly EventDef[] = [
         id: 'warn',
         label: 'Tell them what it is doing',
         detail: 'They already know. They thank you for the courtesy and keep singing.',
-        effects: [{ op: 'health', amount: 22 }],
+        effects: [
+          { op: 'health', amount: 12 },
+        ],
         risk: 'None',
         payoff: 'Immediate, moderate',
       },
@@ -839,7 +844,7 @@ export const EVENTS: readonly EventDef[] = [
         label: 'Work the stacks',
         detail: 'Hours of it, in a suit, in the dark, and not unobserved.',
         effects: [
-          { op: 'alloy', amount: 175 },
+          { op: 'alloy', amount: 105 },
           { op: 'health', amount: -13 },
           { op: 'setThread', threadId: 'marked' },
         ],
@@ -896,7 +901,9 @@ export const EVENTS: readonly EventDef[] = [
         id: 'fuel',
         label: 'Take the remaining fuel',
         detail: 'It ends the orbit. Nothing was going to meet it anyway.',
-        effects: [{ op: 'alloy', amount: 100 }],
+        effects: [
+          { op: 'alloy', amount: 50 },
+        ],
         risk: 'Moral',
         payoff: 'Immediate, moderate',
       },
@@ -905,7 +912,7 @@ export const EVENTS: readonly EventDef[] = [
         label: 'Say the forms over them',
         detail: 'The sect had words for this. You are the only one left who knows them.',
         effects: [
-          { op: 'health', amount: 14 },
+          { op: 'health', amount: 7 },
           { op: 'setThread', threadId: 'sect_rites' },
         ],
         risk: 'Unknown',
@@ -948,7 +955,7 @@ export const EVENTS: readonly EventDef[] = [
         label: 'Wait for the last hour',
         detail: 'Cheap, and you spend the wait breathing what they have left.',
         effects: [
-          { op: 'alloy', amount: 180 },
+          { op: 'alloy', amount: 110 },
           { op: 'health', amount: -14 },
         ],
         risk: 'The body',
@@ -956,14 +963,13 @@ export const EVENTS: readonly EventDef[] = [
       },
       {
         id: 'scrubber',
-        label: 'Sell them your spare scrubber',
-        detail: 'It is worth more to them than to you, and they know it.',
+        label: 'Give them your spare scrubber',
+        detail: 'They will not forget it, and they are the sort who write things down.',
         effects: [
-          { op: 'alloy', amount: 60 },
           { op: 'setThread', threadId: 'navigators_favour' },
         ],
         risk: 'Unknown',
-        payoff: 'Unknown',
+        payoff: 'Deferred',
       },
       {
         id: 'pass',
@@ -999,7 +1005,7 @@ export const EVENTS: readonly EventDef[] = [
         label: 'Feed it a false wake',
         detail: 'Let it follow something that is not there, and see who else follows it.',
         effects: [
-          { op: 'alloy', amount: 90 },
+          { op: 'alloy', amount: 55 },
           { op: 'setThread', threadId: 'marked' },
         ],
         risk: 'Deferred',
@@ -1041,7 +1047,7 @@ export const EVENTS: readonly EventDef[] = [
         detail: 'Proper work, properly done, and it costs what proper work costs.',
         effects: [
           { op: 'alloy', amount: -90 },
-          { op: 'health', amount: 30 },
+          { op: 'health', amount: 11 },
         ],
         risk: 'None',
         payoff: 'Immediate, large',
@@ -1142,7 +1148,7 @@ export const EVENTS: readonly EventDef[] = [
         label: 'Run it hot',
         detail: 'Four days saved. The reactor will remember.',
         effects: [
-          { op: 'alloy', amount: 130 },
+          { op: 'alloy', amount: 55 },
           { op: 'setThread', threadId: 'coolant_leak' },
         ],
         risk: 'Deferred',
@@ -1152,7 +1158,9 @@ export const EVENTS: readonly EventDef[] = [
         id: 'shielded',
         label: 'Go slow and shielded',
         detail: 'You arrive intact, and a great deal later.',
-        effects: [{ op: 'health', amount: 16 }],
+        effects: [
+          { op: 'health', amount: 8 },
+        ],
         risk: 'None',
         payoff: 'Immediate, moderate',
       },
@@ -1314,7 +1322,7 @@ export const EVENTS: readonly EventDef[] = [
         label: 'Give him the lift',
         detail: 'You do not watch the berth. You hear it, though, and you hear it clearly.',
         effects: [
-          { op: 'alloy', amount: 210 },
+          { op: 'alloy', amount: 110 },
           { op: 'card', cardId: 'voided_the_debt' },
         ],
         risk: 'Permanent',
@@ -1367,7 +1375,7 @@ export const EVENTS: readonly EventDef[] = [
         label: 'Give the bearing',
         detail: 'It takes eleven seconds. The broadcast stops about an hour later.',
         effects: [
-          { op: 'alloy', amount: 165 },
+          { op: 'alloy', amount: 100 },
           { op: 'card', cardId: 'voided_the_name' },
         ],
         risk: 'Permanent',
@@ -1417,7 +1425,7 @@ export const EVENTS: readonly EventDef[] = [
         label: 'Sell him the scrubber',
         detail: 'Eleven days becomes forty. Your own air gets a great deal more interesting.',
         effects: [
-          { op: 'alloy', amount: 200 },
+          { op: 'alloy', amount: 130 },
           { op: 'health', amount: -16 },
         ],
         risk: 'The body',
@@ -1429,8 +1437,7 @@ export const EVENTS: readonly EventDef[] = [
         detail: 'Somebody at the bottom of it moves down four hundred places.',
         effects: [
           { op: 'alloy', amount: -60 },
-          { op: 'health', amount: 22 },
-          { op: 'card', cardId: 'voided_blood_price' },
+          { op: 'health', amount: 8 },
         ],
         risk: 'Permanent',
         payoff: 'Immediate, moderate',

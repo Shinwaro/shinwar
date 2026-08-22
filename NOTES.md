@@ -2856,3 +2856,53 @@ card under a hand of cards. The introduction teaches all three bindings once, in
 a real fight, which is where they stick. What survives is the line that answers
 a question the player is holding right now: they have picked a card up and the
 game has to say what the next click does.
+
+### One exchange rate, both directions
+
+Health was 13.4 Alloy a point sold and 3.6 bought, so "sell at every Anomaly,
+repair at the next Station" was worth about 3.7x on every point traded. That is
+not a strategy the player discovers; it is a tax on players who do not.
+
+Now 8 both ways, holding at 7.9-9.0 selling and 7.5-8.2 buying — a gap of 1.04x.
+Max health goes at 15, because it does not come back.
+
+Options that also open Coolant Leak are priced on the health they really cost —
+the immediate loss plus the leak's ten — discounted by 1.5, since a deferred and
+uncertain loss is not worth the same as one taken now. The Ember Field's *Vent
+coolant to cross* was already sitting exactly on that line and is untouched; it
+is the reference the other two were fitted to, which is why Tap the Housing fell
+from 140 to 55. It was charging 2.5x for the same leak.
+
+The four heal options nobody named were repriced too. Leaving them at 2.7-4.4
+would have re-opened the same arbitrage with the sign flipped: buy cheap at one
+Anomaly, sell dear at the next. Their Alloy figures were kept and the health cut
+instead, because the player rarely has 240 spare at an Anomaly and an option
+nobody can afford is not an option.
+
+Three tests hold it: every trade inside the band, max health near 15, and no
+option able to borrow more Alloy than Yard Debt collects.
+
+### Yard Debt collects money, and only money
+
+It used to take 8 health as well, which made the yard read as a beating rather
+than an invoice, and priced credit in two currencies when the whole point of
+credit is that it is priced in one. Now a flat 175, set above every option that
+can open it — 120, 130, 115, 140 — so borrowing is always a loss on the ledger
+and the only question is whether having the Alloy *now* was worth it.
+
+### Sensor Fog is a rhythm, not a blindfold
+
+Hiding intents for the whole fight made it a different game rather than a harder
+one: with nothing ever readable there is no plan to make, only Block to hold,
+and a whole fight of that is one decision repeated. `hideIntents: true` became
+`hideIntentsEvery: 2` — blind, clear, blind, clear, starting on the round you
+arrive. What you read on a clear round is worth carrying into the blind one.
+
+Same shape as Chronal Shear's `doubleActEvery`, which is the precedent: a
+cadence is data, and the environment's own text is generated from the constant
+so the badge cannot disagree with the rule.
+
+### "Forge a random card" was naming the building
+
+The forge is where cards are upgraded; the effect upgrades one. "Forge a random
+card" read like a card was being created. It says *Upgrade* now.

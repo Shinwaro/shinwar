@@ -32,7 +32,9 @@ export function describeRunEffect(effect: RunEffect): string {
     }
 
     case 'upgradeRandomCard':
-      return 'Forge a random card';
+      // "Forge" is the place; "upgrade" is what happens to the card. Saying
+      // "forge a random card" made it sound like a card was being created.
+      return 'Upgrade a random card';
 
     case 'removeRandomCard':
       return 'Lose a random card';

@@ -69,7 +69,6 @@ export const THREAD_DEFS: readonly ThreadDef[] = [
     trigger: { kind: 'nodes', count: 4 },
     payoff: [
       { op: 'upgradeRandomCard' },
-      { op: 'upgradeRandomCard' },
       { op: 'health', amount: 10 },
     ],
   },
@@ -92,10 +91,15 @@ export const THREAD_DEFS: readonly ThreadDef[] = [
     tone: 'costly',
     omen: 'The invoice is travelling faster than you are.',
     trigger: { kind: 'nodes', count: 5 },
-    payoff: [
-      { op: 'alloy', amount: -110 },
-      { op: 'health', amount: -8 },
-    ],
+    /* A debt collects money, and only money.
+    
+       It used to take health as well, which made the yard read as a beating
+       rather than an invoice, and it meant credit was priced in two currencies
+       when the whole point of credit is that it is priced in one. The figure is
+       set above every option that can open it -- 120, 130, 115 and 140 -- so
+       borrowing is always a loss on the ledger and the question is only whether
+       having the Alloy *now* was worth it. */
+    payoff: [{ op: 'alloy', amount: -175 }],
   },
 
   /* ---- the second batch ----
@@ -139,7 +143,7 @@ export const THREAD_DEFS: readonly ThreadDef[] = [
     trigger: { kind: 'nodes', count: 4 },
     payoff: [
       { op: 'removeRandomCard' },
-      { op: 'alloy', amount: 120 },
+      { op: 'alloy', amount: 80 },
     ],
   },
   {

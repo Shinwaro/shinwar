@@ -215,8 +215,18 @@ export interface EnvironmentRules {
   readonly bigHitMultiplier?: number;
   /** Gravity Well: how many stance changes a turn allows. */
   readonly stanceChangesPerTurn?: number;
-  /** Sensor Fog: intents are hidden, full stop. */
-  readonly hideIntents?: boolean;
+  /**
+   * Sensor Fog: intents are hidden on every Nth round, counting from the
+   * first. `2` gives blind, clear, blind, clear.
+   *
+   * It used to be a boolean meaning "the whole fight", which made the fight a
+   * different game rather than a harder one: with nothing ever readable there
+   * is no plan to make, only Block to hold, and a whole fight of that is one
+   * decision repeated. A cadence keeps the blindness and gives it a rhythm you
+   * can play around -- what you learn on a clear round is worth carrying into
+   * the blind one.
+   */
+  readonly hideIntentsEvery?: number;
   /** Chronal Shear: on every Nth round, the enemy queue is built twice. */
   readonly doubleActEvery?: number;
 }

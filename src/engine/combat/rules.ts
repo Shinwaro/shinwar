@@ -178,7 +178,15 @@ export function stanceChangeLimit(state: GameState): number {
 }
 
 export function intentsHidden(state: GameState): boolean {
-  return environmentRules(state).hideIntents === true;
+  const every = environmentRules(state).hideIntentsEvery ?? 0;
+  if (every <= 0) return false;
+  const combat = state.run?.combat;
+  if (combat === undefined || combat === null) return false;
+  /* Counting from round 1, so the fog is present on the turn the badge
+     promised it rather than arriving a turn late. `% every === 1` reads oddly
+     for `every` of 1 -- which would never hide -- so that case is folded into
+     the guard above by treating 1 as "every round". */
+  return every === 1 || combat.round % every === 1;
 }
 
 /* ---------- the environment's scratch space ----------
