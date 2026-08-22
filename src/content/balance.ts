@@ -488,6 +488,16 @@ export const REWARDS = {
   cardChoices: 3,
   /** Relics offered at an act finale. You take one. */
   relicChoices: 3,
+  /** Implants offered at an act finale, alongside the relics. You take one. */
+  implantChoices: 3,
+  /**
+   * The tier a boss offers, in both.
+   *
+   * Fixed rather than rolled. An act finale that hands you an uncommon is the
+   * boss telling you the last hour did not matter, and a rolled tier means the
+   * three fights that end the three acts are not comparable to each other.
+   */
+  bossOfferRarity: 'epic',
   /** Skip is always offered. A reward you must take is not a decision. */
   allowSkip: true,
   /** Reward screens with no archetype match before the soft up-weight kicks in. */

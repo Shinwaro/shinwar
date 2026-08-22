@@ -43,6 +43,7 @@ export type Action =
   | { readonly kind: 'takeRewardCard'; readonly cardId: string }
   /** Act finales offer three relics and you take one. */
   | { readonly kind: 'takeRewardRelic'; readonly relicId: string }
+  | { readonly kind: 'takeRewardImplant'; readonly implantId: string }
   | { readonly kind: 'claimRewardAlloy' }
   | { readonly kind: 'leaveReward' }
   /* -- safe planet: a menu, pick one -- */

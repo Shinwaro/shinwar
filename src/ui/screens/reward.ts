@@ -13,8 +13,10 @@ import type { Store } from '../store.ts';
 import { requireRun } from '../../engine/state.ts';
 import { liveScreen } from '../screen.ts';
 import { describeCard } from '../../engine/combat/describe.ts';
+import { describeImplant } from '../../engine/run/describe.ts';
 import {
   cards as cardTable,
+  implants as implantTable,
   relics as relicTable,
 } from '../../content/registry.ts';
 import { RARITY_LABEL } from '../../content/balance.ts';
@@ -108,6 +110,43 @@ function buildReward(store: Store, state: GameState): HTMLElement {
                   ]),
                 ]),
                 el('p', { class: 'card-text' }, [def.text]),
+                def.flavor === undefined ? null : el('p', { class: 'card-flavor' }, [def.flavor]),
+              ]);
+            }),
+          ),
+        ]),
+    /* And three implants, at a boss only. Beside the relics rather than
+       instead of them: relics are what a turn can do, implants are what a card
+       is worth, and an act finale is the one place the run is allowed to change
+       twice. */
+    offer.implantIds.length === 0
+      ? null
+      : el('div', { class: 'reward-relics' }, [
+          el('h2', { class: 'pause-heading' }, ['Take one implant']),
+          el(
+            'div',
+            { class: 'relic-row' },
+            offer.implantIds.map((implantId) => {
+              const def = implantTable.find(implantId);
+              if (def === undefined) return null;
+              const taken = offer.takenImplant === implantId;
+              const node = button(
+                '',
+                {
+                  class: `relic-card${taken ? ' is-selected' : ''}`,
+                  'data-rarity': def.rarity,
+                  'aria-pressed': taken ? 'true' : 'false',
+                },
+                () => store.dispatch({ kind: 'takeRewardImplant', implantId }),
+              );
+              return withChildren(node, [
+                el('div', { class: 'card-head' }, [
+                  el('span', { class: 'card-name' }, [def.name]),
+                  el('span', { class: `card-badge card-badge--${def.rarity}` }, [
+                    RARITY_LABEL[def.rarity],
+                  ]),
+                ]),
+                el('p', { class: 'card-text' }, [describeImplant(def)]),
                 def.flavor === undefined ? null : el('p', { class: 'card-flavor' }, [def.flavor]),
               ]);
             }),

@@ -843,6 +843,17 @@ export interface RewardOffer {
    */
   readonly relicIds: readonly RelicId[];
   readonly takenRelic: RelicId | null;
+  /**
+   * Implants on offer, from a boss only. Three, and you take one — alongside
+   * the three relics rather than instead of them.
+   *
+   * An act finale is the one place the run's shape is allowed to change twice.
+   * Relics are what a turn can do; implants are what a card is worth, and
+   * asking both questions at once is what makes a boss feel like a chapter
+   * ending rather than a bigger enemy.
+   */
+  readonly implantIds: readonly ImplantId[];
+  readonly takenImplant: ImplantId | null;
   readonly alloy: number;
   /** Cards already taken from this screen. One pick, but the shape allows more. */
   readonly taken: readonly CardId[];

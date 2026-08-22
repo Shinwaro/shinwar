@@ -12,6 +12,7 @@ import type {
   Archetype,
   CardDef,
   CardId,
+  ImplantId,
   MasteryId,
   Rarity,
   RelicId,
@@ -19,7 +20,7 @@ import type {
   RngState,
   RunState,
 } from '../types.ts';
-import { nextFloat, pick, weightedPick } from '../rng.ts';
+import { nextFloat, pick, sample, weightedPick } from '../rng.ts';
 import {
   ACTIVE_STANCES,
   MASTERY,
@@ -29,6 +30,7 @@ import {
 } from '../../content/balance.ts';
 import {
   cards as cardTable,
+  implants as implantTable,
   masteries as masteryTable,
   relics as relicTable,
 } from '../../content/registry.ts';
@@ -138,18 +140,52 @@ export function rollReward(
 ): RolledReward {
   const cards = rollCardChoices(rng, run, act, drought);
   const withRelics = rollRelics(cards.rng, run, tier);
+  const withImplants = rollBossImplants(withRelics.rng, tier);
 
   return {
     offer: {
       cardIds: cards.cardIds,
       relicIds: withRelics.relicIds,
       takenRelic: null,
+      implantIds: withImplants.implantIds,
+      takenImplant: null,
       alloy,
       taken: [],
       alloyClaimed: false,
     },
-    rng: withRelics.rng,
+    rng: withImplants.rng,
   };
+}
+
+/**
+ * Three implants at a boss, alongside the three relics.
+ *
+ * Boss only, and always epic — see `REWARDS.bossOfferRarity`. Everywhere else
+ * implants are bought at a Station with Alloy you wanted for something else,
+ * which is the right price for a thing that changes what a card is worth. An
+ * act finale is the one place the run is allowed to change twice, and asking
+ * "what can a turn do" and "what is a card worth" in the same breath is most of
+ * what makes a boss read as a chapter ending rather than a bigger enemy.
+ *
+ * A short offer rather than a padded one when the tier runs low, for the same
+ * reason `rollRelics` makes short offers: padding from a neighbouring tier
+ * brings back the mixed screen where one option is obviously the answer.
+ */
+export function rollBossImplants(
+  rng: RngState,
+  tier: 'combat' | 'elite' | 'boss',
+): { readonly implantIds: readonly ImplantId[]; readonly rng: RngState } {
+  if (tier !== 'boss') return { implantIds: [], rng };
+
+  const pool = implantTable
+    .all()
+    .filter((def) => def.rarity === REWARDS.bossOfferRarity);
+  if (pool.length === 0) return { implantIds: [], rng };
+
+  // Implants stack, so an offer is never filtered against what is already
+  // held — a second Honed Edge is a real choice, not a duplicate.
+  const picked = sample(rng, 'rewards', pool, Math.min(REWARDS.implantChoices, pool.length));
+  return { implantIds: picked.value.map((def) => def.id), rng: picked.rng };
 }
 
 /**
@@ -201,6 +237,17 @@ export function rollRelics(
    * a filter that hides it.
    */
   const usable = [...new Set(pool.map((def) => def.rarity))];
+
+  /* A boss does not roll its tier. An act finale that hands you an uncommon is
+     the boss telling you the last hour did not matter, and a rolled tier means
+     the three fights that end the three acts are not comparable to each other.
+     Falls back to the roll only if the tier is exhausted, which takes carrying
+     every epic relic in the game. */
+  if (tier === 'boss' && usable.includes(REWARDS.bossOfferRarity)) {
+    const epics = pool.filter((def) => def.rarity === REWARDS.bossOfferRarity);
+    const picked = sample(rng, 'rewards', epics, Math.min(REWARDS.relicChoices, epics.length));
+    return { relicIds: picked.value.map((def) => def.id), rng: picked.rng };
+  }
 
   const tierRoll = weightedPick(
     rng,

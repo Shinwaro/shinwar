@@ -13,14 +13,14 @@ import { createInitialState, createRunState } from '../src/engine/state.ts';
 import { applyAction } from '../src/engine/reducer.ts';
 import { HOOK_NAMES, handlersFor } from '../src/engine/hooks.ts';
 import { createRng } from '../src/engine/rng.ts';
-import { rollRelics, rollMastery } from '../src/engine/run/rewards.ts';
+import { rollRelics, rollMastery, rollReward } from '../src/engine/run/rewards.ts';
 import { computeDamage, previewDamage, PLAYER, enemyTarget } from '../src/engine/combat/damage.ts';
 import { playCard, startPlayerTurn } from '../src/engine/combat/combat.ts';
 import { overheatThreshold } from '../src/engine/combat/heat.ts';
 import { pilotRules, liveStance } from '../src/engine/combat/rules.ts';
 import { PLAYER as PLAYER_BALANCE, RELIC_RARITY_WEIGHTS, REWARDS } from '../src/content/balance.ts';
 import { reloadContent } from '../src/content/index.ts';
-import { relics as relicTable } from '../src/content/registry.ts';
+import { implants as implantTable, relics as relicTable } from '../src/content/registry.ts';
 import { makeFight, combatOf, firstEnemy } from './helpers.ts';
 import { VECTOR_STEP } from '../src/content/cards/basic.ts';
 
@@ -317,5 +317,57 @@ describe('the end of a fight', () => {
     };
     const settled = applyAction(doomed, { kind: 'endTurn' });
     expect(settled.run?.pilot.health).toBe(1);
+  });
+});
+
+describe('what a boss hands you', () => {
+  /* An act finale is the one place the run is allowed to change twice: relics
+     are what a turn can DO, implants are what a card is WORTH, and asking both
+     in the same breath is most of what makes a boss read as a chapter ending
+     rather than a bigger enemy.
+
+     The tier is fixed rather than rolled. A finale that offers an uncommon is
+     the boss telling you the last hour did not matter, and a rolled tier means
+     the three fights that end the three acts are not comparable to each other. */
+
+  const run = createRunState('BOSS', 0);
+
+  it('offers three epic relics and three epic implants', () => {
+    const { offer } = rollReward(createRng('BOSS-A'), run, 1, 50, 0, 'boss');
+    expect(offer.relicIds).toHaveLength(REWARDS.relicChoices);
+    expect(offer.implantIds).toHaveLength(REWARDS.implantChoices);
+    for (const id of offer.relicIds) {
+      expect(relicTable.get(id).rarity, id).toBe(REWARDS.bossOfferRarity);
+    }
+    for (const id of offer.implantIds) {
+      expect(implantTable.get(id).rarity, id).toBe(REWARDS.bossOfferRarity);
+    }
+  });
+
+  it('offers no two of the same thing', () => {
+    for (const seed of ['A', 'B', 'C', 'D', 'E']) {
+      const { offer } = rollReward(createRng(`BOSS-${seed}`), run, 2, 50, 0, 'boss');
+      expect(new Set(offer.relicIds).size).toBe(offer.relicIds.length);
+      expect(new Set(offer.implantIds).size).toBe(offer.implantIds.length);
+    }
+  });
+
+  it('offers implants at a boss and nowhere else', () => {
+    // Everywhere else an implant is bought at a Station with Alloy you wanted
+    // for something else, which is the right price for what it does.
+    for (const tier of ['combat', 'elite'] as const) {
+      const { offer } = rollReward(createRng('NOT-BOSS'), run, 1, 50, 0, tier);
+      expect(offer.implantIds, tier).toEqual([]);
+    }
+  });
+
+  it('ships enough epics to fill both offers', () => {
+    /* The guard that would have caught this before it shipped: the boss screen
+       asks for three of each, and there was exactly one epic implant in the
+       game — so the offer was a single card and nothing failed. */
+    const epicRelics = relicTable.all().filter((def) => def.rarity === REWARDS.bossOfferRarity);
+    const epicImplants = implantTable.all().filter((def) => def.rarity === REWARDS.bossOfferRarity);
+    expect(epicRelics.length, 'epic relics').toBeGreaterThanOrEqual(REWARDS.relicChoices);
+    expect(epicImplants.length, 'epic implants').toBeGreaterThanOrEqual(REWARDS.implantChoices);
   });
 });

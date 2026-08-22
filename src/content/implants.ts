@@ -43,6 +43,33 @@ export const IMPLANTS: readonly ImplantDef[] = [
     passive: { drawPerTurn: 1 },
     flavor: 'You see one more thing coming. It is astonishing how much that is.',
   },
+  /* Two more epics, because a boss offers three of them and there was one.
+  
+     Each takes a different lever, so the boss screen is a real choice rather
+     than three sizes of the same idea: one is the turn's size, one is the
+     turn's ceiling, one is what every hit is worth. */
+  {
+    id: 'pressure_bank',
+    name: 'Pressure Bank',
+    rarity: 'epic',
+    price: 260,
+    maxStacks: 1,
+    // The gauge as a resource rather than a cost: two off the top every turn is
+    // an extra Thermal Lance a fight, or IAI held two turns longer.
+    passive: { ventPerTurn: 2, overheatThreshold: 1 },
+    flavor: 'It holds what the reactor cannot, and gives it back slower.',
+  },
+  {
+    id: 'long_edge',
+    name: 'The Long Edge',
+    rarity: 'epic',
+    price: 260,
+    maxStacks: 1,
+    // Honed Edge's lever, at the tier above, and it does not stack — the reason
+    // to take it is that it is more than two Honed Edges could be by the boss.
+    passive: { damageFlat: 4 },
+    flavor: 'Ground down over eleven years to exactly the length it wanted to be.',
+  },
   {
     id: 'honed_edge',
     name: 'Honed Edge',

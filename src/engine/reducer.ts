@@ -39,6 +39,7 @@ import {
   safePlanetUpgrade,
   stationRepair,
   takeRewardCard,
+  takeRewardImplant,
   takeRewardRelic,
 } from './run/run.ts';
 import { chooseEventOption } from './run/events.ts';
@@ -215,6 +216,11 @@ export function applyAction(state: GameState, action: Action): GameState {
     case 'takeRewardCard': {
       if (state.run?.screen !== 'reward') return state;
       return takeRewardCard(state, action.cardId);
+    }
+
+    case 'takeRewardImplant': {
+      if (state.run?.screen !== 'reward') return state;
+      return takeRewardImplant(state, action.implantId);
     }
 
     case 'takeRewardRelic': {

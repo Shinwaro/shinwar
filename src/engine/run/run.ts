@@ -39,6 +39,7 @@ import { CLEAR_SPACE_ID } from '../../content/environments.ts';
 import {
   cards as cardTable,
   enemies as enemyTable,
+  implants as implantTable,
   relics as relicTable,
 } from '../../content/registry.ts';
 import { ENCOUNTERS as encounterTable } from '../../content/encounters.ts';
@@ -451,12 +452,15 @@ export function leaveReward(state: GameState): GameState {
   const def = chosen === undefined ? undefined : cardTable.find(chosen);
 
   if (chosen === undefined || def === undefined) {
-    return grantRelic(
-      appendLog(
-        withRun(state, (current) => ({ ...current, pendingReward: null, screen: 'map' })),
-        { source: 'reward', kind: 'reward', text: 'Took nothing.', detail: null },
+    return grantImplant(
+      grantRelic(
+        appendLog(
+          withRun(state, (current) => ({ ...current, pendingReward: null, screen: 'map' })),
+          { source: 'reward', kind: 'reward', text: 'Took nothing.', detail: null },
+        ),
+        offer.takenRelic,
       ),
-      offer.takenRelic,
+      offer.takenImplant,
     );
   }
 
@@ -469,18 +473,30 @@ export function leaveReward(state: GameState): GameState {
     screen: 'map',
   }));
 
-  return grantRelic(
-    appendLog(next, {
-      source: 'reward',
-      kind: 'reward',
-      text: `Took ${def.name}.`,
-      detail: { card: chosen },
-    }),
-    offer.takenRelic,
+  return grantImplant(
+    grantRelic(
+      appendLog(next, {
+        source: 'reward',
+        kind: 'reward',
+        text: `Took ${def.name}.`,
+        detail: { card: chosen },
+      }),
+      offer.takenRelic,
+    ),
+    offer.takenImplant,
   );
 }
 
-/** Take the relic chosen from the act finale's three. */
+/** Implants stack, so this only refuses one that does not exist. */
+function grantImplant(state: GameState, implantId: string | null): GameState {
+  if (implantId === null) return state;
+  if (implantTable.find(implantId) === undefined) return state;
+  return withRun(state, (current) => ({
+    ...current,
+    pilot: { ...current.pilot, implants: [...current.pilot.implants, implantId] },
+  }));
+}
+
 function grantRelic(state: GameState, relicId: string | null): GameState {
   if (relicId === null) return state;
   const run = requireRun(state);
@@ -516,6 +532,22 @@ function grantRelic(state: GameState, relicId: string | null): GameState {
 }
 
 /** Choose one of the act finale's relics — or change your mind, until you leave. */
+/** The implant half of a boss offer. Same shape as the relic pick. */
+export function takeRewardImplant(state: GameState, implantId: string): GameState {
+  const run = requireRun(state);
+  const offer = run.pendingReward;
+  if (offer === null || !offer.implantIds.includes(implantId)) return state;
+
+  const already = offer.takenImplant === implantId;
+  return withRun(state, (current) => ({
+    ...current,
+    pendingReward:
+      current.pendingReward === null
+        ? null
+        : { ...current.pendingReward, takenImplant: already ? null : implantId },
+  }));
+}
+
 export function takeRewardRelic(state: GameState, relicId: string): GameState {
   const run = requireRun(state);
   const offer = run.pendingReward;
