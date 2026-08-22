@@ -63,7 +63,18 @@ function describeCondition(when: Extract<EffectOp, { op: 'conditional' }>['when'
   }
 }
 
-function describeScaleSource(source: Extract<EffectOp, { op: 'scaleWith' }>['source']): string {
+/**
+ * The noun after "For every", in the right number.
+ *
+ * `per` decides it, because "For every 2 card discarded" is what you get
+ * otherwise — and the countable sources are the only ones that inflect. Heat
+ * and Focus are already mass nouns and read correctly either way.
+ */
+function describeScaleSource(
+  source: Extract<EffectOp, { op: 'scaleWith' }>['source'],
+  per: number,
+): string {
+  const many = per !== 1;
   switch (source) {
     case 'currentHeat':
       return 'Heat';
@@ -72,9 +83,9 @@ function describeScaleSource(source: Extract<EffectOp, { op: 'scaleWith' }>['sou
     case 'blockGainedThisTurn':
       return 'Block gained this turn';
     case 'cardsPlayedThisTurn':
-      return 'card played this turn';
+      return many ? 'cards played this turn' : 'card played this turn';
     case 'discardedThisPlay':
-      return 'card discarded';
+      return many ? 'cards discarded' : 'card discarded';
     default: {
       const unreachable: never = source;
       return unreachable;
@@ -171,7 +182,10 @@ function describeOp(op: EffectOp, state: GameState | null, afterDamage = false):
     case 'scaleWith': {
       const per = op.per === 1 ? '' : `${op.per} `;
       const body = lowerFirst(describeOps(op.then, state));
-      const combat = state === null ? null : activeCombat(state);
+      /* No live count for a per-play source. It is zero until the card is
+         played and the whole of it happens inside that play, so "(0x now)" on
+         the face would be true, useless and read as a promise of nothing. */
+      const combat = state === null || op.source === 'discardedThisPlay' ? null : activeCombat(state);
       const live =
         combat === null ? '' : ` (${Math.floor(currentScale(combat, op.source) / Math.max(1, op.per))}x now)`;
       /*
@@ -183,7 +197,7 @@ function describeOp(op: EffectOp, state: GameState | null, afterDamage = false):
        * needing a second sentence to explain that it is.
        */
       const additive = afterDamage ? body.replace(/^deal (\d+) damage/, 'deal $1 extra') : body;
-      return `For every ${per}${describeScaleSource(op.source)}, ${additive}${live}`;
+      return `For every ${per}${describeScaleSource(op.source, op.per)}, ${additive}${live}`;
     }
     case 'gainAlloy':
       return `${op.amount > 0 ? 'Gain' : 'Lose'} ${Math.abs(op.amount)} Alloy`;

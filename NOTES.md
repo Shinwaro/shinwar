@@ -3262,3 +3262,27 @@ fight with an empty draw pile: drawing from nothing reshuffles the discard, and
 in a fixture with no deck that discard is exactly the cards thrown a moment ago.
 In a real fight the pile holds the rest of the deck and the odds are negligible.
 The fixture got a deck; the card was never wrong.
+
+### Six more, across the ladder
+
+Ten discard cards now, common to epic. The two commons pay in currencies Act 1
+already cares about — the gauge and one big number — because a common is the
+card you meet early and keep all run if the deck goes that way.
+
+Pare Down is the deliberate odd one out. Focus caps at 6, so a five-card hand
+does not hand you eleven, it hands you the ceiling: it wants a hand of three or
+four you had given up on, which is the opposite of what every other whole-hand
+card in the file wants. Broken Formation exhausts, because a repeatable
+hand-for-board-clear is what a pack fight never recovers from.
+
+Two text bugs the new cards surfaced, both in `scaleWith`:
+
+  - "For every 2 **card** discarded". `describeScaleSource` returned one fixed
+    noun; it takes `per` now and inflects the countable sources. Heat and Focus
+    are mass nouns and were already right, which is why nothing caught it —
+    `per` had never been anything but 1 on a countable source before.
+  - "(0x now)" on every whole-hand card. The live count is genuinely zero until
+    the card is played, and the whole of the scaling happens inside that play,
+    so the figure was true, useless, and read as a promise of nothing. Per-play
+    sources get no live term.
+
