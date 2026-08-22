@@ -20,7 +20,11 @@ import { overheatThreshold } from '../src/engine/combat/heat.ts';
 import { pilotRules, liveStance } from '../src/engine/combat/rules.ts';
 import { PLAYER as PLAYER_BALANCE, RELIC_RARITY_WEIGHTS, REWARDS } from '../src/content/balance.ts';
 import { reloadContent } from '../src/content/index.ts';
-import { implants as implantTable, relics as relicTable } from '../src/content/registry.ts';
+import {
+  cards as cardTable,
+  implants as implantTable,
+  relics as relicTable,
+} from '../src/content/registry.ts';
 import { makeFight, combatOf, firstEnemy } from './helpers.ts';
 import { VECTOR_STEP } from '../src/content/cards/basic.ts';
 
@@ -332,10 +336,14 @@ describe('what a boss hands you', () => {
 
   const run = createRunState('BOSS', 0);
 
-  it('offers three epic relics and three epic implants', () => {
+  it('offers three epic cards, three epic relics and three epic implants', () => {
     const { offer } = rollReward(createRng('BOSS-A'), run, 1, 50, 0, 'boss');
+    expect(offer.cardIds).toHaveLength(REWARDS.cardChoices);
     expect(offer.relicIds).toHaveLength(REWARDS.relicChoices);
     expect(offer.implantIds).toHaveLength(REWARDS.implantChoices);
+    for (const id of offer.cardIds) {
+      expect(cardTable.get(id).rarity, id).toBe(REWARDS.bossOfferRarity);
+    }
     for (const id of offer.relicIds) {
       expect(relicTable.get(id).rarity, id).toBe(REWARDS.bossOfferRarity);
     }
@@ -347,9 +355,38 @@ describe('what a boss hands you', () => {
   it('offers no two of the same thing', () => {
     for (const seed of ['A', 'B', 'C', 'D', 'E']) {
       const { offer } = rollReward(createRng(`BOSS-${seed}`), run, 2, 50, 0, 'boss');
+      expect(new Set(offer.cardIds).size).toBe(offer.cardIds.length);
       expect(new Set(offer.relicIds).size).toBe(offer.relicIds.length);
       expect(new Set(offer.implantIds).size).toBe(offer.implantIds.length);
     }
+  });
+
+  it('is one of each, not all of each', () => {
+    /* Three offered, one taken, on all three rows. The offer arrays are what is
+       on the table; the `taken` fields are what leaves with you. */
+    let state = createInitialState('BOSS-PICK');
+    const { offer } = rollReward(createRng('BOSS-PICK'), run, 1, 50, 0, 'boss');
+    state = {
+      ...state,
+      run: { ...run, screen: 'reward' as const, pendingReward: { ...offer } },
+    };
+
+    const [firstCard, secondCard] = offer.cardIds;
+    if (firstCard === undefined || secondCard === undefined) throw new Error('test: short offer');
+
+    state = applyAction(state, { kind: 'takeRewardCard', cardId: firstCard });
+    state = applyAction(state, { kind: 'takeRewardCard', cardId: secondCard });
+    expect(state.run?.pendingReward?.taken, 'a second card replaced the first').toEqual([
+      secondCard,
+    ]);
+
+    const relic = offer.relicIds[0];
+    const implant = offer.implantIds[0];
+    if (relic === undefined || implant === undefined) throw new Error('test: short offer');
+    state = applyAction(state, { kind: 'takeRewardRelic', relicId: relic });
+    state = applyAction(state, { kind: 'takeRewardImplant', implantId: implant });
+    expect(state.run?.pendingReward?.takenRelic).toBe(relic);
+    expect(state.run?.pendingReward?.takenImplant).toBe(implant);
   });
 
   it('offers implants at a boss and nowhere else', () => {

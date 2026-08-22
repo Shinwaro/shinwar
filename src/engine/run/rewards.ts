@@ -101,9 +101,25 @@ export function rollCardChoices(
   run: RunState,
   act: 1 | 2 | 3,
   drought: number,
+  tier: 'combat' | 'elite' | 'boss' = 'combat',
 ): { readonly cardIds: readonly CardId[]; readonly rng: RngState } {
   const pool = offerableCards();
   if (pool.length === 0) return { cardIds: [], rng };
+
+  /* A boss offers epics, and offers them flat.
+  
+     Same argument as its relics and implants: the tier is the finale's, not a
+     roll's, and the three have to be comparable to each other or the screen is
+     one right answer with two decorations beside it. The archetype nudge is
+     dropped here too — the nudge exists to rescue a run that keeps being
+     offered nothing it wants, and eleven epics is not a drought. */
+  if (tier === 'boss') {
+    const epics = pool.filter((card) => card.rarity === REWARDS.bossOfferRarity);
+    if (epics.length > 0) {
+      const picked = sample(rng, 'rewards', epics, Math.min(REWARDS.cardChoices, epics.length));
+      return { cardIds: picked.value.map((card) => card.id), rng: picked.rng };
+    }
+  }
 
   const lean = archetypeLean(run);
   const nudging = drought >= REWARDS.archetypeDroughtBeforeNudge;
@@ -138,7 +154,7 @@ export function rollReward(
   drought: number,
   tier: 'combat' | 'elite' | 'boss' = 'combat',
 ): RolledReward {
-  const cards = rollCardChoices(rng, run, act, drought);
+  const cards = rollCardChoices(rng, run, act, drought, tier);
   const withRelics = rollRelics(cards.rng, run, tier);
   const withImplants = rollBossImplants(withRelics.rng, tier);
 
