@@ -3307,3 +3307,29 @@ the whole board for the same Energy, which makes the single-target card
 pointless in every fight with more than one enemy — and Empty the Rack is a rare
 that has to still be worth taking.
 
+### Every whole-hand discard exhausts
+
+One reset a fight, not a loop. Without it the pattern is: play the hand-dump,
+draw a fresh hand, meet the dump again a few turns later, repeat — a deck that
+never has a bad hand because it never keeps one, which is a strictly better
+version of every deck rather than a different one. The turn it buys should cost
+the card that bought it.
+
+Six cards: Jettison, Empty the Rack, Shed Weight, Pare Down, Purge the Lines,
+Broken Formation.
+
+The four partial discards — Sift, Blow the Ballast, First to Hand, Hard Turn —
+stay repeatable, and the distinction is not arbitrary: they pay a card for what
+they do *every time they are played*, so they are already self-limiting in the
+way the whole-hand cards are not.
+
+The test asserts both directions, which is now the third time that shape has
+earned itself here: every whole-hand card exhausts, AND there is still at least
+one partial one that does not. A guard that only checks the first would keep
+passing if somebody renamed the flag and every card fell out of the query.
+
+It matters most for Jettison, which is in the starting deck. Once a fight is the
+right frequency for a hand reset you did not have to build toward — and it means
+the opening deck thins by one card a fight, which is a small, real cost that
+arrives exactly when you chose to take it.
+

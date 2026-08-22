@@ -23,6 +23,18 @@
  * Ordering matters and is load-bearing: the discard op comes FIRST and the
  * scaling op reads the count it left behind. Written the other way round, the
  * card would scale on nothing and always do zero.
+ *
+ * **Every card that throws the WHOLE hand exhausts.** One reset a fight, not a
+ * loop. Without it the pattern is: play the hand-dump, draw a fresh hand, find
+ * the dump again a few turns later, and repeat — a deck that never has a bad
+ * hand because it never keeps one, which is a strictly better version of every
+ * deck rather than a different one. The turn it buys you should cost you the
+ * card that bought it.
+ *
+ * The partial ones — Sift, Blow the Ballast, First to Hand, Hard Turn — do not
+ * exhaust. They pay a card for what they do every single time they are played,
+ * so they are already self-limiting in the way the whole-hand cards are not.
+ * There is a test holding the line.
  */
 
 import type { CardDef } from '../../engine/types.ts';
@@ -67,6 +79,7 @@ export const DISCARD_CARDS: readonly CardDef[] = [
     rarity: 'uncommon',
     archetype: 'neutral',
     cost: 1,
+    exhaust: true,
     effects: [
       { op: 'discard', amount: 0, all: true },
       { op: 'scaleWith', source: 'discardedThisPlay', per: 1, then: [{ op: 'draw', amount: 1 }] },
@@ -93,6 +106,7 @@ export const DISCARD_CARDS: readonly CardDef[] = [
     rarity: 'rare',
     archetype: 'neutral',
     cost: 1,
+    exhaust: true,
     effects: [
       { op: 'discard', amount: 0, all: true },
       {
@@ -128,6 +142,7 @@ export const DISCARD_CARDS: readonly CardDef[] = [
     rarity: 'rare',
     archetype: 'guard',
     cost: 1,
+    exhaust: true,
     effects: [
       { op: 'discard', amount: 0, all: true },
       {
@@ -244,6 +259,7 @@ export const DISCARD_CARDS: readonly CardDef[] = [
     rarity: 'rare',
     archetype: 'iai',
     cost: 1,
+    exhaust: true,
     effects: [
       { op: 'discard', amount: 0, all: true },
       { op: 'scaleWith', source: 'discardedThisPlay', per: 1, then: [{ op: 'gainFocus', amount: 1 }] },
@@ -270,6 +286,7 @@ export const DISCARD_CARDS: readonly CardDef[] = [
     rarity: 'epic',
     archetype: 'neutral',
     cost: 2,
+    exhaust: true,
     effects: [
       { op: 'discard', amount: 0, all: true },
       { op: 'scaleWith', source: 'discardedThisPlay', per: 2, then: [{ op: 'gainEnergy', amount: 1 }] },
@@ -287,10 +304,8 @@ export const DISCARD_CARDS: readonly CardDef[] = [
   },
 
   {
-    /* Empty the Rack across the whole board. Exhausts, because a repeatable
-       hand-for-board-clear is the card a pack fight never recovers from, and
-       because it should be the answer to one specific room rather than the
-       thing the deck is about. */
+    /* Empty the Rack across the whole board — the answer to one specific room
+       rather than the thing the deck is about. */
     id: 'broken_formation',
     name: 'Broken Formation',
     type: 'attack',

@@ -295,6 +295,38 @@ describe('what leaves the fight with you', () => {
     expect(offenders, 'cards that print health or Alloy and can be played again').toEqual([]);
   });
 
+  it('exhausts, if it throws the whole hand', () => {
+    /* One reset a fight, not a loop. Without it the pattern is: play the
+       hand-dump, draw a fresh hand, find the dump again a few turns later, and
+       repeat — a deck that never has a bad hand because it never keeps one,
+       which is a strictly better version of every deck rather than a different
+       one. The turn it buys should cost the card that bought it.
+
+       Partial discards are exempt and stay exempt: they pay a card for what
+       they do every time they are played, so they are already self-limiting. */
+    function throwsWholeHand(def: CardDef): boolean {
+      const all = [...opsOf(def.effects), ...opsOf(def.upgrade?.effects ?? [])];
+      return all.some((op) => op.op === 'discard' && op.all === true);
+    }
+
+    const offenders = cardTable
+      .all()
+      .filter((def) => throwsWholeHand(def) && def.exhaust !== true)
+      .map((def) => def.id);
+    expect(offenders, 'whole-hand discards that can be played twice').toEqual([]);
+
+    // And the exemption is real rather than an empty set hiding a rename.
+    const partial = cardTable
+      .all()
+      .filter((def) =>
+        opsOf(def.effects).some((op) => op.op === 'discard' && op.all !== true),
+      );
+    expect(partial.length, 'no partial discards left to be exempt').toBeGreaterThan(0);
+    expect(partial.some((def) => def.exhaust !== true), 'every partial discard exhausts too').toBe(
+      true,
+    );
+  });
+
   it('is actually testing something', () => {
     // Guards the guard: if the ops are ever renamed this test would quietly
     // pass over an empty set and stop protecting anything.
@@ -386,7 +418,7 @@ describe('spending the hand', () => {
 
   it('says what it does, in generated words', () => {
     expect(describeCard(cardTable.get('empty_the_rack'))).toBe(
-      'Discard your hand. For every card discarded, deal 3 damage.',
+      'Discard your hand. For every card discarded, deal 3 damage. Exhaust.',
     );
     expect(describeCard(cardTable.get('sift'))).toBe('Discard 1 at random. Draw 3 cards.');
   });
