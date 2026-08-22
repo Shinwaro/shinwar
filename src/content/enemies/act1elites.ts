@@ -102,9 +102,17 @@ export const ACT1_ELITES: readonly EnemyDef[] = [
   },
 
   {
+    /* Act 1's closing argument, in two halves.
+
+       The first is the fight it always was: bank, rake, tap out, on a loop you
+       can read from turn one. Under 40% it stops plating itself and just
+       swings — which shortens the fight rather than lengthening it, and that is
+       the point. A boss made harder by adding hull is a boss made longer, and a
+       first act that outstays its welcome is worse than one that is slightly
+       too easy. */
     id: KILN_SOVEREIGN,
     name: 'Kiln Sovereign',
-    maxHp: 100,
+    maxHp: 118,
     act: 1,
     tier: 'boss',
     moves: [
@@ -139,7 +147,12 @@ export const ACT1_ELITES: readonly EnemyDef[] = [
         ],
       },
     ],
-    script: { kind: 'sequence', moves: ['bank_fire', 'rake', 'tap_out'] },
+    script: {
+      kind: 'phased',
+      threshold: 40,
+      opening: ['bank_fire', 'rake', 'tap_out'],
+      closing: ['tap_out', 'rake'],
+    },
     flavor: 'It has been holding this system at working temperature since the sect died.',
   },
 ];

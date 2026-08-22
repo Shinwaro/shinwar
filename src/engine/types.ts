@@ -254,6 +254,27 @@ export type EnemyScript =
       readonly kind: 'weighted';
       readonly entries: readonly { readonly move: string; readonly weight: number }[];
       readonly maxRepeats: number;
+    }
+  /**
+   * Two sequences, and a hull percentage that switches between them.
+   *
+   * Bosses only. A fixed cycle is honest — you can see the whole fight from
+   * turn one — but three moves in a fixed order is also a fight that is solved
+   * on turn three and then merely performed. One threshold puts a second act in
+   * it without costing the player anything they were promised: the telegraph is
+   * still committed a turn ahead, still exact, and still never re-rolled.
+   *
+   * `closing` restarts from its first move when the threshold is crossed rather
+   * than continuing the running index, so the change is legible as a change.
+   * Deriving that from `lastMoveId` keeps `EnemyAiState` — and so `GameState` —
+   * exactly the shape it already was.
+   */
+  | {
+      readonly kind: 'phased';
+      /** Percent of max hull at or below which `closing` takes over. */
+      readonly threshold: number;
+      readonly opening: readonly string[];
+      readonly closing: readonly string[];
     };
 
 export interface EnemyDef {

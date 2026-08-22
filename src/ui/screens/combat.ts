@@ -20,7 +20,7 @@ import type { GameState } from '../../engine/types.ts';
 import type { Store } from '../store.ts';
 import { requireCombat, requireRun } from '../../engine/state.ts';
 import { canPlay, definitionOf, enemiesPending, needsTarget } from '../../engine/combat/combat.ts';
-import { incomingDamage, intentOf, intentVisible } from '../../engine/combat/intents.ts';
+import { intentOf, intentVisible } from '../../engine/combat/intents.ts';
 import { livingEnemies } from '../../engine/combat/damage.ts';
 import { describeStatus } from '../../engine/combat/keywords.ts';
 import { currentSeed, healthFraction } from '../../engine/queries.ts';
@@ -448,19 +448,28 @@ function build(
     }),
   );
 
-  const incoming = incomingDamage(state);
   // Under Sensor Fog the total would hand back exactly what the fog took, so
   // the readout says how many contacts it cannot account for instead of
   // quietly reporting a number that is missing some of them.
   const unread = intentVisible(state)
     ? 0
     : combat.enemies.filter((enemy) => enemy.hp > 0).length;
+  /* Only the thing that cannot be read off the board.
+   *
+   * The running total went away because every number in it was already on
+   * screen twice: each enemy telegraphs its own intent above its own name, and
+   * Block sits beside your health. A line that restates the board teaches
+   * players to read the line instead of the board, and then a fight with a
+   * status the total does not model reads wrong.
+   *
+   * Sensor Fog is the exception and the reason this element still exists. When
+   * intents are hidden the count of contacts you cannot account for is not
+   * derivable from anything on screen — and it stays an `aria-live` region so
+   * the warning is announced rather than merely drawn. */
   const threat = el('p', { class: 'threat', role: 'status', 'aria-live': 'polite' }, [
     unread > 0
       ? `${unread} contact${unread === 1 ? '' : 's'} you cannot read. Block for the worst of it.`
-      : incoming > 0
-        ? `Incoming this turn: ${incoming}${combat.block > 0 ? ` · ${combat.block} Block absorbs first` : ''}`
-        : 'Nothing incoming this turn.',
+      : null,
   ]);
 
   /* ---- the player's row ---- */
@@ -525,9 +534,17 @@ function build(
     }),
   );
 
+  /* Nothing at rest. The idle line was a permanent instruction card under a
+     hand of cards, which is a tutorial that never leaves — and the
+     introduction already teaches all three of those bindings once, in a real
+     fight, which is where they stick.
+  
+     What survives is the line that answers a question the player is holding
+     right now: they have picked a card up and the game has to say what the
+     next click does. */
   const prompt = el('p', { class: 'hand-prompt' }, [
     selection.cardUid === null
-      ? 'Click a card to pick it up. Number keys play, E ends the turn, L toggles the log.'
+      ? null
       : wantsTarget
         ? 'Click a target to play it. Esc to put it down.'
         : 'Click the card again to play it. Esc to put it down.',

@@ -30,6 +30,7 @@ import { describeImplant } from '../../engine/run/describe.ts';
 import { mapInfo, renderInfoPanel } from '../components/info.ts';
 import { renderCardFace } from '../components/card.ts';
 import { definitionOf } from '../../engine/combat/combat.ts';
+import { RARITY_LABEL } from '../../content/balance.ts';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -452,7 +453,10 @@ function buildDeckList(
             const def = relicTable.find(id);
             if (def === undefined) return null;
             return el('li', { class: 'mastery-line', 'data-rarity': def.rarity }, [
-              el('span', { class: 'mastery-name' }, [def.name]),
+              el('div', { class: 'mastery-head' }, [
+                el('span', { class: 'mastery-name' }, [def.name]),
+                el('span', { class: 'mastery-tier' }, [RARITY_LABEL[def.rarity]]),
+              ]),
               el('span', { class: 'mastery-text' }, [def.text]),
             ]);
           }),
@@ -468,7 +472,12 @@ function buildDeckList(
             const def = implantTable.find(id);
             if (def === undefined) return null;
             return el('li', { class: 'mastery-line', 'data-rarity': def.rarity }, [
-              el('span', { class: 'mastery-name' }, [count > 1 ? `${def.name} x${count}` : def.name]),
+              el('div', { class: 'mastery-head' }, [
+                el('span', { class: 'mastery-name' }, [
+                  count > 1 ? `${def.name} x${count}` : def.name,
+                ]),
+                el('span', { class: 'mastery-tier' }, [RARITY_LABEL[def.rarity]]),
+              ]),
               el('span', { class: 'mastery-text' }, [describeImplant(def)]),
             ]);
           }),

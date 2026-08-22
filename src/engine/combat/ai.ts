@@ -1,9 +1,10 @@
 /* Enemy move selection.
  *
- * Two script kinds, both data: a `sequence` that cycles, and a `weighted` roll
- * on the `combat` stream with a cap on consecutive repeats. Between them they
- * cover every Act 1 enemy without anyone writing a function, which is the
- * point — an enemy is one file edit, same as a card.
+ * Three script kinds, all data: a `sequence` that cycles, a `weighted` roll on
+ * the `combat` stream with a cap on consecutive repeats, and a `phased` pair of
+ * sequences with a hull threshold between them. Between them they cover every
+ * enemy in the game without anyone writing a function, which is the point — an
+ * enemy is one file edit, same as a card.
  *
  * Selection happens once, at telegraph time, and the result is stored on the
  * enemy. Nothing here runs again after the player acts.
@@ -30,18 +31,46 @@ function advance(ai: EnemyAiState, chosen: EnemyMove, moveIndex: number): EnemyA
   };
 }
 
+/** One step through a list of move ids, wrapping at the end. */
+function cycle(
+  def: EnemyDef,
+  moves: readonly string[],
+  ai: EnemyAiState,
+  rng: RngState,
+  from: number,
+): MoveChoice {
+  const index = moves.length === 0 ? 0 : from % moves.length;
+  const id = moves[index];
+  const move = id === undefined ? undefined : moveById(def, id);
+  if (move === undefined) throw new Error(`ai: '${def.id}' sequence names an unknown move`);
+  return { move, ai: advance(ai, move, index + 1), rng };
+}
+
 function chooseFromScript(
   def: EnemyDef,
   script: EnemyScript,
   ai: EnemyAiState,
   rng: RngState,
+  hpPct: number,
 ): MoveChoice {
-  if (script.kind === 'sequence') {
-    const index = script.moves.length === 0 ? 0 : ai.moveIndex % script.moves.length;
-    const id = script.moves[index];
-    const move = id === undefined ? undefined : moveById(def, id);
-    if (move === undefined) throw new Error(`ai: '${def.id}' sequence names an unknown move`);
-    return { move, ai: advance(ai, move, index + 1), rng };
+  if (script.kind === 'sequence') return cycle(def, script.moves, ai, rng, ai.moveIndex);
+
+  if (script.kind === 'phased') {
+    /* Which half of the fight this is. `hpPct` is the hull AFTER everything the
+       player did last turn, because the move is chosen at telegraph time — so
+       the blow that takes the boss under the line is answered by the escalation
+       on the very next telegraph, which is where a player looking for cause and
+       effect will look for it. */
+    const closing = hpPct <= script.threshold;
+    const moves = closing ? script.closing : script.opening;
+
+    /* Restart the list on the turn the phase flips. There is no "phase" field
+       on the enemy to read — deliberately, since every field added to
+       `EnemyAiState` is a field in `GameState` and in every serialised replay —
+       so the flip is derived: if the last move played is not one of the moves
+       this phase can play, this is the first turn of the phase. */
+    const fresh = ai.lastMoveId === null || !moves.includes(ai.lastMoveId);
+    return cycle(def, moves, ai, rng, fresh ? 0 : ai.moveIndex);
   }
 
   // Weighted. A move that has already run `maxRepeats` times in a row drops to
@@ -65,7 +94,17 @@ function chooseFromScript(
   return { move, ai: advance(ai, move, ai.moveIndex + 1), rng: rolled.rng };
 }
 
-export function chooseMove(def: EnemyDef, ai: EnemyAiState, rng: RngState): MoveChoice {
+/**
+ * `hpPct` is the enemy's current hull as a percentage of its maximum. Only
+ * `phased` scripts read it; passing it always keeps the caller from having to
+ * know which kind it is holding.
+ */
+export function chooseMove(
+  def: EnemyDef,
+  ai: EnemyAiState,
+  rng: RngState,
+  hpPct: number,
+): MoveChoice {
   if (def.moves.length === 0) throw new Error(`ai: '${def.id}' has no moves`);
-  return chooseFromScript(def, def.script, ai, rng);
+  return chooseFromScript(def, def.script, ai, rng, hpPct);
 }

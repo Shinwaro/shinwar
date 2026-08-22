@@ -35,6 +35,28 @@
   --heat-warm: #c9873f;
   --heat-danger: #c9453f;
 
+  /* ---- rarity ----
+     One ladder, used by everything that has a tier: cards, relics, implants,
+     and the inventory lines that list them.
+
+     It exists because there were three ladders and they disagreed — a
+     legendary card was hot orange and a legendary relic was the accent, and
+     the inventory had no colours at all, which is what made a missing rule
+     look like a design decision. A player learning "orange means legendary"
+     had to learn it twice and unlearn it once.
+
+     Known collision, left alone deliberately: uncommon and rare borrow --guard
+     and --iai, which the stance block above reserves. Repainting them would
+     change the left edge of every card in the game, and that is a look
+     decision rather than a bug fix. Recorded here so it is a known debt and
+     not a discovery. */
+  --rarity-common: var(--line-strong);
+  --rarity-uncommon: var(--guard);
+  --rarity-rare: var(--iai);
+  --rarity-epic: #b79ae0;
+  --rarity-legendary: #ff7a4d;
+  --rarity-artifact: #f4e3b0;
+
   /* ---- semantic ---- */
   --danger: #d4574f;
   --good: #7fc98f;

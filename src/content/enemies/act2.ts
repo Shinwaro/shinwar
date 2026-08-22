@@ -289,15 +289,20 @@ export const ACT2_ENEMIES: readonly EnemyDef[] = [
     flavor: 'It is not attacking you. It is drinking, and you are the nearest reactor.',
   },
 
-  /* ---- the Act 2 boss: 220-260 HP, 28-38 a turn ----
+  /* ---- the Act 2 boss ----
      A culmination, not a curveball. It asks the two questions Act 2 has been
      asking all along — can you survive a turn you cannot block, and can you
      keep the gauge down when something else is filling it. */
 
   {
+    /* Under 40% it drops Compression and alternates its two biggest moves, so
+       the last third of the fight runs about 29 a turn against about 19 in the
+       first two thirds. The Strength it stacks on Arrival lands every other
+       turn instead of every third, which is where the pressure comes from; the
+       hull number moved much less than that. */
     id: WAVEFRONT_HERALD,
     name: 'Herald of the Front',
-    maxHp: 150,
+    maxHp: 182,
     act: 2,
     tier: 'boss',
     moves: [
@@ -338,7 +343,12 @@ export const ACT2_ENEMIES: readonly EnemyDef[] = [
         ],
       },
     ],
-    script: { kind: 'sequence', moves: ['shockfall', 'compression', 'arrival'] },
+    script: {
+      kind: 'phased',
+      threshold: 40,
+      opening: ['shockfall', 'compression', 'arrival'],
+      closing: ['arrival', 'shockfall'],
+    },
     flavor: 'It arrived here first. It has been waiting for the rest of the front to catch up.',
   },
 

@@ -226,6 +226,52 @@ describe('threads', () => {
       expect(def.payoff.length, def.id).toBeGreaterThan(0);
     }
   });
+
+  it('can actually be reached, every one of them', () => {
+    /* The tone test above reads the POOL. This one reads what the pool is
+       wired to, and the two disagreed for a whole milestone: `salvage_claim`,
+       `the_passenger` and `borrowed_charts` were defined, validated, tone-mixed
+       and referenced by nothing. Three of the ten Threads — and three of the
+       four *mixed* ones, which the design calls the most interesting kind —
+       could not occur in any run, while the tone test happily reported a
+       healthy 30/40/30 split of content half of which was unreachable.
+
+       Same shape as the enemy-mark bug: a registry entry nothing points at
+       fails silently and looks exactly like a thing that has not happened yet.
+       So this asserts the direction that rots. */
+    const reachable = new Set(
+      eventTable
+        .all()
+        .flatMap((event) => event.options)
+        .flatMap((option) => option.effects)
+        .flatMap((effect) => (effect.op === 'setThread' ? [effect.threadId] : [])),
+    );
+
+    const orphans = threadTable
+      .all()
+      .map((def) => def.id)
+      .filter((id) => !reachable.has(id));
+
+    expect(orphans, 'threads no event can open').toEqual([]);
+  });
+
+  it('opens no thread that does not exist', () => {
+    // The other direction, which fails loudly rather than silently — but only
+    // when that option is taken, which may be a hundred runs away.
+    const known = new Set(threadTable.all().map((def) => def.id));
+    const dangling = eventTable
+      .all()
+      .flatMap((event) => event.options.map((option) => ({ event: event.id, option })))
+      .flatMap(({ event, option }) =>
+        option.effects.flatMap((effect) =>
+          effect.op === 'setThread' && !known.has(effect.threadId)
+            ? [`${event}/${option.id} -> ${effect.threadId}`]
+            : [],
+        ),
+      );
+
+    expect(dangling).toEqual([]);
+  });
 });
 
 /*

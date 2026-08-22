@@ -434,6 +434,27 @@ function assignEnvironments(
         assigned.set(id, CLEAR_SPACE_ID);
         continue;
       }
+
+      /* The boss fights in Clear Space, always.
+       *
+       * An environment is a rule that applies to both sides, and a boss is
+       * already the act's whole argument about your deck. Stacking the two
+       * meant the hardest fight in the act was also the one most likely to be
+       * decided by a roll made before you could see it — a Radiation Belt boss
+       * and a Clear Space boss are not the same fight, and the player chose
+       * neither.
+       *
+       * It also makes the boss the constant the act is measured against. Two
+       * runs that reach the same boss now reach the same fight, which is what
+       * makes "I lost to it" mean something.
+       *
+       * The roll is skipped rather than made and discarded — there is nothing
+       * for the stream to stay in step with here, since a fixed assignment is
+       * not a choice. */
+      if (row === rows - 1) {
+        assigned.set(id, CLEAR_SPACE_ID);
+        continue;
+      }
       const rolled = weightedPick(current, 'map', pool);
       current = rolled.rng;
       assigned.set(id, rolled.value);

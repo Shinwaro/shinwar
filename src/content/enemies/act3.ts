@@ -298,14 +298,26 @@ export const ACT3_ENEMIES: readonly EnemyDef[] = [
     flavor: 'Everyone the front has already reached, arriving all at once, on time.',
   },
 
-  /* ---- the last boss: 300-360 HP, 35-50 a turn ----
+  /* ---- the last boss ----
      Into the Breach's lesson: the boss is a culmination, not a curveball. Every
      move here is something the run already taught, harder. No new mechanic. */
 
   {
+    /* Four moves, then three.
+
+       Above 40% it is the fight the whole run has been teaching: a long cycle
+       with a plating turn in it, about 21 a turn. Under 40% Accretion goes and
+       Collapse arrives, and it runs about 31 a turn while still stacking
+       Strength — the plating turn was the fight's one breath, and the last
+       third does not have one.
+
+       Collapse exists so the escalation does not accidentally *remove* the
+       scaling: Accretion was carrying the Strength, and simply dropping it
+       would have made the boss hit harder per turn while getting weaker over
+       the fight. */
     id: EVENT_HORIZON,
     name: 'The Event Horizon',
-    maxHp: 205,
+    maxHp: 248,
     act: 3,
     tier: 'boss',
     damageRules: { overAmount: 30, multiplier: 0.6, label: 'Horizon' },
@@ -347,6 +359,18 @@ export const ACT3_ENEMIES: readonly EnemyDef[] = [
         ],
       },
       {
+        id: 'collapse',
+        label: 'Collapse',
+        intent: [
+          { kind: 'attack', amount: 14, times: 2, label: 'Collapse' },
+          { kind: 'buff', amount: 3, times: 1, label: 'Strength +3' },
+        ],
+        effects: [
+          { op: 'damage', amount: 14, target: 'enemy', times: 2 },
+          { op: 'applyStatus', status: STRENGTH, stacks: 3, target: 'self' },
+        ],
+      },
+      {
         id: 'silence',
         label: 'Silence',
         intent: [
@@ -359,7 +383,12 @@ export const ACT3_ENEMIES: readonly EnemyDef[] = [
         ],
       },
     ],
-    script: { kind: 'sequence', moves: ['tidal', 'accretion', 'crossing', 'silence'] },
+    script: {
+      kind: 'phased',
+      threshold: 40,
+      opening: ['tidal', 'accretion', 'crossing', 'silence'],
+      closing: ['crossing', 'collapse', 'tidal'],
+    },
     flavor: 'Not a thing that arrived. A place the frontier finished falling into.',
   },
 

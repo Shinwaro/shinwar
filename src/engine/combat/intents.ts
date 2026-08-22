@@ -31,7 +31,11 @@ export function telegraphAll(state: GameState): GameState {
   const enemies = combat.enemies.map((enemy) => {
     if (enemy.hp <= 0) return { ...enemy, intentMoveId: null };
     const def = enemyTable.get(enemy.defId);
-    const choice = chooseMove(def, enemy.ai, rng);
+    // Hull as a percentage, for the bosses whose second half is a different
+    // fight. `maxHp` is the definition's, not the instance's, so an enemy
+    // buffed above its printed maximum cannot sit permanently in phase one.
+    const hpPct = def.maxHp <= 0 ? 100 : (enemy.hp / def.maxHp) * 100;
+    const choice = chooseMove(def, enemy.ai, rng, hpPct);
     rng = choice.rng;
     return { ...enemy, intentMoveId: choice.move.id, ai: choice.ai };
   });

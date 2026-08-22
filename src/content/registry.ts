@@ -292,7 +292,9 @@ function validateEnemies(issues: ValidationIssue[]): void {
     const named =
       enemy.script.kind === 'sequence'
         ? enemy.script.moves
-        : enemy.script.entries.map((entry) => entry.move);
+        : enemy.script.kind === 'phased'
+          ? [...enemy.script.opening, ...enemy.script.closing]
+          : enemy.script.entries.map((entry) => entry.move);
 
     if (named.length === 0) issues.push({ where, problem: 'script names no moves' });
     for (const id of named) {
@@ -301,6 +303,17 @@ function validateEnemies(issues: ValidationIssue[]): void {
 
     if (enemy.script.kind === 'weighted' && enemy.script.maxRepeats < 1) {
       issues.push({ where, problem: 'maxRepeats must be at least 1' });
+    }
+
+    if (enemy.script.kind === 'phased') {
+      // Either half being empty is a fight that stops choosing moves at the
+      // threshold, and a threshold outside 0-100 is a phase that can never
+      // begin or one that has already begun on turn one.
+      if (enemy.script.opening.length === 0) issues.push({ where, problem: 'phase 1 has no moves' });
+      if (enemy.script.closing.length === 0) issues.push({ where, problem: 'phase 2 has no moves' });
+      if (enemy.script.threshold <= 0 || enemy.script.threshold >= 100) {
+        issues.push({ where, problem: `threshold ${enemy.script.threshold} is not between 0 and 100` });
+      }
     }
 
     // Every move must telegraph something. A blank intent is a turn the player

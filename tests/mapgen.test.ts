@@ -270,6 +270,22 @@ describe('the guarantees, across 1000 seeds', () => {
     expect(laterActsVary, 'no Act 3 origin ever rolled anything but Clear Space').toBe(true);
   });
 
+  it('fights every boss in Clear Space', () => {
+    /* The boss is the act's whole argument about your deck, and an environment
+       is a rule applied to both sides. Stacked, the hardest fight in the act
+       was also the one most decided by a roll the player never saw and never
+       chose. Fixing it makes the boss the constant two runs can be compared
+       against. */
+    for (const seed of SEEDS.slice(0, 200)) {
+      for (const act of [1, 2, 3] as const) {
+        const { map } = generateMap(createRng(seed), act);
+        const boss = map.nodes.find((node) => node.id === map.bossId);
+        expect(boss?.type, `${seed} act${act}: bossId is not a boss`).toBe('boss');
+        expect(boss?.environmentId, `${seed} act${act} boss`).toBe(CLEAR_SPACE_ID);
+      }
+    }
+  });
+
   it('only offers an environment where that environment belongs', () => {
     for (const seed of SEEDS.slice(0, 120)) {
       for (const act of [1, 2, 3] as const) {

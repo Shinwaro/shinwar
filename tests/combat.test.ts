@@ -6,6 +6,7 @@
  */
 
 import { beforeEach, describe, expect, it } from 'vitest';
+import type { EnemyAiState, EnemyDef } from '../src/engine/types.ts';
 import { reloadContent } from '../src/content/index.ts';
 import { applyAction, applyActions } from '../src/engine/reducer.ts';
 import { createInitialState } from '../src/engine/state.ts';
@@ -19,6 +20,8 @@ import {
 } from '../src/engine/combat/combat.ts';
 import { definitionOf } from '../src/engine/combat/combat.ts';
 import { intentOf, telegraphAll } from '../src/engine/combat/intents.ts';
+import { chooseMove } from '../src/engine/combat/ai.ts';
+import { createRng } from '../src/engine/rng.ts';
 import { nextStance } from '../src/engine/combat/stance.ts';
 import { overheatDamageAt } from '../src/engine/combat/heat.ts';
 import { addStacks, clearFresh, decayStatuses } from '../src/engine/combat/keywords.ts';
@@ -492,5 +495,94 @@ describe('outcomes', () => {
       targetUid: firstEnemy(state).uid,
     });
     expect(applyAction(won, { kind: 'endTurn' })).toBe(won);
+  });
+});
+
+/* ---------- phased bosses ---------- */
+
+describe('a phased boss', () => {
+  /* The escalation is data — a threshold and two move lists — so these tests
+     go through `chooseMove` directly rather than through a whole fight. What
+     they are protecting is that the switch happens on the right side of the
+     line, restarts the second list from its beginning, and never re-rolls a
+     move that has already been telegraphed. */
+
+  const DEF: EnemyDef = {
+    id: 'test_phased' as EnemyDef['id'],
+    name: 'Test',
+    maxHp: 100,
+    act: 1,
+    tier: 'boss',
+    moves: [
+      { id: 'a', label: 'A', intent: [], effects: [] },
+      { id: 'b', label: 'B', intent: [], effects: [] },
+      { id: 'c', label: 'C', intent: [], effects: [] },
+    ],
+    script: { kind: 'phased', threshold: 40, opening: ['a', 'b'], closing: ['c'] },
+    flavor: '',
+  };
+
+  const fresh: EnemyAiState = { moveIndex: 0, lastMoveId: null, repeats: 0 };
+
+  it('cycles the opening list above the threshold', () => {
+    let ai = fresh;
+    const seen: string[] = [];
+    for (let i = 0; i < 4; i++) {
+      const choice = chooseMove(DEF, ai, createRng('phase'), 100);
+      ai = choice.ai;
+      seen.push(choice.move.id);
+    }
+    expect(seen).toEqual(['a', 'b', 'a', 'b']);
+  });
+
+  it('switches at the threshold, not one point either side of it', () => {
+    const above = chooseMove(DEF, fresh, createRng('phase'), 40.5);
+    const at = chooseMove(DEF, fresh, createRng('phase'), 40);
+    const below = chooseMove(DEF, fresh, createRng('phase'), 39.5);
+    expect(above.move.id).toBe('a');
+    // At exactly the threshold the second phase is already running: the
+    // comparison is `<=`, so a boss brought to exactly 40% has crossed.
+    expect(at.move.id).toBe('c');
+    expect(below.move.id).toBe('c');
+  });
+
+  it('restarts the closing list rather than continuing the running index', () => {
+    /* The bug this exists to prevent: carry `moveIndex` across the flip and a
+       two-move closing list starts on its second move about half the time, so
+       the escalation reads as noise instead of as a change. */
+    const wide: EnemyDef = {
+      ...DEF,
+      script: { kind: 'phased', threshold: 40, opening: ['a'], closing: ['b', 'c'] },
+    };
+    let ai = fresh;
+    for (let i = 0; i < 5; i++) ai = chooseMove(wide, ai, createRng('phase'), 100).ai;
+    expect(ai.moveIndex % 2).toBe(1);
+
+    const first = chooseMove(wide, ai, createRng('phase'), 20);
+    expect(first.move.id).toBe('b');
+    expect(chooseMove(wide, first.ai, createRng('phase'), 20).move.id).toBe('c');
+  });
+
+  it('does not restart every turn once the phase is running', () => {
+    const wide: EnemyDef = {
+      ...DEF,
+      script: { kind: 'phased', threshold: 40, opening: ['a'], closing: ['b', 'c'] },
+    };
+    let ai = fresh;
+    const seen: string[] = [];
+    for (let i = 0; i < 4; i++) {
+      const choice = chooseMove(wide, ai, createRng('phase'), 10);
+      ai = choice.ai;
+      seen.push(choice.move.id);
+    }
+    expect(seen).toEqual(['b', 'c', 'b', 'c']);
+  });
+
+  it('spends nothing from the combat stream', () => {
+    // A fixed list is not a choice, so it must not move the generator — or
+    // adding a phase to a boss would shift every roll in every fight after it.
+    const rng = createRng('phase');
+    const choice = chooseMove(DEF, fresh, rng, 100);
+    expect(choice.rng).toEqual(rng);
   });
 });

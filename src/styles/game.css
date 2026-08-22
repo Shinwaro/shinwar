@@ -327,9 +327,23 @@
 
 /* -- enemies -- */
 
+/* An enemy is the same size whatever company it keeps.
+ *
+ * This was `auto-fit` columns at `1fr`, which meant the card stretched to fill
+ * whatever was left: a lone Slag Warden was a 1088px slab with a health bar
+ * running the whole width of the stage, and the same Warden in a Swarm was
+ * 355px. The same creature read as two different objects depending on who was
+ * standing next to it, and the wide fights looked squeezed because the narrow
+ * card was being compared against the enormous one from the fight before.
+ *
+ * Fixed basis, no grow, centred. Nothing in the game fields more than three at
+ * once, and three at 21rem sit inside the stage with room to spare — so the
+ * board gets wider as the fight gets wider, instead of the pieces getting
+ * smaller. */
 .enemy-row {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(15rem, 100%), 1fr));
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 0.75rem;
 }
 
@@ -337,6 +351,22 @@
   display: grid;
   gap: 0.4rem;
   align-content: start;
+  /* Share the line, but never past 21rem.
+   *
+   * `flex: 1 1 13rem` lets three enemies divide a narrow stage between them
+   * rather than wrapping the third onto a second row — wrapping is what pushed
+   * the hand and the tray off the bottom of a 700px-tall window. The 13rem
+   * basis is the point where dividing stops being sensible and they wrap to
+   * one per row instead, which is what a phone gets.
+   *
+   * `max-width` is the half that fixes the original complaint: a lone enemy
+   * grows to 21rem and stops, instead of stretching across the whole stage.
+   * `min-width: 0` because a grid item's automatic minimum is its content, and
+   * without it a long enemy name would refuse to shrink and force the overflow
+   * back. */
+  flex: 1 1 13rem;
+  min-width: 0;
+  max-width: 21rem;
   padding: 0.85rem;
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
@@ -1526,6 +1556,40 @@
 .mastery-line--guard { border-left-color: var(--guard); }
 .mastery-line--flow { border-left-color: var(--flow); }
 
+/* Relics and implants carry their tier on the same edge, in the same ladder as
+   the cards. The markup already set `data-rarity` and nothing here read it, so
+   every relic in the inventory drew the default grey — a missing rule that
+   looked exactly like a decision that tiers do not matter once held. */
+.mastery-line[data-rarity='uncommon'] { border-left-color: var(--rarity-uncommon); }
+.mastery-line[data-rarity='rare'] { border-left-color: var(--rarity-rare); }
+.mastery-line[data-rarity='epic'] { border-left-color: var(--rarity-epic); }
+.mastery-line[data-rarity='legendary'] { border-left-color: var(--rarity-legendary); }
+.mastery-line[data-rarity='artifact'] { border-left-color: var(--rarity-artifact); }
+
+/* The tier in words as well as in colour. A colour alone is a code the player
+   has to have already learned, and the inventory is where they would go to
+   learn it. */
+.mastery-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: baseline;
+}
+
+.mastery-tier {
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--tier, var(--muted));
+}
+
+.mastery-line[data-rarity='uncommon'] { --tier: var(--rarity-uncommon); }
+.mastery-line[data-rarity='rare'] { --tier: var(--rarity-rare); }
+.mastery-line[data-rarity='epic'] { --tier: var(--rarity-epic); }
+.mastery-line[data-rarity='legendary'] { --tier: var(--rarity-legendary); }
+.mastery-line[data-rarity='artifact'] { --tier: var(--rarity-artifact); }
+
 /* ---------- the Wavefront ----------
    States the rule out loud. A priced decision the player has to infer is a
    surprise, and a pursuing hazard that surprises you is the version of this
@@ -2038,13 +2102,13 @@
 }
 
 .card--face[data-rarity='basic'],
-.card--face[data-rarity='common'] { border-left-color: var(--line-strong); }
-.card--face[data-rarity='uncommon'] { border-left-color: var(--guard); }
-.card--face[data-rarity='rare'] { border-left-color: var(--iai); }
-.card--face[data-rarity='epic'] { border-left-color: #b79ae0; }
-.card--face[data-rarity='legendary'] { border-left-color: #ff7a4d; }
+.card--face[data-rarity='common'] { border-left-color: var(--rarity-common); }
+.card--face[data-rarity='uncommon'] { border-left-color: var(--rarity-uncommon); }
+.card--face[data-rarity='rare'] { border-left-color: var(--rarity-rare); }
+.card--face[data-rarity='epic'] { border-left-color: var(--rarity-epic); }
+.card--face[data-rarity='legendary'] { border-left-color: var(--rarity-legendary); }
 .card--face[data-rarity='artifact'] {
-  border-left-color: #f4e3b0;
+  border-left-color: var(--rarity-artifact);
   box-shadow: inset 2px 0 12px rgba(244, 227, 176, 0.12);
 }
 
@@ -2167,11 +2231,11 @@
   transform: translateY(-4px);
 }
 
-.card--pick[data-rarity='uncommon'] { border-left: 3px solid var(--guard); }
-.card--pick[data-rarity='rare'] { border-left: 3px solid var(--iai); }
-.card--pick[data-rarity='epic'] { border-left: 3px solid #b79ae0; }
-.card--pick[data-rarity='legendary'] { border-left: 3px solid #ff7a4d; }
-.card--pick[data-rarity='artifact'] { border-left: 3px solid #f4e3b0; }
+.card--pick[data-rarity='uncommon'] { border-left: 3px solid var(--rarity-uncommon); }
+.card--pick[data-rarity='rare'] { border-left: 3px solid var(--rarity-rare); }
+.card--pick[data-rarity='epic'] { border-left: 3px solid var(--rarity-epic); }
+.card--pick[data-rarity='legendary'] { border-left: 3px solid var(--rarity-legendary); }
+.card--pick[data-rarity='artifact'] { border-left: 3px solid var(--rarity-artifact); }
 
 
 /* The card faces inside the forge preview are a fixed box: same size for every
@@ -2265,11 +2329,14 @@
   border-left-color: var(--accent);
   background: color-mix(in srgb, var(--accent) 10%, var(--surface-solid));
 }
-
-.relic-card[data-rarity='rare'] { border-left-color: var(--iai); }
-.relic-card[data-rarity='epic'] { border-left-color: #b79ae0; }
-.relic-card[data-rarity='legendary'] { border-left-color: var(--accent); }
-.relic-card[data-rarity='artifact'] { border-left-color: var(--good); }
+/* Relics read on the same ladder as cards. They used to run their own, so a
+   legendary relic and a legendary card were different colours — the tier is
+   one fact about an object and it should look like one fact. */
+.relic-card[data-rarity='uncommon'] { border-left-color: var(--rarity-uncommon); }
+.relic-card[data-rarity='rare'] { border-left-color: var(--rarity-rare); }
+.relic-card[data-rarity='epic'] { border-left-color: var(--rarity-epic); }
+.relic-card[data-rarity='legendary'] { border-left-color: var(--rarity-legendary); }
+.relic-card[data-rarity='artifact'] { border-left-color: var(--rarity-artifact); }
 
 .shop-lot--wide {
   width: 100%;

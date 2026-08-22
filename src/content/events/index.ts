@@ -153,13 +153,13 @@ export const EVENTS: readonly EventDef[] = [
       {
         id: 'charts',
         label: 'Buy the charts',
-        detail: 'Eleven days of work, sold at the price of being desperate.',
+        detail: 'Eleven days of work, sold at the price of being desperate. They were not theirs to sell.',
         effects: [
           { op: 'alloy', amount: -40 },
-          { op: 'card', cardId: 'dead_reckoning' },
+          { op: 'setThread', threadId: 'borrowed_charts' },
         ],
         risk: 'Economic',
-        payoff: 'Immediate, specific',
+        payoff: 'Deferred',
       },
       {
         id: 'core',
@@ -1110,11 +1110,11 @@ export const EVENTS: readonly EventDef[] = [
       },
       {
         id: 'racks',
-        label: 'Sell the racks',
-        detail: 'The shelving is worth more than the collection. That is the joke.',
-        effects: [{ op: 'alloy', amount: 105 }],
+        label: 'File a claim on the hull',
+        detail: 'The shelving is worth more than the collection. That is the joke. A claim takes weeks to clear.',
+        effects: [{ op: 'setThread', threadId: 'salvage_claim' }],
         risk: 'Moral',
-        payoff: 'Immediate, moderate',
+        payoff: 'Deferred, large',
       },
       {
         id: 'pass',
@@ -1229,13 +1229,13 @@ export const EVENTS: readonly EventDef[] = [
       {
         id: 'tow',
         label: 'Tow the boat instead',
-        detail: 'Slower, heavier, and everybody stays where they are.',
+        detail: 'Slower, heavier, and everybody stays where they are — including the one who keeps talking.',
         effects: [
           { op: 'health', amount: -6 },
-          { op: 'alloy', amount: 60 },
+          { op: 'setThread', threadId: 'the_passenger' },
         ],
         risk: 'The body',
-        payoff: 'Immediate, small',
+        payoff: 'Deferred',
       },
       {
         id: 'leave',

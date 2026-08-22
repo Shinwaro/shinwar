@@ -2745,3 +2745,114 @@ game actually is, what is in it, and — in its own section — what is still
 missing: `BALANCE.md`, the pick-rate pass, Depth stopping at 5, and enemy
 scaling within an act. A status section that only lists wins is a status section
 nobody trusts twice.
+
+---
+
+## Post-M8 batch
+
+### Three Threads could never happen
+
+`salvage_claim`, `the_passenger` and `borrowed_charts` were defined, validated,
+tone-balanced — and referenced by nothing. No option in any Anomaly opened them,
+so no run could contain them. Three of the ten Threads, and three of the four
+*mixed* ones, which DESIGN.md calls the most interesting kind.
+
+The tone test read the **pool** and reported a healthy 30/40/30 split of content
+half of which was unreachable. Exactly the enemy-mark bug again: a registry
+entry nothing points at fails silently and looks like a thing that has not
+happened yet.
+
+Homes were chosen to fit the fiction rather than to fill a slot. The Becalmed's
+*Buy the charts* is the clearest of the three — its own detail line read "sold
+at the price of being desperate" while the effect paid out instantly, so the
+prose was already promising a deferral the mechanics did not have. It now opens
+Borrowed Charts, the Thread named after it.
+
+Two tests now assert both directions: every Thread reachable from some option,
+and every `setThread` naming a Thread that exists. The second fails loudly but
+only when that option is taken, which may be a hundred runs away.
+
+### Health is worth 3.7x more sold than bought
+
+Anomalies buy health at an average of 13.4 Alloy a point and sell it back at
+3.6; Station repair is 3-5 depending on the act. So the profitable line is sell
+at every Anomaly, repair at the next Station.
+
+Left alone deliberately — the big Anomaly payoffs and the Station rate were both
+asked for explicitly, and this sits exactly where those two decisions meet. It
+is also self-limiting: selling 16 health in Act 1 is a real risk and the loop
+only pays if you survive to the Station. Recorded so it is a known number rather
+than a discovery.
+
+### Bosses: a threshold, not a bigger number
+
+A three-move fixed cycle is honest — you can see the whole fight from turn one —
+but it is also solved on turn three and merely performed after that. So each
+boss now has a `phased` script: two move lists and a hull percentage between
+them. Under 40% the Sovereign stops plating, the Herald drops Compression, and
+the Horizon trades Accretion for Collapse.
+
+Every escalation *shortens* the fight rather than lengthening it. Hull went up
+by roughly 15-20% and damage per turn by roughly 50% in the closing phase; a
+boss made harder by adding hull is a boss made longer, and an hour-long run with
+no saves cannot afford that.
+
+Collapse exists to avoid an escalation that accidentally removes the scaling:
+Accretion carried the Act 3 boss's Strength, and simply dropping it would have
+made the boss hit harder per turn while getting weaker over the fight.
+
+The phase flip is derived from `lastMoveId` rather than stored, so
+`EnemyAiState` — and therefore `GameState` and every serialised replay — keeps
+exactly the shape it had. A fixed list is not a choice, so it spends nothing
+from the `combat` stream: adding a phase to a boss cannot shift a roll in any
+other fight.
+
+### Boss fights have no environment
+
+An environment is a rule applied to both sides, and a boss is already the act's
+whole argument about your deck. Stacked, the hardest fight in the act was also
+the one most decided by a roll the player never saw and never chose. Now the
+boss is the constant two runs can be compared against.
+
+### An enemy is the same size whatever company it keeps
+
+`.enemy-row` was `auto-fit` columns at `1fr`, so a card stretched to fill
+whatever was left: a lone Slag Warden was a 1088px slab with a health bar
+running the whole width of the stage, and the same Warden in a Swarm was 355px.
+The same creature read as two different objects depending on who stood next to
+it.
+
+Now `flex: 1 1 13rem; max-width: 21rem`. Three enemies divide a narrow stage
+between them rather than wrapping the third onto a second row — wrapping was
+what pushed the hand and the tray off the bottom of a 700px-tall window — and a
+lone enemy grows to 21rem and stops. Measured across 420/1024/1366/1440: the
+row height is now identical for one, two and three enemies at every desktop
+width.
+
+### One rarity ladder
+
+There were three, and they disagreed: a legendary card was hot orange and a
+legendary relic was the accent. The inventory had no rules at all, which is what
+made a missing colour look like a decision that tiers stop mattering once held.
+Now `--rarity-*` tokens, used by cards, relics, implants and the inventory, plus
+the tier in words next to the name — a colour alone is a code the player has to
+have already learned, and the inventory is where they would go to learn it.
+
+Known debt, recorded rather than fixed: uncommon and rare borrow `--guard` and
+`--iai`, which the stance block reserves as the only colours that carry meaning
+on their own. Repainting them changes the left edge of every card in the game,
+which is a look decision rather than a bug fix.
+
+### Two lines removed from combat
+
+"Incoming this turn: N" restated the board — every number in it was already on
+screen twice, since each enemy telegraphs its own intent above its own name and
+Block sits beside your health. A line that restates the board teaches players to
+read the line instead of the board. The element survives for Sensor Fog, where
+the count of contacts you cannot account for is genuinely not derivable.
+
+"Click a card to pick it up. Number keys play..." was a permanent instruction
+card under a hand of cards. The introduction teaches all three bindings once, in
+a real fight, which is where they stick. What survives is the line that answers
+a question the player is holding right now: they have picked a card up and the
+game has to say what the next click does.
