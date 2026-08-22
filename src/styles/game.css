@@ -619,37 +619,6 @@
   background: var(--heat-danger);
 }
 
-/* Where the stance will put you at the end of this turn.
- *
- * Hatched rather than solid, and dimmer than a filled tick, so it reads as a
- * forecast instead of a reading. It has to be legible enough to plan against
- * and quiet enough that nobody mistakes it for Heat they already have — the
- * same job the enemy telegraph does, on the one number that was still
- * ambushing people. */
-.heat-tick.is-pending {
-  background: repeating-linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--heat-warm) 42%, transparent) 0 3px,
-    transparent 3px 6px
-  );
-}
-
-.heat-tick.is-pending.is-danger {
-  background: repeating-linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--heat-danger) 55%, transparent) 0 3px,
-    rgba(201, 69, 63, 0.22) 3px 6px
-  );
-}
-
-/* The warning before the warning: the gauge does not read overheating yet, but
-   ending here would. Same colour as the real thing, because it is the same
-   outcome — one decision away rather than already spent. */
-.heat-consequence.is-warning {
-  color: var(--heat-warm);
-  font-weight: 600;
-}
-
 .heat-value {
   font-family: var(--mono);
   font-variant-numeric: tabular-nums;

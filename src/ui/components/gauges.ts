@@ -68,18 +68,11 @@ export function renderEnvironmentBadge(state: GameState): HTMLElement | null {
 export function renderHeatGauge(state: GameState): HTMLElement {
   const heat = heatStatus(state);
 
-  /* Three states per tick, not two.
-   *
-   * `is-pending` is where the stance is about to put you at the end of this
-   * turn — the same telegraph the enemies get, applied to the one number that
-   * was still ambushing people. In IAI at 6 the gauge now shows six lit and two
-   * ghosted, reaching the threshold, before you decide anything. */
   const ticks = Array.from({ length: heat.max }, (_, index) => {
     const filled = index < heat.heat;
-    const pending = !filled && index < heat.projected;
     const past = index + 1 >= heat.threshold;
     return el('span', {
-      class: `heat-tick${filled ? ' is-filled' : ''}${pending ? ' is-pending' : ''}${past ? ' is-danger' : ''}`,
+      class: `heat-tick${filled ? ' is-filled' : ''}${past ? ' is-danger' : ''}`,
       'aria-hidden': 'true',
     });
   });
@@ -100,25 +93,11 @@ export function renderHeatGauge(state: GameState): HTMLElement {
      * you, at these two points.
      *
      * aria-live so crossing a threshold is announced, not just coloured. */
-    el(
-      'p',
-      {
-        class: `heat-consequence${heat.willOverheat ? ' is-warning' : ''}`,
-        role: 'status',
-        'aria-live': 'polite',
-      },
-      [
+    el('p', { class: 'heat-consequence', role: 'status', 'aria-live': 'polite' }, [
       heat.overheating
         ? `OVERHEATING — end this turn and take ${heat.consequence}. At ${HEAT.criticalAt} the turn ends immediately.`
-        : heat.willOverheat
-          ? /* The stance will carry you over even though the gauge does not
-               read it yet. Said in the same words the overheating case uses,
-               because it is the same outcome — only a decision away instead of
-               already spent. */
-            `Ending here reaches ${heat.projected} → ${heat.consequence.replace(`Overheat at ${heat.threshold} — `, '')}. At ${HEAT.criticalAt} the turn ends immediately.`
-          : `Overheat at ${HEAT.overheatAt} → ${heat.consequence.replace(`Overheat at ${HEAT.overheatAt} — `, '')}. At ${HEAT.criticalAt} the turn ends immediately.`,
-      ],
-    ),
+        : `Overheat at ${HEAT.overheatAt} → ${heat.consequence.replace(`Overheat at ${HEAT.overheatAt} — `, '')}. At ${HEAT.criticalAt} the turn ends immediately.`,
+    ]),
   ]);
 }
 
