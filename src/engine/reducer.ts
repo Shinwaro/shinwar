@@ -15,6 +15,7 @@ import {
   createTutorialRunState,
 } from './state.ts';
 import { normalizeSeed } from './rng.ts';
+import { fireHook } from './hooks.ts';
 import { advanceEnemyTurn, endPlayerTurn, playCard, startCombat } from './combat/combat.ts';
 import {
   advanceAct,
@@ -55,8 +56,23 @@ function settleCombat(state: GameState): GameState {
   const combat = state.run?.combat ?? null;
   if (combat === null || combat.outcome === 'ongoing') return state;
 
+  /* `onCombatEnd` fires here, and here only.
+   *
+   * It used to fire in `concludeCombat`, which was written at M1 when a win
+   * ended the run because there was no map to return to. M2 replaced that flow
+   * with this one and left the old function exported and uncalled — so the
+   * hook had not fired in a real fight since, and Ash Rosary, the only relic
+   * that uses it, had never once healed anybody.
+   *
+   * Fired before the branches so both outcomes see it. Handlers decide for
+   * themselves whether a loss counts: a relic that pays out on the fight that
+   * killed you is a relic that has never mattered, but that is the relic's
+   * judgement to make, not the reducer's. Combat is still on the state at this
+   * point, so a handler can read what happened in it. */
+  const settled = fireHook(state, 'onCombatEnd', { outcome: combat.outcome });
+
   if (combat.outcome === 'lost') {
-    const ended = appendLog(state, {
+    const ended = appendLog(settled, {
       source: 'system',
       kind: 'combat',
       text: 'The run ends here.',
@@ -69,7 +85,7 @@ function settleCombat(state: GameState): GameState {
     };
   }
 
-  const won = appendLog(state, {
+  const won = appendLog(settled, {
     source: 'system',
     kind: 'combat',
     text: 'Contact cleared.',

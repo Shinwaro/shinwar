@@ -650,6 +650,30 @@
   padding-bottom: 0.3rem;
 }
 
+/* A five-card hand stays on one row, by squeezing rather than wrapping.
+ *
+ * At a fixed 12.5rem a hand of five needs 1038px, and the stage is
+ * `min(viewport - 55, 1088)`. So anywhere under about a 1094px window the fifth
+ * card dropped to a second row — and which side of that line you were on used
+ * to depend on whether the page happened to be scrolling, which varies by
+ * fight. That is the panel "changing size between fights": same cause as the
+ * forge twitch, one layer up. `scrollbar-gutter` made it consistent; this makes
+ * it fit.
+ *
+ * Written as a small basis that GROWS to a cap, not a large one that shrinks.
+ * Flexbox breaks lines before it resolves flexible lengths, so `flex-shrink` on
+ * a 12.5rem basis never fires: the fifth card is already on row two by the time
+ * anything would have squeezed. Starting at the floor and growing into the
+ * space keeps them on one line and then makes them as big as the line allows.
+ *
+ * Past the floor, wrapping is correct — a hand of eight is not five cards and
+ * should not pretend to be. */
+.hand .card {
+  flex: 1 1 10.5rem;
+  min-width: 0;
+  max-width: 12.5rem;
+}
+
 .card {
   flex: 0 0 auto;
   scroll-snap-align: start;

@@ -648,30 +648,17 @@ export function checkOutcome(state: GameState): GameState {
   return state;
 }
 
-/**
- * Close out a finished fight: fire `onCombatEnd`, and settle the run. At M1
- * there is no map for a win to lead to, so a win ends the run — M2 replaces
- * this with the return to the map.
- */
-export function concludeCombat(state: GameState): GameState {
-  const combat = state.run?.combat ?? null;
-  if (combat === null || combat.outcome === 'ongoing') return state;
-
-  const won = combat.outcome === 'won';
-  let next = fireHook(state, 'onCombatEnd', { outcome: combat.outcome });
-  next = appendLog(next, {
-    source: 'system',
-    kind: 'combat',
-    text: won ? 'Contact cleared.' : 'Hull breached. The run ends here.',
-    detail: { outcome: combat.outcome },
-  });
-
-  return {
-    ...next,
-    phase: 'over',
-    run: next.run === null ? null : { ...next.run, outcome: won ? 'won' : 'died' },
-  };
-}
+/* `concludeCombat` lived here and was deleted.
+ *
+ * It was the M1 flow: a win ended the run, because there was no map to return
+ * to yet. M2 replaced it with `settleCombat` in the reducer and left this one
+ * exported and uncalled — and it was the only thing that fired `onCombatEnd`,
+ * so the hook silently stopped happening and Ash Rosary never healed anybody.
+ *
+ * The lesson is the dead function, not the missing call. A second, plausible,
+ * exported "end the combat" is where a reader stops looking, and nothing in the
+ * type system or the tests objects to one that is never reached. If a flow is
+ * replaced, the thing it replaced goes. */
 
 /**
  * The stance strip's text, straight from the live table — Masteries folded in,

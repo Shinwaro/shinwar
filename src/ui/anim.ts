@@ -70,6 +70,16 @@ export interface FloatRequest {
   readonly delay: number;
 }
 
+/**
+ * How long a number stays up.
+ *
+ * It has to outlive the beat that follows it, or the first hit of a move is
+ * gone before the eye has walked back to it. At 880ms against a 290ms beat a
+ * three-hit move lost its opening number while its third was still arriving —
+ * which is exactly what "the numbers disappear too fast" describes.
+ */
+const FLOAT_MS = 1180;
+
 export function floatText(request: FloatRequest): void {
   if (prefersReducedMotion()) return;
 
@@ -87,7 +97,7 @@ export function floatText(request: FloatRequest): void {
       { opacity: 1, transform: 'translate(-50%, -34px) scale(1)', offset: 0.68 },
       { opacity: 0, transform: 'translate(-50%, -52px) scale(0.95)' },
     ],
-    { duration: 880, delay: request.delay, easing: 'cubic-bezier(.2,.7,.3,1)', fill: 'both' },
+    { duration: FLOAT_MS, delay: request.delay, easing: 'cubic-bezier(.2,.7,.3,1)', fill: 'both' },
   );
 
   void animation.finished.then(
@@ -416,15 +426,19 @@ export function cardExitDuration(count: number, held: boolean): number {
  * animation ones: the state has already changed, this is only how long the eye
  * is given to follow it.
  */
-const FIRST_BEAT = 140;
+const FIRST_BEAT = 200;
 /**
  * Spacing between consecutive hits, so a multi-hit reads as several blows.
  *
  * This is the number that actually buys reading order, so it was tightened
  * rather than cut when the enemy-turn pacing was halved at M7 — a four-hit
  * card still has to arrive as four blows.
+ *
+ * Widened again afterwards. The M7 cut was measured against a fight you already
+ * understand; the first time you meet a three-enemy pack you are reading four
+ * numbers you have never seen, and at 230 they overlapped into one event.
  */
-const BEAT_STEP = 230;
+const BEAT_STEP = 290;
 
 interface Hit {
   readonly target: string;

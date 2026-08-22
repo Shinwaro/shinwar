@@ -10,6 +10,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { CardDef, GameState } from '../src/engine/types.ts';
 import { canPlay, definitionOf, playCard } from '../src/engine/combat/combat.ts';
+import { applyAction } from '../src/engine/reducer.ts';
 import { describeCard } from '../src/engine/combat/describe.ts';
 import { buyForge } from '../src/engine/run/shop.ts';
 import { safePlanetUpgrade } from '../src/engine/run/run.ts';
@@ -216,5 +217,52 @@ describe('voided cards', () => {
     };
     const forged = buyForge(stocked, card.uid);
     expect(forged.run?.pilot.deck.find((entry) => entry.uid === card.uid)?.upgraded).toBe(false);
+  });
+});
+
+describe('the blow that ends the fight', () => {
+  /* The question is whether a card still pays what it promised when the damage
+     on it clears the board. The ops after the damage run against a state whose
+     combat has already been marked won, and it would be easy for one of them
+     to be skipped, or for the payout to land on a run object that is about to
+     be replaced by the reward screen.
+
+     Both resources here outlive the fight, which is exactly why it matters:
+     Block on a killing blow is worth nothing anyway, and health and Alloy are
+     worth the same as on any other turn. */
+
+  function killWith(cardId: string): { before: GameState; after: GameState } {
+    const base = makeFight({ enemyIds: ['cinder_wisp'], hand: [cardId], energy: 3 });
+    if (base.run === null || base.run.combat === null) throw new Error('test: no fight');
+    const before: GameState = {
+      ...base,
+      run: {
+        ...base.run,
+        pilot: { ...base.run.pilot, health: 30 },
+        alloy: 100,
+        combat: {
+          ...base.run.combat,
+          enemies: base.run.combat.enemies.map((enemy) => ({ ...enemy, hp: 1 })),
+        },
+      },
+    };
+    const cardUid = before.run?.combat?.hand[0]?.uid ?? '';
+    const enemyUid = before.run?.combat?.enemies[0]?.uid ?? '';
+    return { before, after: applyAction(before, { kind: 'playCard', cardUid, targetUid: enemyUid }) };
+  }
+
+  it('still pays the Alloy', () => {
+    const { before, after } = killWith('bounty_cut');
+    expect(after.run?.screen, 'the fight did not end').toBe('reward');
+    // The reward screen pays its own Alloy on arrival, so the card's 40 has to
+    // be read as "more than the reward alone would have given".
+    const rewardOnly = after.run?.pendingReward?.alloy ?? 0;
+    expect(after.run?.alloy).toBe((before.run?.alloy ?? 0) + 40 + rewardOnly);
+  });
+
+  it('still heals', () => {
+    const { before, after } = killWith('marrow_draw');
+    expect(after.run?.screen, 'the fight did not end').toBe('reward');
+    expect(after.run?.pilot.health).toBeGreaterThan(before.run?.pilot.health ?? 0);
   });
 });

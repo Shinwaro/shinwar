@@ -33,6 +33,15 @@ type View = Phase | `run:${RunScreen}`;
  * reduced-motion: this is a pause, not a tween.
  */
 const DEATH_HOLD_MS = 2200;
+/* The same idea, shorter, for a win.
+ *
+ * The engine clears the fight the instant the last enemy dies, so the salvage
+ * screen replaced the board in the same frame as the blow that won it — you saw
+ * the reward and never saw the kill. Shorter than the death hold because a win
+ * is a beat, not an ending: long enough for the last number to land and the
+ * enemy to finish dying, short enough that clearing a pack of Wisps does not
+ * become four pauses in a row. */
+const WIN_HOLD_MS = 900;
 
 function viewOf(state: GameState): View {
   if (state.phase !== 'run' || state.run === null) return state.phase;
@@ -89,16 +98,16 @@ export function mountApp(root: HTMLElement, store: Store): void {
      has to stick, or skipping would just bring it back on the next render. */
   let coaching = false;
   let coached = false;
-  /** Set while the killing blow is being held on screen. */
-  let deathHold: ReturnType<typeof setTimeout> | null = null;
+  /** Set while the last blow of a fight is being held on screen. */
+  let outcomeHold: ReturnType<typeof setTimeout> | null = null;
   /**
-   * The hold has already been served for this death.
+   * The hold has already been served for this ending.
    *
    * Without it the timer's own re-render walks straight back into the branch
-   * that scheduled it — the conditions are all still true — and the game-over
-   * screen is deferred forever, one hold at a time.
+   * that scheduled it — the conditions are all still true — and the screen is
+   * deferred forever, one hold at a time.
    */
-  let deathHeld = false;
+  let outcomeHeld = false;
 
   function closePause(): void {
     paused = false;
@@ -149,31 +158,45 @@ export function mountApp(root: HTMLElement, store: Store): void {
     if (view === mountedView) return;
 
     /*
-     * Hold on the killing blow.
+     * Hold on the last blow, whichever way it went.
      *
-     * The engine ends the run the instant health hits zero, so without this the
-     * game-over screen replaces the fight in the same frame as the hit that
-     * caused it — the player sees the result and never sees the cause. The hold
-     * is presentation only: the run is already over in state, and nothing here
-     * can change that. Anything that arrives during the hold (there is nothing
-     * the player can dispatch) still lands, because this only defers the swap.
+     * The engine settles a fight the instant it is decided, so without this the
+     * screen that follows replaces the board in the same frame as the hit that
+     * caused it — the player sees the result and never sees the cause. That was
+     * true of the game-over screen and equally true of salvage: you won, and the
+     * reward was already on screen before the enemy finished dying.
+     *
+     * Presentation only. The fight is already over in state and nothing here can
+     * change that; anything arriving during the hold still lands, because this
+     * only defers the swap.
      */
-    if (view === 'over' && mountedView === 'run:combat' && state.run?.outcome === 'died' && !deathHeld) {
-      if (deathHold !== null) return;
-      mounted?.classList.add('is-dying');
-      deathHold = setTimeout(() => {
-        deathHold = null;
-        deathHeld = true;
+    const ending =
+      mountedView === 'run:combat' && !outcomeHeld
+        ? view === 'over' && state.run?.outcome === 'died'
+          ? { ms: DEATH_HOLD_MS, dying: true }
+          : view === 'run:reward'
+            ? { ms: WIN_HOLD_MS, dying: false }
+            : null
+        : null;
+
+    if (ending !== null) {
+      if (outcomeHold !== null) return;
+      if (ending.dying) mounted?.classList.add('is-dying');
+      outcomeHold = setTimeout(() => {
+        outcomeHold = null;
+        outcomeHeld = true;
         render(store.getState());
-      }, DEATH_HOLD_MS);
+      }, ending.ms);
       return;
     }
-    if (deathHold !== null) {
-      clearTimeout(deathHold);
-      deathHold = null;
+    if (outcomeHold !== null) {
+      clearTimeout(outcomeHold);
+      outcomeHold = null;
     }
-    // A new run gets its own hold.
-    if (view === 'title' || view === 'run:map') deathHeld = false;
+    /* Every fight gets its own hold, so the flag resets on the way OUT of the
+       screen the hold delivered you to — not only at the start of a run, which
+       would have served exactly one win per run. */
+    if (view !== 'over' && view !== 'run:reward') outcomeHeld = false;
 
     // Let the outgoing screen drop anything it bound outside its own subtree —
     // the combat screen owns a window-level keydown listener.

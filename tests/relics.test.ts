@@ -245,3 +245,65 @@ describe('where relics come from', () => {
     expect(rollMastery(run.rng, run, 'shop').masteryId).not.toBeNull();
   });
 });
+
+describe('the end of a fight', () => {
+  /* `onCombatEnd` fired from `concludeCombat`, which was the M1 flow — a win
+     ended the run, because there was no map to return to yet. M2 replaced it
+     with `settleCombat` in the reducer and left the old function exported and
+     uncalled. It was the only thing firing the hook, so the hook silently
+     stopped happening and Ash Rosary, the only relic that uses it, had never
+     healed anybody.
+
+     Nothing objected. The relic validated, its handler registered, its text
+     read correctly on the screen, and the hook it hangs off was simply never
+     rung. So these tests go through `applyAction` — the door the game actually
+     uses — rather than calling the hook directly, which is the mistake that
+     let it hide. */
+
+  function hurtFightAlmostWon(relic: string): GameState {
+    const base = holding(makeFight({ enemyIds: ['cinder_wisp'], hand: ['iai_slash'] }), relic);
+    if (base.run === null || base.run.combat === null) throw new Error('test: no fight');
+    return {
+      ...base,
+      run: {
+        ...base.run,
+        pilot: { ...base.run.pilot, health: 30 },
+        // One point left on the only enemy, so any attack ends it.
+        combat: {
+          ...base.run.combat,
+          enemies: base.run.combat.enemies.map((enemy) => ({ ...enemy, hp: 1 })),
+        },
+      },
+    };
+  }
+
+  it('rings onCombatEnd through the reducer, not just in theory', () => {
+    const before = hurtFightAlmostWon('ash_rosary');
+    const hp = before.run?.pilot.health ?? 0;
+
+    const enemyUid = before.run?.combat?.enemies[0]?.uid ?? '';
+    const cardUid = before.run?.combat?.hand[0]?.uid ?? '';
+    const after = applyAction(before, { kind: 'playCard', cardUid, targetUid: enemyUid });
+
+    // The fight really ended: the run is on the reward screen, not still in it.
+    expect(after.run?.screen, 'the fight did not end').toBe('reward');
+    expect(after.run?.pilot.health, 'Ash Rosary healed nothing').toBe(hp + 4);
+  });
+
+  it('pays nothing on the fight that killed you', () => {
+    // The relic's own judgement, and the reason the hook fires on both
+    // outcomes rather than only on a win.
+    const base = holding(makeFight({ enemyIds: ['cinder_wisp'], hand: ['iai_slash'] }), 'ash_rosary');
+    if (base.run === null || base.run.combat === null) throw new Error('test: no fight');
+    const doomed: GameState = {
+      ...base,
+      run: {
+        ...base.run,
+        pilot: { ...base.run.pilot, health: 1 },
+        combat: { ...base.run.combat, outcome: 'lost' as const },
+      },
+    };
+    const settled = applyAction(doomed, { kind: 'endTurn' });
+    expect(settled.run?.pilot.health).toBe(1);
+  });
+});

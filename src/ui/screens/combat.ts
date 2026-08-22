@@ -73,12 +73,27 @@ import { renderCarried } from '../components/carried.ts';
  * one enemy's move, on top of the floaters already spacing themselves.
  */
 
+/* These went back up after the M7 cut. The cut was measured against a fight
+   you already understand — and against a screen that did not yet hold the
+   shield number, so the thing it was hiding was invisible.
+  
+   What was actually wrong: the enemy turn ended, the numbers were still in the
+   air, and your turn started underneath them. Block dropped to 3 in GUARD or to
+   nothing in IAI while the blow it had just absorbed was still on screen, which
+   reads as the armour giving up early rather than as the armour working. */
+
 /** Beat before an enemy acts, so it reads as its own event and not as yours. */
-const ENEMY_LEAD_MS = 380;
+const ENEMY_LEAD_MS = 560;
 /** Extra time per additional blow, so `2 x 4` reads as two blows and not one. */
-const ENEMY_HIT_MS = 280;
-/** A last beat once the numbers have settled, before anything else moves. */
-const SETTLE_MS = 160;
+const ENEMY_HIT_MS = 340;
+/**
+ * A last beat once the numbers have settled, before anything else moves.
+ *
+ * This one carries the shield: `heldBlock` releases on `played + SETTLE_MS`, so
+ * it is the gap between the last number landing and the armour dropping. At 160
+ * the two were the same moment.
+ */
+const SETTLE_MS = 420;
 
 interface Selection {
   /** The card the player has picked up, if any. */

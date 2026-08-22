@@ -2996,3 +2996,92 @@ and back. Nothing resized; everything moved.
 `scrollbar-gutter: stable` on `html`. Measured: 7px of horizontal shift before,
 0 after. It is a whole-game fix rather than a forge fix — anywhere content
 crosses that threshold had the same twitch.
+
+## Pacing, and a hook that had not fired since M2
+
+### Ash Rosary had never healed anybody
+
+`onCombatEnd` was fired from `concludeCombat`, which was the M1 flow — a win
+ended the run, because there was no map to return to yet. M2 replaced it with
+`settleCombat` in the reducer and left the old function **exported and
+uncalled**. It was the only thing ringing the hook, so the hook silently stopped
+happening, and Ash Rosary is the only relic that hangs off it.
+
+Nothing objected, and nothing could have. The relic validated. Its handler
+registered. Its text read correctly on the screen. The hook it hangs off was
+simply never rung, and every test that touched it called `fireHook` directly —
+which is the mistake that let it hide. The new tests go through `applyAction`,
+the door the game actually uses.
+
+The lesson is the dead function rather than the missing call. A second,
+plausible, exported "end the combat" is where a reader stops looking, and
+neither the type system nor the tests object to one that is never reached. It is
+deleted, with a note in its place saying why. **If a flow is replaced, the thing
+it replaced goes.**
+
+### Cards that end the fight still pay
+
+Checked rather than assumed, since the question came up: a killing blow that
+also grants Alloy or health still grants it. The ops after the damage run
+against a state whose combat is already marked won, and `applyEffects` only
+breaks on `lost`. Two tests now say so through the reducer.
+
+### The M7 pacing cut overshot
+
+M7 halved the enemy turn on the argument that hit feedback had replaced what the
+lead time was buying. That was measured against a fight you already understand,
+and against a screen that did not yet hold the shield number — so the thing it
+was hiding was invisible.
+
+What was actually wrong: the enemy turn ended, the numbers were still in the
+air, and your turn started underneath them. Block dropped to 3 in GUARD or to
+nothing in IAI while the blow it had just absorbed was still on screen, which
+reads as the armour giving up early rather than as the armour working.
+
+  ENEMY_LEAD_MS  380 -> 560
+  ENEMY_HIT_MS   280 -> 340
+  SETTLE_MS      160 -> 420
+  BEAT_STEP      230 -> 290
+  FIRST_BEAT     140 -> 200
+  float lifetime 880 -> 1180
+
+`SETTLE_MS` is the one carrying the shield: `heldBlock` releases on
+`played + SETTLE_MS`, so it is the gap between the last number landing and the
+armour dropping, and at 160 those were the same moment. The float lifetime has
+to outlive the beat that follows it or the first number of a move is gone before
+the eye has walked back to it.
+
+Measured: a two-enemy turn is about 2.0s from End Turn to Turn 2, against the
+5.4s M7 was right to cut and the ~1.2s it cut too far to.
+
+### A beat before salvage
+
+The engine settles a fight the instant it is decided, so the reward screen
+replaced the board in the same frame as the blow that won it. `deathHold`
+already existed for the same problem on the losing side; it is now
+`outcomeHold`, covering both, at 2200ms for a death and 900ms for a win. A win
+is a beat, not an ending — long enough for the last number to land, short enough
+that clearing a pack of Wisps is not four pauses in a row.
+
+The reset condition had to change with it. `deathHeld` reset only at the title
+or the map, which for a per-fight hold would have served exactly one win per
+run; `outcomeHeld` resets on the way *out* of the screen the hold delivered you
+to.
+
+### Four cards in a row
+
+A five-card hand needs 1038px at a fixed 12.5rem, and the stage is
+`min(viewport - 55, 1088)`. So under about a 1094px window the fifth card
+dropped to a second row — and *which side of that line you were on used to
+depend on whether the page happened to be scrolling*, which varies by fight.
+That is the panel "changing size between fights": the same root cause as the
+forge twitch, one layer up. `scrollbar-gutter` made it consistent; this makes it
+fit.
+
+The fix is a small basis that GROWS to a cap, not a large one that shrinks.
+Flexbox breaks lines before it resolves flexible lengths, so `flex-shrink` on a
+12.5rem basis never fires — the fifth card is already on row two by the time
+anything would have squeezed. Starting at 10.5rem and growing into the line
+keeps five together and then makes them as big as the line allows. Measured: 5
+cards at 200px on one row at 1440, 5 at 191px on one row at 1050 (was two rows),
+7 wrapping to two rows as they should.
