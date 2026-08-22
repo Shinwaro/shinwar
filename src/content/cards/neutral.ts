@@ -232,6 +232,13 @@ export const NEUTRAL_CARDS: readonly CardDef[] = [
     rarity: 'common',
     archetype: 'neutral',
     cost: 0,
+    /* Alloy leaves the fight, so a card that prints it cannot be allowed to be
+       played twice. At 0 cost and no exhaust this was a deck that farmed its
+       own draw pile: every reshuffle was another 12, and the only limit was how
+       long you were willing to make the fight. Health is the same argument --
+       both survive the combat, and nothing that survives the combat may be
+       repeatable inside one. */
+    exhaust: true,
     effects: [
       { op: 'draw', amount: 1 },
       { op: 'gainAlloy', amount: 12 },

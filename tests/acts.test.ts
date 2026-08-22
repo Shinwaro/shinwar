@@ -14,7 +14,14 @@ import { createRng } from '../src/engine/rng.ts';
 import { applyAction } from '../src/engine/reducer.ts';
 import { advanceAct } from '../src/engine/run/run.ts';
 import { rollMastery } from '../src/engine/run/rewards.ts';
-import { computeDamage, previewDamage, PLAYER, enemyTarget } from '../src/engine/combat/damage.ts';
+import {
+  applyDirectDamage,
+  computeDamage,
+  previewDamage,
+  PLAYER,
+  enemyTarget,
+} from '../src/engine/combat/damage.ts';
+import { fireHook } from '../src/engine/hooks.ts';
 import { endTurnImmediately, startPlayerTurn } from '../src/engine/combat/combat.ts';
 import { setStance } from '../src/engine/combat/stance.ts';
 import { intentVisible } from '../src/engine/combat/intents.ts';
@@ -92,10 +99,17 @@ describe('environments that modify a calculation', () => {
     expect(combatOf(hot).heat).toBe(2 + (environmentRules(state).heatGainBonus ?? 0));
   });
 
-  it('Stellar Corona doubles every vent', () => {
+  it('Stellar Corona leaves the vent alone', () => {
+    /* It used to double it, as compensation for the +1 on every gain. In play
+       the two mostly cancelled: a deck with any vent barely noticed the corona,
+       and a deck without one got the penalty and none of the relief. One clean
+       rule reads better than two that argue, so a vent in the corona is worth
+       exactly what a vent is worth anywhere. */
     const state = inEnvironment(STELLAR_CORONA_ID, { heat: 8 });
     const cooled = ventHeat(state, 2, 'test');
-    expect(combatOf(cooled).heat).toBe(4);
+    const plain = ventHeat(inEnvironment('clear_space', { heat: 8 }), 2, 'test');
+    expect(combatOf(cooled).heat).toBe(6);
+    expect(combatOf(cooled).heat).toBe(combatOf(plain).heat);
   });
 
   it('Deep Void bleeds Heat at the end of the turn', () => {
@@ -182,6 +196,66 @@ describe('environments that act at a moment', () => {
       marks.add(combatOf(startPlayerTurn(seeded)).envMemory['debrisTarget']);
     }
     expect(marks.size, 'the rock only ever marks one kind of target').toBeGreaterThan(1);
+  });
+
+  it('lets Block stop the rock', () => {
+    /* The rock is announced a full turn ahead. A hit you are shown and cannot
+       answer is a bill rather than a decision — the telegraph is only worth
+       reading if holding Block is a reply to it.
+
+       Overheat and burn stay unblockable, and the difference is where the
+       damage comes from: a reactor cooking you from the inside does not care
+       what is bolted to the outside. A rock does. */
+    const base = inEnvironment(DEBRIS_FIELD_ID, { enemyIds: ['scrap_hound'] });
+    if (base.run === null || base.run.combat === null) throw new Error('test: no fight');
+
+    // Mark the player, so the rock is aimed at the one combatant with Block.
+    const aimed: GameState = {
+      ...base,
+      run: {
+        ...base.run,
+        combat: {
+          ...base.run.combat,
+          block: 20,
+          envMemory: { ...base.run.combat.envMemory, debrisTarget: 'player' },
+        },
+      },
+    };
+
+    const landed = fireHook(aimed, 'onRoundEnd', { round: combatOf(aimed).round });
+    expect(hullOf(landed), 'the rock reached hull through 20 Block').toBe(hullOf(aimed));
+    expect(combatOf(landed).block, 'Block did not pay for it').toBeLessThan(20);
+  });
+
+  it('still takes hull when there is no Block to spend', () => {
+    const base = inEnvironment(DEBRIS_FIELD_ID, { enemyIds: ['scrap_hound'] });
+    if (base.run === null || base.run.combat === null) throw new Error('test: no fight');
+    const aimed: GameState = {
+      ...base,
+      run: {
+        ...base.run,
+        combat: {
+          ...base.run.combat,
+          block: 0,
+          envMemory: { ...base.run.combat.envMemory, debrisTarget: 'player' },
+        },
+      },
+    };
+    const landed = fireHook(aimed, 'onRoundEnd', { round: combatOf(aimed).round });
+    expect(hullOf(landed)).toBeLessThan(hullOf(aimed));
+  });
+
+  it('leaves overheat unblockable', () => {
+    // The rule that makes the rock's exception mean something.
+    const shielded = makeFight({ heat: 0 });
+    if (shielded.run === null || shielded.run.combat === null) throw new Error('test: no fight');
+    const withBlock: GameState = {
+      ...shielded,
+      run: { ...shielded.run, combat: { ...shielded.run.combat, block: 40 } },
+    };
+    const cooked = applyDirectDamage(withBlock, PLAYER, 8, 'heat', 'overheat at 8');
+    expect(hullOf(cooked)).toBe(hullOf(withBlock) - 8);
+    expect(combatOf(cooked).block).toBe(40);
   });
 });
 

@@ -11,6 +11,23 @@ html {
   /* Stops pull-to-refresh from nuking a run mid-fight. */
   overscroll-behavior: none;
   -webkit-text-size-adjust: 100%;
+
+  /* The gutter is always there, whether or not the page currently scrolls.
+   *
+   * Without this, any content change that crosses the viewport height takes
+   * the scrollbar with it, and a classic scrollbar is 15px of real layout
+   * width. Every centred thing on the page then slides 7px sideways — half the
+   * bar, because centring splits it — which reads as the panel you are looking
+   * at twitching under your hand.
+   *
+   * The forge picker is where it was worst: card faces run from 176px to 303px
+   * tall depending on whether the rules text drags a keyword glossary along
+   * with it, so picking a different card to compare moved the page across the
+   * threshold and back. Nothing resized. Everything moved.
+   *
+   * A no-op on platforms with overlay scrollbars, which is the right outcome
+   * there — they never had the problem. */
+  scrollbar-gutter: stable;
 }
 
 body {

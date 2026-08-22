@@ -108,8 +108,7 @@ export function gainHeat(state: GameState, amount: number, source: string): Game
 export function ventHeat(state: GameState, amount: number, source: string): GameState {
   if (amount <= 0) return state;
   const combat = requireCombat(state);
-  const multiplier = environmentRules(state).ventMultiplier ?? 1;
-  const total = Math.max(HEAT.min, combat.heat - Math.floor(amount * multiplier));
+  const total = Math.max(HEAT.min, combat.heat - amount);
   const vented = combat.heat - total;
   if (vented === 0) return state;
 

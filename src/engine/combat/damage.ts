@@ -372,9 +372,19 @@ export function applyDamage(state: GameState, input: DamageInput, source: string
 }
 
 /**
- * Damage with no attacker and no pipeline: overheat, and later environments
- * like the Debris Field rock. Vulnerable does not amplify a reactor cooking
- * you from the inside, and Block does not stop it.
+ * Damage with no attacker and no pipeline: overheat, status ticks, the Debris
+ * Field rock. Vulnerable does not amplify a reactor cooking you from the
+ * inside, and Strength has nobody to belong to.
+ *
+ * `blockable` is the one thing that varies, and it is the difference between a
+ * hazard and a punishment. Overheat and burn come from inside the ship, so a
+ * shield in front of it is beside the point. A rock is a physical object
+ * arriving from outside, telegraphed a full turn ahead — and a telegraphed hit
+ * you are told about and cannot answer is not a decision, it is a bill. Block
+ * answers it.
+ *
+ * The Block arithmetic lives here rather than at the call site so there is one
+ * place where "absorb, then what is left reaches hull" is written down.
  */
 export function applyDirectDamage(
   state: GameState,
@@ -382,39 +392,60 @@ export function applyDirectDamage(
   amount: number,
   source: string,
   reason: string,
+  options: { readonly blockable?: boolean } = {},
 ): GameState {
   const dealt = Math.max(0, Math.floor(amount));
   if (dealt === 0) return state;
+
+  const combat = state.run?.combat;
+  const available = options.blockable === true && combat != null ? blockOf(combat, target) : 0;
+  const blocked = Math.min(available, dealt);
+  const toHull = dealt - blocked;
 
   let next =
     target.kind === 'player'
       ? withRun(state, (run) => ({
           ...run,
-          pilot: { ...run.pilot, health: Math.max(0, run.pilot.health - dealt) },
+          pilot: { ...run.pilot, health: Math.max(0, run.pilot.health - toHull) },
         }))
-      : withCombat(state, (combat) => ({
-          ...combat,
-          enemies: combat.enemies.map((enemy) =>
-            enemy.uid === target.uid ? { ...enemy, hp: Math.max(0, enemy.hp - dealt) } : enemy,
+      : withCombat(state, (current) => ({
+          ...current,
+          enemies: current.enemies.map((enemy) =>
+            enemy.uid === target.uid ? { ...enemy, hp: Math.max(0, enemy.hp - toHull) } : enemy,
           ),
         }));
+
+  if (blocked > 0) {
+    next =
+      target.kind === 'player'
+        ? withCombat(next, (current) => ({ ...current, block: current.block - blocked }))
+        : withCombat(next, (current) => ({
+            ...current,
+            enemies: current.enemies.map((enemy) =>
+              enemy.uid === target.uid ? { ...enemy, block: enemy.block - blocked } : enemy,
+            ),
+          }));
+  }
 
   next = appendLog(next, {
     source,
     kind: 'damage',
-    text: `${combatantName(state, target)} ${takes(target)} ${dealt} — ${reason}, unblockable`,
+    text:
+      blocked > 0
+        ? `${combatantName(state, target)} ${takes(target)} ${toHull} — ${reason}, ${blocked} blocked`
+        : `${combatantName(state, target)} ${takes(target)} ${toHull} — ${reason}${options.blockable === true ? '' : ', unblockable'}`,
     // `to` matches the field on pipeline damage so anything reading the log as
     // an event stream — the animation layer, the simulator — sees one shape.
     detail: {
       to: target.kind === 'player' ? 'player' : target.uid,
-      toHull: dealt,
-      blocked: 0,
+      toHull,
+      blocked,
       direct: true,
     },
   });
 
-  if (target.kind === 'player') {
-    next = fireHook(next, 'onDamageTaken', { amount: dealt, source });
+  if (target.kind === 'player' && toHull > 0) {
+    next = fireHook(next, 'onDamageTaken', { amount: toHull, source });
   }
 
   return checkDeath(next, target, source);

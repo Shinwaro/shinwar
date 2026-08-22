@@ -59,6 +59,11 @@ export const EXECUTION_CARDS: readonly CardDef[] = [
     rarity: 'uncommon',
     archetype: 'neutral',
     cost: 1,
+    /* Exhausts whether or not it collects. A bounty is claimed once, and the
+       alternative -- exhaust only on the kill -- needs an effect op that does
+       not exist and would make the card's own text conditional on something the
+       player cannot see until after they commit. */
+    exhaust: true,
     effects: [
       { op: 'damage', amount: 6, target: 'enemy' },
       {
@@ -190,7 +195,12 @@ export const EXECUTION_CARDS: readonly CardDef[] = [
     cost: 1,
     /* Weaker than the yardstick on purpose. The card is not the 4 damage — it
        is the standing offer, and a deck that can reliably finish something
-       with it turns every pack fight into a paycheque. */
+       with it turns every pack fight into a paycheque.
+    
+       Which it did, because it did not exhaust. The comment described the
+       failure mode exactly and the card shipped without the thing that
+       prevents it. It is one offer a fight now. */
+    exhaust: true,
     effects: [
       { op: 'damage', amount: 4, target: 'enemy' },
       {

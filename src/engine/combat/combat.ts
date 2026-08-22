@@ -334,8 +334,13 @@ function queueEnemyTurn(state: GameState): GameState {
 
 function drawForTurn(state: GameState): GameState {
   const combat = requireCombat(state);
-  // Deep Void's penalty is turn 1 only: it costs you the opening, not the fight.
-  const penalty = combat.turn === 1 ? (environmentRules(state).firstTurnDrawPenalty ?? 0) : 0;
+  /* Deep Void takes a card on every other round rather than only the first.
+     A one-off tax on the opening is a thing that happens to you; a rhythm is
+     something you play under, and a short hand you can see coming is a turn
+     worth setting up for. Counting from round 1, so the void is present on the
+     turn the badge promised it. */
+  const every = environmentRules(state).drawPenaltyEvery ?? 0;
+  const penalty = every > 0 && (every === 1 || combat.round % every === 1) ? 1 : 0;
 
   /*
    * Innate cards are seated in hand before turn 1 draws, so they have to come

@@ -2927,3 +2927,72 @@ Measured at 420 / 1024 / 1440 across all eight tier combinations the content
 actually ships: one row at every desktop width, one card per row below 46rem,
 no horizontal overflow anywhere.
 
+
+## Environments and permanence
+
+### Stellar Corona lost its doubled vent
+
+It was compensation — Heat arrives faster but leaves faster — and in play the
+two mostly cancelled. A deck with any vent at all barely noticed the corona; a
+deck without one got the penalty and none of the relief. One clean rule reads
+better than two that argue. `ventMultiplier` is gone from the rules type and
+from `ventHeat` rather than left sitting unused.
+
+Worth watching: Corona is now a pure penalty with no upside, which makes it the
+one environment you would always route around. If that turns out to be true it
+needs a second rule that is genuinely a trade, not a refund.
+
+### Deep Void takes a card on a rhythm
+
+`firstTurnDrawPenalty: 1` became `drawPenaltyEvery: 2`. A one-off tax on the
+opening is a thing that happens to you; a rhythm is something you play under. A
+short hand you can see coming is a turn worth setting up for, and the full hands
+in between are what you set it up with. Same shape as Sensor Fog and Chronal
+Shear, which is now three environments sharing one idea.
+
+### Block stops the rock
+
+Debris Field went through `applyDirectDamage`, which is unblockable by design —
+overheat and burn come from inside the ship and a shield in front of them is
+beside the point. A rock is not that. It is a physical object arriving from
+outside, announced a full turn ahead, and a telegraph you are shown and cannot
+answer is a bill rather than a decision.
+
+`applyDirectDamage` takes a `blockable` option now, with the absorb-then-hull
+arithmetic written in one place rather than at the call site. Overheat has a
+test of its own asserting it stayed unblockable, because the rock's exception
+only means something if it is an exception.
+
+### Nothing that leaves the fight may be repeatable inside it
+
+Health and Alloy survive the combat. Everything else a card grants — Block,
+Focus, Energy, a status — is gone when the fight ends, so playing it twice costs
+the turns it took. A permanent resource has no such brake: repeatable, it is
+limited only by how long you are willing to make the fight, and the player who
+works that out is playing a different game from the one who does not.
+
+Scavenger's Eye at 0 cost was a deck that farmed its own draw pile. Salvage
+Rights shipped with a comment describing this exact failure mode — "a deck that
+can reliably finish something with it turns every pack fight into a paycheque" —
+and without the `exhaust` that prevents it.
+
+A test now holds the rule for every card, plus a second one asserting the first
+is matching something, so renaming an op cannot quietly empty it.
+
+That second guard earned itself immediately, in the worst possible way: the
+walker I wrote read a field called `otherwise` that does not exist, so it
+descended into `then` and silently skipped every `else`. A guard with a hole in
+exactly the shape of the thing it guards. It passed every run. `tsc` caught it;
+no amount of test-running could have.
+
+### The upgrade window was never resizing
+
+It was the scrollbar. Card faces run 176px to 303px tall depending on whether
+the rules text drags a keyword glossary with it, so picking a different card to
+compare took the page across the viewport height and back — and a classic
+scrollbar is 15px of real layout width, so every centred thing slid 7px sideways
+and back. Nothing resized; everything moved.
+
+`scrollbar-gutter: stable` on `html`. Measured: 7px of horizontal shift before,
+0 after. It is a whole-game fix rather than a forge fix — anywhere content
+crosses that threshold had the same twitch.

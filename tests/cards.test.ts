@@ -6,7 +6,7 @@
  */
 
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { CardDef } from '../src/engine/types.ts';
+import type { CardDef, EffectOp } from '../src/engine/types.ts';
 import { describeCard, describeRider, riderIsLive } from '../src/engine/combat/describe.ts';
 import { definitionOf } from '../src/engine/combat/combat.ts';
 import { reloadContent } from '../src/content/index.ts';
@@ -257,5 +257,46 @@ describe('the rarity ladder', () => {
       expect(new Set(rolled.cardIds).size).toBe(rolled.cardIds.length);
       rng = rolled.rng;
     }
+  });
+});
+
+describe('what leaves the fight with you', () => {
+  /* Health and Alloy survive the combat. Everything else a card can hand you —
+     Block, Focus, Energy, a status — is gone when the fight ends, so playing it
+     twice costs you the turns it took. A permanent resource has no such brake:
+     a repeatable one is limited only by how long you are willing to make the
+     fight, and the player who works that out is playing a different game from
+     the one who does not.
+  
+     Salvage Rights shipped with a comment describing this exact failure mode
+     and without the `exhaust` that prevents it. */
+
+  function opsOf(effects: readonly EffectOp[]): EffectOp[] {
+    // Both branches. The first version of this read a field called `otherwise`
+    // that does not exist, so it walked `then` and silently skipped every
+    // `else` — a guard with a hole in exactly the shape of the thing it guards.
+    // It passed. `tsc` caught it; the tests could not have.
+    return effects.flatMap((op) =>
+      op.op === 'conditional' ? [op, ...opsOf(op.then), ...opsOf(op.else ?? [])] : [op],
+    );
+  }
+
+  function grantsPermanent(def: CardDef): boolean {
+    const all = [...opsOf(def.effects), ...opsOf(def.upgrade?.effects ?? [])];
+    return all.some((op) => op.op === 'heal' || op.op === 'gainAlloy');
+  }
+
+  it('exhausts, every time', () => {
+    const offenders = cardTable
+      .all()
+      .filter((def) => grantsPermanent(def) && def.exhaust !== true)
+      .map((def) => def.id);
+    expect(offenders, 'cards that print health or Alloy and can be played again').toEqual([]);
+  });
+
+  it('is actually testing something', () => {
+    // Guards the guard: if the ops are ever renamed this test would quietly
+    // pass over an empty set and stop protecting anything.
+    expect(cardTable.all().filter(grantsPermanent).length).toBeGreaterThan(0);
   });
 });

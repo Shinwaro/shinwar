@@ -189,7 +189,10 @@ export const TEMPO_CARDS: readonly CardDef[] = [
     type: 'skill',
     rarity: 'uncommon',
     archetype: 'neutral',
-    cost: 0,
+    /* Costs 1. At 0 it was a free look at three more cards with an Energy
+       refund attached, which is not a decision -- there was never a turn where
+       playing it first was wrong. */
+    cost: 1,
     exhaust: true,
     effects: [
       { op: 'draw', amount: 2 },

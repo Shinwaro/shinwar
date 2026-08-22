@@ -204,12 +204,17 @@ export interface CardDef {
 export interface EnvironmentRules {
   /** Stellar Corona: every Heat gain is this much larger. */
   readonly heatGainBonus?: number;
-  /** Stellar Corona: every vent is multiplied by this. */
-  readonly ventMultiplier?: number;
   /** Deep Void: Heat falls on its own at the end of each turn. */
   readonly heatDecayPerTurn?: number;
-  /** Deep Void: fewer cards on turn 1 only. */
-  readonly firstTurnDrawPenalty?: number;
+  /**
+   * Deep Void: draw one fewer on every Nth round, counting from the first.
+   *
+   * It used to be a turn-1 penalty, which cost you the opening and then left
+   * the fight alone -- a one-off tax rather than a condition you play under.
+   * `2` gives short, full, short, full: the short hands are the ones you have
+   * to plan for, and the full ones are what you plan with.
+   */
+  readonly drawPenaltyEvery?: number;
   /** Gravity Well: attacks at or above this threshold are multiplied. */
   readonly bigHitThreshold?: number;
   readonly bigHitMultiplier?: number;

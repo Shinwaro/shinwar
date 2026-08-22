@@ -52,6 +52,9 @@ const CHRONAL_EVERY = 3;
    turn you arrive, and every clear round is one you can plan the next blind one
    from. */
 const FOG_EVERY = 2;
+/* Deep Void's cadence. Short hand, full hand, short hand -- the short ones are
+   what you plan for and the full ones are what you plan with. */
+const VOID_EVERY = 2;
 
 export const ENVIRONMENTS: readonly EnvironmentDef[] = [
   {
@@ -63,15 +66,20 @@ export const ENVIRONMENTS: readonly EnvironmentDef[] = [
   {
     id: STELLAR_CORONA_ID,
     name: 'Stellar Corona',
-    text: 'All Heat gain +1. Venting is doubled.',
-    rules: { heatGainBonus: 1, ventMultiplier: 2 },
+    text: 'All Heat gain +1.',
+    /* The doubled vent came out. It was meant as compensation -- Heat arrives
+       faster but leaves faster -- and in play it mostly cancelled itself: a
+       deck with any vent at all barely noticed the corona, and a deck without
+       one got the penalty and none of the relief. One clean rule reads better
+       than two that argue. */
+    rules: { heatGainBonus: 1 },
   },
 
   {
     id: DEEP_VOID_ID,
     name: 'Deep Void',
-    text: 'Heat falls 2 at the end of each turn. You draw 1 fewer on turn 1.',
-    rules: { heatDecayPerTurn: 2, firstTurnDrawPenalty: 1 },
+    text: `Heat falls 2 at the end of each turn. You draw 1 fewer every ${VOID_EVERY} rounds.`,
+    rules: { heatDecayPerTurn: 2, drawPenaltyEvery: VOID_EVERY },
   },
 
   {
@@ -92,7 +100,7 @@ export const ENVIRONMENTS: readonly EnvironmentDef[] = [
   {
     id: DEBRIS_FIELD_ID,
     name: 'Debris Field',
-    text: `At the end of each round a rock hits one combatant at random for ${DEBRIS_DAMAGE}. Marked a turn ahead.`,
+    text: `At the end of each round a rock hits one combatant at random for ${DEBRIS_DAMAGE}. Marked a turn ahead. Block stops it.`,
   },
 
   {
@@ -211,7 +219,13 @@ export function registerEnvironmentHooks(): void {
         if (uid !== 'player' && !combat.enemies.some((enemy) => enemy.uid === uid && enemy.hp > 0)) {
           return state;
         }
-        return applyDirectDamage(state, target, DEBRIS_DAMAGE, DEBRIS_FIELD_ID, 'a rock');
+        /* Blockable, unlike overheat or a burn. The rock is announced a full
+           turn ahead, and a hit you are shown and cannot answer is a bill
+           rather than a decision -- the telegraph is only worth reading if
+           holding Block is a reply to it. */
+        return applyDirectDamage(state, target, DEBRIS_DAMAGE, DEBRIS_FIELD_ID, 'a rock', {
+          blockable: true,
+        });
       },
     }),
   ]);
