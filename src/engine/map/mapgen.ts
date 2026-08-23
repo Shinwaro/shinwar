@@ -195,10 +195,21 @@ function assignTypes(
      Station moves one row later: the guaranteed Station exists so a route
      cannot miss a shop, and one row along still satisfies that. */
   const reliquaryRow = act === 2 ? reliquaryRowFor(rows) : -1;
-  const wanted = Math.min(
-    rows - 3,
-    Math.max(MAP.earliestSpecialRow, Math.round((rows - 1) * MAP.stationRowAt)),
+
+  /* The guaranteed Station's row is rolled inside a band, not pinned to one
+     fraction of the act. Pinned, it sat in the same place on every chart and a
+     player knew where the shop was by their second run — a guarantee is about a
+     route always meeting one, not about meeting it in the same place. Rolled
+     first, before any node type, so it is part of the seed like everything
+     else. */
+  const band = nextInt(
+    current,
+    'map',
+    Math.round((rows - 1) * MAP.stationRowBand.from),
+    Math.round((rows - 1) * MAP.stationRowBand.to) + 1,
   );
+  current = band.rng;
+  const wanted = Math.min(rows - 3, Math.max(MAP.earliestSpecialRow, band.value));
   const stationRow = wanted === reliquaryRow ? Math.min(rows - 3, wanted + 1) : wanted;
 
   for (let row = 0; row < rows; row++) {

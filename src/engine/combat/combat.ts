@@ -25,7 +25,7 @@ import {
 import { CLEAR_SPACE_ID } from '../../content/environments.ts';
 import { STRENGTH } from '../../content/statuses.ts';
 import { ENCOUNTERS } from '../../content/encounters.ts';
-import { PLAYER, enemyTarget, livingEnemies } from './damage.ts';
+import { healPlayer, PLAYER, enemyTarget, livingEnemies } from './damage.ts';
 import { applyEffects, createContext, retireCard } from './effects.ts';
 import { atCriticalHeat, gainHeat, resolveOverheat, ventHeat } from './heat.ts';
 import { addStacks, clearFresh, decayStatuses, statusEnergy, tickStatuses } from './keywords.ts';
@@ -231,6 +231,9 @@ export function startPlayerTurn(state: GameState): GameState {
   next = telegraphAll(next);
 
   if (!skipping && relics.ventPerTurn > 0) next = ventHeat(next, relics.ventPerTurn, 'relics');
+  // Mending, from what you are carrying. After the vent, so a relic that does
+  // both reads in the order the rail lists it.
+  if (!skipping && relics.healPerTurn > 0) next = healPlayer(next, relics.healPerTurn, 'relics');
 
   // Rust and Scald tick here: after the hand is dealt and the intents are
   // committed, so the player sees the damage and the Heat *before* deciding

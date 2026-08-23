@@ -440,8 +440,12 @@ function station(state: GameState): GameState {
     next = applyAction(next, { kind: 'buyMastery', masteryId: shop.masteryId });
   }
 
+  /* One service a Station, so the bot has to choose too. It reads the LIVE
+     shop rather than the snapshot it arrived with — taking the strip closes the
+     forge, and a bot that did not notice would spend the rest of the visit
+     dispatching actions the reducer quietly refuses. */
   const after = next.run;
-  if (after !== null && !shop.removalUsed && after.alloy >= shop.removalPrice) {
+  if (after !== null && after.shop?.serviceUsed == null && after.alloy >= shop.removalPrice) {
     // Strip a basic. That is what removal is for.
     const worst = after.pilot.deck.find((card) => cardTable.find(card.defId)?.rarity === 'basic');
     if (worst !== undefined) next = applyAction(next, { kind: 'buyRemoval', cardUid: worst.uid });
@@ -450,7 +454,7 @@ function station(state: GameState): GameState {
   // Forge the best card that is not already forged. A better card beats another
   // card, and unlike a card it does not make the deck harder to draw through.
   const forged = next.run;
-  if (forged !== null && !shop.forgeUsed && forged.alloy >= shop.forgePrice) {
+  if (forged !== null && forged.shop?.serviceUsed == null && forged.alloy >= shop.forgePrice) {
     let pick: string | null = null;
     let bestValue = -1;
     for (const card of forged.pilot.deck) {

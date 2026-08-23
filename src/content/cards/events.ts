@@ -70,14 +70,23 @@ export const EVENT_CARDS: readonly CardDef[] = [
     archetype: 'neutral',
     cost: 0,
     exclusive: true,
+    /* Exhausts. Two cards and a vent for nothing is a card that is never wrong
+       to play, and a card that is never wrong to play is not a decision — it
+       was simply the best thing in every hand it appeared in.
+
+       The upgrade buys the exhaust back rather than a bigger number, which is
+       the more interesting purchase: the card stays exactly as good and becomes
+       something the deck can be built around. */
+    exhaust: true,
     effects: [
       { op: 'draw', amount: 2 },
       { op: 'ventHeat', amount: 2 },
     ],
     upgrade: {
       name: 'Dead Reckoning+',
+      exhaust: false,
       effects: [
-        { op: 'draw', amount: 3 },
+        { op: 'draw', amount: 2 },
         { op: 'ventHeat', amount: 2 },
       ],
     },

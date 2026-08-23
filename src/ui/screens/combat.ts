@@ -58,6 +58,7 @@ import {
 } from '../anim.ts';
 import { combatInfo, renderInfoPanel } from '../components/info.ts';
 import { renderCarried } from '../components/carried.ts';
+import { renderGains } from '../components/gains.ts';
 
 /* ---------- pacing ----------
  *
@@ -676,6 +677,9 @@ function build(
   return el('div', { class: 'combat-inner' }, [
     corner,
     renderCarried(state),
+    // The total of what the rail lists, so the sums are not done in the
+    // player's head every turn. See `gains.ts`.
+    renderGains(state),
     topBar,
     renderEnvironmentBadge(state),
     enemyRow,

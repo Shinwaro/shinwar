@@ -376,7 +376,7 @@ describe('the station', () => {
     const stocked = stockShop(fresh('SHOP'), 'n4_2');
     const shop = runOf(stocked).shop;
     expect(shop?.cards.length).toBeGreaterThan(0);
-    expect(shop?.removalUsed).toBe(false);
+    expect(shop?.serviceUsed).toBeNull();
     expect(shop?.removalPrice).toBeGreaterThan(0);
   });
 
@@ -419,7 +419,7 @@ describe('the station', () => {
 
     const stripped = buyRemoval(rich, victim?.uid ?? '');
     expect(runOf(stripped).pilot.deck.length).toBe(runOf(rich).pilot.deck.length - 1);
-    expect(runOf(stripped).shop?.removalUsed).toBe(true);
+    expect(runOf(stripped).shop?.serviceUsed).toBe('strip');
 
     const second = runOf(stripped).pilot.deck[0];
     expect(buyRemoval(stripped, second?.uid ?? '')).toBe(stripped);

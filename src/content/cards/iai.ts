@@ -59,26 +59,31 @@ export const IAI_CARDS: readonly CardDef[] = [
     cost: 1,
     // Hairline is a 0-cost common for 4. A 1-cost rare printing 6 before its
     // rider is not a rare, it is a worse Hairline with a condition attached.
-    effects: [{ op: 'damage', amount: 9, target: 'enemy' }],
+    /* The upgrade buys the THRESHOLD as well as the number. 8 at 5+ Heat, then
+       10 at 4+ — so forging it does not only make the card bigger, it makes the
+       condition easier to be standing in, which is the thing the card is
+       actually asking you to arrange. */
+    effects: [{ op: 'damage', amount: 8, target: 'enemy' }],
     stanceRider: {
       stance: 'iai',
       effects: [
         {
           op: 'conditional',
-          when: { kind: 'heatAtLeast', value: 4 },
+          when: { kind: 'heatAtLeast', value: 5 },
           then: [{ op: 'damage', amount: 8, target: 'enemy' }],
         },
       ],
     },
     upgrade: {
       name: 'Crossing Arc+',
+      effects: [{ op: 'damage', amount: 10, target: 'enemy' }],
       stanceRider: {
         stance: 'iai',
         effects: [
           {
             op: 'conditional',
             when: { kind: 'heatAtLeast', value: 4 },
-            then: [{ op: 'damage', amount: 11, target: 'enemy' }],
+            then: [{ op: 'damage', amount: 8, target: 'enemy' }],
           },
         ],
       },
@@ -175,7 +180,9 @@ export const IAI_CARDS: readonly CardDef[] = [
     type: 'skill',
     rarity: 'uncommon',
     archetype: 'iai',
-    cost: 1,
+    // Free. It is a stance change with a condition on it, and a stance change
+    // you have to pay an Energy for is one you mostly do not make.
+    cost: 0,
     /* The only card that names a stance rather than cycling to the next one,
        and it pays you for already being there.
 

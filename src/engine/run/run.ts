@@ -691,7 +691,7 @@ export function repairOffer(run: RunState): {
 } {
   const shop = run.shop;
   const rate = shop?.repairRate ?? ECONOMY.repairPerHealth[run.act];
-  const healed = shop === null || shop.repairUsed ? 0 : run.pilot.maxHealth - run.pilot.health;
+  const healed = shop === null || shop.serviceUsed !== null ? 0 : run.pilot.maxHealth - run.pilot.health;
   const price = healed * rate;
   return { rate, healed, price, affordable: price > 0 && run.alloy >= price };
 }
@@ -705,7 +705,7 @@ export function stationRepair(state: GameState): GameState {
   const next = withRun(paid, (current) => ({
     ...current,
     pilot: { ...current.pilot, health: current.pilot.health + offer.healed },
-    shop: current.shop === null ? null : { ...current.shop, repairUsed: true },
+    shop: current.shop === null ? null : { ...current.shop, serviceUsed: 'repair' as const },
   }));
 
   return appendLog(next, {

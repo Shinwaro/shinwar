@@ -338,7 +338,7 @@ export const TEMPO_CARDS: readonly CardDef[] = [
     type: 'skill',
     rarity: 'uncommon',
     archetype: 'neutral',
-    cost: 1,
+    cost: 0,
     effects: [
       { op: 'cycleStance', direction: 1 },
       { op: 'ventHeat', amount: 2 },

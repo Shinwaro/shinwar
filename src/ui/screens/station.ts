@@ -175,18 +175,33 @@ function build(store: Store, state: GameState, local: Local, redraw: () => void)
 
     el('section', { class: 'shop-section' }, [
       el('h2', { class: 'shop-heading' }, ['Services']),
+      /* One of the three, not one of each. Three independent services made a
+         visit a shopping list; making them exclusive is what turns arriving at
+         a Station into a question about what the run needs most.
+
+         The taken one keeps its slot and says so rather than vanishing —
+         knowing what you chose is part of reading the screen you are on. */
+      el('p', { class: 'safe-note safe-note--tight' }, [
+        shop === null || shop.serviceUsed === null
+          ? 'One of these. Choosing any of them closes the other two.'
+          : 'This station has done its one.',
+      ]),
       el('div', { class: 'safe-options' }, [
         shop === null
           ? null
           : serviceOption(
-              shop.removalUsed ? 'Removal taken' : 'Strip a card',
-              `${shop.removalPrice} Alloy, one per Station.`,
-              shop.removalUsed
-                ? 'This station has done its one.'
+              shop.serviceUsed === 'strip' ? 'Card stripped' : 'Strip a card',
+              `${shop.removalPrice} Alloy.`,
+              shop.serviceUsed !== null
+                ? shop.serviceUsed === 'strip'
+                  ? 'Taken.'
+                  : 'Another service was taken here.'
                 : run.alloy < shop.removalPrice
                   ? 'Not enough Alloy.'
                   : 'A smaller deck draws what it needs more often.',
-              shop.removalUsed || run.alloy < shop.removalPrice || run.pilot.deck.length <= 1,
+              shop.serviceUsed !== null ||
+                run.alloy < shop.removalPrice ||
+                run.pilot.deck.length <= 1,
               () => {
                 local.picking = 'strip';
                 local.chosen = null;
@@ -196,14 +211,16 @@ function build(store: Store, state: GameState, local: Local, redraw: () => void)
         shop === null
           ? null
           : serviceOption(
-              shop.forgeUsed ? 'Forge used' : 'Upgrade a card',
-              `${shop.forgePrice} Alloy, one per Station.`,
-              shop.forgeUsed
-                ? 'This station has done its one.'
+              shop.serviceUsed === 'forge' ? 'Card upgraded' : 'Upgrade a card',
+              `${shop.forgePrice} Alloy.`,
+              shop.serviceUsed !== null
+                ? shop.serviceUsed === 'forge'
+                  ? 'Taken.'
+                  : 'Another service was taken here.'
                 : run.alloy < shop.forgePrice
                   ? 'Not enough Alloy.'
                   : 'A better card beats another card.',
-              shop.forgeUsed ||
+              shop.serviceUsed !== null ||
                 run.alloy < shop.forgePrice ||
                 run.pilot.deck.every((card) => card.upgraded),
               () => {
@@ -215,16 +232,18 @@ function build(store: Store, state: GameState, local: Local, redraw: () => void)
         shop === null
           ? null
           : serviceOption(
-              shop.repairUsed ? 'Patched up' : 'Patch up',
-              `${repair.rate} Alloy a point, one per Station.`,
-              shop.repairUsed
-                ? 'This station has done its one.'
+              shop.serviceUsed === 'repair' ? 'Patched up' : 'Patch up',
+              `${repair.rate} Alloy a point.`,
+              shop.serviceUsed !== null
+                ? shop.serviceUsed === 'repair'
+                  ? 'Taken.'
+                  : 'Another service was taken here.'
                 : bodyMissing === 0
                   ? 'Nothing to repair.'
                   : repair.affordable
                     ? `All ${repair.healed} back, for ${repair.price}.`
                     : `${repair.healed} back would cost ${repair.price}. You have ${run.alloy}.`,
-              shop.repairUsed || !repair.affordable,
+              shop.serviceUsed !== null || !repair.affordable,
               () => store.dispatch({ kind: 'stationRepair' }),
             ),
       ]),

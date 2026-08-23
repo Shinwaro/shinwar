@@ -3544,3 +3544,83 @@ Worth keeping as the pattern: the test that caught this was not testing
 Stillwater Guard or the starting deck. It was `reads the deck lean from earned
 cards, not the starting deck` — a test written about an intention rather than an
 implementation, which is why it still fired years of changes later.
+
+## Flat damage was the thing that broke the late acts
+
+Robin finished a run and named it: relic and implant flat damage combined with
+multi-hit cards.
+
+It applied per damage INSTANCE. A card swinging three times paid every flat
+source three times, so by Act 3 with four of them a multi-hit card was adding
++18 before its own numbers had been read — and the boss fights were being
+decided by arithmetic rather than by play. Nothing about it was visible either:
+the card face does not show relic damage, so the number that landed was one the
+player had worked out rather than one the game had shown them.
+
+It is per CARD now, the same scoping Focus already used. The flat sources make
+every card better instead of making three cards unanswerable.
+
+**Strength is deliberately not on this.** It is a status built inside a fight,
+it is on the board where it can be seen, and multi-hit paying it off is the
+whole reason to build it. That interaction is a plan; the other was a leak.
+
+## In total
+
+Nine lines on the rail, four of them touching damage, and the player adding them
+up every turn. The new panel is the sum — read from `pilotRules`, which is the
+same aggregate the damage pipeline reads, so the UI is showing the engine's
+arithmetic rather than doing its own.
+
+**Damage taken is deliberately absent, and Robin spotted why before I did.**
+Flat reduction lands at step 5 of the pipeline, before Block, so every enemy
+telegraph on screen has already subtracted it. Printing it again would be the
+same fact twice, and the second copy invites subtracting it a second time.
+
+The same reasoning corrected the relic text. "Every attack that reaches you
+deals 2 less" reads as "gets past your shield", and that is not what it does —
+it comes off the attack before Block, so it saves Block too. Reworded to
+"against you", which is both accurate and unambiguous. Changing it to "reaches
+your health" would have made the text wrong.
+
+Anchored to the bottom of the column rather than stacked under the rail.
+Stacking meant computing a top offset from the rail's maximum height, which is a
+guess that has to be re-guessed whenever the rail's contents change — measured
+at 82px of dead space with four relics. The bottom of the screen does not move.
+Verified stable at 1, 4 and 12 relics.
+
+## The rest of the batch
+
+  - **Stations give one service, not three.** Three independent flags made a
+    visit a shopping list; the Alloy was never the real constraint because the
+    services barely competed. `serviceUsed` replaces the three booleans, which
+    is less state as well as a better rule. The simulator had to learn to choose
+    too — it reads the live shop now rather than the snapshot it arrived with,
+    or it would spend the rest of the visit dispatching actions the reducer
+    quietly refuses.
+  - **The guaranteed Station row is rolled, not pinned.** It was a flat 0.55 of
+    the act, so the shop sat in the same place on every chart in the game and a
+    player knew where it was by their second run. Rolled inside a band now, and
+    `stationSpacing` went 2 to 4 — the two changes only work together, because
+    spread means nothing while the anchor is fixed. Measured across 300 maps:
+    rows 4 through 12, against a single row before.
+  - **Gravity Well adds 6 rather than multiplying by 1.5.** A multiplier scaled
+    with the player's own build, so the environment meant to reward one heavy
+    swing rewarded whoever already had the heaviest swing — worth twice as much
+    to the deck that needed it least.
+  - **Dead Reckoning exhausts, and the upgrade buys that back** rather than a
+    bigger number. Two cards and a vent for nothing was never wrong to play, and
+    a card that is never wrong to play is not a decision.
+  - **Crossing Arc's upgrade buys the threshold**, not just the number: 8 at 5+
+    Heat becomes 10 at 4+. Forging it makes the condition easier to stand in,
+    which is the thing the card is actually asking you to arrange.
+  - Cross Step and Silent Form cost 0 — a stance change you have to pay an
+    Energy for is one you mostly do not make. Heat Shroud and The Third Lung
+    move the line by 1. Pressure Bank trades its threshold for 2 health a turn.
+    Overclock the Core+ asks 4 Heat instead of 5.
+  - **Cards in hand carry their tier colour**, on the same ladder as the
+    inventory and the shelves. A card is the same object wherever it is.
+  - **"Sever is upgraded to Sever+"**, and both open. The event is the
+    *difference* between the two faces, so the line names them both. `OutcomeLine`
+    carries a list of references now rather than one, and the walker scans
+    forward from the last match — which is what keeps "Sever" from matching
+    inside "Sever+".

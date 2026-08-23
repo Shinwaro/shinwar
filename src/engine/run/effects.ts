@@ -14,7 +14,7 @@
  *     indistinguishable from one that did not happen.
  */
 
-import type { CardId, GameState, OutcomeLine, RunEffect, ThreadId } from '../types.ts';
+import type { GameState, OutcomeLine, OutcomeRef, RunEffect } from '../types.ts';
 import { appendLog, requireRun, withRun } from '../state.ts';
 import { nextInt } from '../rng.ts';
 import { mintCard } from '../combat/instances.ts';
@@ -39,7 +39,13 @@ export function applyRunEffects(
   for (const effect of effects) {
     const applied = applyOne(current, effect, source);
     current = applied.state;
-    if (applied.line !== null) lines.push({ text: applied.line, ...applied.ref });
+    if (applied.line !== null) {
+      lines.push(
+        applied.refs === undefined
+          ? { text: applied.line }
+          : { text: applied.line, refs: applied.refs },
+      );
+    }
   }
 
   return { state: current, lines };
@@ -56,7 +62,7 @@ interface Single {
    * against it would be a parser that breaks the first time a card is called
    * something that appears inside another word.
    */
-  readonly ref?: { readonly cardId?: CardId; readonly threadId?: ThreadId };
+  readonly refs?: readonly OutcomeRef[];
 }
 
 function applyOne(state: GameState, effect: RunEffect, source: string): Single {
@@ -117,7 +123,7 @@ function applyOne(state: GameState, effect: RunEffect, source: string): Single {
           `Took ${def.name}.`,
         ),
         line: `${def.name} joins the deck.`,
-        ref: { cardId: effect.cardId },
+        refs: [{ text: def.name, cardId: effect.cardId }],
       };
     }
 
@@ -143,8 +149,15 @@ function applyOne(state: GameState, effect: RunEffect, source: string): Single {
           source,
           `Upgraded ${name}.`,
         ),
-        line: `${name} is upgraded.`,
-        ref: { cardId: chosen.defId },
+        /* Both faces, named. "Sever is upgraded" tells you a card you may
+           never have read has become a card you have definitely never read —
+           the whole event is the difference between the two, so the line names
+           them both and each one opens. */
+        line: `${name} is upgraded to ${name}+.`,
+        refs: [
+          { text: name, cardId: chosen.defId },
+          { text: `${name}+`, cardId: chosen.defId, upgraded: true },
+        ],
       };
     }
 
@@ -168,7 +181,7 @@ function applyOne(state: GameState, effect: RunEffect, source: string): Single {
           `Lost ${name}.`,
         ),
         line: `${name} leaves the deck.`,
-        ref: { cardId: chosen.defId },
+        refs: [{ text: name, cardId: chosen.defId }],
       };
     }
 
@@ -182,7 +195,7 @@ function applyOne(state: GameState, effect: RunEffect, source: string): Single {
       return {
         state: next,
         line: opened === undefined ? 'A thread opens.' : `Thread: ${opened.name}.`,
-        ref: { threadId: effect.threadId },
+        refs: opened === undefined ? [] : [{ text: opened.name, threadId: effect.threadId }],
       };
     }
 
@@ -193,7 +206,7 @@ function applyOne(state: GameState, effect: RunEffect, source: string): Single {
       return {
         state: next,
         line: closed === undefined ? 'A thread closes.' : `${closed.name} closes.`,
-        ref: { threadId: effect.threadId },
+        refs: closed === undefined ? [] : [{ text: closed.name, threadId: effect.threadId }],
       };
     }
 

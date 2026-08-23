@@ -204,7 +204,11 @@ describe('passives reach the number they modify', () => {
 
   it('moves the overheat threshold', () => {
     const base = makeFight();
-    expect(overheatThreshold(holding(base, 'heat_shroud'))).toBe(overheatThreshold(base) + 2);
+    // Read from the relic rather than hard-coded, so tuning the number is a
+    // one-file change instead of a two-file one.
+    const shroud = relicTable.get('heat_shroud').passive?.overheatThreshold ?? 0;
+    expect(shroud).toBeGreaterThan(0);
+    expect(overheatThreshold(holding(base, 'heat_shroud'))).toBe(overheatThreshold(base) + shroud);
   });
 
   it('sharpens Focus on top of whatever the stance already pays', () => {

@@ -332,7 +332,14 @@ export const MAP = {
    * you spent at the first. Same reasoning, same mechanism: it is what you
    * meet in *sequence* that matters, not the share on the chart.
    */
-  stationSpacing: 2,
+  /* Four rows, not two.
+  
+     At two, a rolled Station three rows from the guaranteed one was a normal
+     map, and the pair read as "the shops are all in the middle" — which they
+     were, because the guaranteed row was a fixed fraction as well. Widened at
+     the same time as that row started rolling; the two changes only work
+     together. */
+  stationSpacing: 4,
   /**
    * Where the Reliquary sits, as a fraction of the act.
    *
@@ -360,7 +367,13 @@ export const MAP = {
    * and had never seen one. The same trick as the rest-before-boss — a full row,
    * so every route meets exactly one guaranteed, and rolled Stations are extra.
    */
-  stationRowAt: 0.55,
+  /* Rolled inside this band rather than pinned to one fraction.
+  
+     It was a flat 0.55, so the guaranteed Station sat at the same place on
+     every chart in the game — the middle — and a player learned within two runs
+     exactly where the shop would be. A guarantee is about a route always
+     meeting one, not about it always meeting one in the same place. */
+  stationRowBand: { from: 0.34, to: 0.7 },
 } as const;
 
 /**

@@ -56,14 +56,30 @@ function peek(label: string, panel: HTMLElement, kind: 'card' | 'thread'): HTMLE
   return host;
 }
 
-function cardPeek(cardId: string, label: string, state: GameState | null): HTMLElement {
-  const def = cardTable.find(cardId);
-  if (def === undefined) return el('span', {}, [label]);
+function cardPeek(
+  cardId: string,
+  label: string,
+  state: GameState | null,
+  upgraded = false,
+): HTMLElement {
+  const base = cardTable.find(cardId);
+  if (base === undefined) return el('span', {}, [label]);
+
+  /* The forged face when the line is talking about the forged card. Built the
+     same way `definitionOf` builds it, so what the panel shows is what the deck
+     now holds — and marked against the printed card, so the parts that changed
+     are the parts that stand out. */
+  const def = upgraded && base.upgrade !== undefined ? { ...base, ...base.upgrade } : base;
 
   return peek(
     label,
     el('span', { class: 'peek-panel', role: 'tooltip' }, [
-      renderCardFace(def, { state, badge: null, changedVs: null, extraClass: null }),
+      renderCardFace(def, {
+        state,
+        badge: null,
+        changedVs: upgraded && base.upgrade !== undefined ? base : null,
+        extraClass: null,
+      }),
     ]),
     'card',
   );
@@ -96,33 +112,41 @@ function threadPeek(threadId: string, label: string): HTMLElement {
  * something that appears in another word.
  */
 export function renderOutcomeLine(line: OutcomeLine, state: GameState | null): readonly Node[] {
-  if (line.cardId !== undefined) {
-    const def = cardTable.find(line.cardId);
-    if (def !== undefined) return splitAround(line.text, def.name, cardPeek(line.cardId, def.name, state));
-  }
-  if (line.threadId !== undefined) {
-    const def = threadTable.find(line.threadId);
-    if (def !== undefined) return splitAround(line.text, def.name, threadPeek(line.threadId, def.name));
-  }
-  return [document.createTextNode(line.text)];
-}
+  const refs = line.refs ?? [];
+  if (refs.length === 0) return [document.createTextNode(line.text)];
 
-/**
- * Put the handle where the name already is, and leave the rest as prose.
- *
- * The line was written as a sentence — "Sever leaves the deck" — so the name
- * has a place in it already and moving it would read worse. Falls back to the
- * plain sentence if the name is not in it, which keeps a rewording of a line
- * from silently producing a duplicate name.
- */
-function splitAround(text: string, name: string, handle: HTMLElement): readonly Node[] {
-  const at = text.indexOf(name);
-  if (at === -1) return [document.createTextNode(text)];
-  return [
-    document.createTextNode(text.slice(0, at)),
-    handle,
-    document.createTextNode(text.slice(at + name.length)),
-  ];
+  /* Walk the sentence once, wrapping each reference where it already sits.
+   *
+   * The lines are written as prose — "Sever is upgraded to Sever+" — so every
+   * name has a place in the sentence already, and moving them to the front
+   * would read worse than leaving them. Scanning forward from the last match
+   * rather than from the start is what keeps "Sever" from matching inside
+   * "Sever+": the second reference is only looked for after the first one ends.
+   *
+   * A reference whose text is not in the line is skipped rather than appended,
+   * so rewording a line can never produce the same name twice. */
+  const out: Node[] = [];
+  let cursor = 0;
+
+  for (const ref of refs) {
+    const at = line.text.indexOf(ref.text, cursor);
+    if (at === -1) continue;
+
+    const handle =
+      ref.cardId !== undefined
+        ? cardPeek(ref.cardId, ref.text, state, ref.upgraded === true)
+        : ref.threadId !== undefined
+          ? threadPeek(ref.threadId, ref.text)
+          : null;
+    if (handle === null) continue;
+
+    if (at > cursor) out.push(document.createTextNode(line.text.slice(cursor, at)));
+    out.push(handle);
+    cursor = at + ref.text.length;
+  }
+
+  if (cursor < line.text.length) out.push(document.createTextNode(line.text.slice(cursor)));
+  return out;
 }
 
 /** Render a generated run-effect line with its named things made inspectable. */

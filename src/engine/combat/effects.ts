@@ -64,6 +64,13 @@ export interface EffectContext {
    */
   readonly discardedThisPlay: number;
   /**
+   * Damage instances this card has produced so far.
+   *
+   * Read by the damage op so relic and implant flat damage lands on the first
+   * swing only — see `DamageInput.firstHitOfCard`.
+   */
+  readonly hitsThisPlay: number;
+  /**
    * These ops are a card's stance rider rather than its base effects.
    *
    * Read by the damage op so the stance's flat hot bonus is not charged on top
@@ -81,6 +88,7 @@ export function createContext(source: string, actor: Combatant, chosen: Combatan
     focusSpent: false,
     killsThisPlay: 0,
     discardedThisPlay: 0,
+    hitsThisPlay: 0,
     fromRider: false,
   };
 }
@@ -265,6 +273,8 @@ function applyOp(state: GameState, op: EffectOp, context: EffectContext): Effect
               target,
               isAttack: true,
               fromRider: context.fromRider,
+              // Relic and implant flat damage is per card, not per swing.
+              firstHitOfCard: context.hitsThisPlay === 0,
               attackOrdinal: combat.attacksThisTurn,
               /*
                * One stack per CARD, not per turn.
@@ -282,6 +292,8 @@ function applyOp(state: GameState, op: EffectOp, context: EffectContext): Effect
             },
             context.source,
           );
+          context = { ...context, hitsThisPlay: context.hitsThisPlay + 1 };
+
           if (spendsHere && (next.run?.combat?.focus ?? 0) < combat.focus) {
             context = { ...context, focusSpent: true };
           }

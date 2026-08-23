@@ -99,11 +99,14 @@ export const POWER_CARDS: readonly CardDef[] = [
       { op: 'applyStatus', status: OVERCLOCK, stacks: 3, target: 'self' },
       { op: 'gainHeat', amount: 5 },
     ],
+    /* The upgrade buys a turn AND a degree off the price. Four turns of an
+       extra Energy for 4 Heat is the same card asking for slightly less of the
+       gauge, which is where its whole cost lives. */
     upgrade: {
       name: 'Overclock the Core+',
       effects: [
         { op: 'applyStatus', status: OVERCLOCK, stacks: 4, target: 'self' },
-        { op: 'gainHeat', amount: 5 },
+        { op: 'gainHeat', amount: 4 },
       ],
     },
     flavor: 'The limiter is a suggestion written by somebody who expected to grow old.',

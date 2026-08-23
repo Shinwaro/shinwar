@@ -83,6 +83,22 @@ export interface DamageInput {
    * project calls a P1, and this was one.
    */
   readonly fromRider?: boolean;
+  /**
+   * The first damage instance this card has produced.
+   *
+   * Relic and implant flat damage rides on this and nothing else. Applied per
+   * instance it multiplied itself against every multi-hit card in the deck:
+   * +6 from two implants on a card that swings three times is +18, and by Act 3
+   * with four sources of flat damage the boss fights were being decided by
+   * arithmetic rather than by play. The bonus is per CARD now, the same scoping
+   * Focus already uses, so the flat sources make every card better instead of
+   * making three cards unanswerable.
+   *
+   * Strength is deliberately NOT on this. It is a status the player builds
+   * inside a fight, it is visible on the board, and multi-hit paying it off is
+   * the whole reason to build it — that interaction is a plan, not a leak.
+   */
+  readonly firstHitOfCard?: boolean;
 }
 
 /* ---------- reading the combatants ---------- */
@@ -225,9 +241,12 @@ export function computeDamage(state: GameState, input: DamageInput): DamageBreak
       ctx = record(ctx, `${stance.name} hot`, 'add', ctx.amount + (stance.hotDamage ?? 0));
     }
 
-    // Relics, in the same step as Strength: flat, before anything multiplies.
+    /* Relics and implants: flat, before anything multiplies, and only on the
+       first hit of the card — see `DamageInput.firstHitOfCard`. */
     const relicFlat = pilotRules(state).damageFlat;
-    if (relicFlat !== 0) ctx = record(ctx, 'Relics', 'add', ctx.amount + relicFlat);
+    if (relicFlat !== 0 && input.firstHitOfCard !== false) {
+      ctx = record(ctx, 'Relics', 'add', ctx.amount + relicFlat);
+    }
   }
 
   /* 4 — multiplicatives: what the attacker suffers, then what the target invites. */
@@ -240,16 +259,20 @@ export function computeDamage(state: GameState, input: DamageInput): DamageBreak
     ctx = record(ctx, status.name, 'mult', ctx.amount * factor, factor);
   }
 
-  /* 4b — the environment. Gravity Well amplifies anything heavy, which is a
-     rule about the number the pipeline is producing rather than an event a
-     hook could respond to. Attacks only: a rock does not fall harder. */
+  /* 4b — the environment. Gravity Well adds to anything heavy, which is a rule
+     about the number the pipeline is producing rather than an event a hook
+     could respond to. Attacks only: a rock does not fall harder.
+
+     Flat, not a multiplier. A multiplier scaled with the player's own build, so
+     the environment meant to reward one heavy swing instead rewarded whoever
+     already had the heaviest swing — worth twice as much to the deck that
+     needed it least. */
   if (input.isAttack) {
     const rules = environmentRules(state);
     const threshold = rules.bigHitThreshold;
-    const multiplier = rules.bigHitMultiplier;
-    if (threshold !== undefined && multiplier !== undefined && ctx.amount >= threshold) {
-      const name = environmentName(state);
-      ctx = record(ctx, name, 'mult', ctx.amount * multiplier, multiplier);
+    const bonus = rules.bigHitBonus;
+    if (threshold !== undefined && bonus !== undefined && ctx.amount >= threshold) {
+      ctx = record(ctx, environmentName(state), 'add', ctx.amount + bonus);
     }
   }
 

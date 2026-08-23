@@ -85,9 +85,9 @@ export const ENVIRONMENTS: readonly EnvironmentDef[] = [
   {
     id: GRAVITY_WELL_ID,
     name: 'Gravity Well',
-    text: 'Attacks of 12 or more deal +50%. You may change stance only once a turn.',
+    text: 'Attacks of 12 or more deal 6 extra. You may change stance only once a turn.',
     acts: [2, 3],
-    rules: { bigHitThreshold: 12, bigHitMultiplier: 1.5, stanceChangesPerTurn: 1 },
+    rules: { bigHitThreshold: 12, bigHitBonus: 6, stanceChangesPerTurn: 1 },
   },
 
   {

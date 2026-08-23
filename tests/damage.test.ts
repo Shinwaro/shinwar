@@ -7,10 +7,11 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import type { EffectOp, StanceId, StatusStack } from '../src/engine/types.ts';
+import type { EffectOp, GameState, StanceId, StatusStack } from '../src/engine/types.ts';
 import { PLAYER, computeDamage, enemyTarget, previewDamage } from '../src/engine/combat/damage.ts';
 import { previewCard } from '../src/engine/combat/preview.ts';
 import { blockFigures, damageFigures } from '../src/engine/combat/describe.ts';
+import { pilotRules } from '../src/engine/combat/rules.ts';
 import { cards as cardTable } from '../src/content/registry.ts';
 import { playCard } from '../src/engine/combat/combat.ts';
 import { FOCUS_DAMAGE_PER_STACK, STANCES } from '../src/content/balance.ts';
@@ -423,5 +424,83 @@ describe('heat as a cost', () => {
     const after = playCard(state, handCard(state, 0).uid, firstEnemy(state).uid);
     // 2 + 3 from the card, then the GUARD rider vents 2.
     expect(combatOf(after).heat).toBe(3);
+  });
+});
+
+describe('flat damage, once a card', () => {
+  /* The interaction that made the late acts trivial: relic and implant flat
+     damage applied per damage INSTANCE, so a card swinging three times paid it
+     three times. By Act 3 with four flat sources, a multi-hit card was adding
+     +18 before its own numbers, and the boss fights were being settled by
+     arithmetic rather than by play.
+
+     It is per card now — the same scoping Focus already used. The flat sources
+     make every card better instead of making three cards unanswerable.
+
+     Strength is deliberately not on this. It is a status you build inside a
+     fight, it is on the board where the player can see it, and multi-hit
+     paying it off is the whole reason to build it. That interaction is a plan;
+     this one was a leak. */
+
+  function armed(state: GameState, relics: readonly string[], implants: readonly string[]): GameState {
+    if (state.run === null) throw new Error('test: no run');
+    return {
+      ...state,
+      run: { ...state.run, pilot: { ...state.run.pilot, relics: [...relics], implants: [...implants] } },
+    };
+  }
+
+  function swing(state: GameState, firstHitOfCard: boolean): number {
+    return computeDamage(state, {
+      amount: 6,
+      attacker: PLAYER,
+      target: enemyTarget(firstEnemy(state).uid),
+      isAttack: true,
+      attackOrdinal: 0,
+      consumesFocus: false,
+      firstHitOfCard,
+    }).toHull;
+  }
+
+  it('pays the flat bonus on the first swing and not the rest', () => {
+    const state = armed(makeFight({ enemyHp: 999 }), ['coldforge_lining'], ['honed_edge']);
+    const bonus = pilotRules(state).damageFlat;
+    expect(bonus, 'the fixture carries no flat damage').toBeGreaterThan(0);
+
+    expect(swing(state, true)).toBe(6 + bonus);
+    expect(swing(state, false)).toBe(6);
+  });
+
+  it('lands the whole bonus through the card resolver, once', () => {
+    /* Through `playCard`, not just the pipeline — a three-hit card should be
+       6+6+6 plus the bonus ONCE, and the difference between that and the old
+       behaviour is the whole of the fix. */
+    const state = armed(
+      makeFight({ enemyIds: ['scrap_hound'], enemyHp: 999, hand: ['fanned_cut'], energy: 3 }),
+      ['coldforge_lining'],
+      ['honed_edge'],
+    );
+    const bonus = pilotRules(state).damageFlat;
+    const card = combatOf(state).hand[0];
+    if (card === undefined) throw new Error('test: no card');
+
+    const before = firstEnemy(state).hp;
+    const after = playCard(state, card.uid, firstEnemy(state).uid);
+    const dealt = before - firstEnemy(after).hp;
+
+    // Whatever the card's own numbers are, the bonus is in there exactly once.
+    const bare = playCard(armed(state, [], []), card.uid, firstEnemy(state).uid);
+    const bareDealt = before - firstEnemy(bare).hp;
+    expect(dealt).toBe(bareDealt + bonus);
+  });
+
+  it('leaves Strength paying on every swing', () => {
+    const state = makeFight({
+      enemyHp: 999,
+      playerStatuses: [{ status: STRENGTH, stacks: 2, fresh: false }],
+    });
+    // Same on both, because Strength is not scoped to the first hit.
+    expect(swing(state, false)).toBe(swing(state, true));
+    expect(swing(state, false)).toBeGreaterThan(6);
   });
 });

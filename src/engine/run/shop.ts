@@ -95,14 +95,12 @@ export function stockShop(state: GameState, nodeId: string): GameState {
     nodeId,
     cards,
     removalPrice: removalCost(run.removalsPurchased),
-    removalUsed: false,
+    serviceUsed: null,
     masteryId: mastery.masteryId,
     masteryPrice: MASTERY.price,
     masterySold: false,
     forgePrice: SHOP.forgePrice,
-    forgeUsed: false,
     repairRate: ECONOMY.repairPerHealth[run.act],
-    repairUsed: false,
     implants,
   };
 
@@ -155,7 +153,7 @@ export function buyShopCard(state: GameState, cardId: string): GameState {
 export function buyRemoval(state: GameState, cardUid: string): GameState {
   const run = requireRun(state);
   const shop = run.shop;
-  if (shop === null || shop.removalUsed) return state;
+  if (shop === null || shop.serviceUsed !== null) return state;
   if (run.alloy < shop.removalPrice || run.pilot.deck.length <= 1) return state;
 
   const card = run.pilot.deck.find((entry) => entry.uid === cardUid);
@@ -168,7 +166,7 @@ export function buyRemoval(state: GameState, cardUid: string): GameState {
     ...current,
     removalsPurchased: current.removalsPurchased + 1,
     pilot: { ...current.pilot, deck: current.pilot.deck.filter((entry) => entry.uid !== cardUid) },
-    shop: current.shop === null ? null : { ...current.shop, removalUsed: true },
+    shop: current.shop === null ? null : { ...current.shop, serviceUsed: 'strip' as const },
   }));
 
   return appendLog(next, {
@@ -223,7 +221,7 @@ export function buyMastery(state: GameState, masteryId: string): GameState {
 export function buyForge(state: GameState, cardUid: string): GameState {
   const run = requireRun(state);
   const shop = run.shop;
-  if (shop === null || shop.forgeUsed || run.alloy < shop.forgePrice) return state;
+  if (shop === null || shop.serviceUsed !== null || run.alloy < shop.forgePrice) return state;
 
   const card = run.pilot.deck.find((entry) => entry.uid === cardUid);
   if (card === undefined || card.upgraded) return state;
@@ -245,7 +243,7 @@ export function buyForge(state: GameState, cardUid: string): GameState {
         entry.uid === cardUid ? { ...entry, upgraded: true } : entry,
       ),
     },
-    shop: current.shop === null ? null : { ...current.shop, forgeUsed: true },
+    shop: current.shop === null ? null : { ...current.shop, serviceUsed: 'forge' as const },
   }));
 
   return appendLog(next, {

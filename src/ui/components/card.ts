@@ -193,6 +193,10 @@ export function renderCard(
       // Which card this is, as opposed to which copy. The introduction points
       // at "the Block card" and needs something to aim at.
       'data-card': def.id,
+      // The tier, on the same ladder as the inventory and the reward screens.
+      // A card in hand is the same object as a card on a shelf and should say
+      // its tier in the same way.
+      'data-rarity': def.rarity,
       'aria-pressed': options.selected ? 'true' : 'false',
       'aria-keyshortcuts': options.index < 9 ? String(options.index + 1) : null,
       title: options.playable ? null : (options.reason ?? null),

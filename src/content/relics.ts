@@ -51,7 +51,7 @@ export const RELICS: readonly RelicDef[] = [
   {
     id: 'ceramic_underplate',
     name: 'Ceramic Underplate',
-    text: 'Every attack that reaches you deals 2 less.',
+    text: 'Every attack against you deals 2 less.',
     rarity: 'uncommon',
     passive: { damageTakenFlat: 2 },
     flavor: 'It cracks instead of you. Once per crack.',
@@ -85,9 +85,9 @@ export const RELICS: readonly RelicDef[] = [
   {
     id: 'heat_shroud',
     name: 'Heat Shroud',
-    text: 'The overheat threshold rises by 2.',
+    text: 'The overheat threshold rises by 1.',
     rarity: 'uncommon',
-    passive: { overheatThreshold: 2 },
+    passive: { overheatThreshold: 1 },
     flavor: 'It does not cool anything. It moves the line you are not allowed to cross.',
   },
   {
@@ -101,7 +101,7 @@ export const RELICS: readonly RelicDef[] = [
   {
     id: 'coldforge_lining',
     name: 'Coldforge Lining',
-    text: 'Every attack deals 2 more and every attack that reaches you deals 1 less.',
+    text: 'Every attack deals 2 more and every attack against you deals 1 less.',
     rarity: 'epic',
     passive: { damageFlat: 2, damageTakenFlat: 1 },
     flavor: 'Forged in a shadow. The sect argued about whether that mattered.',
@@ -121,7 +121,7 @@ export const RELICS: readonly RelicDef[] = [
   {
     id: 'the_long_sight',
     name: 'The Long Sight',
-    text: 'Gain 1 Energy and draw 1 more card each turn, but every attack that reaches you deals 2 more.',
+    text: 'Gain 1 Energy and draw 1 more card each turn, but every attack against you deals 2 more.',
     rarity: 'legendary',
     passive: { energyPerTurn: 1, drawPerTurn: 1, damageTakenFlat: -2 },
     flavor: 'You see all of it coming. Seeing is not the same as moving.',
@@ -215,9 +215,9 @@ export const RELICS: readonly RelicDef[] = [
   {
     id: 'third_lung',
     name: 'The Third Lung',
-    text: 'The overheat threshold rises by 2, and vent 2 Heat at the start of each turn.',
+    text: 'The overheat threshold rises by 1, and vent 2 Heat at the start of each turn.',
     rarity: 'epic',
-    passive: { overheatThreshold: 2, ventPerTurn: 2 },
+    passive: { overheatThreshold: 1, ventPerTurn: 2 },
     flavor: 'Grafted in by somebody who had clearly done it before, on somebody else.',
   },
   {

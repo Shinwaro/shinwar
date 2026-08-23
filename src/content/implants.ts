@@ -54,9 +54,14 @@ export const IMPLANTS: readonly ImplantDef[] = [
     rarity: 'epic',
     price: 260,
     maxStacks: 1,
-    // The gauge as a resource rather than a cost: two off the top every turn is
-    // an extra Thermal Lance a fight, or IAI held two turns longer.
-    passive: { ventPerTurn: 2, overheatThreshold: 1 },
+    /* A vent and a mend, and no change to the line.
+    
+       It used to raise the overheat threshold as well, which made it a third
+       thing on one implant and put it in competition with the two relics whose
+       whole job is that line. Two Heat off the top and two health back is a
+       different offer: it pays out over a long fight rather than buying room
+       for a bigger turn. */
+    passive: { ventPerTurn: 2, healPerTurn: 2 },
     flavor: 'It holds what the reactor cannot, and gives it back slower.',
   },
   {

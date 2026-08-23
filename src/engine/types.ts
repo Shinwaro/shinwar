@@ -195,7 +195,9 @@ export interface CardDef {
    * about card type. Making this required would mean every curse shipping a
    * fake upgrade nobody can ever reach.
    */
-  readonly upgrade?: Partial<Pick<CardDef, 'cost' | 'effects' | 'stanceRider' | 'name'>>;
+  readonly upgrade?: Partial<
+    Pick<CardDef, 'cost' | 'effects' | 'stanceRider' | 'name' | 'exhaust'>
+  >;
   readonly exhaust?: boolean;
   readonly innate?: boolean;
   /**
@@ -240,9 +242,18 @@ export interface EnvironmentRules {
    * to plan for, and the full ones are what you plan with.
    */
   readonly drawPenaltyEvery?: number;
-  /** Gravity Well: attacks at or above this threshold are multiplied. */
+  /**
+   * Gravity Well: attacks at or above this threshold deal a flat bonus.
+   *
+   * Flat rather than a multiplier. A multiplier on the big hits scaled with the
+   * player's own build, so the environment that was meant to reward one heavy
+   * swing instead rewarded whoever already had the heaviest swing — the same
+   * damage rule, worth twice as much to the deck that needed it least. A flat
+   * bonus is worth the same to everybody who clears the bar, which is the rule
+   * the badge describes.
+   */
   readonly bigHitThreshold?: number;
-  readonly bigHitMultiplier?: number;
+  readonly bigHitBonus?: number;
   /** Gravity Well: how many stance changes a turn allows. */
   readonly stanceChangesPerTurn?: number;
   /**
@@ -522,6 +533,8 @@ export interface RelicPassive {
   readonly blockPerTurn?: number;
   readonly focusPerTurn?: number;
   readonly ventPerTurn?: number;
+  /** Health back at the start of each turn. Capped at the pilot's maximum. */
+  readonly healPerTurn?: number;
   /** Added to every attack you make. */
   readonly damageFlat?: number;
   /** Taken off every attack that reaches you, after Block. */
@@ -933,11 +946,25 @@ export interface ResolvedThread {
   readonly tone: ThreadTone;
 }
 
-/** One line of an Anomaly's outcome, with what it named if it named anything. */
-export interface OutcomeLine {
+/**
+ * Something a line named, and where in the line it named it.
+ *
+ * `text` is the exact substring to make into a handle. A list rather than a
+ * single reference because "Sever is upgraded to Sever+" names two different
+ * cards in one sentence, and the whole point of the line is comparing them.
+ */
+export interface OutcomeRef {
   readonly text: string;
   readonly cardId?: CardId;
+  /** Show the forged face of `cardId` rather than the printed one. */
+  readonly upgraded?: boolean;
   readonly threadId?: ThreadId;
+}
+
+/** One line of an Anomaly's outcome, with whatever it named. */
+export interface OutcomeLine {
+  readonly text: string;
+  readonly refs?: readonly OutcomeRef[];
 }
 
 export interface PendingEvent {
@@ -969,7 +996,19 @@ export interface ShopState {
   readonly cards: readonly ShopCardStock[];
   /** Every Station stocks exactly one removal. The price rises per purchase. */
   readonly removalPrice: number;
-  readonly removalUsed: boolean;
+  /**
+   * Which of the three services this Station has already given, if any.
+   *
+   * One per Station, not one of each. With three independent flags a visit was
+   * "strip, upgrade AND repair" — a shopping list rather than a decision, and
+   * the Alloy was never the real constraint because the services barely
+   * competed. Making them exclusive is what turns arriving at a Station into a
+   * question about what the run needs most.
+   *
+   * The shelves are not affected: cards and implants are bought with Alloy, and
+   * Alloy is its own limit.
+   */
+  readonly serviceUsed: 'strip' | 'forge' | 'repair' | null;
   /**
    * A Stance Mastery, sometimes. It moved here from the boss drop: rewriting a
    * stance should be a thing you decide you want and pay for out of the same
@@ -987,7 +1026,6 @@ export interface ShopState {
    * second source, and it costs the Alloy you were going to spend elsewhere.
    */
   readonly forgePrice: number;
-  readonly forgeUsed: boolean;
   /**
    * Alloy per point of health, one patch-up per Station.
    *
@@ -997,7 +1035,6 @@ export interface ShopState {
    * under you mid-visit.
    */
   readonly repairRate: number;
-  readonly repairUsed: boolean;
   /** The implant shelf. What Alloy is actually for. */
   readonly implants: readonly ShopImplantStock[];
 }

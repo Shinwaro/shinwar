@@ -3402,3 +3402,110 @@
 @media (prefers-reduced-motion: reduce) {
   .peek-panel { transition: none; }
 }
+
+/* The tier, on a card in hand.
+ *
+ * Same ladder as the inventory, the reward screens and the shop — a card is
+ * the same object wherever it is, and it should say its tier the same way in
+ * all of them. The hand was the one place that did not.
+ *
+ * On the left edge, where the other surfaces put it, and thin: mid-fight the
+ * cost and the name are what you read, and the tier is a thing you notice
+ * rather than a thing you look up. */
+.hand .card {
+  border-left-width: 3px;
+  border-left-style: solid;
+  border-left-color: var(--rarity-common);
+}
+
+.hand .card[data-rarity='uncommon'] { border-left-color: var(--rarity-uncommon); }
+.hand .card[data-rarity='rare'] { border-left-color: var(--rarity-rare); }
+.hand .card[data-rarity='epic'] { border-left-color: var(--rarity-epic); }
+.hand .card[data-rarity='legendary'] { border-left-color: var(--rarity-legendary); }
+.hand .card[data-rarity='artifact'] { border-left-color: var(--rarity-artifact); }
+
+/* ---------- what it all adds up to ----------
+
+   Under the carrying rail, in the same fixed column. The rail says what you
+   have; this says what it does, which is the question actually being asked at
+   the moment a card is about to be played. */
+
+.gains {
+  position: fixed;
+  left: max(0.6rem, env(safe-area-inset-left));
+  z-index: 20;
+  width: 12.5rem;
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.55rem 0.6rem;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--surface-solid);
+}
+
+.gains-head {
+  margin: 0 0 0.2rem;
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.gains-row {
+  display: grid;
+  grid-template-columns: 2.1rem 1fr;
+  gap: 0.4rem;
+  align-items: baseline;
+  font-size: 0.78rem;
+}
+
+.gains-value {
+  font-family: var(--mono);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: var(--accent);
+}
+
+.gains-label { color: var(--muted); }
+
+/* The condition, where there is one. Small, because it qualifies the line
+   rather than competing with it. */
+.gains-note {
+  display: block;
+  font-size: 0.62rem;
+  color: rgba(242, 240, 236, 0.42);
+}
+
+/* Wide: anchored to the BOTTOM of the column, not stacked under the rail.
+ *
+ * Stacking meant computing a `top` from the rail's maximum height, which is a
+ * guess — with four relics the rail was 340px and the total sat 82px below it
+ * in dead space, and the number would have had to be re-guessed every time the
+ * rail's contents changed. The bottom of the screen does not move.
+ *
+ * The rail is capped short of it so the two can never meet, and it scrolls
+ * inside that cap rather than growing. */
+@media (min-width: 95rem) {
+  .carried { max-height: calc(100dvh - 15rem); }
+
+  .gains {
+    top: auto;
+    bottom: max(0.6rem, env(safe-area-inset-bottom));
+  }
+}
+
+/* Narrow: along the top with the rail, as part of the board rather than over
+   it — the same trade the rail makes, for the same reason. */
+@media (max-width: 95rem) {
+  .gains {
+    position: static;
+    width: auto;
+    grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+    margin-bottom: 0.4rem;
+  }
+
+  .gains-head { grid-column: 1 / -1; }
+}
