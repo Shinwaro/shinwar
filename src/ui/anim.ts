@@ -195,10 +195,26 @@ export function setBarFill(fill: HTMLElement, key: string, pct: number, animate:
  * Returns false when there was nothing staged for this key, so the caller knows
  * the bar is somebody else's problem.
  */
-export function drainBar(key: string, steps: readonly { delay: number; share: number }[]): boolean {
+export function drainBar(
+  key: string,
+  steps: readonly { delay: number; share: number }[],
+  /**
+   * The thing that owns the bar, if it should not look dead until the bar is.
+   *
+   * The render marks a killed enemy `is-dead` from state, which is correct and
+   * arrives a beat and a half before the bar it is describing has finished
+   * emptying — so the enemy greyed out over a half-full health bar. The class
+   * comes off here and goes back on with the last step, which is the same
+   * moment the bar reaches zero and the last number lands on it.
+   */
+  corpse: Element | null = null,
+): boolean {
   const bar = staged.get(key);
   if (bar === undefined || steps.length === 0) return false;
   staged.delete(key);
+
+  const dying = corpse !== null && corpse.classList.contains('is-dead');
+  if (dying && corpse !== null) corpse.classList.remove('is-dead');
 
   const total = steps.reduce((sum, step) => sum + step.share, 0);
   if (total <= 0) {
@@ -217,6 +233,7 @@ export function drainBar(key: string, steps: readonly { delay: number; share: nu
     const width = last ? bar.to : bar.from - distance * (travelled / total);
     window.setTimeout(() => {
       bar.fill.style.width = `${width}%`;
+      if (last && dying && corpse !== null) corpse.classList.add('is-dead');
     }, step.delay);
   });
 
@@ -537,6 +554,14 @@ interface Hit {
   readonly kind: FloatKind;
   /** How much hull this instance actually cost. Zero for a full absorb. */
   readonly toHull: number;
+  /**
+   * Which swing of its card this blow belongs to, from the engine.
+   *
+   * Everything on one swing shares a beat. One card that hits every enemy once
+   * is ONE event and its numbers should appear together; a card that hits the
+   * same enemy three times is three events and they should not.
+   */
+  readonly swing: number;
 }
 
 /**
@@ -559,16 +584,17 @@ function hitsFromEntry(entry: LogEntry): readonly Hit[] {
     const blocked = typeof detail['blocked'] === 'number' ? detail['blocked'] : 0;
     if (amount === 0 && blocked === 0) return [];
 
+    const swing = typeof detail['swing'] === 'number' ? detail['swing'] : 0;
     const out: Hit[] = [];
-    if (blocked > 0) out.push({ target, text: `-${blocked}`, kind: 'shield', toHull: 0 });
-    if (amount > 0) out.push({ target, text: `-${amount}`, kind: 'damage', toHull: amount });
+    if (blocked > 0) out.push({ target, text: `-${blocked}`, kind: 'shield', toHull: 0, swing });
+    if (amount > 0) out.push({ target, text: `-${amount}`, kind: 'damage', toHull: amount, swing });
     return out;
   }
 
   if (entry.kind === 'block') {
     const amount = typeof detail['amount'] === 'number' ? detail['amount'] : 0;
     if (amount <= 0) return [];
-    return [{ target, text: `+${amount}`, kind: 'block', toHull: 0 }];
+    return [{ target, text: `+${amount}`, kind: 'block', toHull: 0, swing: 0 }];
   }
 
   return [];
@@ -607,7 +633,16 @@ export function playLogFx(
      one long slide reads as one big hit however many figures float off it. */
   const drains = new Map<string, { delay: number; share: number }[]>();
 
-  let slot = 0;
+  /* A beat is one swing, not one blow.
+  
+     Everything the engine tags with the same card and the same swing index
+     happens at once — so a card that hits all three enemies produces three
+     numbers on one beat, and a card that hits one enemy three times produces
+     three beats. Both arrive as a run of damage entries and only the swing
+     index tells them apart. */
+  let slot = -1;
+  let beat: string | null = null;
+
   for (const entry of fresh) {
     for (const hit of hitsFromEntry(entry)) {
       const anchor = locate(hit.target);
@@ -616,6 +651,11 @@ export function playLogFx(
       const box = anchor.getBoundingClientRect();
       if (box.width === 0 && box.height === 0) continue;
 
+      const here = `${entry.source}#${hit.swing}#${hit.kind === 'shield' ? 's' : 'h'}`;
+      if (here !== beat) {
+        beat = here;
+        slot += 1;
+      }
       const delay = FIRST_BEAT + slot * BEAT_STEP;
 
       // The thing struck reacts on the same beat as its number, so the two
@@ -647,11 +687,12 @@ export function playLogFx(
         y: box.top + box.height * 0.32,
         delay,
       });
-      slot += 1;
     }
   }
 
-  for (const [key, steps] of drains) drainBar(key, steps);
+  for (const [key, steps] of drains) {
+    drainBar(key, steps, key === 'player' ? null : locate(key.slice('enemy:'.length)));
+  }
   /* Everything the blows did not claim goes straight where it was headed — a
      heal, a fight that has just started, an enemy whose whole hit was absorbed.
      Without this a staged bar would sit at its old width forever. */
@@ -660,5 +701,5 @@ export function playLogFx(
   // How long the whole sequence takes, so the caller can wait for it. The enemy
   // turn should not start while the player's last three numbers are still in
   // the air — that is exactly the "everything at once" the pacing is fixing.
-  return slot === 0 ? 0 : FIRST_BEAT + (slot - 1) * BEAT_STEP;
+  return slot < 0 ? 0 : FIRST_BEAT + slot * BEAT_STEP;
 }

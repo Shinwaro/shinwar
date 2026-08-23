@@ -253,8 +253,16 @@ function applyOp(state: GameState, op: EffectOp, context: EffectContext): Effect
       const resolved = resolveTargets(state, context, op.target);
       let next = resolved.state;
       const times = Math.max(1, op.times ?? 1);
-      for (const target of resolved.targets) {
-        for (let hit = 0; hit < times; hit++) {
+      /* Swings outer, targets inner.
+      
+         A card that hits everything twice is two swings at the board, not two
+         separate executions — and resolving it target-first meant the first
+         enemy took both blows before the second took any, which is a different
+         fight when the first one dies in between. It also made the two
+         indistinguishable in the log, so the animation layer could not tell an
+         AoE from a multi-hit. */
+      for (let hit = 0; hit < times; hit++) {
+        for (const target of resolved.targets) {
           if (next.run?.combat?.outcome !== 'ongoing') break;
           const combat = requireCombat(next);
           // Read before the blow so a kill is "was alive, now is not" rather
@@ -275,6 +283,8 @@ function applyOp(state: GameState, op: EffectOp, context: EffectContext): Effect
               fromRider: context.fromRider,
               // Relic and implant flat damage is per card, not per swing.
               firstHitOfCard: context.hitsThisPlay === 0,
+              // Everything on the same swing lands on the same beat.
+              swing: hit,
               attackOrdinal: combat.attacksThisTurn,
               /*
                * One stack per CARD, not per turn.

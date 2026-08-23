@@ -693,6 +693,26 @@ describe('Scald, and the way out of it', () => {
     expect(stacksOf(combatOf(after).statuses, SCALD)).toBe(3);
   });
 
+  it('can be vented off the turn it lands', () => {
+    /* `fresh` stops a status decaying on the turn it arrives, so a debuff
+       always costs its victim at least one turn. That guard is about PASSIVE
+       decay and deliberately does not cover this: the vent is a counterplay the
+       player pays a card for, and taking Scald 2 then venting 4 to no effect
+       would read as the game ignoring the answer it just asked for.
+
+       Asserted both ways so the distinction is on the record rather than an
+       accident of which flag the shed happens to read. */
+    for (const fresh of [true, false]) {
+      const state = makeFight({
+        heat: 8,
+        playerStatuses: [{ status: SCALD, stacks: 3, fresh }],
+      });
+      expect(stacksOf(combatOf(ventHeat(state, 2, 'test')).statuses, SCALD), `fresh=${fresh}`).toBe(
+        2,
+      );
+    }
+  });
+
   it('says so on the status itself', () => {
     // The rule is on the thing it applies to, where a player reading the debuff
     // will find it — not only in a patch note.

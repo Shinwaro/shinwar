@@ -3659,3 +3659,39 @@ enemy's bar once, and a Wisp's 3 steps the player's bar once, landing exactly on
 67/70. The multi-hit case is verified by construction rather than by watching —
 the steps are built from the same per-blow list as the floaters, and the
 floaters have always been per-blow.
+
+## A beat is a swing, not a blow
+
+Two faults from the same cause: an AoE staggered its targets, and a killed enemy
+greyed out over a half-full health bar.
+
+**The stagger.** Every blow took its own beat, so a card hitting three enemies
+once produced three beats — which is what a card hitting one enemy three times
+should look like. Both arrive as a run of damage entries from the same card and
+the log could not tell them apart, so the engine says which now: `DamageInput`
+carries a `swing` index and `applyDamage` logs it. Everything sharing a card and
+a swing shares a beat. Verified: an AoE produced two bar changes at the same
+millisecond.
+
+The damage op's loops were also the wrong way round — targets outer, swings
+inner — so a card that hit everything twice gave the first enemy both blows
+before the second took any. Swings outer now, which is both what the card says
+it does and what makes the swing index mean anything.
+
+**The corpse.** The render marks a killed enemy `is-dead` from state, which is
+correct and arrives a beat and a half before the bar it describes has finished
+emptying. The class comes off in `drainBar` and goes back on with the last step
+— the same moment the bar reaches zero and the last number lands on it. The
+animation layer already held the bar back; it holds the body back with it.
+
+## Scald can be vented off the turn it lands
+
+Asked and checked rather than assumed: yes, and deliberately.
+
+`fresh` stops a status decaying on the turn it arrives, so a debuff always costs
+its victim at least one turn. That guard is about **passive** decay. The vent is
+a counterplay the player pays a card for, and taking Scald 2 then venting 4 to
+no effect would read as the game ignoring the answer it had just asked for.
+
+Tested both ways, so the distinction is on the record rather than an accident of
+which flag the shed happens to read.

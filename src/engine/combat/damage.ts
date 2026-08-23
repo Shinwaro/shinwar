@@ -99,6 +99,17 @@ export interface DamageInput {
    * the whole reason to build it — that interaction is a plan, not a leak.
    */
   readonly firstHitOfCard?: boolean;
+  /**
+   * Which swing of the card this is, counting from zero.
+   *
+   * Logged, and read by the animation layer to decide what happens at the same
+   * moment. One card that hits every enemy once is ONE event — the numbers
+   * should appear together and the bars should drop together — while a card
+   * that hits the same enemy three times is three, spaced out. Those two are
+   * indistinguishable from the log alone, because both arrive as a run of
+   * damage entries from the same card.
+   */
+  readonly swing?: number;
 }
 
 /* ---------- reading the combatants ---------- */
@@ -392,6 +403,7 @@ export function applyDamage(state: GameState, input: DamageInput, source: string
     text: `${targetName} ${takes(input.target)} ${breakdown.toHull}${breakdown.blocked > 0 ? ` (${breakdown.blocked} blocked)` : ''} — ${explainDamage(breakdown)}`,
     detail: {
       to: input.target.kind === 'player' ? 'player' : input.target.uid,
+      swing: input.swing ?? 0,
       toHull: breakdown.toHull,
       blocked: breakdown.blocked,
     },
