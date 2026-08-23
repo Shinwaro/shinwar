@@ -3506,3 +3506,41 @@ empties the file. It took `src/engine/run/effects.ts` and
 an empty test file does not fail, it *disappears* — vitest reported "no test
 suite found" rather than 54 missing assertions. Both were restored from HEAD and
 the edits redone with an explicit read, then write.
+
+## Stillwater Guard joins the opening twelve
+
+One IAI Slash and one Solar Shield out, Stillwater Guard in. Twelve again.
+
+The old 5/4/2/1 deck had eleven of twelve cards answering the same two
+questions — deal damage, absorb damage — so a hand of five could easily be four
+ways to do the thing you had already decided not to do. Two of the twelve now
+answer something else: Jettison is a thing you do to your own hand, and
+Stillwater Guard is the only opening card that touches the gauge while also
+doing something on the turn you play it.
+
+Its vent of 2 is exactly the threshold that sheds a stack of Scald, so a new
+player holds the reply to that status before ever meeting it. There is a test
+asserting the two numbers still line up — if either moves, the opening deck
+quietly stops having an answer to a debuff that never decays, and nothing else
+would say so.
+
+### And it broke the archetype nudge, which a test caught
+
+`archetypeLean` excluded `rarity === 'basic'`, with a comment explaining that
+the starting deck is the same for everyone so counting it would say every deck
+leans the same. That was a **proxy** for "came with the deck", and it held
+exactly as long as every starting card was a basic.
+
+Stillwater Guard is an uncommon GUARD card. The moment it joined the opening
+twelve, every run in the game leaned GUARD from the first reward screen — the
+soft nudge would have been pushing every player toward the same archetype
+forever, invisibly.
+
+The exclusion is now what it always meant: one copy of each card the run was
+dealt. A *second* Stillwater Guard is a choice and counts, which is the
+distinction rarity could never make.
+
+Worth keeping as the pattern: the test that caught this was not testing
+Stillwater Guard or the starting deck. It was `reads the deck lean from earned
+cards, not the starting deck` — a test written about an intention rather than an
+implementation, which is why it still fired years of changes later.

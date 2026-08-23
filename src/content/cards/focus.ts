@@ -13,6 +13,9 @@
 import type { CardDef } from '../../engine/types.ts';
 import { VULNERABLE, WEAK } from '../statuses.ts';
 
+/** Named because the starting deck holds one. */
+export const STILLWATER_GUARD = 'stillwater_guard';
+
 export const FOCUS_CARDS: readonly CardDef[] = [
   {
     id: 'settle',
@@ -113,7 +116,12 @@ export const FOCUS_CARDS: readonly CardDef[] = [
   },
 
   {
-    id: 'stillwater_guard',
+    /* In the starting deck — see `STARTING_DECK`. It is the opening hand's only
+       answer to Heat that also does something on the turn you play it, and its
+       vent of 2 is exactly the threshold that sheds a stack of Scald, so a new
+       player has a reply to that status in the deck before they have ever met
+       it. */
+    id: STILLWATER_GUARD,
     name: 'Stillwater Guard',
     type: 'skill',
     rarity: 'uncommon',

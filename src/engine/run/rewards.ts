@@ -21,6 +21,7 @@ import type {
   RunState,
 } from '../types.ts';
 import { nextFloat, pick, sample, weightedPick } from '../rng.ts';
+import { STARTING_DECK } from '../../content/cards/basic.ts';
 import {
   ACTIVE_STANCES,
   MASTERY,
@@ -41,14 +42,37 @@ export interface RolledReward {
 }
 
 /**
- * Which way the deck leans. Basic cards are excluded — the starting deck is
- * the same for everyone, so counting it would say every deck leans the same.
+ * Which way the deck leans, counting only what the player chose.
+ *
+ * The starting deck is the same for everyone, so counting it would say every
+ * deck leans the same way — and the soft archetype nudge would then be pushing
+ * every run toward whatever the opening twelve happen to be made of.
+ *
+ * This used to exclude `rarity === 'basic'`, which was a proxy for "came with
+ * the deck" and worked exactly as long as every starting card was a basic. It
+ * stopped the day Stillwater Guard joined the deck: an uncommon GUARD card in
+ * everyone's opening hand made every run in the game lean GUARD from the first
+ * reward screen. A test caught it, which is the only reason it is not still
+ * true.
+ *
+ * So the exclusion is now what it always meant: one copy of each card the run
+ * was dealt. A SECOND Stillwater Guard is a choice and counts, which is the
+ * distinction the rarity check could not make.
  */
 export function archetypeLean(run: RunState): Archetype {
+  const dealt = new Map<string, number>();
+  for (const id of STARTING_DECK) dealt.set(id, (dealt.get(id) ?? 0) + 1);
+
   const counts = new Map<Archetype, number>();
   for (const instance of run.pilot.deck) {
     const def = cardTable.find(instance.defId);
-    if (def === undefined || def.rarity === 'basic') continue;
+    if (def === undefined) continue;
+
+    const remaining = dealt.get(instance.defId) ?? 0;
+    if (remaining > 0) {
+      dealt.set(instance.defId, remaining - 1);
+      continue;
+    }
     counts.set(def.archetype, (counts.get(def.archetype) ?? 0) + 1);
   }
 

@@ -13,6 +13,10 @@ import { reloadContent } from '../src/content/index.ts';
 import { cards as cardTable } from '../src/content/registry.ts';
 import { makeFight, combatOf, firstEnemy } from './helpers.ts';
 import type { GameState } from '../src/engine/types.ts';
+import { JETTISON } from '../src/content/cards/discard.ts';
+import { STILLWATER_GUARD } from '../src/content/cards/focus.ts';
+import { SCALD } from '../src/content/statuses.ts';
+import { statuses as statusTable } from '../src/content/registry.ts';
 import {
   FANNED_CUT,
   IAI_SLASH,
@@ -35,20 +39,41 @@ function def(id: string): CardDef {
 }
 
 describe('the starting deck', () => {
-  it('is 12 cards in the DESIGN.md split', () => {
+  it('is twelve cards, and two of them are not attacks or blocks', () => {
     expect(STARTING_DECK).toHaveLength(PLAYER.startingDeckSize);
     const counts = STARTING_DECK.reduce<Record<string, number>>((acc, id) => {
       acc[id] = (acc[id] ?? 0) + 1;
       return acc;
     }, {});
-    expect(counts[IAI_SLASH]).toBe(4);
-    expect(counts[SOLAR_PARRY]).toBe(4);
+
+    expect(counts[IAI_SLASH]).toBe(3);
+    expect(counts[SOLAR_PARRY]).toBe(3);
     expect(counts[VECTOR_STEP]).toBe(2);
     expect(counts[SEVER]).toBe(1);
     // One AoE from the start: the opening deck had no answer to two enemies at
     // all, so the first pack fight was five single-target swings at two health
     // bars and "hit the same one twice" is not a decision.
     expect(counts[FANNED_CUT]).toBe(1);
+
+    /* The two that answer a different question. A deck where eleven of twelve
+       cards do damage or absorb it can deal a hand of five that are four ways
+       to do the thing you had already decided not to do. */
+    expect(counts[JETTISON], 'a way out of a dead hand').toBe(1);
+    expect(counts[STILLWATER_GUARD], 'a way off the gauge').toBe(1);
+  });
+
+  it('carries its own answer to Scald before the player meets Scald', () => {
+    /* Stillwater Guard vents 2, which is exactly the threshold that sheds a
+       stack. It is not a coincidence worth relying on silently — if either
+       number moves, the opening deck quietly stops having a reply to a status
+       that never decays. */
+    const guard = cardTable.get(STILLWATER_GUARD);
+    const vent = guard.effects.reduce(
+      (sum, op) => sum + (op.op === 'ventHeat' ? op.amount : 0),
+      0,
+    );
+    const sheds = statusTable.get(SCALD).shedOnVent ?? Number.POSITIVE_INFINITY;
+    expect(vent).toBeGreaterThanOrEqual(sheds);
   });
 
   it('names only cards that exist', () => {

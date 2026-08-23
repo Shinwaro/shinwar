@@ -12,6 +12,7 @@
 
 import type { CardDef } from '../../engine/types.ts';
 import { JETTISON } from './discard.ts';
+import { STILLWATER_GUARD } from './focus.ts';
 import { WEAK } from '../statuses.ts';
 
 export const IAI_SLASH = 'iai_slash';
@@ -157,19 +158,26 @@ export const BASIC_CARDS: readonly CardDef[] = [
 ];
 
 /**
- * 5 / 4 / 2 / 1, per DESIGN.md §8, plus one.
+ * Twelve, and two of them are not attacks or blocks.
  *
- * Thirteen now. The extra is Jettison, and it is the one card here that is not
- * a thing you do to the fight — it is a thing you do to your own hand. The
- * opening deck could draw five cards that did not combine and offer no answer
- * but ending the turn, which is the complaint the whole discard file exists to
- * fix; leaving the fix entirely in the reward pool meant a new player met the
- * problem long before they could ever meet the answer.
+ * It was 5 / 4 / 2 / 1 per DESIGN.md §8 — five IAI Slash, four Solar Shield, two
+ * Vector Step, one Sever — and the trouble with that deck is that eleven of its
+ * twelve cards answer the same two questions. A hand of five from it could
+ * easily be four ways to do the thing you had already decided not to do.
  *
- * One copy, at 1 Energy, so it is a card you have rather than a plan you run.
+ * So one Slash and one Shield came out for two cards that do something else:
+ *
+ *   - **Jettison** is the one card here that is not a thing you do to the
+ *     fight; it is a thing you do to your own hand. The opening deck could draw
+ *     five cards that did not combine and offer no answer but ending the turn.
+ *   - **Stillwater Guard** is the only opening card that touches Heat while
+ *     also doing something on the turn you play it, and its vent of 2 is
+ *     exactly the threshold that sheds a stack of Scald — so a new player holds
+ *     the reply to that status before they have ever met it.
+ *
+ * Both are one copy each. They are cards you have, not plans you run.
  */
 export const STARTING_DECK: readonly string[] = [
-  IAI_SLASH,
   IAI_SLASH,
   IAI_SLASH,
   IAI_SLASH,
@@ -181,9 +189,9 @@ export const STARTING_DECK: readonly string[] = [
   SOLAR_PARRY,
   SOLAR_PARRY,
   SOLAR_PARRY,
-  SOLAR_PARRY,
   VECTOR_STEP,
   VECTOR_STEP,
   SEVER,
   JETTISON,
+  STILLWATER_GUARD,
 ];

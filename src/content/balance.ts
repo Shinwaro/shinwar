@@ -16,7 +16,7 @@ export const PLAYER = {
   maxHealth: 70,
   energyPerTurn: 3,
   drawPerTurn: 5,
-  startingDeckSize: 13,
+  startingDeckSize: 12,
   startingAlloy: 0,
 } as const;
 
