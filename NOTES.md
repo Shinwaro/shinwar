@@ -3411,3 +3411,42 @@ does its own arithmetic is a page that can disagree with the game.
 
 The output is gitignored. It is derived, and a derived file in a diff is noise
 that is stale the moment anything changes.
+
+## The Block number, and naming things you cannot see
+
+### Block reads at the weight of the thing it protects
+
+It was 0.85rem regular against health at 0.95rem, which put the number that
+decides whether the next blow reaches you *below* the one that only says how
+much is left. Matched to `.stat-value` and set bold. The glyph is `0.9em` rather
+than a fixed size, so the pair stays in proportion if either ever moves.
+
+An enemy's Block is pinned to ITS health number instead. The bump is for the
+readout you steer by, and an enemy shield larger than the hull figure beside it
+would say the wrong thing about which one matters.
+
+### "Gain Dead Reckoning" now shows you Dead Reckoning
+
+An Anomaly that offers a card names something the player has never seen and asks
+for a decision about it in the same sentence. Same for "Thread: Marked".
+
+The name has to stay inside the sentence — a list of definitions beside the
+option breaks the reading — so `describeRunEffectSegments` returns the generated
+line in pieces and the UI makes the named pieces into handles. Segmented rather
+than handing the UI a list of ids to rebuild the string from: the string is
+generated for the same reason card text is, and a second assembler in the UI is
+a second thing to keep in step. A test joins the segments back and asserts they
+equal the flat line for every option in the game.
+
+The panel renders the real card face — the same `renderCardFace` the hand uses —
+so a card you peek at in an Anomaly is the same object as the card you will be
+holding.
+
+**Hover is never the only route.** It is a real `<button>`: it opens on focus and
+on click as well, which is what makes it work for the keyboard and on a phone,
+where hover does not exist. A native `title` could not have done any of it —
+unreachable by keyboard, unstyleable, and no card face inside.
+
+A Thread shows its description and its omen, never its payoff. A Thread is a
+promise that something is coming; printing what it pays turns a decision under
+uncertainty into arithmetic and takes the mechanic with it.

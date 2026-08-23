@@ -15,7 +15,8 @@ import type { EventOption, GameState } from '../../engine/types.ts';
 import type { Store } from '../store.ts';
 import { requireRun } from '../../engine/state.ts';
 import { optionsFor, refusalFor } from '../../engine/run/events.ts';
-import { describeRunEffects } from '../../engine/run/describe.ts';
+import { describeRunEffectSegments } from '../../engine/run/describe.ts';
+import { renderRunSegments } from '../components/peek.ts';
 import { events as eventTable } from '../../content/registry.ts';
 import { button, el, fill } from '../dom.ts';
 import { liveScreen } from '../screen.ts';
@@ -50,14 +51,19 @@ function build(store: Store, state: GameState): HTMLElement | null {
       ? el(
           'div',
           { class: 'anomaly-options' },
-          options.map((option) => renderOption(store, option, refusalFor(run, option))),
+          options.map((option) => renderOption(store, state, option, refusalFor(run, option))),
         )
       : renderOutcome(store, chosen, pending.outcome),
   ]);
 }
 
-function renderOption(store: Store, option: EventOption, refusal: string | null): HTMLElement {
-  const mechanics = describeRunEffects(option.effects);
+function renderOption(
+  store: Store,
+  state: GameState,
+  option: EventOption,
+  refusal: string | null,
+): HTMLElement {
+  const mechanics = describeRunEffectSegments(option.effects);
 
   const node = button(
     '',
@@ -75,9 +81,15 @@ function renderOption(store: Store, option: EventOption, refusal: string | null)
     el('span', { class: 'anomaly-option-detail' }, [option.detail]),
     // Generated from the effects, never hand-written, so it cannot drift from
     // what the option actually does.
-    mechanics === ''
+    mechanics.length === 0
       ? el('span', { class: 'anomaly-option-effect is-nothing' }, ['Nothing happens'])
-      : el('span', { class: 'anomaly-option-effect' }, [mechanics]),
+      : el(
+          'span',
+          { class: 'anomaly-option-effect' },
+          /* Cards and Threads named here are things the player has never seen
+             and is being asked to decide about, so the name itself opens. */
+          renderRunSegments(mechanics, state),
+        ),
     // Refused options stay on screen rather than vanishing: knowing what you
     // could not afford is part of reading the situation.
     refusal === null ? null : el('span', { class: 'anomaly-refusal' }, [refusal]),

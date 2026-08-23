@@ -10,7 +10,7 @@
  * its risk/payoff categories. Never its numbers.
  */
 
-import type { ImplantDef, MapNode, RelicPassive, RunEffect } from '../types.ts';
+import type { ImplantDef, MapNode, RelicPassive, RunEffect, RunSegment } from '../types.ts';
 import { cards as cardTable, threads as threadTable } from '../../content/registry.ts';
 
 export function describeRunEffect(effect: RunEffect): string {
@@ -57,6 +57,61 @@ export function describeRunEffect(effect: RunEffect): string {
       return unreachable;
     }
   }
+}
+
+/**
+ * The same line, in pieces, so the UI can make the named things inspectable.
+ *
+ * A card or a Thread named in an Anomaly's text is a thing the player has
+ * never seen and is being asked to decide about: "Gain Dead Reckoning" and
+ * "Thread: Marked" are both the game naming something and then not showing it.
+ * The name has to stay in the sentence — a separate list beside the option
+ * would break the reading — so the sentence is returned in parts and the UI
+ * makes those parts hoverable.
+ *
+ * Segmenting rather than returning ids and letting the UI rebuild the string:
+ * the string is generated for the same reason card text is, and a second
+ * assembler in the UI is a second thing to keep in step.
+ */
+function segmentsFor(effect: RunEffect): readonly RunSegment[] {
+  if (effect.op === 'card') {
+    const def = cardTable.find(effect.cardId);
+    return [
+      { kind: 'text', text: 'Gain ' },
+      { kind: 'card', cardId: effect.cardId, text: def?.name ?? effect.cardId },
+      ...(effect.upgraded === true
+        ? [{ kind: 'text', text: ' (upgraded)' } as const]
+        : []),
+    ];
+  }
+
+  if (effect.op === 'setThread' || effect.op === 'resolveThread') {
+    const def = threadTable.find(effect.threadId);
+    if (def === undefined) return [{ kind: 'text', text: describeRunEffect(effect) }];
+    return effect.op === 'setThread'
+      ? [
+          { kind: 'text', text: 'Thread: ' },
+          { kind: 'thread', threadId: effect.threadId, text: def.name },
+        ]
+      : [
+          { kind: 'thread', threadId: effect.threadId, text: def.name },
+          { kind: 'text', text: ' resolves' },
+        ];
+  }
+
+  return [{ kind: 'text', text: describeRunEffect(effect) }];
+}
+
+/** The whole line in pieces, with the same ` · ` joins as the flat version. */
+export function describeRunEffectSegments(
+  effects: readonly RunEffect[],
+): readonly RunSegment[] {
+  const out: RunSegment[] = [];
+  effects.forEach((effect, index) => {
+    if (index > 0) out.push({ kind: 'text', text: ' · ' });
+    out.push(...segmentsFor(effect));
+  });
+  return out;
 }
 
 /** One line, in order. Empty when an option is pure narrative — "Leave". */

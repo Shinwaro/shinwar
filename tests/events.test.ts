@@ -7,12 +7,15 @@
  */
 
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { EventDef, GameState, RunState } from '../src/engine/types.ts';
+import type { EventDef, GameState, RunSegment, RunState } from '../src/engine/types.ts';
 import { createInitialState, createRunState } from '../src/engine/state.ts';
 import { applyAction } from '../src/engine/reducer.ts';
 import { enterNode } from '../src/engine/run/run.ts';
 import { applyRunEffects } from '../src/engine/run/effects.ts';
-import { describeRunEffects } from '../src/engine/run/describe.ts';
+import {
+  describeRunEffectSegments,
+  describeRunEffects,
+} from '../src/engine/run/describe.ts';
 import {
   canTakeOption,
   chooseEventOption,
@@ -531,5 +534,64 @@ describe('what health costs', () => {
         expect(lent, `${event.id}/${option.id}`).toBeLessThan(owed);
       }
     }
+  });
+});
+
+describe('naming a thing the player has not seen', () => {
+  /* "Gain Dead Reckoning" and "Thread: Marked" both name something and then do
+     not show it — while asking for a decision about it. The name has to stay
+     inside the sentence, so the sentence comes back in pieces and the UI makes
+     the named pieces open.
+
+     These assert the seam: the segments must join back into exactly the flat
+     string, or the reference and the game are telling the player two different
+     things about the same option. */
+
+  function flatten(segments: readonly RunSegment[]): string {
+    return segments.map((segment) => segment.text).join('');
+  }
+
+  it('joins back into the line it came from, for every option in the game', () => {
+    for (const event of eventTable.all()) {
+      for (const option of event.options) {
+        expect(
+          flatten(describeRunEffectSegments(option.effects)),
+          `${event.id}/${option.id}`,
+        ).toBe(describeRunEffects(option.effects));
+      }
+    }
+  });
+
+  it('picks out the cards and the Threads, and nothing else', () => {
+    const segments = describeRunEffectSegments([
+      { op: 'alloy', amount: 40 },
+      { op: 'card', cardId: 'dead_reckoning' },
+      { op: 'setThread', threadId: 'marked' },
+    ]);
+
+    const cards = segments.filter((s) => s.kind === 'card');
+    const threads = segments.filter((s) => s.kind === 'thread');
+    expect(cards).toHaveLength(1);
+    expect(threads).toHaveLength(1);
+    // The NAME, not the id — the id is for the lookup, the name is the reading.
+    expect(cards[0]?.text).toBe(cardTable.get('dead_reckoning').name);
+    expect(threads[0]?.text).toBe(threadTable.get('marked').name);
+  });
+
+  it('leaves an unknown id as plain text rather than an empty handle', () => {
+    // A handle that opens onto nothing is worse than no handle.
+    const segments = describeRunEffectSegments([{ op: 'setThread', threadId: 'nope' }]);
+    expect(segments.every((s) => s.kind === 'text')).toBe(true);
+  });
+
+  it('finds something to point at in the shipped pool', () => {
+    // Guards the guard: if the ops were renamed this would quietly pass over an
+    // empty set and stop protecting anything.
+    const named = eventTable
+      .all()
+      .flatMap((event) => event.options)
+      .flatMap((option) => describeRunEffectSegments(option.effects))
+      .filter((segment) => segment.kind !== 'text');
+    expect(named.length).toBeGreaterThan(10);
   });
 });

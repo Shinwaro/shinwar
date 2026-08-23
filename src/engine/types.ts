@@ -417,6 +417,15 @@ export type RunEffect =
   /** A fight that arrives instead of whatever the node was going to be. */
   | { readonly op: 'ambush'; readonly tier: 'combat' | 'elite' };
 
+/**
+ * A generated run-effect line, in pieces, so the UI can make the things it
+ * names inspectable. Built by `describeRunEffectSegments`.
+ */
+export type RunSegment =
+  | { readonly kind: 'text'; readonly text: string }
+  | { readonly kind: 'card'; readonly cardId: CardId; readonly text: string }
+  | { readonly kind: 'thread'; readonly threadId: ThreadId; readonly text: string };
+
 export interface EventOption {
   readonly id: string;
   readonly label: string;

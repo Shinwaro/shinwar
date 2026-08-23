@@ -276,16 +276,25 @@
 /* Block sits on the hull row because it is the thing standing in front of the
    hull. When it is up it reads as armour; at zero it stays visible but recedes,
    so "I have no Block" is as legible as "I have 9". */
+/* The Block number reads at the same weight as the health beside it.
+ *
+ * It was a size smaller and a regular weight, which put the one number that
+ * decides whether the next blow reaches you below the one that only says how
+ * much is left. Matched to `.stat-value` at 0.95rem and set bold, because on a
+ * turn where Block is the whole plan it should be the thing the eye lands on
+ * first — and the glyph is sized from the number rather than fixed, so the two
+ * stay in proportion if either ever moves. */
 .shield {
   display: inline-flex;
   align-items: center;
-  gap: 0.2rem;
+  gap: 0.25rem;
   margin-left: auto;
-  padding: 0.05rem 0.45rem;
+  padding: 0.05rem 0.5rem;
   border: 1px solid transparent;
   border-radius: 999px;
   font-family: var(--mono);
-  font-size: 0.85rem;
+  font-size: 0.95rem;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
@@ -301,7 +310,9 @@
 }
 
 .shield-icon {
-  font-size: 0.8rem;
+  /* Relative to the number, so the pair scales together. */
+  font-size: 0.9em;
+  font-weight: 400;
 }
 
 .bar {
@@ -2329,8 +2340,12 @@
   transform: translateY(-3px);
 }
 
+/* An enemy's Block matches ITS health number, not the player's. The bump above
+   is for the readout you are steering by; an enemy shield larger than the hull
+   figure beside it would say the wrong thing about which matters. */
 .enemy .shield {
   margin-left: 0;
+  font-size: 0.85rem;
 }
 
 .resource--info {
@@ -3288,3 +3303,102 @@
 
 /* Whichever one is swinging at you. */
 .enemy.is-acting .glyph { color: var(--danger); }
+
+/* ---------- peek ----------
+
+   A name inside generated text that you can look at. The Anomaly that offers
+   "Gain Dead Reckoning" is naming a card the player has never seen and asking
+   for a decision about it in the same sentence, so the name is the handle.
+
+   Bold and underlined because it has to read as interactive inside a line of
+   prose, where there is no other affordance available — a colour alone would
+   be a code, and this game already spends its colours on stance and tier. */
+
+.peek {
+  position: relative;
+  display: inline;
+}
+
+.peek-name {
+  appearance: none;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: 700;
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 0.18em;
+  cursor: help;
+}
+
+.peek-name:hover,
+.peek-name:focus-visible {
+  color: var(--accent);
+  text-decoration-style: solid;
+}
+
+/* Hidden by default and revealed by hover, by keyboard focus, or by a click
+   that sets `is-open` — the third is what makes it work on a touch screen,
+   where the first two do not exist. */
+.peek-panel {
+  position: absolute;
+  bottom: calc(100% + 0.4rem);
+  left: 50%;
+  translate: -50% 0;
+  z-index: 30;
+  display: grid;
+  gap: 0.3rem;
+  width: max-content;
+  max-width: min(18rem, 80vw);
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-solid);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.6);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  text-align: left;
+}
+
+.peek:hover .peek-panel,
+.peek:focus-within .peek-panel,
+.peek.is-open .peek-panel {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* The card face is the real component, so a card peeked at in an Anomaly is
+   the same object as the card you will be holding. It does not need the hand's
+   hover lift inside a tooltip. */
+.peek-panel .card {
+  width: 13rem;
+  cursor: default;
+  transform: none;
+}
+
+.peek-panel--thread { max-width: min(20rem, 84vw); }
+
+.peek-title {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.peek-desc {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+/* The omen, never the payoff. A Thread is a promise that something is coming;
+   printing what it pays would turn the decision into arithmetic. */
+.peek-omen {
+  font-size: 0.78rem;
+  font-style: italic;
+  color: var(--faint, rgba(242, 240, 236, 0.42));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .peek-panel { transition: none; }
+}
