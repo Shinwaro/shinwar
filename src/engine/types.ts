@@ -229,7 +229,14 @@ export interface CardDef {
  * one damage pipeline and one heat path rather than two of each.
  */
 export interface EnvironmentRules {
-  /** Stellar Corona: every Heat gain is this much larger. */
+  /**
+   * Stellar Corona: Heat a CARD YOU PLAY gives you is this much larger.
+   *
+   * Cards only, deliberately. Applied to every source it also taxed the IAI
+   * stance tick, Scald and enemy moves — three things the player cannot price
+   * in when choosing what to play, so the corona read as a flat "you overheat
+   * sooner" rather than a rule about the deck in your hand.
+   */
   readonly heatGainBonus?: number;
   /** Deep Void: Heat falls on its own at the end of each turn. */
   readonly heatDecayPerTurn?: number;

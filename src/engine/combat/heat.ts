@@ -91,10 +91,21 @@ export function heatStatus(state: GameState): {
  * the resulting number is the sum of a recursion rather than a rule — so
  * Stellar Corona is declared in `EnvironmentRules` and applied here.
  */
-export function gainHeat(state: GameState, amount: number, source: string): GameState {
+export function gainHeat(
+  state: GameState,
+  amount: number,
+  source: string,
+  /**
+   * `fromCard: true` is the only thing Stellar Corona surcharges. A stance
+   * tick, a Scald tick and an enemy move all reach here too, and taxing those
+   * made the corona a rule about the clock rather than a rule about the cards
+   * in your hand — which is the version a player can actually play around.
+   */
+  options: { readonly fromCard?: boolean } = {},
+): GameState {
   if (amount <= 0) return state;
   const combat = requireCombat(state);
-  const bonus = environmentRules(state).heatGainBonus ?? 0;
+  const bonus = options.fromCard === true ? (environmentRules(state).heatGainBonus ?? 0) : 0;
   const total = Math.min(HEAT.max, combat.heat + amount + bonus);
   const gained = total - combat.heat;
   if (gained === 0) return state;

@@ -438,7 +438,11 @@ function applyOp(state: GameState, op: EffectOp, context: EffectContext): Effect
     }
 
     case 'gainHeat':
-      return keep(gainHeat(state, op.amount, context.source));
+      /* Only Heat from a card you played is surcharged by Stellar Corona. An
+         enemy move reaches this same op, and it is not a card in your hand. */
+      return keep(
+        gainHeat(state, op.amount, context.source, { fromCard: context.actor.kind === 'player' }),
+      );
 
     case 'ventHeat':
       /* A card cannot give you Scald and take it back in the same breath. Over

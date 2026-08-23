@@ -85,10 +85,15 @@ export const STATUSES: readonly StatusDef[] = [
   {
     id: RUST,
     name: 'Rust',
-    text: 'Takes 1 damage per stack at the start of its turn. Ignores Block.',
+    text: 'Takes 2 damage per stack at the start of its turn. Ignores Block.',
     kind: 'debuff',
     decay: 'turn',
-    damagePerTurn: 1,
+    /* 1 was not worth a card. Rust costs a whole play to apply, decays a stack
+       a turn, and pays out at the START of the target's turn — so a single
+       stack landed for 1 and was gone. At 2 the trade is a real one: it beats
+       plain damage on anything you will be fighting for more than a turn, and
+       it still walks past Block, which is the reason to reach for it. */
+    damagePerTurn: 2,
   },
   /* The mirror of Weak, and capped for the same reason. Reuses
      `damageTakenMult` and `multFloor` exactly as Weak and Vulnerable do, so it

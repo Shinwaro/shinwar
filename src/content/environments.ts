@@ -66,7 +66,7 @@ export const ENVIRONMENTS: readonly EnvironmentDef[] = [
   {
     id: STELLAR_CORONA_ID,
     name: 'Stellar Corona',
-    text: 'All Heat gain +1.',
+    text: 'Cards that give you Heat give 1 more.',
     /* The doubled vent came out. It was meant as compensation -- Heat arrives
        faster but leaves faster -- and in play it mostly cancelled itself: a
        deck with any vent at all barely noticed the corona, and a deck without

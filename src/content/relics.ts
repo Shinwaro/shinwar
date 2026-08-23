@@ -186,7 +186,7 @@ export const RELICS: readonly RelicDef[] = [
     id: 'backdraft',
     name: 'Backdraft',
     text: 'Draw 2 cards when you overheat.',
-    rarity: 'uncommon',
+    rarity: 'common',
     flavor: 'Something has to come out of it.',
   },
 
@@ -245,7 +245,7 @@ export const RELICS: readonly RelicDef[] = [
     id: 'cauterising_plate',
     name: 'Cauterising Plate',
     text: 'Gain 10 Block when you overheat.',
-    rarity: 'uncommon',
+    rarity: 'common',
     flavor: 'The plate does not mind the heat. That is the entire design brief.',
   },
   {

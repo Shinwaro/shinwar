@@ -8,7 +8,7 @@
  */
 
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { GameState } from '../src/engine/types.ts';
+import type { EffectOp, GameState } from '../src/engine/types.ts';
 import { createInitialState, requireCombat } from '../src/engine/state.ts';
 import { createRng } from '../src/engine/rng.ts';
 import { applyAction } from '../src/engine/reducer.ts';
@@ -27,6 +27,8 @@ import { setStance } from '../src/engine/combat/stance.ts';
 import { intentVisible } from '../src/engine/combat/intents.ts';
 import { environmentRules, liveStance, stanceChangeLimit } from '../src/engine/combat/rules.ts';
 import { gainHeat, ventHeat } from '../src/engine/combat/heat.ts';
+import { applyEffects, createContext } from '../src/engine/combat/effects.ts';
+import { PLAYER as PLAYER_SIDE } from '../src/engine/combat/damage.ts';
 import { ACTIVE_STANCES, ACT_CLEAR_HEAL_PCT, BOSS_MAX_HEALTH, MASTERY, WAVEFRONT } from '../src/content/balance.ts';
 import {
   CHRONAL_SHEAR_ID,
@@ -93,10 +95,35 @@ describe('the environment pool', () => {
 });
 
 describe('environments that modify a calculation', () => {
-  it('Stellar Corona adds to every Heat gain', () => {
+  it('Stellar Corona surcharges the Heat a card gives you', () => {
     const state = inEnvironment(STELLAR_CORONA_ID);
-    const hot = gainHeat(state, 2, 'test');
+    const hot = gainHeat(state, 2, 'test', { fromCard: true });
     expect(combatOf(hot).heat).toBe(2 + (environmentRules(state).heatGainBonus ?? 0));
+  });
+
+  it('Stellar Corona leaves every other source of Heat alone', () => {
+    /* It used to tax all of them, and that made it a rule about the clock
+       rather than a rule about the cards in your hand. A stance tick, a Scald
+       tick and an enemy move are all Heat the player cannot price in when
+       choosing what to play, so the surcharge would only ever arrive as a
+       surprise. Cards are the part you are deciding about. */
+    const state = inEnvironment(STELLAR_CORONA_ID);
+    expect(combatOf(gainHeat(state, 2, 'test')).heat).toBe(2);
+  });
+
+  it('surcharges a card the player plays and not an enemy move', () => {
+    /* Both reach the same effect op. The discriminator is who is acting, so it
+       is asserted through the op rather than through `gainHeat` directly. */
+    const state = inEnvironment(STELLAR_CORONA_ID);
+    const ops: readonly EffectOp[] = [{ op: 'gainHeat', amount: 2 }];
+    const byPlayer = applyEffects(state, ops, createContext('card', PLAYER_SIDE, null));
+    const byEnemy = applyEffects(
+      state,
+      ops,
+      createContext('move', enemyTarget(combatOf(state).enemies[0]!.uid), PLAYER_SIDE),
+    );
+    expect(combatOf(byPlayer.state).heat).toBe(3);
+    expect(combatOf(byEnemy.state).heat).toBe(2);
   });
 
   it('Stellar Corona leaves the vent alone', () => {
