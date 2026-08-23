@@ -20,7 +20,7 @@
  * decision under uncertainty into arithmetic.
  */
 
-import type { GameState, RunSegment } from '../../engine/types.ts';
+import type { GameState, OutcomeLine, RunSegment } from '../../engine/types.ts';
 import { cards as cardTable, threads as threadTable } from '../../content/registry.ts';
 import { el } from '../dom.ts';
 import { renderCardFace } from './card.ts';
@@ -85,6 +85,44 @@ function threadPeek(threadId: string, label: string): HTMLElement {
     ]),
     'thread',
   );
+}
+
+/**
+ * One line of an Anomaly's outcome, with whatever it named made inspectable.
+ *
+ * The reference travels on the line rather than being parsed back out of the
+ * text: the sentence is prose written for a person, and matching a card name
+ * against it would be a parser that breaks the first time a card is called
+ * something that appears in another word.
+ */
+export function renderOutcomeLine(line: OutcomeLine, state: GameState | null): readonly Node[] {
+  if (line.cardId !== undefined) {
+    const def = cardTable.find(line.cardId);
+    if (def !== undefined) return splitAround(line.text, def.name, cardPeek(line.cardId, def.name, state));
+  }
+  if (line.threadId !== undefined) {
+    const def = threadTable.find(line.threadId);
+    if (def !== undefined) return splitAround(line.text, def.name, threadPeek(line.threadId, def.name));
+  }
+  return [document.createTextNode(line.text)];
+}
+
+/**
+ * Put the handle where the name already is, and leave the rest as prose.
+ *
+ * The line was written as a sentence — "Sever leaves the deck" — so the name
+ * has a place in it already and moving it would read worse. Falls back to the
+ * plain sentence if the name is not in it, which keeps a rewording of a line
+ * from silently producing a duplicate name.
+ */
+function splitAround(text: string, name: string, handle: HTMLElement): readonly Node[] {
+  const at = text.indexOf(name);
+  if (at === -1) return [document.createTextNode(text)];
+  return [
+    document.createTextNode(text.slice(0, at)),
+    handle,
+    document.createTextNode(text.slice(at + name.length)),
+  ];
 }
 
 /** Render a generated run-effect line with its named things made inspectable. */

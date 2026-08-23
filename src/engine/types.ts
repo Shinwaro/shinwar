@@ -369,6 +369,22 @@ export interface StatusDef {
    */
   readonly multFloor?: number;
   /**
+   * One stack falls off when the holder vents this much Heat in a single
+   * action.
+   *
+   * Scald's problem was that it never went away and every turn added another
+   * Heat, so a long fight turned a two-stack debuff into a second overheat
+   * clock the player could not touch. There was no counterplay at all — only
+   * the hope of ending the fight before the arithmetic did.
+   *
+   * A vent big enough to matter is the counterplay, which is the right one: it
+   * is the same resource the status attacks, so answering Scald costs you the
+   * cards you would rather have spent on damage. Declared here rather than
+   * hooked because the rule belongs to the status and reads better beside the
+   * number it undoes, and so `describeStatus` can say it out loud.
+   */
+  readonly shedOnVent?: number;
+  /**
    * Unblockable damage per stack, at the start of the holder's turn.
    *
    * Declared rather than hooked so a rust is a row in a table instead of a
@@ -905,16 +921,37 @@ export interface ResolvedThread {
   readonly name: string;
   /** What you took on, in the words the Manifest has been showing all along. */
   readonly promise: string;
-  /** What it actually did, generated from the payoff effects. */
-  readonly lines: readonly string[];
+  /**
+   * What it actually did, generated from the payoff effects.
+   *
+   * The same shape as an Anomaly's outcome, so a Thread coming due can name the
+   * card it just handed you or took away and have that name open — the arrival
+   * screen is the one place a payoff is read, and a card named there is one you
+   * may never have seen.
+   */
+  readonly lines: readonly OutcomeLine[];
   readonly tone: ThreadTone;
+}
+
+/** One line of an Anomaly's outcome, with what it named if it named anything. */
+export interface OutcomeLine {
+  readonly text: string;
+  readonly cardId?: CardId;
+  readonly threadId?: ThreadId;
 }
 
 export interface PendingEvent {
   readonly eventId: EventId;
   readonly chosenOptionId: string | null;
-  /** What happened, in order, once an option is taken. */
-  readonly outcome: readonly string[];
+  /**
+   * What happened, in order, once an option is taken.
+   *
+   * A line rather than a string, because the ones that name a card or a Thread
+   * carry its id — "Sever leaves the deck" is the game telling you about a card
+   * you may never have read, at the one moment it stops being available to
+   * read. The UI turns the reference into something you can look at.
+   */
+  readonly outcome: readonly OutcomeLine[];
 }
 
 export interface ShopCardStock {

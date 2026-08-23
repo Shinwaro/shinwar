@@ -14,18 +14,18 @@
  *     indistinguishable from one that did not happen.
  */
 
-import type { GameState, RunEffect } from '../types.ts';
+import type { CardId, GameState, OutcomeLine, RunEffect, ThreadId } from '../types.ts';
 import { appendLog, requireRun, withRun } from '../state.ts';
 import { nextInt } from '../rng.ts';
 import { mintCard } from '../combat/instances.ts';
 import { gainAlloy, spendAlloy } from './economy.ts';
 import { resolveThread, setThread } from './threads.ts';
-import { cards as cardTable } from '../../content/registry.ts';
+import { cards as cardTable, threads as threadTable } from '../../content/registry.ts';
 
 export interface RunEffectResult {
   readonly state: GameState;
   /** One line per effect that did something, in order. */
-  readonly lines: readonly string[];
+  readonly lines: readonly OutcomeLine[];
 }
 
 export function applyRunEffects(
@@ -34,12 +34,12 @@ export function applyRunEffects(
   source: string,
 ): RunEffectResult {
   let current = state;
-  const lines: string[] = [];
+  const lines: OutcomeLine[] = [];
 
   for (const effect of effects) {
     const applied = applyOne(current, effect, source);
     current = applied.state;
-    if (applied.line !== null) lines.push(applied.line);
+    if (applied.line !== null) lines.push({ text: applied.line, ...applied.ref });
   }
 
   return { state: current, lines };
@@ -48,6 +48,15 @@ export function applyRunEffects(
 interface Single {
   readonly state: GameState;
   readonly line: string | null;
+  /**
+   * What the line named, so the screen can let the player look at it.
+   *
+   * The reference travels with the line rather than being parsed back out of
+   * it: the text is prose written for a person, and matching a card name
+   * against it would be a parser that breaks the first time a card is called
+   * something that appears inside another word.
+   */
+  readonly ref?: { readonly cardId?: CardId; readonly threadId?: ThreadId };
 }
 
 function applyOne(state: GameState, effect: RunEffect, source: string): Single {
@@ -108,6 +117,7 @@ function applyOne(state: GameState, effect: RunEffect, source: string): Single {
           `Took ${def.name}.`,
         ),
         line: `${def.name} joins the deck.`,
+        ref: { cardId: effect.cardId },
       };
     }
 
@@ -134,6 +144,7 @@ function applyOne(state: GameState, effect: RunEffect, source: string): Single {
           `Upgraded ${name}.`,
         ),
         line: `${name} is upgraded.`,
+        ref: { cardId: chosen.defId },
       };
     }
 
@@ -157,19 +168,33 @@ function applyOne(state: GameState, effect: RunEffect, source: string): Single {
           `Lost ${name}.`,
         ),
         line: `${name} leaves the deck.`,
+        ref: { cardId: chosen.defId },
       };
     }
 
     case 'setThread': {
       const next = setThread(state, effect.threadId);
       if (next === state) return { state, line: null };
-      return { state: next, line: 'A thread opens. Check the Manifest.' };
+      /* Names the Thread, now that the name opens onto something. It used to
+         say only "a thread opens", which sent the player to the Manifest to
+         find out which — a second screen for a fact this line already had. */
+      const opened = threadTable.find(effect.threadId);
+      return {
+        state: next,
+        line: opened === undefined ? 'A thread opens.' : `Thread: ${opened.name}.`,
+        ref: { threadId: effect.threadId },
+      };
     }
 
     case 'resolveThread': {
       const next = resolveThread(state, effect.threadId);
       if (next === state) return { state, line: null };
-      return { state: next, line: 'A thread closes.' };
+      const closed = threadTable.find(effect.threadId);
+      return {
+        state: next,
+        line: closed === undefined ? 'A thread closes.' : `${closed.name} closes.`,
+        ref: { threadId: effect.threadId },
+      };
     }
 
     case 'ambush': {

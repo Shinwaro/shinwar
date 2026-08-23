@@ -15,6 +15,7 @@ import { requireRun } from '../../engine/state.ts';
 import { button, el } from '../dom.ts';
 import { liveScreen } from '../screen.ts';
 import { prefersReducedMotion } from '../anim.ts';
+import { renderOutcomeLine } from '../components/peek.ts';
 
 /**
  * How long it holds before moving on.
@@ -75,7 +76,9 @@ export function renderLanding(store: Store): HTMLElement {
               : el(
                   'ul',
                   { class: 'landing-thread-lines' },
-                  thread.lines.map((line) => el('li', { class: 'landing-thread-line' }, [line])),
+                  thread.lines.map((line) =>
+                    el('li', { class: 'landing-thread-line' }, renderOutcomeLine(line, state)),
+                  ),
                 ),
           ]),
         ),

@@ -22,8 +22,9 @@ import type { GameState } from '../types.ts';
 import { appendLog, requireCombat, requireRun, withCombat, withRun } from '../state.ts';
 import { fireHook } from '../hooks.ts';
 import { HEAT } from '../../content/balance.ts';
-import { cards as cardTable } from '../../content/registry.ts';
+import { cards as cardTable, statuses as statusTable } from '../../content/registry.ts';
 import { PLAYER, applyDirectDamage } from './damage.ts';
+import { addStacks } from './keywords.ts';
 import { moveToExhaust, randomFromHand } from './piles.ts';
 import { environmentRules, pilotRules } from './rules.ts';
 
@@ -112,11 +113,50 @@ export function ventHeat(state: GameState, amount: number, source: string): Game
   const vented = combat.heat - total;
   if (vented === 0) return state;
 
-  const next = appendLog(
+  let next = appendLog(
     withCombat(state, (current) => ({ ...current, heat: total })),
     { source, kind: 'heat', text: `Vented ${vented} Heat (${total}/${HEAT.max}).`, detail: { total } },
   );
+
+  /* A vent worth the name sheds the statuses that declare it.
+   *
+   * The size is measured on what was ACTUALLY vented, not on what was asked
+   * for — venting 4 against a gauge holding 1 is a vent of 1, and it should not
+   * clear a stack of anything. That is also what stops the counterplay being
+   * "hold a big vent and fire it at zero Heat", which would be free.
+   *
+   * One stack per vent, however large. Scald is meant to cost you turns to
+   * unwind, not to evaporate the moment you draw the right card. */
+  next = shedOnVent(next, vented, source);
+
   return fireHook(next, 'onHeatVented', { amount: vented, total });
+}
+
+/** Drop one stack of every status whose `shedOnVent` this vent has met. */
+function shedOnVent(state: GameState, vented: number, source: string): GameState {
+  const combat = requireCombat(state);
+  const shedding = combat.statuses.filter((held) => {
+    const threshold = statusTable.find(held.status)?.shedOnVent;
+    return threshold !== undefined && vented >= threshold;
+  });
+  if (shedding.length === 0) return state;
+
+  let next = state;
+  for (const held of shedding) {
+    const def = statusTable.find(held.status);
+    if (def === undefined) continue;
+    next = withCombat(next, (current) => ({
+      ...current,
+      statuses: addStacks(current.statuses, held.status, -1),
+    }));
+    next = appendLog(next, {
+      source,
+      kind: 'status',
+      text: `${def.name} -1, shed by the vent.`,
+      detail: { status: held.status },
+    });
+  }
+  return next;
 }
 
 /**

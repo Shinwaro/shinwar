@@ -6,7 +6,7 @@
  */
 
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { EnemyAiState, EnemyDef } from '../src/engine/types.ts';
+import type { EnemyAiState, EnemyDef, GameState } from '../src/engine/types.ts';
 import { reloadContent } from '../src/content/index.ts';
 import { applyAction, applyActions } from '../src/engine/reducer.ts';
 import { createInitialState } from '../src/engine/state.ts';
@@ -24,10 +24,10 @@ import { roundOwed } from '../src/engine/combat/combat.ts';
 import { chooseMove } from '../src/engine/combat/ai.ts';
 import { createRng } from '../src/engine/rng.ts';
 import { nextStance } from '../src/engine/combat/stance.ts';
-import { overheatDamageAt } from '../src/engine/combat/heat.ts';
-import { addStacks, clearFresh, decayStatuses } from '../src/engine/combat/keywords.ts';
+import { overheatDamageAt, ventHeat } from '../src/engine/combat/heat.ts';
+import { addStacks, clearFresh, decayStatuses, stacksOf } from '../src/engine/combat/keywords.ts';
 import { SCALD, WEAK } from '../src/content/statuses.ts';
-import { cards as cardTable } from '../src/content/registry.ts';
+import { cards as cardTable, statuses as statusTable } from '../src/content/registry.ts';
 import { CLEAR_SPACE_ID } from '../src/content/environments.ts';
 import { ACTIVE_STANCES, HEAT, PLAYER, STANCES } from '../src/content/balance.ts';
 import { IAI_SLASH, SEVER, SOLAR_PARRY, VECTOR_STEP } from '../src/content/cards/basic.ts';
@@ -647,5 +647,69 @@ describe('the gap between the last blow and your turn', () => {
     const settled = endTurnImmediately(telegraphAll(makeFight({ enemyIds: ['cinder_wisp'] })));
     expect(roundOwed(settled)).toBe(false);
     if (combatOf(settled).outcome === 'ongoing') expect(combatOf(settled).turn).toBe(2);
+  });
+});
+
+describe('Scald, and the way out of it', () => {
+  /* Scald never decays — that is the point of it, and it was also the whole
+     problem. In a long fight it stacked into a second overheat clock the player
+     could not touch, and the only counterplay was ending the fight before the
+     arithmetic did.
+
+     A vent worth the name sheds a stack. It is the right counterplay because it
+     is the same resource the status attacks: answering Scald costs you the
+     cards you would rather have spent on damage. */
+
+  function scalded(stacks: number, heat: number): GameState {
+    return makeFight({
+      heat,
+      playerStatuses: [{ status: SCALD, stacks, fresh: false }],
+    });
+  }
+
+  it('sheds a stack when the vent is big enough', () => {
+    const before = scalded(3, 8);
+    const after = ventHeat(before, 2, 'test');
+    expect(stacksOf(combatOf(after).statuses, SCALD)).toBe(2);
+  });
+
+  it('leaves it alone when the vent is small', () => {
+    const after = ventHeat(scalded(3, 8), 1, 'test');
+    expect(stacksOf(combatOf(after).statuses, SCALD)).toBe(3);
+  });
+
+  it('measures what was actually vented, not what was asked for', () => {
+    /* Venting 4 against a gauge holding 1 is a vent of 1. Without this the
+       counterplay would be "hold a big vent and fire it at zero Heat", which
+       costs nothing and unwinds the status for free. */
+    const after = ventHeat(scalded(3, 1), 4, 'test');
+    expect(combatOf(after).heat).toBe(0);
+    expect(stacksOf(combatOf(after).statuses, SCALD)).toBe(3);
+  });
+
+  it('sheds one stack per vent, however large', () => {
+    // It should cost turns to unwind, not evaporate on the right card.
+    const after = ventHeat(scalded(4, 10), 9, 'test');
+    expect(stacksOf(combatOf(after).statuses, SCALD)).toBe(3);
+  });
+
+  it('says so on the status itself', () => {
+    // The rule is on the thing it applies to, where a player reading the debuff
+    // will find it — not only in a patch note.
+    expect(statusTable.get(SCALD).text).toMatch(/vent/i);
+    expect(statusTable.get(SCALD).shedOnVent).toBe(2);
+  });
+
+  it('touches nothing that did not ask for it', () => {
+    const state = makeFight({
+      heat: 8,
+      playerStatuses: [
+        { status: SCALD, stacks: 2, fresh: false },
+        { status: WEAK, stacks: 2, fresh: false },
+      ],
+    });
+    const after = ventHeat(state, 3, 'test');
+    expect(stacksOf(combatOf(after).statuses, SCALD)).toBe(1);
+    expect(stacksOf(combatOf(after).statuses, WEAK), 'Weak declares no shedOnVent').toBe(2);
   });
 });

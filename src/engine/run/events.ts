@@ -172,7 +172,10 @@ export function chooseEventOption(state: GameState, optionId: string): GameState
   });
 
   const applied = applyRunEffects(logged, option.effects, def.id);
-  const lines = applied.lines.length > 0 ? applied.lines : ['Nothing changes. That was the point.'];
+  const lines =
+    applied.lines.length > 0
+      ? applied.lines
+      : [{ text: 'Nothing changes. That was the point.' }];
 
   return withRun(applied.state, (current) => ({
     ...current,

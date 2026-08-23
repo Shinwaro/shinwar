@@ -11,12 +11,12 @@
  * something they could have computed, and never told the ending in advance.
  */
 
-import type { EventOption, GameState } from '../../engine/types.ts';
+import type { EventOption, GameState, OutcomeLine } from '../../engine/types.ts';
 import type { Store } from '../store.ts';
 import { requireRun } from '../../engine/state.ts';
 import { optionsFor, refusalFor } from '../../engine/run/events.ts';
 import { describeRunEffectSegments } from '../../engine/run/describe.ts';
-import { renderRunSegments } from '../components/peek.ts';
+import { renderOutcomeLine, renderRunSegments } from '../components/peek.ts';
 import { events as eventTable } from '../../content/registry.ts';
 import { button, el, fill } from '../dom.ts';
 import { liveScreen } from '../screen.ts';
@@ -53,7 +53,7 @@ function build(store: Store, state: GameState): HTMLElement | null {
           { class: 'anomaly-options' },
           options.map((option) => renderOption(store, state, option, refusalFor(run, option))),
         )
-      : renderOutcome(store, chosen, pending.outcome),
+      : renderOutcome(store, state, chosen, pending.outcome),
   ]);
 }
 
@@ -103,10 +103,23 @@ function renderOption(
 }
 
 
-function renderOutcome(store: Store, chosen: EventOption, lines: readonly string[]): HTMLElement {
+function renderOutcome(
+  store: Store,
+  state: GameState,
+  chosen: EventOption,
+  lines: readonly OutcomeLine[],
+): HTMLElement {
   return el('div', { class: 'anomaly-outcome' }, [
     el('h2', { class: 'anomaly-outcome-title' }, [chosen.label]),
-    el('ul', { class: 'anomaly-outcome-list' }, lines.map((line) => el('li', {}, [line]))),
+    el(
+      'ul',
+      { class: 'anomaly-outcome-list' },
+      /* A line that names a card names it at the one moment it stops being
+         available to read — "Sever leaves the deck" is the game telling you
+         about a card you may never have looked at, as it goes. So the name
+         opens here too. */
+      lines.map((line) => el('li', {}, renderOutcomeLine(line, state))),
+    ),
     button('Continue', { class: 'btn btn-primary' }, () => store.dispatch({ kind: 'leaveEvent' })),
   ]);
 }

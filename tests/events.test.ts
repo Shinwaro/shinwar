@@ -179,7 +179,7 @@ describe('run effects', () => {
     const poor = { ...state, run: { ...runOf(state), alloy: 30 } };
     const after = applyRunEffects(poor, [{ op: 'alloy', amount: -110 }], 'test');
     expect(runOf(after.state).alloy).toBe(0);
-    expect(after.lines[0]).toContain('30');
+    expect(after.lines[0]?.text).toContain('30');
   });
 
   it('leaves a line for everything it does', () => {

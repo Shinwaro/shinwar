@@ -3450,3 +3450,59 @@ unreachable by keyboard, unstyleable, and no card face inside.
 A Thread shows its description and its omen, never its payoff. A Thread is a
 promise that something is coming; printing what it pays turns a decision under
 uncertainty into arithmetic and takes the mechanic with it.
+
+## Scald has a way out now
+
+It never decays — that is the point of it, and it was also the whole problem. In
+a long fight it stacked into a second overheat clock the player could not touch,
+and the only counterplay was ending the fight before the arithmetic did.
+
+Venting 2 or more in a single action sheds a stack. It is the right counterplay
+because it is the *same resource the status attacks*: answering Scald costs you
+the cards you would rather have spent on damage, so the debuff still changes how
+the fight goes, it just stops being a sentence.
+
+Two details that are load-bearing:
+
+  - The size is measured on what was **actually vented**, not what was asked
+    for. Venting 4 against a gauge holding 1 is a vent of 1 and sheds nothing —
+    otherwise the counterplay is "hold a big vent and fire it at zero Heat",
+    which costs nothing at all.
+  - **One stack per vent**, however large. It should cost turns to unwind, not
+    evaporate the moment you draw the right card.
+
+Declared as `StatusDef.shedOnVent` rather than hooked, next to the number it
+undoes, so `Scald`'s own text can say it — which it now does. A player reading
+the debuff finds the rule there rather than in a patch note.
+
+## The outcome lines name what they took
+
+`PendingEvent.outcome` and `ResolvedThread.lines` became `OutcomeLine` — text
+plus the id of whatever it named. "Sever leaves the deck" is the game telling
+you about a card you may never have read, at the one moment it stops being
+available to read, so the name opens onto the real card face.
+
+The reference travels **on the line** rather than being recovered from the text.
+Matching a card name against a sentence is a parser, and it breaks the first
+time a card is called something that appears inside another word.
+
+`splitAround` puts the handle where the name already sits, because the lines
+were written as sentences and moving the name to the front would read worse. If
+the name is not in the text it falls back to plain prose, so rewording a line
+can never produce it twice.
+
+Setting a Thread now names it — "Thread: Marked." rather than "A thread opens.
+Check the Manifest." The old line sent the player to a second screen for a fact
+that line already had.
+
+### Two files truncated by a one-liner
+
+`open(path, 'w')` truncates before the inner `open(path).read()` runs, so
+
+    open(p,'w').write(open(p).read().replace(a, b))
+
+empties the file. It took `src/engine/run/effects.ts` and
+`tests/combat.test.ts` to zero bytes, and the second one is the dangerous half:
+an empty test file does not fail, it *disappears* — vitest reported "no test
+suite found" rather than 54 missing assertions. Both were restored from HEAD and
+the edits redone with an explicit read, then write.

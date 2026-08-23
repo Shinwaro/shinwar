@@ -116,12 +116,18 @@ export const STATUSES: readonly StatusDef[] = [
   /* Pushes you up the gauge you were managing. Against a deck that never went
      near the overheat line this is nothing; against one riding it, it is the
      whole fight. */
+  /* Scald never decays, which is the point of it and was also the whole
+     problem: in a long fight it stacked into a second overheat clock with no
+     counterplay at all. A vent worth the name sheds a stack now — the same
+     resource the status attacks, so answering it costs you the cards you would
+     rather have spent on damage. */
   {
     id: SCALD,
     name: 'Scald',
-    text: 'Gain 1 Heat per stack at the start of your turn.',
+    text: 'Gain 1 Heat per stack at the start of your turn. Venting 2 or more Heat at once sheds a stack.',
     kind: 'debuff',
     decay: 'never',
     heatPerTurn: 1,
+    shedOnVent: 2,
   },
 ];
