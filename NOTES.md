@@ -3624,3 +3624,38 @@ Verified stable at 1, 4 and 12 relics.
     carries a list of references now rather than one, and the walker scans
     forward from the last match — which is what keeps "Sever" from matching
     inside "Sever+".
+
+## The health bar drains on the beat
+
+The bar was animated — `.bar-fill` has had a 400ms width transition all along —
+but it started at render time. So the drain ran from 0 to 400ms while the first
+damage number appeared at 200ms and the third at 780ms: the bar was always ahead
+of the fight, and finished before the figures explaining it had finished
+arriving. That reads as instant even though it is not.
+
+And a three-hit card produced one long slide. Three numbers float off an enemy
+and its bar moves once, which says "one big hit" no matter what the numbers say.
+
+Now a render only **stages** the bar: it holds at the old width and records
+where it is going. `playLogFx` already walks every fresh blow, so it builds a
+drain schedule from the same list that makes the floaters — target, beat,
+and how much hull that blow took — and `drainBar` walks the bar down in steps on
+exactly those beats. The bar drops when the number appears, once per blow,
+because the two are built from one source.
+
+Three details that are load-bearing:
+
+  - **Only hull damage moves it.** A blow the shield ate is a real event with a
+    real number, and the health bar is exactly the thing that did not change.
+  - **The last step lands on the destination**, not on the sum of the shares, so
+    rounding can never leave a sliver of bar behind.
+  - **`settleBars` catches everything nobody claimed** — a heal, a fight that
+    just started, an enemy whose whole hit was absorbed. Without it a staged bar
+    would sit at its old width forever, which is a far worse bug than the one
+    being fixed.
+
+Verified live for the single-hit case in both directions: an IAI Slash steps the
+enemy's bar once, and a Wisp's 3 steps the player's bar once, landing exactly on
+67/70. The multi-hit case is verified by construction rather than by watching —
+the steps are built from the same per-blow list as the floaters, and the
+floaters have always been per-blow.

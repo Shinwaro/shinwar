@@ -141,30 +141,101 @@ export function clearEffects(): void {
 }
 
 /* ---------- bars that drain ----------
-   A re-render builds a brand new bar element, so a CSS transition has nothing
-   to transition FROM. Remembering the last width per bar and starting there
-   gives the drain back without keeping the DOM alive across renders. */
+ *
+ * A re-render builds a brand new bar element, so a CSS transition has nothing
+ * to transition FROM. Remembering the last width per bar and starting there
+ * gives the drain back without keeping the DOM alive across renders.
+ *
+ * The bar does not travel on its own, though. It used to: the render set the
+ * final width and the transition ran from that instant, so a 400ms drain was
+ * finished at 400ms while the first damage number only appeared at 200ms and
+ * the third at 780ms. The bar was always ahead of the fight — and a three-hit
+ * card produced one long slide rather than three drops, which reads as one big
+ * hit no matter what the numbers say.
+ *
+ * So a render only STAGES the bar: it holds at the old width and records where
+ * it is going. `drainBar` then walks it down in steps timed to the same beats
+ * the floaters use, and `settleBars` sends anything nobody claimed straight to
+ * its destination — a heal, a Block change, a fight that started.
+ */
 
 const lastWidth = new Map<string, number>();
+
+interface StagedBar {
+  readonly fill: HTMLElement;
+  readonly from: number;
+  readonly to: number;
+}
+
+const staged = new Map<string, StagedBar>();
 
 export function setBarFill(fill: HTMLElement, key: string, pct: number, animate: boolean): void {
   const clamped = Math.max(0, Math.min(100, pct));
   const previous = lastWidth.get(key);
   lastWidth.set(key, clamped);
+  staged.delete(key);
 
   if (!animate || previous === undefined || previous === clamped || prefersReducedMotion()) {
     fill.style.width = `${clamped}%`;
     return;
   }
 
+  // Hold. Whatever runs after this render decides how it travels.
   fill.style.width = `${previous}%`;
-  requestAnimationFrame(() => {
-    fill.style.width = `${clamped}%`;
+  staged.set(key, { fill, from: previous, to: clamped });
+}
+
+/**
+ * Walk a staged bar down in steps, one per blow.
+ *
+ * `shares` are the portions of the drop each blow is responsible for, paired
+ * with the beat its number lands on — so the bar drops exactly when the figure
+ * appears, and a card that hits three times drops three times.
+ *
+ * Returns false when there was nothing staged for this key, so the caller knows
+ * the bar is somebody else's problem.
+ */
+export function drainBar(key: string, steps: readonly { delay: number; share: number }[]): boolean {
+  const bar = staged.get(key);
+  if (bar === undefined || steps.length === 0) return false;
+  staged.delete(key);
+
+  const total = steps.reduce((sum, step) => sum + step.share, 0);
+  if (total <= 0) {
+    bar.fill.style.width = `${bar.to}%`;
+    return true;
+  }
+
+  const distance = bar.from - bar.to;
+  let travelled = 0;
+
+  steps.forEach((step, index) => {
+    travelled += step.share;
+    const last = index === steps.length - 1;
+    // The last step lands exactly on the destination rather than on the sum of
+    // the shares, so rounding can never leave a sliver of bar behind.
+    const width = last ? bar.to : bar.from - distance * (travelled / total);
+    window.setTimeout(() => {
+      bar.fill.style.width = `${width}%`;
+    }, step.delay);
   });
+
+  return true;
+}
+
+/** Send every bar nobody staged a drain for straight to where it was going. */
+export function settleBars(): void {
+  for (const [key, bar] of staged) {
+    staged.delete(key);
+    requestAnimationFrame(() => {
+      bar.fill.style.width = `${bar.to}%`;
+    });
+  }
 }
 
 export function forgetBars(): void {
   lastWidth.clear();
+  staged.clear();
 }
 
 /* ---------- impact ----------
@@ -526,7 +597,15 @@ export function playLogFx(
   locate: (target: string) => Element | null,
   options: LogFxOptions,
 ): number {
-  if (prefersReducedMotion() || fresh.length === 0) return 0;
+  if (prefersReducedMotion() || fresh.length === 0) {
+    settleBars();
+    return 0;
+  }
+
+  /* Which blows land on whom, and when. The bar has to drop on the same beat
+     as the number, and a card that hits three times has to drop three times —
+     one long slide reads as one big hit however many figures float off it. */
+  const drains = new Map<string, { delay: number; share: number }[]>();
 
   let slot = 0;
   for (const entry of fresh) {
@@ -549,6 +628,16 @@ export function playLogFx(
         shakeScreen(options.stage, hit.toHull / Math.max(1, options.playerMaxHealth), delay);
       }
 
+      /* Only hull damage moves the bar. A blow the shield ate is a real event
+         with a real number, and the health bar is exactly the thing that did
+         not change. */
+      if (hit.toHull > 0) {
+        const key = hit.target === 'player' ? 'player' : `enemy:${hit.target}`;
+        const steps = drains.get(key) ?? [];
+        steps.push({ delay, share: hit.toHull });
+        drains.set(key, steps);
+      }
+
       floatText({
         text: hit.text,
         kind: hit.kind,
@@ -561,6 +650,12 @@ export function playLogFx(
       slot += 1;
     }
   }
+
+  for (const [key, steps] of drains) drainBar(key, steps);
+  /* Everything the blows did not claim goes straight where it was headed — a
+     heal, a fight that has just started, an enemy whose whole hit was absorbed.
+     Without this a staged bar would sit at its old width forever. */
+  settleBars();
 
   // How long the whole sequence takes, so the caller can wait for it. The enemy
   // turn should not start while the player's last three numbers are still in
