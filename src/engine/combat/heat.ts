@@ -106,7 +106,17 @@ export function gainHeat(state: GameState, amount: number, source: string): Game
   return fireHook(next, 'onHeatGained', { amount: gained, total });
 }
 
-export function ventHeat(state: GameState, amount: number, source: string): GameState {
+export function ventHeat(
+  state: GameState,
+  amount: number,
+  source: string,
+  /**
+   * `shed: false` vents without shedding the statuses that a vent normally
+   * sheds. Used when the same card just applied one — over a turn that trade is
+   * deliberate, but inside one card it is two halves that cancel.
+   */
+  options: { readonly shed?: boolean } = {},
+): GameState {
   if (amount <= 0) return state;
   const combat = requireCombat(state);
   const total = Math.max(HEAT.min, combat.heat - amount);
@@ -127,7 +137,7 @@ export function ventHeat(state: GameState, amount: number, source: string): Game
    *
    * One stack per vent, however large. Scald is meant to cost you turns to
    * unwind, not to evaporate the moment you draw the right card. */
-  next = shedOnVent(next, vented, source);
+  if (options.shed !== false) next = shedOnVent(next, vented, source);
 
   return fireHook(next, 'onHeatVented', { amount: vented, total });
 }

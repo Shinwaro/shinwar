@@ -16,7 +16,7 @@ import { cards as cardTable } from '../src/content/registry.ts';
 import { playCard } from '../src/engine/combat/combat.ts';
 import { FOCUS_DAMAGE_PER_STACK, STANCES } from '../src/content/balance.ts';
 import { STRENGTH, VULNERABLE, WEAK } from '../src/content/statuses.ts';
-import { IAI_SLASH, SEVER, SOLAR_PARRY } from '../src/content/cards/basic.ts';
+import { FANNED_CUT, IAI_SLASH, SEVER, SOLAR_PARRY } from '../src/content/cards/basic.ts';
 import { combatOf, firstEnemy, handCard, hullOf, makeFight } from './helpers.ts';
 
 const STANCE_IDS: readonly StanceId[] = ['iai', 'guard', 'flow'];
@@ -502,5 +502,36 @@ describe('flat damage, once a card', () => {
     // Same on both, because Strength is not scoped to the first hit.
     expect(swing(state, false)).toBe(swing(state, true));
     expect(swing(state, false)).toBeGreaterThan(6);
+  });
+});
+
+describe('the swing index a card logs', () => {
+  /* The UI groups blows into beats by `${source}#${swing}`: everything sharing
+     a swing lands together, and each new swing gets its own beat. That makes
+     the index a correctness requirement rather than a cosmetic one — a card
+     whose two lines both report swing 0 renders as a single hit, which is
+     exactly what IAI Slash did once its stance rider was added.
+
+     The rule is: one swing per blow thrown, counted ACROSS a card's ops. A card
+     that hits every enemy once is one swing; a card with a base hit and a rider
+     is two. */
+
+  function swings(state: GameState): readonly number[] {
+    return state.log
+      .filter((entry) => entry.kind === 'damage')
+      .map((entry) => (typeof entry.detail?.['swing'] === 'number' ? entry.detail['swing'] : -1));
+  }
+
+  it('gives a base hit and its stance rider separate swings', () => {
+    const state = makeFight({ enemyHp: 999, hand: [IAI_SLASH], stance: 'iai' });
+    const after = playCard(state, handCard(state, 0).uid, firstEnemy(state).uid);
+    expect(swings(after)).toEqual([0, 1]);
+  });
+
+  it('keeps one swing when a card hits every enemy at once', () => {
+    // An AoE is one arc through the room, so the whole room reacts together.
+    const state = makeFight({ enemyIds: ['scrap_hound', 'cinder_wisp'], enemyHp: 999, hand: [FANNED_CUT] });
+    const after = playCard(state, handCard(state, 0).uid, firstEnemy(state).uid);
+    expect(swings(after)).toEqual([0, 0]);
   });
 });

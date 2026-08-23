@@ -26,6 +26,8 @@ import { createRng } from '../src/engine/rng.ts';
 import { nextStance } from '../src/engine/combat/stance.ts';
 import { overheatDamageAt, ventHeat } from '../src/engine/combat/heat.ts';
 import { addStacks, clearFresh, decayStatuses, stacksOf } from '../src/engine/combat/keywords.ts';
+import { applyEffects, createContext } from '../src/engine/combat/effects.ts';
+import { PLAYER as PLAYER_SIDE } from '../src/engine/combat/damage.ts';
 import { SCALD, WEAK } from '../src/content/statuses.ts';
 import { cards as cardTable, statuses as statusTable } from '../src/content/registry.ts';
 import { CLEAR_SPACE_ID } from '../src/content/environments.ts';
@@ -711,6 +713,39 @@ describe('Scald, and the way out of it', () => {
         2,
       );
     }
+  });
+
+  it('cannot be given and taken back by the same card', () => {
+    /* Over a turn the trade is real: a card hands you Scald 2, a later card
+       vents it back down, and you spent a card doing it. Inside ONE card the
+       two halves cancel — the player pays nothing and the debuff never happens,
+       which is not a decision, it is a printing error.
+
+       So a vent stops shedding once the same play has applied something a vent
+       would shed. Order does not save it either: it is the play that is
+       marked, not the op that follows. */
+    const state = scalded(1, 8);
+    const result = applyEffects(
+      state,
+      [
+        { op: 'applyStatus', status: SCALD, stacks: 2, target: 'self' },
+        { op: 'ventHeat', amount: 3 },
+      ],
+      createContext('test_card', PLAYER_SIDE, null),
+    );
+    expect(stacksOf(combatOf(result.state).statuses, SCALD)).toBe(3);
+    expect(combatOf(result.state).heat).toBe(5);
+  });
+
+  it('still sheds for a card that only vents', () => {
+    // The guard is about a card undoing itself, not about vents in general.
+    const state = scalded(3, 8);
+    const result = applyEffects(
+      state,
+      [{ op: 'ventHeat', amount: 3 }],
+      createContext('test_card', PLAYER_SIDE, null),
+    );
+    expect(stacksOf(combatOf(result.state).statuses, SCALD)).toBe(2);
   });
 
   it('says so on the status itself', () => {

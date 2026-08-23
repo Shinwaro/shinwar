@@ -71,6 +71,25 @@ export interface EffectContext {
    */
   readonly hitsThisPlay: number;
   /**
+   * Swings this card has thrown so far, counting across its ops.
+   *
+   * The animation layer groups by this: everything on one swing lands on one
+   * beat. It has to keep counting between ops rather than restarting, or a
+   * card's base damage and its stance rider both report swing 0 and go off
+   * together — which is what made IAI Slash's 6 and its rider's 2 read as a
+   * single hit.
+   */
+  readonly swingsThisPlay: number;
+  /**
+   * This card has applied a status that a vent would shed.
+   *
+   * Read by the vent op so one card cannot give you Scald and take it back in
+   * the same breath. Across a TURN that trade is fine and deliberate — the vent
+   * is a counterplay you paid a card for — but a single card doing both is not
+   * a decision, it is a card with two halves that cancel.
+   */
+  readonly appliedShedStatus: boolean;
+  /**
    * These ops are a card's stance rider rather than its base effects.
    *
    * Read by the damage op so the stance's flat hot bonus is not charged on top
@@ -89,6 +108,8 @@ export function createContext(source: string, actor: Combatant, chosen: Combatan
     killsThisPlay: 0,
     discardedThisPlay: 0,
     hitsThisPlay: 0,
+    swingsThisPlay: 0,
+    appliedShedStatus: false,
     fromRider: false,
   };
 }
@@ -283,8 +304,9 @@ function applyOp(state: GameState, op: EffectOp, context: EffectContext): Effect
               fromRider: context.fromRider,
               // Relic and implant flat damage is per card, not per swing.
               firstHitOfCard: context.hitsThisPlay === 0,
-              // Everything on the same swing lands on the same beat.
-              swing: hit,
+              // Everything on the same swing lands on the same beat, and the
+              // count carries across a card's ops so its rider is its own.
+              swing: context.swingsThisPlay + hit,
               attackOrdinal: combat.attacksThisTurn,
               /*
                * One stack per CARD, not per turn.
@@ -316,7 +338,11 @@ function applyOp(state: GameState, op: EffectOp, context: EffectContext): Effect
           }
         }
       }
-      return keep(next);
+      /* The swing count carries on past this op, so the next one — a stance
+         rider, a second damage line — starts its own beats rather than
+         reporting swing 0 again and landing on top of these. */
+      context = { ...context, swingsThisPlay: context.swingsThisPlay + times };
+      return { state: next, context };
     }
 
     case 'block': {
@@ -402,14 +428,25 @@ function applyOp(state: GameState, op: EffectOp, context: EffectContext): Effect
           detail: { status: op.status, stacks: op.stacks },
         });
       }
-      return keep(next);
+      /* Remember whether this card has handed out something a vent would shed,
+         so a vent later in the same card does not take it straight back. */
+      const shedable = op.stacks > 0 && statusTable.find(op.status)?.shedOnVent !== undefined;
+      return {
+        state: next,
+        context: shedable ? { ...context, appliedShedStatus: true } : context,
+      };
     }
 
     case 'gainHeat':
       return keep(gainHeat(state, op.amount, context.source));
 
     case 'ventHeat':
-      return keep(ventHeat(state, op.amount, context.source));
+      /* A card cannot give you Scald and take it back in the same breath. Over
+         a turn that trade is fine and deliberate; inside one card it is two
+         halves that cancel, which is not a decision. */
+      return keep(
+        ventHeat(state, op.amount, context.source, { shed: !context.appliedShedStatus }),
+      );
 
     case 'gainFocus': {
       if (op.amount === 0) return keep(state);
