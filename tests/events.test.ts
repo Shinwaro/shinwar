@@ -221,6 +221,54 @@ describe('threads', () => {
     expect(runOf(twice).threads.filter((entry) => entry.threadId === 'marked')).toHaveLength(1);
   });
 
+  it('keeps the number of shrines at the rate the artifact was tuned for', () => {
+    /* The Rites is the only route to the one artifact relic, and it takes three
+       completions in a run — so the number of Anomalies offering it IS the drop
+       rate, and it moves every time somebody writes a new event with a shrine
+       in it.
+
+       Simulated against the real pool and real charts: a route that takes every
+       Anomaly it can reach draws about seventeen, and at five rolled sources
+       plus the pinned Reliquary that lands three or more shrines 68% of the
+       time. At eight it was 88%, which made the artifact something you got
+       rather than something you went for. Asserted as a count rather than a
+       rate because a rate test here would be slow and would fail for reasons
+       that are not the reason — this fails the moment the count changes, which
+       is when somebody should be re-running the numbers. */
+    const rolled = eventTable
+      .all()
+      .filter((event) => event.pinnedOnly !== true)
+      .filter((event) =>
+        event.options.some((option) =>
+          option.effects.some(
+            (effect) => effect.op === 'setThread' && effect.threadId === 'sect_rites',
+          ),
+        ),
+      );
+    expect(rolled.map((event) => event.id).sort()).toEqual([
+      'the_last_recording',
+      'the_long_orbit',
+      'the_ossuary_drum',
+      'the_shrine',
+      'the_slow_wreck',
+    ]);
+
+    /* And the guaranteed one. Act 2's Reliquary is a full row, so every run
+       meets it — three completions is only reachable at all because one of the
+       three is not a roll. */
+    const pinned = eventTable.all().filter((event) => event.pinnedOnly === true);
+    expect(
+      pinned.some((event) =>
+        event.options.some((option) =>
+          option.effects.some(
+            (effect) => effect.op === 'setThread' && effect.threadId === 'sect_rites',
+          ),
+        ),
+      ),
+      'the Reliquary stopped offering The Rites',
+    ).toBe(true);
+  });
+
   it('refuses to re-arm a thread that is still running', () => {
     // Repeatable is about taking it AGAIN, not about stacking two of it.
     const once = setThread(fresh(), 'sect_rites');

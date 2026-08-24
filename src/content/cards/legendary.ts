@@ -19,7 +19,7 @@
  */
 
 import type { CardDef } from '../../engine/types.ts';
-import { TEMPERED, VULNERABLE, WEAK } from '../statuses.ts';
+import { TEMPERED, WEAK } from '../statuses.ts';
 
 export const LEGENDARY_CARDS: readonly CardDef[] = [
   {
@@ -88,13 +88,22 @@ export const LEGENDARY_CARDS: readonly CardDef[] = [
     rarity: 'legendary',
     archetype: 'neutral',
     cost: 3,
-    /* Does NOT exhaust, and that is the whole card: against a pack it comes
-       back, and each time it does it refunds the turn it cost. Against a boss
-       it is a 22-damage three-cost with a dead rider — a legendary that is
-       always correct is a legendary that removes a decision. */
+    exhaust: true,
+    /* One swing, once a fight.
+     *
+     * It used to stay in the deck, which made it a legendary that answered
+     * every board: against a pack it came back and refunded the turn each
+     * time, and the Vulnerable meant it also set up whatever followed it. Two
+     * jobs and no cost. Now it is a single execution — 24 into one target, and
+     * if that kills, the turn you spent comes back and the deck keeps moving.
+     * Miss the kill and you paid three Energy and a card for damage.
+     *
+     * The Vulnerable came off with the same argument: an execution that also
+     * softens the target for the NEXT card is a card that is never the wrong
+     * play. Removing it is what puts the decision back — you play this to end
+     * something, not to open on it. */
     effects: [
-      { op: 'damage', amount: 22, target: 'enemy' },
-      { op: 'applyStatus', status: VULNERABLE, stacks: 2, target: 'enemy' },
+      { op: 'damage', amount: 24, target: 'enemy' },
       {
         op: 'conditional',
         when: { kind: 'killedThisPlay' },
@@ -107,8 +116,7 @@ export const LEGENDARY_CARDS: readonly CardDef[] = [
     upgrade: {
       name: 'Cut the Line+',
       effects: [
-        { op: 'damage', amount: 28, target: 'enemy' },
-        { op: 'applyStatus', status: VULNERABLE, stacks: 2, target: 'enemy' },
+        { op: 'damage', amount: 30, target: 'enemy' },
         {
           op: 'conditional',
           when: { kind: 'killedThisPlay' },

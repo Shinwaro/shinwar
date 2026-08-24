@@ -203,12 +203,17 @@ export const EVENTS: readonly EventDef[] = [
       {
         id: 'blade',
         label: 'Take the blade',
-        detail: 'It comes out of the rock the way it went in.',
+        /* The only artifact card in the game, and it was going for 12 health
+           you get back at the next rest. It has to cost something the run
+           cannot undo, or the shrine is a free legendary with a scary label. */
+        detail:
+          'It comes out of the rock the way it went in. Whatever is on it comes with it, and '
+          + 'it will want paying for the rest of the way.',
         effects: [
           { op: 'card', cardId: 'the_dead_sect' },
-          { op: 'health', amount: -12 },
+          { op: 'maxHealth', amount: -25 },
         ],
-        risk: 'The body',
+        risk: 'Permanent, severe',
         payoff: 'Immediate, large',
       },
       {
@@ -410,11 +415,18 @@ export const EVENTS: readonly EventDef[] = [
       'station in a suit two sizes too large. They recognise your stance before your face.',
     options: [
       {
+        /* This stopped opening The Rites, and the option's own words are why:
+           "their rites are not yours". The Thread is specifically your order's
+           forms said through to the end, and a vigil kept for somebody else's
+           dead is a different thing — it was the loosest of the eight sources
+           and the one whose fiction argued with the Thread it set. */
         id: 'kneel',
         label: 'Keep the vigil with them',
-        detail: 'Their rites are not yours. They are close enough to hurt.',
-        effects: [{ op: 'setThread', threadId: 'sect_rites' }],
-        risk: 'None',
+        detail:
+          'Their rites are not yours. They are close enough to hurt. You stand the whole watch '
+          + 'anyway, and when you go back to the lock they come with you.',
+        effects: [{ op: 'setThread', threadId: 'the_passenger' }],
+        risk: 'Unknown',
         payoff: 'Deferred',
       },
       {
@@ -587,12 +599,21 @@ export const EVENTS: readonly EventDef[] = [
       'alive. The codes still authenticate against your cutter.',
     options: [
       {
+        /* Also no longer a shrine. Answering an authentication challenge is a
+           protocol, not the rites — and the beacon has been broadcasting into
+           an empty sky for forty years, so the interesting consequence of
+           finally replying is that something replies back. */
         id: 'answer',
         label: 'Answer it properly',
-        detail: 'The response takes an hour, and the forms come back to you as you speak them.',
-        effects: [{ op: 'setThread', threadId: 'sect_rites' }],
-        risk: 'Unknown',
-        payoff: 'Unknown',
+        detail:
+          'The response takes an hour, and the codes clear. Then the beacon does something it '
+          + 'has not done in forty years, and relays.',
+        effects: [
+          { op: 'alloy', amount: 90 },
+          { op: 'setThread', threadId: 'marked' },
+        ],
+        risk: 'Attention',
+        payoff: 'Immediate, large',
       },
       {
         id: 'strip',
@@ -1613,10 +1634,15 @@ export const EVENTS: readonly EventDef[] = [
       {
         id: 'listen',
         label: 'Listen to all of it, several times',
-        detail: 'There is a way they hold the third line that you had forgotten.',
-        effects: [{ op: 'card', cardId: 'the_dead_sect', upgraded: true }],
+        /* Was a free upgraded Dead Sect, which put the game's one artifact card
+           in a pool option with no cost attached — and made the shrine's blade,
+           which is the deliberate way to get it, look like a mistake. */
+        detail:
+          'There is a way they hold the third line that you had forgotten. You sit with it '
+          + 'until the shaking stops.',
+        effects: [{ op: 'health', amount: 12 }],
         risk: 'None',
-        payoff: 'Immediate, specific',
+        payoff: 'Immediate, small',
       },
       {
         id: 'leave',
@@ -1630,58 +1656,4 @@ export const EVENTS: readonly EventDef[] = [
     ],
   },
 
-  {
-    id: 'the_reciting_hull',
-    name: 'The Reciting Hull',
-    acts: [2, 3],
-    body:
-      'Something has been chewing a cutter apart for a long time, and it has learned the shape ' +
-      'of what the crew said while it did. It is saying the rites now, in the right order, in ' +
-      'four voices at once, and none of the four are breathing.',
-    options: [
-      {
-        id: 'correct',
-        label: 'Say them correctly, over it',
-        detail:
-          'It has the seventh and eighth lines the wrong way round. You will not leave that ' +
-          'standing, whatever is doing it.',
-        effects: [
-          { op: 'health', amount: -9 },
-          { op: 'setThread', threadId: 'sect_rites' },
-        ],
-        risk: 'The body',
-        payoff: 'Deferred',
-      },
-      {
-        id: 'silence',
-        label: 'Silence it',
-        detail: 'It does not stop when the hull comes apart. It stops some time after.',
-        effects: [{ op: 'ambush', tier: 'combat' }],
-        risk: 'A fight, now',
-        payoff: 'Immediate, specific',
-      },
-      {
-        id: 'record',
-        label: 'Record the four voices',
-        detail:
-          'Somebody at a yard will pay for this and will not ask what it is. You will know.',
-        /* 15 Alloy a point of max health, which is the run-wide rate. */
-        effects: [
-          { op: 'alloy', amount: 90 },
-          { op: 'maxHealth', amount: -6 },
-        ],
-        risk: 'Permanent',
-        payoff: 'Immediate, large',
-      },
-      {
-        id: 'leave',
-        label: 'Run silent past it',
-        detail: 'It is still going when the signal drops below the noise floor.',
-        effects: [],
-        isLeave: true,
-        risk: 'None',
-        payoff: 'None',
-      },
-    ],
-  },
 ];
