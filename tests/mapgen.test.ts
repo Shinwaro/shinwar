@@ -110,9 +110,10 @@ describe('the guarantees, across 1000 seeds', () => {
        row was a normal roll — and the second is nearly worthless, because you
        spent at the first.
 
-       The failure was specifically in FRONT of the guaranteed Station row:
-       that row is placed unconditionally, so when the row below it rolls, it
-       cannot see what is coming. Looking backwards alone never catches it. */
+       The old failure was specifically in FRONT of the guaranteed Station row,
+       which was placed unconditionally and so could not be seen by the row
+       below it as that row rolled. That row is gone; the spacing rule that
+       replaced the special case is what this now holds. */
     for (const seed of SEEDS) {
       for (const act of [1, 2, 3] as const) {
         const { map } = generateMap(createRng(seed), act);
@@ -125,6 +126,99 @@ describe('the guarantees, across 1000 seeds', () => {
         }
       }
     }
+  });
+
+  it('always lets a route reach a Station, and never makes it', () => {
+    /* The two halves of the Station guarantee, and they only mean anything
+       together.
+
+       It used to be one row of the act made entirely of Stations, the way the
+       row before the boss is made of Safe Planets. That guaranteed a shop by
+       removing the decision: measured across 600 acts, every route in all 600
+       was forced through it, and the chart showed a solid bar of shops across
+       the middle. "I will take the long way round and hit the shop" was not a
+       plan you could make, because there was no way round.
+
+       Stated as reachability instead, the guarantee says what it always meant:
+       a shop is available to anyone who goes looking, and imposed on nobody. */
+    for (const seed of SEEDS.slice(0, 300)) {
+      for (const act of [1, 2, 3] as const) {
+        const { map } = generateMap(createRng(seed), act);
+        const byId = new Map(map.nodes.map((node) => [node.id, node]));
+
+        const reaches = new Map<string, boolean>();
+        const canShop = (id: string): boolean => {
+          const seen = reaches.get(id);
+          if (seen !== undefined) return seen;
+          const node = byId.get(id);
+          if (node === undefined) return false;
+          reaches.set(id, false);
+          const value = node.type === 'station' || node.next.some(canShop);
+          reaches.set(id, value);
+          return value;
+        };
+
+        const avoids = new Map<string, boolean>();
+        const canSkip = (id: string): boolean => {
+          const seen = avoids.get(id);
+          if (seen !== undefined) return seen;
+          const node = byId.get(id);
+          if (node === undefined || node.type === 'station') return false;
+          avoids.set(id, false);
+          const value = id === map.bossId || node.next.some(canSkip);
+          avoids.set(id, value);
+          return value;
+        };
+
+        expect(canShop(map.startId), `${seed} act${act}: no route reaches a Station`).toBe(true);
+        expect(canSkip(map.startId), `${seed} act${act}: forced through a Station`).toBe(true);
+      }
+    }
+  });
+
+  it('keeps Stations inside the rows they are declared for, and spread out', () => {
+    /* The band is written in `MAP.stationRows` as node numbers — before 4 the
+       act has not started, after 12 there is no run left to spend on. Asserted
+       against the constant rather than against 4 and 12, so moving the band
+       moves the test with it.
+
+       The spread half is the reason Robin raised this at all: two Stations
+       three rows apart at the middle of the chart is the same "the shops are
+       all in one place" the full row was, wearing fewer nodes. */
+    let sameRow = 0;
+    let charts = 0;
+    for (const seed of SEEDS.slice(0, 300)) {
+      for (const act of [1, 2, 3] as const) {
+        const { map } = generateMap(createRng(seed), act);
+        const rows = MAP.rows[act];
+        const low = Math.max(MAP.earliestSpecialRow, MAP.stationRows.from);
+        const high = Math.min(rows - 3, MAP.stationRows.to);
+
+        const stations = map.nodes.filter((node) => node.type === 'station');
+        expect(stations.length, `${seed} act${act} has no Station at all`).toBeGreaterThan(0);
+        for (const node of stations) {
+          expect(node.row, `${seed} act${act}: ${node.id}`).toBeGreaterThanOrEqual(low);
+          expect(node.row, `${seed} act${act}: ${node.id}`).toBeLessThanOrEqual(high);
+        }
+
+        // No row may be entirely Stations. That shape IS the old bug.
+        for (let row = 0; row < rows; row++) {
+          const cells = map.nodes.filter((node) => node.row === row);
+          if (cells.length === 0) continue;
+          expect(
+            cells.every((node) => node.type === 'station'),
+            `${seed} act${act}: row ${row} is all Stations`,
+          ).toBe(false);
+        }
+
+        charts += 1;
+        if (new Set(stations.map((node) => node.row)).size === 1) sameRow += 1;
+      }
+    }
+    /* Most charts should put their shops on more than one row. Not all — a
+       chart with a single Station has one row by definition — but a high share
+       here means they have quietly collected in one place again. */
+    expect(sameRow / charts, 'Stations are collecting on one row').toBeLessThan(0.5);
   });
 
   it('holds every encounter to its earliest row', () => {

@@ -186,31 +186,17 @@ function assignTypes(
 ): { types: Map<string, NodeType>; rng: RngState } {
   const types = new Map<string, NodeType>();
   let current = rng;
-  /* Both guaranteed rows are clamped clear of the opening, the rest before the
-     boss, and the boss itself — and in Act 2 they collide.
-
-     18 rows puts `stationRowAt` 0.55 and `reliquaryRowAt` 0.5 both on row 9,
-     and whichever is checked first silently eats the other. The Reliquary wins
-     the tie because "the exact middle" is the whole of its definition, and the
-     Station moves one row later: the guaranteed Station exists so a route
-     cannot miss a shop, and one row along still satisfies that. */
+  /* The Reliquary is a full row, clamped clear of the opening, the rest before
+     the boss, and the boss itself. It is the only remaining full row besides
+     those: "the exact middle of the run" is the whole of its definition, and
+     the one legendary card an act can hold is a fixed beat rather than
+     something to be unlucky about. */
   const reliquaryRow = act === 2 ? reliquaryRowFor(rows) : -1;
 
-  /* The guaranteed Station's row is rolled inside a band, not pinned to one
-     fraction of the act. Pinned, it sat in the same place on every chart and a
-     player knew where the shop was by their second run — a guarantee is about a
-     route always meeting one, not about meeting it in the same place. Rolled
-     first, before any node type, so it is part of the seed like everything
-     else. */
-  const band = nextInt(
-    current,
-    'map',
-    Math.round((rows - 1) * MAP.stationRowBand.from),
-    Math.round((rows - 1) * MAP.stationRowBand.to) + 1,
-  );
-  current = band.rng;
-  const wanted = Math.min(rows - 3, Math.max(MAP.earliestSpecialRow, band.value));
-  const stationRow = wanted === reliquaryRow ? Math.min(rows - 3, wanted + 1) : wanted;
+  /* Stations are rolled node by node inside a band of rows — see
+     `MAP.stationRows`. The guaranteed full ROW of them is gone, and the
+     guarantee is now stated as two invariants on the finished chart. */
+  const stationBand = stationRowsFor(rows);
 
   for (let row = 0; row < rows; row++) {
     for (const col of skeleton.cells[row] ?? []) {
@@ -238,12 +224,6 @@ function assignTypes(
         types.set(id, 'event');
         continue;
       }
-      // The guaranteed Station row. See MAP.stationRowAt.
-      if (row === stationRow) {
-        types.set(id, 'station');
-        continue;
-      }
-
       const early = row < MAP.earliestSpecialRow;
 
       /*
@@ -259,15 +239,12 @@ function assignTypes(
          second shop on a path is nearly worthless because you spent at the
          first. Its own window, because the two spacings are separate numbers.
 
-         Looking back catches a shop that follows a shop. It cannot catch one
-         that sits just BEFORE the guaranteed Station row, because that row is
-         placed unconditionally rather than rolled — when row N-1 is generated,
-         row N does not exist yet to be seen. Exactly the same blind spot the
-         rest-before-boss has, and closed the same way: by hand, in front. */
+         The blind spot that used to sit in front of the guaranteed Station row
+         is gone with the row itself — there is nothing placed unconditionally
+         left to look forward at. */
       const nearbyStations = typesWithin(skeleton, types, row, col, MAP.stationSpacing);
-      const besideStationRow =
-        row > stationRow - 1 - MAP.stationSpacing && row < stationRow + 1 + MAP.stationSpacing;
-      const afterStation = nearbyStations.includes('station') || besideStationRow;
+      const afterStation = nearbyStations.includes('station');
+      const inStationBand = row >= stationBand.from && row <= stationBand.to;
       /*
        * Looking back catches a rest that follows a rest. It cannot catch one
        * that sits just *before* the guaranteed rest-before-boss row, because
@@ -299,7 +276,7 @@ function assignTypes(
         { value: 'elite' as NodeType, weight: early ? 0 : NODE_WEIGHTS.elite },
         {
           value: 'station' as NodeType,
-          weight: early || afterStation ? 0 : NODE_WEIGHTS.station,
+          weight: !inStationBand || afterStation ? 0 : NODE_WEIGHTS.station,
         },
         // Kept apart by `safeSpacing`; see `typesWithin` above.
         { value: 'safe' as NodeType, weight: early || afterSafe ? 0 : NODE_WEIGHTS.safe },
@@ -310,7 +287,68 @@ function assignTypes(
     }
   }
 
-  return { types, rng: current };
+  return plantStationIfMissed(skeleton, types, current, rows, reliquaryRow);
+}
+
+/**
+ * The half of the Station guarantee that cannot be left to the roll.
+ *
+ * "You can always route for a shop" has to be true of every chart, and a
+ * weighted roll will occasionally produce one where every Station sits off the
+ * origin's reachable set — rare, but a run that cannot buy anything for a whole
+ * act is not a rare bit of texture, it is a broken act.
+ *
+ * The other half — "you are never made to visit one" — is NOT repaired here.
+ * Removing a Station to satisfy it would fight this pass, so it is a validation
+ * failure instead and the chart is regenerated. See `mapProblems`.
+ */
+function plantStationIfMissed(
+  skeleton: Skeleton,
+  types: Map<string, NodeType>,
+  rng: RngState,
+  rows: number,
+  reliquaryRow: number,
+): { types: Map<string, NodeType>; rng: RngState } {
+  const reachable = reachableFrom(skeleton, rows);
+  if ([...reachable].some((id) => types.get(id) === 'station')) return { types, rng };
+
+  /* Anything the origin can reach, inside the band, that is not load-bearing
+     somewhere else: a Safe Planet is counted by its own invariant, an Elite is
+     counted by its own, and the Reliquary row is fixed. That leaves the fights
+     and the blank-looking nodes, which is the right pool anyway — a shop should
+     replace an ordinary stop, not one of the act's landmarks. */
+  const band = stationRowsFor(rows);
+  const candidates: string[] = [];
+  for (let row = band.from; row <= band.to; row++) {
+    if (row === reliquaryRow) continue;
+    for (const col of skeleton.cells[row] ?? []) {
+      const id = nodeId(row, col);
+      if (!reachable.has(id)) continue;
+      const type = types.get(id);
+      if (type === 'combat' || type === 'unknown' || type === 'event') candidates.push(id);
+    }
+  }
+  if (candidates.length === 0) return { types, rng };
+
+  const picked = nextInt(rng, 'map', 0, candidates.length);
+  const next = new Map(types);
+  next.set(candidates[picked.value] ?? candidates[0]!, 'station');
+  return { types: next, rng: picked.rng };
+}
+
+/** Every node the origin can walk to, along real edges. */
+function reachableFrom(skeleton: Skeleton, rows: number): ReadonlySet<string> {
+  const seen = new Set<string>();
+  const stack = (skeleton.cells[0] ?? []).map((col) => nodeId(0, col));
+  while (stack.length > 0) {
+    const id = stack.pop();
+    if (id === undefined || seen.has(id)) continue;
+    seen.add(id);
+    const [row, col] = id.slice(1).split('_').map(Number) as [number, number];
+    if (row + 1 >= rows) continue;
+    for (const next of skeleton.forward[row]?.get(col) ?? []) stack.push(nodeId(row + 1, next));
+  }
+  return seen;
 }
 
 /**
@@ -558,9 +596,24 @@ function positionOf(
 }
 
 /**
+ * The rows Stations are allowed on, kept in one place so the generator, the
+ * repair pass and the validator cannot disagree about which rows they are.
+ *
+ * `MAP.stationRows` is written in node numbers into the act; the top is clamped
+ * so a short act keeps its shops clear of the rest before the boss and the boss
+ * itself.
+ */
+export function stationRowsFor(rows: number): { readonly from: number; readonly to: number } {
+  return {
+    from: Math.max(MAP.earliestSpecialRow, MAP.stationRows.from),
+    to: Math.min(rows - 3, MAP.stationRows.to),
+  };
+}
+
+/**
  * The Reliquary's row, kept in one place so the generator and anything that
  * wants to check the invariant agree. Clamped clear of the boss and the rest
- * before it, the same way the Station row is.
+ * before it.
  */
 export function reliquaryRowFor(rows: number): number {
   return Math.min(rows - 3, Math.max(MAP.earliestSpecialRow, Math.round((rows - 1) * MAP.reliquaryRowAt)));
@@ -676,6 +729,51 @@ export function mapProblems(map: RunMap): string[] {
   if (!backHalf.some((node) => node.type === 'station')) {
     problems.push('no Station in the back half');
   }
+
+  /* ---- the Station guarantee, as two invariants ----
+   *
+   * These replace the full row of Stations that used to sit across the middle
+   * of every act. That row did guarantee a shop, and it guaranteed it by taking
+   * the decision away: measured across 600 acts, every route in every one of
+   * them was forced through it. Stated as reachability instead, the guarantee
+   * says the thing it was always meant to say — a shop is always available to
+   * anyone who wants to route for one, and never imposed on anyone who does
+   * not. Both are asserted here because both are properties of the finished
+   * graph, and neither can be read off a single node. */
+  const band = stationRowsFor(rows);
+  for (const node of map.nodes) {
+    if (node.type !== 'station') continue;
+    if (node.row < band.from || node.row > band.to) {
+      problems.push(`Station outside rows ${band.from}-${band.to}: ${node.id} on ${node.row}`);
+    }
+  }
+
+  const memo = new Map<string, boolean>();
+  const walk = (id: string, want: (node: MapNode) => boolean | null): boolean => {
+    const cached = memo.get(id);
+    if (cached !== undefined) return cached;
+    memo.set(id, false); // cycles cannot happen in a row DAG, but do not trust it
+    const node = byId.get(id);
+    if (node === undefined) return false;
+    const here = want(node);
+    const value = here ?? node.next.some((next) => walk(next, want));
+    memo.set(id, value);
+    return value;
+  };
+
+  // Can route for one: some path from the origin meets a Station.
+  memo.clear();
+  if (!walk(map.startId, (node) => (node.type === 'station' ? true : null))) {
+    problems.push('no route from the origin reaches a Station');
+  }
+
+  // Never forced: some path from the origin reaches the boss without one.
+  memo.clear();
+  const clean = walk(map.startId, (node) => {
+    if (node.type === 'station') return false;
+    return node.id === map.bossId ? true : null;
+  });
+  if (!clean) problems.push('every route from the origin is forced through a Station');
 
   for (const node of map.nodes) {
     for (const nextId of node.next) {

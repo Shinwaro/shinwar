@@ -359,21 +359,25 @@ export const MAP = {
   /** The row before the boss is always a Safe Planet. StS's rest-before-boss. */
   restBeforeBoss: true,
   /**
-   * One row, about here through the act, is entirely Stations.
+   * The band of rows Stations live in, as node numbers into the act.
    *
-   * Stations were ~5% of nodes and every map had one, which sounds fine and is
-   * not: a *route* only visits about fifteen nodes, so walking a whole act
-   * without a shop on your lane was common. A run reached Act 3 with 1006 Alloy
-   * and had never seen one. The same trick as the rest-before-boss — a full row,
-   * so every route meets exactly one guaranteed, and rolled Stations are extra.
+   * The guarantee used to be a whole row of Stations, the way the rest before
+   * the boss is a whole row. It worked in the sense that no route could miss a
+   * shop, and it was wrong in every other sense: measured across 600 acts, the
+   * origin was forced through a Station in 600 of them. There was no decision
+   * to make. You did not route *for* a shop, you arrived at the row where the
+   * shops were, and the chart showed you a solid bar of them.
+   *
+   * Individual nodes inside a band instead, with two invariants replacing the
+   * row (see `mapProblems`): the origin can always reach a Station, and the
+   * origin can always reach the boss without meeting one. Together those are
+   * exactly "you can always route for a shop, and you are never made to".
+   *
+   * Before 4, an act has not started; after 12 there is no run left to spend
+   * on. Clamped to `rows - 3` so Act 3, which is short, keeps its Stations
+   * clear of the rest and the boss.
    */
-  /* Rolled inside this band rather than pinned to one fraction.
-  
-     It was a flat 0.55, so the guaranteed Station sat at the same place on
-     every chart in the game — the middle — and a player learned within two runs
-     exactly where the shop would be. A guarantee is about a route always
-     meeting one, not about it always meeting one in the same place. */
-  stationRowBand: { from: 0.34, to: 0.7 },
+  stationRows: { from: 4, to: 12 },
 } as const;
 
 /**
