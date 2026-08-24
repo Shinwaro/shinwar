@@ -66,8 +66,9 @@ export interface EffectContext {
   /**
    * Damage instances this card has produced so far.
    *
-   * Read by the damage op so relic and implant flat damage lands on the first
-   * swing only — see `DamageInput.firstHitOfCard`.
+   * Counts every target of every swing, so it is the right number for "how much
+   * has this card done" and the WRONG one for the flat relic bonus — that is
+   * scoped by `swingsThisPlay`, because an AoE's targets all share one swing.
    */
   readonly hitsThisPlay: number;
   /**
@@ -303,7 +304,9 @@ function applyOp(state: GameState, op: EffectOp, context: EffectContext): Effect
               isAttack: true,
               fromRider: context.fromRider,
               // Relic and implant flat damage is per card, not per swing.
-              firstHitOfCard: context.hitsThisPlay === 0,
+              // Every target of the card's first swing, not just the first
+              // damage instance. An AoE is one arc, and the whole room is in it.
+              firstSwingOfCard: context.swingsThisPlay + hit === 0,
               // Everything on the same swing lands on the same beat, and the
               // count carries across a card's ops so its rider is its own.
               swing: context.swingsThisPlay + hit,

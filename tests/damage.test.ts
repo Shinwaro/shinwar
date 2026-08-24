@@ -427,15 +427,19 @@ describe('heat as a cost', () => {
   });
 });
 
-describe('flat damage, once a card', () => {
+describe('flat damage, once a swing', () => {
   /* The interaction that made the late acts trivial: relic and implant flat
      damage applied per damage INSTANCE, so a card swinging three times paid it
      three times. By Act 3 with four flat sources, a multi-hit card was adding
      +18 before its own numbers, and the boss fights were being settled by
      arithmetic rather than by play.
 
-     It is per card now — the same scoping Focus already used. The flat sources
-     make every card better instead of making three cards unanswerable.
+     It is scoped to the card's first SWING now — the same scoping Focus already
+     used. Swing, not instance: a card that hits every enemy once is one arc
+     through the room and the whole room is in the way of it, so every target of
+     that swing is paid. Charging the bonus to whichever enemy resolved first
+     made an AoE worse the more targets it had, which is backwards. Three hits
+     at ONE target is the thing that had to stop, and that is three swings.
 
      Strength is deliberately not on this. It is a status you build inside a
      fight, it is on the board where the player can see it, and multi-hit
@@ -450,7 +454,7 @@ describe('flat damage, once a card', () => {
     };
   }
 
-  function swing(state: GameState, firstHitOfCard: boolean): number {
+  function swing(state: GameState, firstSwingOfCard: boolean): number {
     return computeDamage(state, {
       amount: 6,
       attacker: PLAYER,
@@ -458,7 +462,7 @@ describe('flat damage, once a card', () => {
       isAttack: true,
       attackOrdinal: 0,
       consumesFocus: false,
-      firstHitOfCard,
+      firstSwingOfCard,
     }).toHull;
   }
 
@@ -471,10 +475,9 @@ describe('flat damage, once a card', () => {
     expect(swing(state, false)).toBe(6);
   });
 
-  it('lands the whole bonus through the card resolver, once', () => {
-    /* Through `playCard`, not just the pipeline — a three-hit card should be
-       6+6+6 plus the bonus ONCE, and the difference between that and the old
-       behaviour is the whole of the fix. */
+  it('lands the whole bonus through the card resolver, once per target', () => {
+    /* Through `playCard`, not just the pipeline. One enemy on the board, so
+       one swing means one payment however many times the card swings. */
     const state = armed(
       makeFight({ enemyIds: ['scrap_hound'], enemyHp: 999, hand: ['fanned_cut'], energy: 3 }),
       ['coldforge_lining'],
@@ -492,6 +495,38 @@ describe('flat damage, once a card', () => {
     const bare = playCard(armed(state, [], []), card.uid, firstEnemy(state).uid);
     const bareDealt = before - firstEnemy(bare).hp;
     expect(dealt).toBe(bareDealt + bonus);
+  });
+
+  it('pays every target of an AoE, because they share the swing', () => {
+    /* The correction to the fix above. Fanned Cut hits every enemy once — one
+       arc, three enemies in the way of it — and charging the bonus only to
+       whichever one resolved first made the card WORSE the more targets it
+       had. Each of them is hit by the same swing, so each of them is paid.
+
+       Asserted per enemy rather than on a total, because a total would pass if
+       the bonus landed three times on one of them. */
+    const board = ['scrap_hound', 'cinder_wisp', 'scrap_hound'] as const;
+    const state = armed(
+      makeFight({ enemyIds: [...board], enemyHp: 999, hand: ['fanned_cut'], energy: 3 }),
+      ['coldforge_lining'],
+      ['honed_edge'],
+    );
+    const bonus = pilotRules(state).damageFlat;
+    const card = combatOf(state).hand[0];
+    if (card === undefined) throw new Error('test: no card');
+
+    const hp = (current: GameState): readonly number[] =>
+      combatOf(current).enemies.map((enemy) => enemy.hp);
+    const before = hp(state);
+
+    const armedAfter = hp(playCard(state, card.uid, firstEnemy(state).uid));
+    const bareAfter = hp(playCard(armed(state, [], []), card.uid, firstEnemy(state).uid));
+
+    for (let i = 0; i < board.length; i++) {
+      const withRelics = (before[i] ?? 0) - (armedAfter[i] ?? 0);
+      const without = (before[i] ?? 0) - (bareAfter[i] ?? 0);
+      expect(withRelics, `enemy ${i}`).toBe(without + bonus);
+    }
   });
 
   it('leaves Strength paying on every swing', () => {

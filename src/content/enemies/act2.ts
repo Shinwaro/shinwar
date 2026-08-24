@@ -163,7 +163,15 @@ export const ACT2_ENEMIES: readonly EnemyDef[] = [
     /* Act 2's clock. Almost no damage of its own and a lot of health, so it
        cannot be out-blocked and cannot be ignored -- the rust runs for as long
        as it is alive, which makes killing it the play even when something else
-       is hitting harder. */
+       is hitting harder.
+
+       Rust 4 and 2 became 3 and 1 when Rust went to 2 damage a stack. Those
+       numbers were written against 1, and the doubling did not double the
+       Weevil -- it compounds. The script re-seeds every third turn while a
+       stack decays every turn, so the pile grows: over a four-turn fight it
+       went from 20 unblockable to 40, out of 70 health, from one NORMAL-tier
+       enemy. At 3 and 1 the same four turns cost 28, which is still the most
+       frightening thing in the act to leave alive. */
     id: BLOOM_WEEVIL,
     name: 'Bloom Weevil',
     maxHp: 62,
@@ -173,19 +181,19 @@ export const ACT2_ENEMIES: readonly EnemyDef[] = [
       {
         id: 'seed',
         label: 'Seed',
-        intent: [{ kind: 'debuff', amount: 4, times: 1, label: 'Rust 4' }],
-        effects: [{ op: 'applyStatus', status: RUST, stacks: 4, target: 'enemy' }],
+        intent: [{ kind: 'debuff', amount: 3, times: 1, label: 'Rust 3' }],
+        effects: [{ op: 'applyStatus', status: RUST, stacks: 3, target: 'enemy' }],
       },
       {
         id: 'gnaw',
         label: 'Gnaw',
         intent: [
           { kind: 'attack', amount: 4, times: 1, label: 'Gnaw' },
-          { kind: 'debuff', amount: 2, times: 1, label: 'Rust 2' },
+          { kind: 'debuff', amount: 1, times: 1, label: 'Rust 1' },
         ],
         effects: [
           { op: 'damage', amount: 4, target: 'enemy' },
-          { op: 'applyStatus', status: RUST, stacks: 2, target: 'enemy' },
+          { op: 'applyStatus', status: RUST, stacks: 1, target: 'enemy' },
         ],
       },
       {

@@ -101,15 +101,23 @@ export const EVENT_CARDS: readonly CardDef[] = [
     archetype: 'iai',
     cost: 1,
     exclusive: true,
+    /* Vulnerable caps at 2 stacks. This handed you the whole cap for 1 Energy
+       AND dealt damage doing it, so the correct opening was always "Mark, then
+       everything else at double" — one card that decided the turn before the
+       turn started. One stack is half the cap: still the best setup in the
+       game at the price, and now the second stack has to come from somewhere.
+
+       The upgrade's third stack was doing nothing at all — the cap ate it — so
+       it buys the cap itself instead, which is what an upgrade should do. */
     effects: [
-      { op: 'damage', amount: 6, target: 'enemy' },
-      { op: 'applyStatus', status: VULNERABLE, stacks: 2, target: 'enemy' },
+      { op: 'damage', amount: 5, target: 'enemy' },
+      { op: 'applyStatus', status: VULNERABLE, stacks: 1, target: 'enemy' },
     ],
     upgrade: {
       name: 'Syndicate Mark+',
       effects: [
-        { op: 'damage', amount: 8, target: 'enemy' },
-        { op: 'applyStatus', status: VULNERABLE, stacks: 3, target: 'enemy' },
+        { op: 'damage', amount: 7, target: 'enemy' },
+        { op: 'applyStatus', status: VULNERABLE, stacks: 2, target: 'enemy' },
       ],
     },
     flavor: 'They paint the ones they intend to come back for.',

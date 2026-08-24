@@ -90,15 +90,21 @@ export interface DamageInput {
    * instance it multiplied itself against every multi-hit card in the deck:
    * +6 from two implants on a card that swings three times is +18, and by Act 3
    * with four sources of flat damage the boss fights were being decided by
-   * arithmetic rather than by play. The bonus is per CARD now, the same scoping
-   * Focus already uses, so the flat sources make every card better instead of
-   * making three cards unanswerable.
+   * arithmetic rather than by play. The bonus lands on the card's FIRST SWING,
+   * the same scoping Focus already uses, so the flat sources make every card
+   * better instead of making three cards unanswerable.
+   *
+   * A swing, though — not a damage instance. A card that hits every enemy once
+   * is one arc through the room, and the whole room is in the way of it; paying
+   * the bonus only to whichever enemy happened to resolve first made an AoE
+   * strictly worse the more targets it had, which is backwards. Three hits at
+   * ONE target is the thing that had to stop, and that is three swings.
    *
    * Strength is deliberately NOT on this. It is a status the player builds
    * inside a fight, it is visible on the board, and multi-hit paying it off is
    * the whole reason to build it — that interaction is a plan, not a leak.
    */
-  readonly firstHitOfCard?: boolean;
+  readonly firstSwingOfCard?: boolean;
   /**
    * Which swing of the card this is, counting from zero.
    *
@@ -253,9 +259,10 @@ export function computeDamage(state: GameState, input: DamageInput): DamageBreak
     }
 
     /* Relics and implants: flat, before anything multiplies, and only on the
-       first hit of the card — see `DamageInput.firstHitOfCard`. */
+       card's first swing — see `DamageInput.firstSwingOfCard`. Every target of
+       that swing gets it; later swings of the same card get none. */
     const relicFlat = pilotRules(state).damageFlat;
-    if (relicFlat !== 0 && input.firstHitOfCard !== false) {
+    if (relicFlat !== 0 && input.firstSwingOfCard !== false) {
       ctx = record(ctx, 'Relics', 'add', ctx.amount + relicFlat);
     }
   }

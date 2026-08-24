@@ -699,12 +699,24 @@ function build(
     selection.logOpen ? renderLog(state, true) : null,
   ]);
 
-  return el('div', { class: 'combat-inner' }, [
-    corner,
-    renderCarried(state),
+  /* One fixed column, totals first.
+   *
+   * The two used to be separate fixed boxes — the rail pinned to the top of the
+   * left margin and the totals pinned to the BOTTOM of it, which put the answer
+   * to "what does all this add up to" at the far corner of the screen from the
+   * health bar it qualifies. Nesting them makes the order a layout fact rather
+   * than two independent guesses at a `top`, and puts the total where it is
+   * read: at the top, against the bar. */
+  const rail = el('div', { class: 'rail' }, [
     // The total of what the rail lists, so the sums are not done in the
     // player's head every turn. See `gains.ts`.
     renderGains(state),
+    renderCarried(state),
+  ]);
+
+  return el('div', { class: 'combat-inner' }, [
+    corner,
+    rail,
     topBar,
     renderEnvironmentBadge(state),
     enemyRow,
