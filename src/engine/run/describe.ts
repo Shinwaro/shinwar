@@ -11,7 +11,11 @@
  */
 
 import type { ImplantDef, MapNode, RelicPassive, RunEffect, RunSegment } from '../types.ts';
-import { cards as cardTable, threads as threadTable } from '../../content/registry.ts';
+import {
+  cards as cardTable,
+  relics as relicTable,
+  threads as threadTable,
+} from '../../content/registry.ts';
 
 export function describeRunEffect(effect: RunEffect): string {
   switch (effect.op) {
@@ -38,6 +42,11 @@ export function describeRunEffect(effect: RunEffect): string {
 
     case 'removeRandomCard':
       return 'Lose a random card';
+
+    case 'relic': {
+      const def = relicTable.find(effect.relicId);
+      return def === undefined ? 'Gain a relic' : `Gain ${def.name}`;
+    }
 
     case 'setThread': {
       const def = threadTable.find(effect.threadId);
@@ -139,7 +148,10 @@ export function describePassive(passive: RelicPassive): string {
     parts.push(`Draw ${plus(n)} card${Math.abs(n) === 1 ? '' : 's'} each turn`);
   }
   if (passive.blockPerTurn !== undefined && passive.blockPerTurn !== 0) {
-    parts.push(`Start each turn with ${passive.blockPerTurn} Block`);
+    /* "Start each turn with N" read as a floor you are set to. It is not — the
+       turn loop adds it on top of whatever the stance retained — so the word is
+       "gain". */
+    parts.push(`Gain ${passive.blockPerTurn} Block at the start of each turn`);
   }
   if (passive.focusPerTurn !== undefined && passive.focusPerTurn !== 0) {
     parts.push(`Gain ${passive.focusPerTurn} Focus each turn`);

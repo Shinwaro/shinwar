@@ -485,7 +485,7 @@ describe('the act ladder', () => {
         ...run,
         alloy: 250,
         pilot: { ...run.pilot, masteries: [UNSHEATHED_MIND], health: 41 },
-        threads: [{ threadId: 'marked', resolved: false, progress: 2 }],
+        threads: [{ threadId: 'marked', resolved: false, progress: 2 , completed: 0}],
       },
     };
 

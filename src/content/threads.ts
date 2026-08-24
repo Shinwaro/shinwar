@@ -71,6 +71,24 @@ export const THREAD_DEFS: readonly ThreadDef[] = [
       { op: 'upgradeRandomCard' },
       { op: 'health', amount: 10 },
     ],
+    /* The only repeatable Thread, and the only one that should be.
+     *
+     * Every other Thread is a promise the run makes once — a debt you can pay
+     * twice is not a debt, and a reprisal that comes for you again is just a
+     * difficulty setting. Kneeling at a second shrine is a thing a person
+     * actually does, and it costs the same thing every time: four nodes of one
+     * of your four Thread slots, and whatever the shrine asked for.
+     *
+     * Three times is the price of the only artifact in the game. That is
+     * roughly twelve nodes carrying it plus finding three shrines to kneel at,
+     * which is most of a run spent on a detour — which is the point. The
+     * artifact used to be a 1-in-18 roll on an Elite screen. Now it is
+     * something you decided to go and get. */
+    repeatable: true,
+    mastery: {
+      after: 3,
+      effects: [{ op: 'relic', relicId: 'sect_reliquary' }],
+    },
   },
 
   /* ---- costly: the bills ---- */

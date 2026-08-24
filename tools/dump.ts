@@ -23,6 +23,7 @@ import { fileURLToPath } from 'node:url';
 import { reloadContent } from '../src/content/index.ts';
 import { ENCOUNTERS } from '../src/content/encounters.ts';
 import { STARTING_DECK } from '../src/content/cards/basic.ts';
+import { KEYWORDS } from '../src/content/keywords.ts';
 import {
   cards,
   enemies,
@@ -82,6 +83,10 @@ const pools = {
     id: relic.id,
     name: relic.name,
     rarity: relic.rarity,
+    /* Out of every offer; granted by name. The pages say so, because a relic
+       you cannot find is the single most confusing thing a reference can list
+       without comment. */
+    exclusive: relic.exclusive === true,
     text: relic.text,
     flavor: relic.flavor ?? null,
   })),
@@ -157,7 +162,15 @@ const pools = {
     omen: thread.omen,
     after: thread.trigger.count,
     payoff: describeRunEffects(thread.payoff),
+    repeatable: thread.repeatable === true,
+    mastery:
+      thread.mastery === undefined
+        ? null
+        : { after: thread.mastery.after, effects: describeRunEffects(thread.mastery.effects) },
   })),
+
+  /* The glossary, straight from the pool the card text is checked against. */
+  keywords: KEYWORDS.map((keyword) => ({ name: keyword.name, text: keyword.text })),
 
   events: events.all().map((event) => ({
     id: event.id,

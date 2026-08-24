@@ -23,7 +23,7 @@ import {
   optionsFor,
   refusalFor,
 } from '../src/engine/run/events.ts';
-import { activeThreads, setThread } from '../src/engine/run/threads.ts';
+import { activeThreads, resolveThread, setThread } from '../src/engine/run/threads.ts';
 import { buyRemoval, buyShopCard, stockShop } from '../src/engine/run/shop.ts';
 import { stableStringify } from '../src/engine/serialize.ts';
 import { THREADS } from '../src/content/balance.ts';
@@ -219,6 +219,55 @@ describe('threads', () => {
     const twice = setThread(once, 'marked');
     expect(twice).toBe(once);
     expect(runOf(twice).threads.filter((entry) => entry.threadId === 'marked')).toHaveLength(1);
+  });
+
+  it('refuses to re-arm a thread that is still running', () => {
+    // Repeatable is about taking it AGAIN, not about stacking two of it.
+    const once = setThread(fresh(), 'sect_rites');
+    expect(setThread(once, 'sect_rites')).toBe(once);
+  });
+
+  it('lets a repeatable thread be taken again once it has come due', () => {
+    const once = resolveThread(setThread(fresh(), 'sect_rites'), 'sect_rites');
+    const twice = setThread(once, 'sect_rites');
+
+    const entry = runOf(twice).threads.find((thread) => thread.threadId === 'sect_rites');
+    expect(runOf(twice).threads.filter((t) => t.threadId === 'sect_rites')).toHaveLength(1);
+    expect(entry?.resolved).toBe(false);
+    expect(entry?.progress).toBe(0);
+    // The count is the mechanic. It survives the entry being re-armed.
+    expect(entry?.completed).toBe(1);
+  });
+
+  it('keeps every other thread to once a run', () => {
+    /* The default matters more than the exception. A reprisal you can be given
+       twice is a difficulty setting, and a debt you can pay twice is not a
+       debt — so `repeatable` has to be opt-in, asserted across the whole pool
+       rather than on the one thread that has it. */
+    for (const def of threadTable.all()) {
+      if (def.repeatable === true) continue;
+      const done = resolveThread(setThread(fresh(), def.id), def.id);
+      expect(setThread(done, def.id), def.id).toBe(done);
+    }
+  });
+
+  it('pays a mastery on exactly the Nth time and never again', () => {
+    for (const def of threadTable.all()) {
+      if (def.mastery === undefined) continue;
+      expect(def.repeatable, `${def.id} has a mastery it can never reach`).toBe(true);
+      expect(def.mastery.after, def.id).toBeGreaterThan(1);
+    }
+
+    // Walked through the real loop rather than asserted on the data, because
+    // the bug this guards is an off-by-one between resolving and counting.
+    let state = fresh();
+    const seen: number[] = [];
+    for (let round = 0; round < 4; round++) {
+      state = setThread(state, 'sect_rites');
+      state = resolveThread(state, 'sect_rites');
+      seen.push(runOf(state).threads.find((t) => t.threadId === 'sect_rites')?.completed ?? -1);
+    }
+    expect(seen).toEqual([1, 2, 3, 4]);
   });
 
   it('always comes due inside the run', () => {

@@ -27,7 +27,7 @@ function stateWithModules(sourceIds: readonly string[]): GameState {
     log: [],
     run: {
       ...run,
-      threads: sourceIds.map((threadId) => ({ threadId, resolved: false, progress: 0 })),
+      threads: sourceIds.map((threadId) => ({ threadId, resolved: false, progress: 0, completed: 0 })),
     },
   };
 }

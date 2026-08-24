@@ -30,6 +30,10 @@ import { VULNERABLE } from './statuses.ts';
 import { ventHeat } from '../engine/combat/heat.ts';
 import { FOCUS_MAX, HOOK_PRIORITY } from './balance.ts';
 
+/** What The Third Lung calls "running hot". Named, because the relic's own
+    text quotes it and a number in two places drifts. */
+const THIRD_LUNG_HEAT = 6;
+
 export const RELICS: readonly RelicDef[] = [
   /* ---- the yardsticks ---- */
   {
@@ -130,7 +134,7 @@ export const RELICS: readonly RelicDef[] = [
     id: 'the_unmoved_centre',
     name: 'The Unmoved Centre',
     text: 'Start each fight with 4 Focus, gain 1 Focus a turn, and each stack is worth 1 more.',
-    rarity: 'artifact',
+    rarity: 'legendary',
     passive: { startingFocus: 4, focusPerTurn: 1, focusPerStackBonus: 1 },
     flavor: 'The last thing the sect agreed on, and the only one that survived them.',
   },
@@ -215,9 +219,14 @@ export const RELICS: readonly RelicDef[] = [
   {
     id: 'third_lung',
     name: 'The Third Lung',
-    text: 'The overheat threshold rises by 1, and vent 2 Heat at the start of each turn.',
+    /* The vent came out. It made the relic an answer to Heat, which is what
+       half the pool already is — and a relic that quietly cancels the resource
+       it claims to be about is a relic that removes a decision. Running hot is
+       now the condition rather than the problem: the threshold buys you the
+       room, and standing in that room pays an Energy. */
+    text: `The overheat threshold rises by 1. Gain 1 Energy at the start of a turn you begin at ${THIRD_LUNG_HEAT} or more Heat.`,
     rarity: 'epic',
-    passive: { overheatThreshold: 1, ventPerTurn: 2 },
+    passive: { overheatThreshold: 1 },
     flavor: 'Grafted in by somebody who had clearly done it before, on somebody else.',
   },
   {
@@ -268,8 +277,12 @@ export const RELICS: readonly RelicDef[] = [
     /* The only relic that reads the story layer. A run that engages with
        Threads is a run that took risks it did not have to, and this is the one
        thing in the game that pays for having done that. */
-    text: 'Heal 8 and gain 70 Alloy whenever a Thread comes due.',
-    rarity: 'legendary',
+    text: 'Starting a turn in IAI grants 1 Energy, 2 cards and 3 Focus.',
+    rarity: 'artifact',
+    /* Not in any offer. It is handed over for finishing The Rites three times
+       in one run — see `sect_rites` — which makes the one artifact in the game
+       something you went and did rather than something that happened to you. */
+    exclusive: true,
     flavor: 'Everything the order still owned, in a box the size of a fist.',
   },
 ];
@@ -327,6 +340,15 @@ function grantHeal(state: GameState, amount: number, source: string, why: string
   );
 }
 
+function grantEnergy(state: GameState, amount: number, source: string, why: string): GameState {
+  const combat = state.run?.combat;
+  if (combat === undefined || combat === null) return state;
+  return appendLog(
+    withCombat(state, (current) => ({ ...current, energy: current.energy + amount })),
+    { source, kind: 'combat', text: `${why} Energy +${amount}.`, detail: { energy: amount } },
+  );
+}
+
 function grantBlock(state: GameState, amount: number, source: string, why: string): GameState {
   const combat = state.run?.combat;
   if (combat === undefined || combat === null) return state;
@@ -380,6 +402,21 @@ export function registerRelicHooks(): void {
       hook: 'onHeatVented',
       priority: HOOK_PRIORITY.module,
       handle: (state) => grantDraw(state, 1, 'kindling_ledger', 'Kindling Ledger.'),
+    }),
+  ]);
+
+  registerHooks('third_lung', [
+    defineHook({
+      hook: 'onTurnStart',
+      priority: HOOK_PRIORITY.module,
+      /* Read at the START of the turn, before anything you do this turn moves
+         the gauge. That is what makes it plannable: you end a turn at 6 knowing
+         exactly what the next one opens with. */
+      handle: (state) => {
+        const combat = state.run?.combat;
+        if (combat === undefined || combat === null || combat.heat < THIRD_LUNG_HEAT) return state;
+        return grantEnergy(state, 1, 'third_lung', 'The Third Lung.');
+      },
     }),
   ]);
 
@@ -518,11 +555,22 @@ export function registerRelicHooks(): void {
 
   registerHooks('sect_reliquary', [
     defineHook({
-      hook: 'onThreadResolved',
+      hook: 'onTurnStart',
       priority: HOOK_PRIORITY.module,
+      /* An artifact should change what a turn IS, not add to it. Three
+         resources at once is enormous, and the condition is what pays for it:
+         IAI is the stance that gains Heat every turn and retains no Block, so
+         holding it long enough to keep collecting is a real bet rather than a
+         switch you flip on turn one and forget.
+
+         `liveStance` rather than the raw id, so a Mastery that rewrites IAI is
+         still IAI here. */
       handle: (state) => {
-        const healed = grantHeal(state, 8, 'sect_reliquary', 'The Sect Reliquary.');
-        return grantAlloy(healed, 70, 'sect_reliquary', 'The Sect Reliquary.');
+        const combat = state.run?.combat;
+        if (combat === undefined || combat === null || combat.stance !== 'iai') return state;
+        let next = grantEnergy(state, 1, 'sect_reliquary', 'The Sect Reliquary.');
+        next = grantDraw(next, 2, 'sect_reliquary', 'The Sect Reliquary.');
+        return grantFocus(next, 3, 'sect_reliquary', 'The Sect Reliquary.');
       },
     }),
   ]);

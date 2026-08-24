@@ -256,7 +256,11 @@ export function rollRelics(
 
   // Relics have their own ladder. See RELIC_RARITY_WEIGHTS for why.
   const rarityWeights = RELIC_RARITY_WEIGHTS[run.act];
-  const pool = relicTable.all().filter((def) => !run.pilot.relics.includes(def.id));
+  /* `exclusive` never enters an offer. It is granted by name — see the `relic`
+     run effect — so a relic that is meant to be earned cannot also be found. */
+  const pool = relicTable
+    .all()
+    .filter((def) => def.exclusive !== true && !run.pilot.relics.includes(def.id));
   if (pool.length === 0) return { relicIds: [], rng };
 
   /*

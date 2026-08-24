@@ -1518,4 +1518,170 @@ export const EVENTS: readonly EventDef[] = [
       },
     ],
   },
+
+  /* ---- three more places to kneel ----
+
+     The Rites became repeatable and the artifact became the reward for saying
+     them three times in one run, which made the number of shrines a balance
+     figure rather than flavour. Five events offered them; a route that takes
+     every Anomaly it can reach sees about seventeen, so five sources meant the
+     third kneeling was mostly a dice roll about which events the pool handed
+     you. Eight makes it a route you can decide to take.
+
+     None of them is a shrine. A rite said over a corpse, a rite said into a
+     recorder and a rite said back to you by something that is not a person are
+     three different scenes, and the third one is meant to be unpleasant. */
+
+  {
+    id: 'the_ossuary_drum',
+    name: 'The Ossuary Drum',
+    body:
+      'A sect burial drum, tumbling end over end where somebody let go of it. Forty-one names ' +
+      'are cut into the rim and the last four are unfinished — whoever was cutting them was ' +
+      'interrupted and did not come back to it.',
+    options: [
+      {
+        id: 'finish',
+        label: 'Finish the names, then say the rites',
+        detail: 'You do not know the last four. You say them the way they should have been.',
+        effects: [{ op: 'setThread', threadId: 'sect_rites' }],
+        risk: 'None',
+        payoff: 'Deferred',
+      },
+      {
+        id: 'strip',
+        label: 'Strip the drum',
+        detail: 'It is good alloy and it is doing nothing where it is.',
+        effects: [{ op: 'alloy', amount: 95 }],
+        risk: 'None',
+        payoff: 'Immediate, small',
+      },
+      {
+        id: 'match',
+        label: 'Match its spin and ride alongside',
+        detail:
+          'Four hours matching a dead man’s tumble. You arrive at the next thing already tired ' +
+          'and already steadier.',
+        effects: [
+          { op: 'health', amount: -8 },
+          { op: 'upgradeRandomCard' },
+        ],
+        risk: 'The body',
+        payoff: 'Immediate, specific',
+      },
+      {
+        id: 'leave',
+        label: 'Let it tumble',
+        detail: 'It has somewhere to be and it is going there.',
+        effects: [],
+        isLeave: true,
+        risk: 'None',
+        payoff: 'None',
+      },
+    ],
+  },
+
+  {
+    id: 'the_last_recording',
+    name: 'The Last Recording',
+    body:
+      'A survey drone has been holding station over nothing for eleven years, transmitting the ' +
+      'same forty seconds. It is one of yours, halfway through the rites, and it stops in the ' +
+      'middle of a name because that is where the recording ended.',
+    options: [
+      {
+        id: 'answer',
+        label: 'Say the rest of it back',
+        detail: 'The drone has no receiver. You say it anyway, from the name it stopped on.',
+        effects: [{ op: 'setThread', threadId: 'sect_rites' }],
+        risk: 'None',
+        payoff: 'Deferred',
+      },
+      {
+        id: 'wipe',
+        label: 'Wipe it and take the drone',
+        detail:
+          'Eleven years of station-keeping fuel, and a transmitter that has been on the whole ' +
+          'time. Both are worth more than the recording.',
+        effects: [
+          { op: 'alloy', amount: 130 },
+          { op: 'setThread', threadId: 'marked' },
+        ],
+        risk: 'Attention',
+        payoff: 'Immediate, large',
+      },
+      {
+        id: 'listen',
+        label: 'Listen to all of it, several times',
+        detail: 'There is a way they hold the third line that you had forgotten.',
+        effects: [{ op: 'card', cardId: 'the_dead_sect', upgraded: true }],
+        risk: 'None',
+        payoff: 'Immediate, specific',
+      },
+      {
+        id: 'leave',
+        label: 'Fly past it',
+        detail: 'It will keep saying it. That is the only thing it does now.',
+        effects: [],
+        isLeave: true,
+        risk: 'None',
+        payoff: 'None',
+      },
+    ],
+  },
+
+  {
+    id: 'the_reciting_hull',
+    name: 'The Reciting Hull',
+    acts: [2, 3],
+    body:
+      'Something has been chewing a cutter apart for a long time, and it has learned the shape ' +
+      'of what the crew said while it did. It is saying the rites now, in the right order, in ' +
+      'four voices at once, and none of the four are breathing.',
+    options: [
+      {
+        id: 'correct',
+        label: 'Say them correctly, over it',
+        detail:
+          'It has the seventh and eighth lines the wrong way round. You will not leave that ' +
+          'standing, whatever is doing it.',
+        effects: [
+          { op: 'health', amount: -9 },
+          { op: 'setThread', threadId: 'sect_rites' },
+        ],
+        risk: 'The body',
+        payoff: 'Deferred',
+      },
+      {
+        id: 'silence',
+        label: 'Silence it',
+        detail: 'It does not stop when the hull comes apart. It stops some time after.',
+        effects: [{ op: 'ambush', tier: 'combat' }],
+        risk: 'A fight, now',
+        payoff: 'Immediate, specific',
+      },
+      {
+        id: 'record',
+        label: 'Record the four voices',
+        detail:
+          'Somebody at a yard will pay for this and will not ask what it is. You will know.',
+        /* 15 Alloy a point of max health, which is the run-wide rate. */
+        effects: [
+          { op: 'alloy', amount: 90 },
+          { op: 'maxHealth', amount: -6 },
+        ],
+        risk: 'Permanent',
+        payoff: 'Immediate, large',
+      },
+      {
+        id: 'leave',
+        label: 'Run silent past it',
+        detail: 'It is still going when the signal drops below the noise floor.',
+        effects: [],
+        isLeave: true,
+        risk: 'None',
+        payoff: 'None',
+      },
+    ],
+  },
 ];

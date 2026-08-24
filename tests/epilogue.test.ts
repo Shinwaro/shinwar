@@ -85,7 +85,7 @@ describe('the epilogue', () => {
     const run = state.run!;
     const threadId = threadTable.ids()[0]!;
     const carrying = ended(
-      { ...state, run: { ...run, threads: [{ threadId, resolved: false, progress: 1 }] } },
+      { ...state, run: { ...run, threads: [{ threadId, resolved: false, progress: 1, completed: 0 }] } },
       'died',
     );
 
@@ -99,7 +99,7 @@ describe('the epilogue', () => {
     const run = state.run!;
     const threadId = threadTable.ids()[0]!;
     const settled = ended(
-      { ...state, run: { ...run, threads: [{ threadId, resolved: true, progress: 9 }] } },
+      { ...state, run: { ...run, threads: [{ threadId, resolved: true, progress: 9, completed: 1 }] } },
       'died',
     );
     expect(epilogueFor(settled)!.unfinished).toEqual([]);

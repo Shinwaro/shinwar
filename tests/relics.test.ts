@@ -8,12 +8,14 @@
  */
 
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { GameState } from '../src/engine/types.ts';
+import type { GameState, RunEffect } from '../src/engine/types.ts';
 import { createInitialState, createRunState } from '../src/engine/state.ts';
 import { applyAction } from '../src/engine/reducer.ts';
 import { HOOK_NAMES, handlersFor } from '../src/engine/hooks.ts';
 import { createRng } from '../src/engine/rng.ts';
 import { rollRelics, rollMastery, rollReward } from '../src/engine/run/rewards.ts';
+import { applyRunEffects } from '../src/engine/run/effects.ts';
+import { resolveThread, setThread } from '../src/engine/run/threads.ts';
 import { computeDamage, previewDamage, PLAYER, enemyTarget } from '../src/engine/combat/damage.ts';
 import { playCard, startPlayerTurn } from '../src/engine/combat/combat.ts';
 import { overheatThreshold } from '../src/engine/combat/heat.ts';
@@ -22,8 +24,10 @@ import { PLAYER as PLAYER_BALANCE, RELIC_RARITY_WEIGHTS, REWARDS } from '../src/
 import { reloadContent } from '../src/content/index.ts';
 import {
   cards as cardTable,
+  events as eventTable,
   implants as implantTable,
   relics as relicTable,
+  threads as threadTable,
 } from '../src/content/registry.ts';
 import { makeFight, combatOf, firstEnemy } from './helpers.ts';
 import { VECTOR_STEP } from '../src/content/cards/basic.ts';
@@ -61,8 +65,88 @@ describe('the relic pool', () => {
       }
     }
 
-    const missing = relicTable.all().filter((def) => !seen.has(def.id));
+    const missing = relicTable
+      .all()
+      .filter((def) => def.exclusive !== true && !seen.has(def.id));
     expect(missing.map((def) => `${def.id} (${def.rarity})`)).toEqual([]);
+  });
+
+  it('never offers an exclusive relic', () => {
+    // The other half of the same rule. A relic that is earned must not also be
+    // findable, or the thing it was the reward for stops being worth doing.
+    const exclusive = new Set(
+      relicTable
+        .all()
+        .filter((def) => def.exclusive === true)
+        .map((def) => def.id),
+    );
+    expect(exclusive.size, 'nothing is exclusive any more').toBeGreaterThan(0);
+
+    for (let i = 0; i < 1500; i++) {
+      for (const act of [1, 2, 3] as const) {
+        const run = createRunState(`EXCL-${i}`, 0);
+        for (const tier of ['elite', 'boss'] as const) {
+          const rolled = rollRelics(createRng(`EXCL-${i}-${act}-${tier}`), { ...run, act }, tier);
+          for (const id of rolled.relicIds) {
+            expect(exclusive.has(id), `${id} was offered`).toBe(false);
+          }
+        }
+      }
+    }
+  });
+
+  it('gives every exclusive relic something that hands it over', () => {
+    /* An `exclusive` relic is out of the pool by construction, so the ONLY way
+       to hold one is a `relic` run effect naming it. Nothing else in the game
+       fails if that effect is missing — the relic simply does not exist any
+       more, silently, exactly the way three legendaries went missing before. */
+    const granted = new Set<string>();
+    const walk = (effects: readonly RunEffect[]): void => {
+      for (const effect of effects) if (effect.op === 'relic') granted.add(effect.relicId);
+    };
+
+    for (const thread of threadTable.all()) {
+      walk(thread.payoff);
+      if (thread.mastery !== undefined) walk(thread.mastery.effects);
+    }
+    for (const event of eventTable.all()) {
+      for (const option of event.options) walk(option.effects);
+    }
+
+    const orphaned = relicTable
+      .all()
+      .filter((def) => def.exclusive === true && !granted.has(def.id));
+    expect(orphaned.map((def) => def.id)).toEqual([]);
+  });
+
+  it('hands over the artifact on the third Rites and not the second', () => {
+    /* The whole chain, walked rather than reasoned about: take the Thread,
+       let it come due, take it again. Three separate pieces have to agree —
+       `canSetThread` re-arming a resolved Thread, `resolveThread` counting the
+       completion, and `settleThreads` reading that count to decide whether the
+       mastery fires — and each of them looks correct on its own. */
+    const def = threadTable.get('sect_rites');
+    const mastery = def.mastery;
+    if (mastery === undefined) throw new Error('test: The Rites lost its mastery');
+
+    let state: GameState = { ...createInitialState('RITES'), run: createRunState('RITES', 0) };
+
+    const held = (current: GameState): readonly string[] => current.run?.pilot.relics ?? [];
+
+    for (let time = 1; time <= mastery.after; time++) {
+      state = setThread(state, 'sect_rites');
+      state = resolveThread(state, 'sect_rites');
+
+      const times = state.run?.threads.find((t) => t.threadId === 'sect_rites')?.completed ?? 0;
+      if (times === mastery.after) {
+        state = applyRunEffects(state, [...def.payoff, ...mastery.effects], def.id).state;
+      } else {
+        state = applyRunEffects(state, def.payoff, def.id).state;
+        expect(held(state), `granted early, after ${time}`).not.toContain('sect_reliquary');
+      }
+    }
+
+    expect(held(state)).toContain('sect_reliquary');
   });
 
   it('keeps the top tiers scarce rather than hidden', () => {

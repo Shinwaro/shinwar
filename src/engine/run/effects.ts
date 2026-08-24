@@ -20,7 +20,12 @@ import { nextInt } from '../rng.ts';
 import { mintCard } from '../combat/instances.ts';
 import { gainAlloy, spendAlloy } from './economy.ts';
 import { resolveThread, setThread } from './threads.ts';
-import { cards as cardTable, threads as threadTable } from '../../content/registry.ts';
+import { grantRelic } from './pilot.ts';
+import {
+  cards as cardTable,
+  relics as relicTable,
+  threads as threadTable,
+} from '../../content/registry.ts';
 
 export interface RunEffectResult {
   readonly state: GameState;
@@ -183,6 +188,15 @@ function applyOne(state: GameState, effect: RunEffect, source: string): Single {
         line: `${name} leaves the deck.`,
         refs: [{ text: name, cardId: chosen.defId }],
       };
+    }
+
+    case 'relic': {
+      const next = grantRelic(state, effect.relicId);
+      /* Already carried, or not a real id. Silent rather than a line saying
+         nothing happened — the caller decides whether that is worth a word. */
+      if (next === state) return { state, line: null };
+      const def = relicTable.find(effect.relicId);
+      return { state: next, line: def === undefined ? 'A relic.' : `${def.name}.` };
     }
 
     case 'setThread': {

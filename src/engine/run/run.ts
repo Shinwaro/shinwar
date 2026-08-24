@@ -24,7 +24,8 @@ import { gainAlloy, removalCost, rollAlloy, spendAlloy } from './economy.ts';
 import { offerMatchesLean, rollReward } from './rewards.ts';
 import { applyRunEffects } from './effects.ts';
 import { clearEvent, openEvent } from './events.ts';
-import { advanceThreads, dueThreads, resolveThread } from './threads.ts';
+import { advanceThreads, dueThreads, resolveThread, threadState } from './threads.ts';
+import { grantImplant, grantRelic } from './pilot.ts';
 import { stockShop } from './shop.ts';
 import {
   ACT_CLEAR_HEAL_PCT,
@@ -39,8 +40,6 @@ import { CLEAR_SPACE_ID } from '../../content/environments.ts';
 import {
   cards as cardTable,
   enemies as enemyTable,
-  implants as implantTable,
-  relics as relicTable,
 } from '../../content/registry.ts';
 import { ENCOUNTERS as encounterTable } from '../../content/encounters.ts';
 import { describeLanding } from './describe.ts';
@@ -191,7 +190,19 @@ function settleThreads(
 
   for (const def of dueThreads(requireRun(next))) {
     next = resolveThread(next, def.id);
-    const paid = applyRunEffects(next, def.payoff, def.id);
+
+    /* The ordinary payoff, then the mastery one if this was the Nth time.
+     *
+     * Read AFTER `resolveThread`, because that is what increments the count —
+     * and `=== after` rather than `>=`, so a Thread that keeps being taken on
+     * pays its mastery exactly once. */
+    const times = threadState(requireRun(next), def.id)?.completed ?? 0;
+    const effects =
+      def.mastery !== undefined && times === def.mastery.after
+        ? [...def.payoff, ...def.mastery.effects]
+        : def.payoff;
+
+    const paid = applyRunEffects(next, effects, def.id);
     next = paid.state;
     /*
      * The promise travels with the payout.
@@ -487,49 +498,6 @@ export function leaveReward(state: GameState): GameState {
   );
 }
 
-/** Implants stack, so this only refuses one that does not exist. */
-function grantImplant(state: GameState, implantId: string | null): GameState {
-  if (implantId === null) return state;
-  if (implantTable.find(implantId) === undefined) return state;
-  return withRun(state, (current) => ({
-    ...current,
-    pilot: { ...current.pilot, implants: [...current.pilot.implants, implantId] },
-  }));
-}
-
-function grantRelic(state: GameState, relicId: string | null): GameState {
-  if (relicId === null) return state;
-  const run = requireRun(state);
-  if (run.pilot.relics.includes(relicId)) return state;
-  const def = relicTable.find(relicId);
-  if (def === undefined) return state;
-
-  let next = withRun(state, (current) => ({
-    ...current,
-    pilot: { ...current.pilot, relics: [...current.pilot.relics, relicId] },
-  }));
-
-  // `maxHealth` is the one passive that is not read continuously — it is a
-  // one-off change to the pilot, applied here and never again.
-  const extra = def.passive?.maxHealth ?? 0;
-  if (extra !== 0) {
-    next = withRun(next, (current) => ({
-      ...current,
-      pilot: {
-        ...current.pilot,
-        maxHealth: Math.max(1, current.pilot.maxHealth + extra),
-        health: Math.max(1, current.pilot.health + Math.max(0, extra)),
-      },
-    }));
-  }
-
-  return appendLog(next, {
-    source: relicId,
-    kind: 'reward',
-    text: `${def.name}. ${def.text}`,
-    detail: { relic: relicId },
-  });
-}
 
 /** Choose one of the act finale's relics — or change your mind, until you leave. */
 /** The implant half of a boss offer. Same shape as the relic pick. */

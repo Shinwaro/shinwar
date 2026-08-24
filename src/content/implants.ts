@@ -132,7 +132,10 @@ export const IMPLANTS: readonly ImplantDef[] = [
     id: 'thermal_ward',
     name: 'Thermal Ward',
     rarity: 'uncommon',
-    price: 140,
+    /* Up 20. A degree of overheat room is worth more than the sticker said: it
+       is not "more Heat capacity", it is one extra turn of every card that
+       gains Heat, in a deck built to gain Heat. */
+    price: 160,
     maxStacks: 2,
     passive: { overheatThreshold: 1 },
     flavor: 'One more degree of room, bought at some expense.',

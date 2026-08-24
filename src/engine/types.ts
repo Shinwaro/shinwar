@@ -446,6 +446,13 @@ export type RunEffect =
   | { readonly op: 'card'; readonly cardId: CardId; readonly upgraded?: boolean }
   | { readonly op: 'upgradeRandomCard' }
   | { readonly op: 'removeRandomCard' }
+  /**
+   * A relic handed over by name rather than rolled. The only way to get one of
+   * the relics marked `exclusive`, which is the point: an artifact that drops
+   * from a weighted table is luck, and an artifact you were given for doing a
+   * specific thing three times is a run you remember.
+   */
+  | { readonly op: 'relic'; readonly relicId: RelicId }
   | { readonly op: 'setThread'; readonly threadId: ThreadId }
   | { readonly op: 'resolveThread'; readonly threadId: ThreadId }
   /** A fight that arrives instead of whatever the node was going to be. */
@@ -511,6 +518,27 @@ export interface ThreadDef {
   readonly omen: string;
   readonly trigger: ThreadTrigger;
   readonly payoff: readonly RunEffect[];
+  /**
+   * Whether it can be taken again once it has come due.
+   *
+   * Off by default, and that default is the important one — a Thread is a
+   * promise the run makes once, and a debt you can pay twice is not a debt.
+   * The Rites is the exception: kneeling at a second shrine is a thing a
+   * person does, and doing it three times is what `mastery` below pays for.
+   */
+  readonly repeatable?: boolean;
+  /**
+   * A second payoff, on the Nth time it comes due in one run. Fires *as well
+   * as* the ordinary payoff, not instead of it.
+   *
+   * Declared rather than hooked because a resolved Thread stops being a hook
+   * source the instant it resolves — the handler would be unregistered at
+   * exactly the moment it needed to fire.
+   */
+  readonly mastery?: {
+    readonly after: number;
+    readonly effects: readonly RunEffect[];
+  };
 }
 
 /**
@@ -562,6 +590,12 @@ export interface RelicDef {
   readonly text: string;
   readonly rarity: Rarity;
   readonly passive?: RelicPassive;
+  /**
+   * Kept out of the offer pool. It has to be granted by name — a `relic` run
+   * effect — so the only way to hold it is to have done the thing that hands
+   * it over.
+   */
+  readonly exclusive?: boolean;
   readonly flavor?: string;
 }
 
@@ -837,6 +871,8 @@ export interface ThreadState {
   readonly resolved: boolean;
   /** Nodes entered since it was set. The trigger reads this. */
   readonly progress: number;
+  /** How many times it has come due this run. Only `repeatable` ones exceed 1. */
+  readonly completed: number;
 }
 
 /** The ronin themself: health, deck, and the two kinds of permanent upgrade. */

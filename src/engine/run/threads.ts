@@ -41,8 +41,15 @@ export function activeThreads(run: RunState): readonly ThreadState[] {
 }
 
 export function canSetThread(run: RunState, threadId: ThreadId): boolean {
-  if (hasThread(run, threadId)) return false;
   if (!threadTable.has(threadId)) return false;
+  const entry = threadState(run, threadId);
+  /* Carrying it already is the ordinary "no". A RESOLVED one is a different
+     question: a `repeatable` Thread can be taken on again, which is what makes
+     kneeling at a third shrine mean something. Everything else stays once a
+     run, because a promise the run makes twice is not a promise. */
+  if (entry !== undefined && (!entry.resolved || threadTable.get(threadId).repeatable !== true)) {
+    return false;
+  }
   return activeThreads(run).length < THREADS.maxActive;
 }
 
@@ -54,9 +61,18 @@ export function setThread(state: GameState, threadId: ThreadId): GameState {
   if (!canSetThread(run, threadId)) return state;
   const def = threadTable.get(threadId);
 
+  /* Re-arming keeps the completion count. That count is the whole mechanic for
+     a repeatable Thread, so it survives the entry being reset — and re-arming
+     in place rather than pushing a second entry keeps `threads` keyed by id,
+     which everything downstream assumes. */
+  const carried = threadState(run, threadId)?.completed ?? 0;
+  const armed: ThreadState = { threadId, resolved: false, progress: 0, completed: carried };
+
   let next = withRun(state, (current) => ({
     ...current,
-    threads: [...current.threads, { threadId, resolved: false, progress: 0 }],
+    threads: current.threads.some((thread) => thread.threadId === threadId)
+      ? current.threads.map((thread) => (thread.threadId === threadId ? armed : thread))
+      : [...current.threads, armed],
   }));
 
   next = appendLog(next, {
@@ -81,7 +97,9 @@ export function resolveThread(state: GameState, threadId: ThreadId): GameState {
   let next = withRun(state, (current) => ({
     ...current,
     threads: current.threads.map((thread) =>
-      thread.threadId === threadId ? { ...thread, resolved: true } : thread,
+      thread.threadId === threadId
+        ? { ...thread, resolved: true, completed: thread.completed + 1 }
+        : thread,
     ),
   }));
 

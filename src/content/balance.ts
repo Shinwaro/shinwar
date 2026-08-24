@@ -459,8 +459,18 @@ export const RELIC_RARITY_WEIGHTS: {
   readonly [act in 1 | 2 | 3]: { readonly [r in Exclude<Rarity, 'basic'>]: number };
 } = {
   1: { common: 55, uncommon: 30, rare: 12, epic: 2.5, legendary: 0.4, artifact: 0.1 },
-  2: { common: 34, uncommon: 34, rare: 21, epic: 8, legendary: 2.2, artifact: 0.8 },
-  3: { common: 18, uncommon: 30, rare: 28, epic: 16, legendary: 6, artifact: 2 },
+  /* Legendary doubled in Acts 2 and 3. Measured: relics only roll a tier on an
+     Elite, a route can walk into about two an act, and bosses stopped rolling
+     when their offer was pinned to epic — which quietly removed three offers a
+     run. At 2.2/6 a legendary turned up in roughly one run in six. At 4.4/12 it
+     is closer to one in three, which is a thing you can hope for rather than a
+     thing you hear about.
+
+     Artifact deliberately unchanged, and now moot: the one artifact is
+     `exclusive` and comes from finishing The Rites three times, so the tier is
+     never offered. The row stays as the rule for the day a second one exists. */
+  2: { common: 34, uncommon: 34, rare: 21, epic: 8, legendary: 4.4, artifact: 0.8 },
+  3: { common: 18, uncommon: 30, rare: 28, epic: 16, legendary: 12, artifact: 2 },
 };
 
 /** Display order and label for a tier. Colour lives in the stylesheet. */
