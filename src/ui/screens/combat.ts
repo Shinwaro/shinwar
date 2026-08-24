@@ -320,11 +320,27 @@ export function renderCombat(store: Store): HTMLElement {
     const leaving = handBefore;
     handBefore = captureHand(host);
 
+    /* The hand is a horizontal scroller on a phone, and every render builds a
+       brand new one — so without this, any rerender snapped the row back to the
+       first card. Combined with a touch re-rendering the screen on finger-down
+       (see `onHoverOrFocus`), swiping the hand worked about half the time and
+       looked like the scroll itself was broken. It was not; the element it
+       belonged to kept being replaced. */
+    const handScroll = host.querySelector('.hand')?.scrollLeft ?? 0;
+
     rendering = true;
     try {
       host.replaceChildren(build(store, state, selection, rerender));
     } finally {
       rendering = false;
+    }
+
+    /* Restored only when the row still scrolls that far. Playing a card can
+       shorten the hand, and holding a scroll offset past the new end would
+       leave the player looking at blank space where their cards used to be. */
+    const scroller = host.querySelector('.hand');
+    if (scroller !== null && handScroll > 0) {
+      scroller.scrollLeft = Math.min(handScroll, scroller.scrollWidth - scroller.clientWidth);
     }
 
     const moved = animateHand(host, state, leaving, selection.playedUid);

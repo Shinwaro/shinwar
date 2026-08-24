@@ -17,7 +17,7 @@ import type { Store } from '../store.ts';
 import { requireRun } from '../../engine/state.ts';
 import { availableMoves, currentNode, describeNode } from '../../engine/map/route.ts';
 import { environments } from '../../content/registry.ts';
-import { button, el, fill } from '../dom.ts';
+import { button, el, fill, onHoverOrFocus } from '../dom.ts';
 import { liveScreen } from '../screen.ts';
 import { renderRunBar } from '../components/runbar.ts';
 import { renderManifest } from '../components/manifest.ts';
@@ -299,10 +299,7 @@ function buildMap(
 
     const show = (): void => setReadout(label);
     const hide = (): void => setReadout(null);
-    star.addEventListener('pointerenter', show);
-    star.addEventListener('pointerleave', hide);
-    star.addEventListener('focus', show);
-    star.addEventListener('blur', hide);
+    onHoverOrFocus(star, (on) => (on ? show() : hide()));
 
     stars.append(star);
   }

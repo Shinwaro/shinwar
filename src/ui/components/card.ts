@@ -21,7 +21,7 @@ import {
 } from '../../engine/combat/describe.ts';
 import { STANCES } from '../../content/balance.ts';
 import type { Child } from '../dom.ts';
-import { el } from '../dom.ts';
+import { el, onHoverOrFocus } from '../dom.ts';
 
 /* ---------- the static face ----------
    Used wherever a card is shown but not played: reward screens, the Forge
@@ -216,14 +216,13 @@ export function renderCard(
    * A leave that arrives because the node was removed is not the pointer
    * leaving. `isConnected` is the difference, and it is the whole fix.
    */
-  node.addEventListener('pointerenter', () => options.onHover(true));
-  node.addEventListener('pointerleave', () => {
-    if (node.isConnected) options.onHover(false);
-  });
-  node.addEventListener('focus', () => options.onHover(true));
-  node.addEventListener('blur', () => {
-    if (node.isConnected) options.onHover(false);
-  });
+  /* Mouse only, and this is the bug that made the game unplayable on a phone:
+     a touch pointer raises `pointerenter` on finger-DOWN, the hover preview
+     re-renders the hand, this node is destroyed, and the finger lifts on
+     nothing — so no `click` is ever dispatched and every tap on a card did
+     nothing at all. It also reset the row's scroll on every touch, which is
+     why swiping the hand "worked half the time". See `onHoverOrFocus`. */
+  onHoverOrFocus(node, options.onHover);
 
   return node;
 }

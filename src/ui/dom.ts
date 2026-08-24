@@ -83,3 +83,36 @@ export function button(label: string, attrs: Attrs, onClick: () => void): HTMLBu
   node.addEventListener('click', onClick);
   return node;
 }
+
+/**
+ * Hover, wired so a finger can never raise it.
+ *
+ * A touch pointer fires `pointerenter` on finger-DOWN. Anywhere a hover handler
+ * re-renders — and in this UI they nearly all do, because hover is a preview
+ * and a preview is drawn from state — that means: finger lands, enter fires,
+ * the screen is rebuilt, the node under the finger is destroyed, the finger
+ * lifts on nothing, and no `click` is ever dispatched. The control simply does
+ * not work on a phone, silently, while working perfectly under a mouse.
+ *
+ * Hover is a mouse affordance: it is what a pointer that can rest somewhere
+ * without committing gets as an extra. A finger cannot rest, so it gets the
+ * tap, which is the interaction every one of these controls already supports.
+ *
+ * `leave` is guarded on `isConnected` as well: a re-render removes the node and
+ * the removal itself fires `pointerleave`, and treating that as the pointer
+ * leaving starts a strobe loop between enter and leave.
+ */
+export function onHoverOrFocus(node: HTMLElement, set: (on: boolean) => void): void {
+  node.addEventListener('pointerenter', (event) => {
+    if (event.pointerType !== 'mouse') return;
+    set(true);
+  });
+  node.addEventListener('pointerleave', (event) => {
+    if (event.pointerType !== 'mouse') return;
+    if (node.isConnected) set(false);
+  });
+  node.addEventListener('focus', () => set(true));
+  node.addEventListener('blur', () => {
+    if (node.isConnected) set(false);
+  });
+}

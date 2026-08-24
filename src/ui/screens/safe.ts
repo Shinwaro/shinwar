@@ -19,7 +19,7 @@ import { definitionOf } from '../../engine/combat/combat.ts';
 import { describeCard, describeCost } from '../../engine/combat/describe.ts';
 import { ECONOMY, RARITY_LABEL } from '../../content/balance.ts';
 import { cards as cardTable } from '../../content/registry.ts';
-import { button, el } from '../dom.ts';
+import { button, el, onHoverOrFocus } from '../dom.ts';
 import { liveScreen } from '../screen.ts';
 import { renderRunBar } from '../components/runbar.ts';
 import { renderCardFace } from '../components/card.ts';
@@ -228,10 +228,9 @@ function renderPickable(
     local.hovered = next;
     if (local.chosen === null) redraw();
   };
-  node.addEventListener('pointerenter', () => hover(true));
-  node.addEventListener('pointerleave', () => hover(false));
-  node.addEventListener('focus', () => hover(true));
-  node.addEventListener('blur', () => hover(false));
+  // Mouse only. A finger's `pointerenter` lands on finger-DOWN, and this hover
+  // redraws — which destroys the node before the tap can become a click.
+  onHoverOrFocus(node, hover);
 
   return node;
 }
