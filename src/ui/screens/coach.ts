@@ -91,9 +91,11 @@ function aim(cardId: string): readonly string[] {
    and this decides where to put it. */
 const NARROW = 56 * 16;
 
-/* Below this a "gap" is not somewhere to put a paragraph, and centring over the
-   dim reads better than wedging it into 90px of nothing. */
-const MIN_COACH_GAP = 150;
+/* A gap narrower than this is not a place to put words at all — one line of a
+   title and nothing else. Below it the step is centred instead, because at that
+   point there is genuinely nowhere clear and a legible box over the board beats
+   an illegible one wedged into a crack. */
+const MIN_COACH_GAP = 88;
 
 const STEPS: readonly Step[] = [
   {
@@ -283,7 +285,48 @@ export function renderCoach(store: Store, onDone: () => void): HTMLElement {
     host.replaceChildren(dim, ...rings, card);
   }
 
-  /**
+  /* Re-measure and re-check on every state change: that is precisely when the
+     screen underneath was rebuilt and when a "play this card" step might have
+     been satisfied. */
+  const unsubscribe = store.subscribe((state) => {
+    const step = STEPS[index];
+    if (step?.done?.(state) === true) {
+      advance();
+      return;
+    }
+    draw();
+  });
+
+  /* Rings are `position: fixed` and drawn from viewport coordinates, so they
+     are correct exactly until the page moves under them. On a desktop the board
+     fits and nothing ever moves; on a phone it scrolls, and every ring stayed
+     where the screen used to be — pointing at whatever had scrolled into that
+     spot. The card placement reads the same rectangles, so it drifted onto the
+     hand at the same time.
+   *
+   * Passive listeners, and a redraw rather than a transform: the step underneath
+   * may have been satisfied while the finger was moving, and `draw` is the one
+   * path that re-measures everything from the live DOM. Orientation change comes
+   * through `resize`, which is the other way this used to end up stale. */
+  const remeasure = (): void => draw();
+  window.addEventListener('scroll', remeasure, { passive: true, capture: true });
+  window.addEventListener('resize', remeasure, { passive: true });
+
+  host.addEventListener('shinwar:unmount', () => {
+    unsubscribe();
+    window.removeEventListener('scroll', remeasure, { capture: true } as EventListenerOptions);
+    window.removeEventListener('resize', remeasure);
+  });
+
+  /* First paint is deferred, and ONLY deferred.
+     The coach is built before it is appended, so a synchronous draw here would
+     measure rectangles of zeros. */
+  requestAnimationFrame(draw);
+
+  return host;
+}
+
+/**
  * Where the words go on a phone.
  *
  * "Above or below whatever it is pointing at" is the right rule on a wide
@@ -335,32 +378,15 @@ function narrowPlacement(boxes: readonly DOMRect[]): string | null {
     (winner, gap) => (winner === null || gap.size > winner.size ? gap : winner),
     null,
   );
+  /* The BIGGEST gap, whatever its size, rather than only a gap that fits
+     comfortably. The first version demanded 150px and centred when it could not
+     find one — which on the "play a card" step means centring on top of the
+     hand, swallowing every tap meant for a card. A cramped box that scrolls is
+     a worse read and a working game; a roomy box over the hand is neither. */
   if (best === null || best.size < MIN_COACH_GAP) return null;
 
   /* `max-height` is what keeps the promise. Without it a long step in a short
      gap simply grows back over the ring, and the gap search would have bought
      nothing on exactly the steps that need it most. */
   return `top:${Math.round(best.top + 4)}px;max-height:${Math.round(best.size - 8)}px;overflow-y:auto`;
-}
-
-/* Re-measure and re-check on every state change: that is precisely when the
-     screen underneath was rebuilt and when a "play this card" step might have
-     been satisfied. */
-  const unsubscribe = store.subscribe((state) => {
-    const step = STEPS[index];
-    if (step?.done?.(state) === true) {
-      advance();
-      return;
-    }
-    draw();
-  });
-
-  host.addEventListener('shinwar:unmount', unsubscribe);
-
-  /* First paint is deferred, and ONLY deferred.
-     The coach is built before it is appended, so a synchronous draw here would
-     measure rectangles of zeros. */
-  requestAnimationFrame(draw);
-
-  return host;
 }

@@ -1073,8 +1073,72 @@
 /* ---------- narrow ---------- */
 
 @media (max-width: 56rem) {
+  /* ---- the phone board fits the phone, and does not scroll ----
+   *
+   * "Mobile keeps every piece and scrolls rather than shrinking anything" was
+   * the stated plan above, and playing it on a real handset is what disproved
+   * it. At 375x667 the board is 808px tall, so the page scrolls 173px — which
+   * means you can never see the enemy and your own hand at the same time, and
+   * a card game where those two are on different screens is not a card game.
+   *
+   * It also broke the tutorial outright. The coach's rings are `position:
+   * fixed`, drawn from viewport coordinates; the moment the page scrolled they
+   * pointed at whatever had moved into that spot, and the instruction card —
+   * placed from the same rectangles — drifted on top of the hand and swallowed
+   * every tap meant for a card. Three separate complaints, one cause.
+   *
+   * So the screen becomes exactly one viewport tall. A flex column rather than
+   * fixed grid tracks, because the number and order of the pieces changes with
+   * the fight: everything holds its natural height, and the player panel is the
+   * one thing allowed to absorb the slack and scroll inside itself. The bar,
+   * the enemies, the hand and End turn are always on screen. */
+  .combat.screen {
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+    padding-block: 0.5rem max(0.5rem, env(safe-area-inset-bottom));
+  }
+
+  .combat-inner {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    gap: 0.45rem;
+  }
+
+  .combat-inner > * {
+    flex: 0 0 auto;
+  }
+
+  /* The one flexible piece. Stance, Heat and the two resource pips are the
+     things you can afford to scroll for — they are read once a turn, not
+     tapped. */
+  .player-panel {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  /* Enough rows of enemies to see the board, and its own scroll past that
+     rather than pushing the hand off the bottom. */
+  .enemy-row {
+    max-height: 34dvh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  /* Reference text, not a decision. You learn what a stance does in one fight
+     and then read the name; the line costs 42px of a 667px screen every turn
+     after that. The full text is still a tap away in the reference panel. */
+  .stance-text {
+    display: none;
+  }
+
   .combat-bar {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.4rem 0.75rem;
+    padding: 0.5rem 0.7rem;
   }
 
   .card {
@@ -3185,13 +3249,41 @@
     overscroll-behavior: contain;
   }
 
-  /* The opening step still centres — it rings nothing, so there is no gap to
-     find and nothing for it to be in the way of. */
+  /* The opening step rings nothing, so there is no gap to find — but dead
+     centre on a phone is exactly where the hand is, and a tutorial that opens
+     by covering the cards is the wrong first impression even on a step with
+     nothing to tap. High and clear of them instead. */
   .coach-card--centre {
-    top: 50%;
-    transform: translateY(-50%);
-    max-height: 80dvh;
+    top: 3.5rem;
+    transform: none;
+    max-height: 60dvh;
     overflow-y: auto;
+  }
+
+  /* Compact, because the gap it has to fit into is whatever the board leaves
+     over — about 115px on the step that rings the bar, an enemy AND the hand.
+     Every rem saved here is a step that reads without scrolling. */
+  .coach-card {
+    padding: 0.7rem 0.8rem 0.75rem;
+  }
+
+  .coach-step { display: none; }
+
+  .coach-title {
+    font-size: 1rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .coach-body {
+    font-size: 0.82rem;
+    line-height: 1.4;
+    margin-bottom: 0.6rem;
+  }
+
+  .btn-coach {
+    min-height: 2.1rem;
+    padding: 0.3rem 0.7rem;
+    font-size: 0.78rem;
   }
 }
 
