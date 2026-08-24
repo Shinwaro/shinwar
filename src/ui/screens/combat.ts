@@ -620,12 +620,21 @@ function build(
      What survives is the line that answers a question the player is holding
      right now: they have picked a card up and the game has to say what the
      next click does. */
+  /* "Click" and "Esc" are both wrong on a phone, and this is the one line in
+     the game whose whole job is telling you what to do next. Read off the
+     pointer rather than the width: a touch laptop at 1400px still wants "tap",
+     and a narrow desktop window does not. */
+  const touch =
+    typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches;
+  const putDown = touch ? '' : ' Esc to put it down.';
+  const verb = touch ? 'Tap' : 'Click';
+
   const prompt = el('p', { class: 'hand-prompt' }, [
     selection.cardUid === null
       ? null
       : wantsTarget
-        ? 'Click a target to play it. Esc to put it down.'
-        : 'Click the card again to play it. Esc to put it down.',
+        ? `${verb} a target to play it.${putDown}`
+        : `${verb} the card again to play it.${putDown}`,
   ]);
 
   /* ---- tray ---- */

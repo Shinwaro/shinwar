@@ -86,6 +86,15 @@ function aim(cardId: string): readonly string[] {
   return [`.hand .card[data-card="${cardId}"]`, '.enemy'];
 }
 
+/* The phone breakpoint, in pixels, matching the `56rem` block in `game.css`.
+   The two have to agree: the stylesheet makes the card full-width at this size
+   and this decides where to put it. */
+const NARROW = 56 * 16;
+
+/* Below this a "gap" is not somewhere to put a paragraph, and centring over the
+   dim reads better than wedging it into 90px of nothing. */
+const MIN_COACH_GAP = 150;
+
 const STEPS: readonly Step[] = [
   {
     title: 'One fight',
@@ -241,12 +250,14 @@ export function renderCoach(store: Store, onDone: () => void): HTMLElement {
     const roomAbove = top ?? 0;
     const roomBelow = window.innerHeight - (bottom ?? window.innerHeight);
 
-    const placement =
+    const wide =
       boxes.length === 0
         ? null
         : roomBelow >= roomAbove
           ? `top:${Math.min(window.innerHeight - 190, (bottom ?? 0) + 16)}px`
           : `bottom:${Math.min(window.innerHeight - 40, window.innerHeight - (top ?? 0) + 16)}px`;
+
+    const placement = window.innerWidth <= NARROW ? narrowPlacement(boxes) : wide;
 
     const card = el(
       'div',
@@ -272,7 +283,67 @@ export function renderCoach(store: Store, onDone: () => void): HTMLElement {
     host.replaceChildren(dim, ...rings, card);
   }
 
-  /* Re-measure and re-check on every state change: that is precisely when the
+  /**
+ * Where the words go on a phone.
+ *
+ * "Above or below whatever it is pointing at" is the right rule on a wide
+ * screen and cannot work on a narrow one. A step that asks you to play a card
+ * rings the top bar, an enemy AND the hand, and on a 375x812 screen those three
+ * span the whole viewport — there is no above and no below left. The desktop
+ * rule then clamped to `innerHeight - 190`, a guess at the card's own height
+ * that is 20-40px short once the body text wraps at phone width, and landed the
+ * instructions on top of the hand they were telling you to tap with the buttons
+ * off the bottom edge.
+ *
+ * So on a phone it looks for the largest GAP between the things it is ringing
+ * and sits in that, capped to the gap's own height so it can never grow back
+ * over them. On the "play a card" step the gap between the enemy and the hand
+ * is about 265px, which is where a person would have put it.
+ *
+ * Returns the inline style, or null to fall back to the centred placement.
+ */
+function narrowPlacement(boxes: readonly DOMRect[]): string | null {
+  if (boxes.length === 0) return null;
+
+  const pad = 12;
+  const height = window.innerHeight;
+
+  /* Merge the ringed bands, then read the gaps between them. Merging matters:
+     two rings that touch are one obstacle, and treating them as two invents a
+     gap of zero between them that the search would happily "win". */
+  const bands = boxes
+    .map((box) => ({ top: box.top - pad, bottom: box.bottom + pad }))
+    .sort((a, b) => a.top - b.top)
+    .reduce<{ top: number; bottom: number }[]>((merged, band) => {
+      const last = merged[merged.length - 1];
+      if (last !== undefined && band.top <= last.bottom) {
+        last.bottom = Math.max(last.bottom, band.bottom);
+        return merged;
+      }
+      return [...merged, { ...band }];
+    }, []);
+
+  const gaps: { top: number; size: number }[] = [];
+  let cursor = 0;
+  for (const band of bands) {
+    if (band.top - cursor > 0) gaps.push({ top: cursor, size: band.top - cursor });
+    cursor = Math.max(cursor, band.bottom);
+  }
+  if (height - cursor > 0) gaps.push({ top: cursor, size: height - cursor });
+
+  const best = gaps.reduce<{ top: number; size: number } | null>(
+    (winner, gap) => (winner === null || gap.size > winner.size ? gap : winner),
+    null,
+  );
+  if (best === null || best.size < MIN_COACH_GAP) return null;
+
+  /* `max-height` is what keeps the promise. Without it a long step in a short
+     gap simply grows back over the ring, and the gap search would have bought
+     nothing on exactly the steps that need it most. */
+  return `top:${Math.round(best.top + 4)}px;max-height:${Math.round(best.size - 8)}px;overflow-y:auto`;
+}
+
+/* Re-measure and re-check on every state change: that is precisely when the
      screen underneath was rebuilt and when a "play this card" step might have
      been satisfied. */
   const unsubscribe = store.subscribe((state) => {

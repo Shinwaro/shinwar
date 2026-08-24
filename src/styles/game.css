@@ -1088,7 +1088,30 @@
     flex-wrap: nowrap;
     justify-content: flex-start;
     overflow-x: auto;
+    overscroll-behavior-x: contain;
     scroll-snap-type: x proximity;
+    scroll-padding-left: 0.2rem;
+  }
+
+  /* THE mobile combat bug, and it was one declaration.
+   *
+   * `.hand .card` carries `flex: 1 1 10.5rem` so a five-card hand stays on one
+   * DESKTOP row by growing into the space rather than wrapping. That rule kept
+   * applying here, and with `flex-wrap: nowrap` above it the shrink factor
+   * finally had somewhere to go: five cards were squeezed into a 335px row at
+   * 59px each. At 59px the rules text has nowhere to wrap, so every card grew
+   * to 415px TALL — five vertical slivers eating half the screen, unreadable
+   * and barely tappable, and the health-and-heat bar pushed off the top of the
+   * viewport to make room for them.
+   *
+   * A scroll row must not shrink; that is the entire point of a scroll row.
+   * `flex-shrink: 0` restores the width the `.card` rule above sets, the text
+   * fits, the height collapses back, and the row scrolls the way it was always
+   * meant to. */
+  .hand .card {
+    flex: 0 0 auto;
+    max-width: none;
+    scroll-snap-align: center;
   }
 }
 
@@ -3147,6 +3170,29 @@
   min-height: 2.3rem;
   padding: 0.4rem 0.9rem;
   font-size: 0.85rem;
+}
+
+/* On a phone the coach goes full width and sits in the biggest gap between the
+   things it is ringing — see `narrowPlacement` in `coach.ts`, which computes
+   the `top` and the `max-height` and hands them over as an inline style. The
+   desktop path is untouched and still runs the above-or-below rule. */
+@media (max-width: 56rem) {
+  .coach-card {
+    left: 0.6rem;
+    right: 0.6rem;
+    width: auto;
+    transform: none;
+    overscroll-behavior: contain;
+  }
+
+  /* The opening step still centres — it rings nothing, so there is no gap to
+     find and nothing for it to be in the way of. */
+  .coach-card--centre {
+    top: 50%;
+    transform: translateY(-50%);
+    max-height: 80dvh;
+    overflow-y: auto;
+  }
 }
 
 /* Steps the game finishes, not the reader. */
