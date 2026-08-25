@@ -11,7 +11,8 @@
  */
 
 import type { EnemyAiState, EnemyDef, EnemyMove, EnemyScript, RngState } from '../types.ts';
-import { weightedPick } from '../rng.ts';
+import { nextInt, weightedPick } from '../rng.ts';
+import { AI } from '../../content/balance.ts';
 
 export interface MoveChoice {
   readonly move: EnemyMove;
@@ -28,7 +29,37 @@ function advance(ai: EnemyAiState, chosen: EnemyMove, moveIndex: number): EnemyA
     moveIndex,
     lastMoveId: chosen.id,
     repeats: ai.lastMoveId === chosen.id ? ai.repeats + 1 : 1,
+    // Most recent first, and hard-capped: this lives in `GameState` and in every
+    // serialised replay, so it must not grow with the length of the fight.
+    recent: [chosen.id, ...ai.recent].slice(0, AI.recency.length),
   };
+}
+
+/**
+ * Where in its rotation an enemy starts this fight.
+ *
+ * Every `sequence` enemy used to open on move zero, always — so the second time
+ * you met one, the entire fight was known before it began. Rolled per enemy
+ * INSTANCE at mint time, on the `combat` stream, so two of the same thing on
+ * one board are not in lockstep either.
+ */
+export function startingMoveIndex(def: EnemyDef, rng: RngState): { index: number; rng: RngState } {
+  const script = def.script;
+  const length =
+    script.kind === 'sequence'
+      ? script.moves.length
+      : script.kind === 'phased'
+        ? script.opening.length
+        : 0;
+  if (length <= 1) return { index: 0, rng };
+  const rolled = nextInt(rng, 'combat', 0, length);
+  return { index: rolled.value, rng: rolled.rng };
+}
+
+/** How much a move's printed weight is worth, given how recently it ran. */
+function recencyFactor(ai: EnemyAiState, moveId: string): number {
+  const at = ai.recent.indexOf(moveId);
+  return at === -1 ? 1 : (AI.recency[at] ?? 1);
 }
 
 /** One step through a list of move ids, wrapping at the end. */
@@ -73,14 +104,23 @@ function chooseFromScript(
     return cycle(def, moves, ai, rng, fresh ? 0 : ai.moveIndex);
   }
 
-  // Weighted. A move that has already run `maxRepeats` times in a row drops to
-  // zero weight, so a run of identical turns cannot happen — the player always
-  // gets a readable pattern rather than three Bites and a shrug.
+  /* Weighted, and biased against whatever it has just been doing.
+   *
+   * Two rules, and they are different rules. `maxRepeats` is a hard cap: a move
+   * that has run that many times in a row drops to zero and cannot come up at
+   * all. Recency is a soft one on top — a move played last turn is worth a
+   * fifth of its printed weight, the turn before that half — so the enemy
+   * tends to move through its repertoire without ever being unable to repeat
+   * something. See `AI.recency`. Flat weights with only the cap produced Bite,
+   * Plate, Bite, Plate: a pattern the player could read that the designer never
+   * wrote. */
   const entries = script.entries
     .map((entry) => ({
       value: entry.move,
       weight:
-        ai.lastMoveId === entry.move && ai.repeats >= script.maxRepeats ? 0 : entry.weight,
+        ai.lastMoveId === entry.move && ai.repeats >= script.maxRepeats
+          ? 0
+          : entry.weight * recencyFactor(ai, entry.move),
     }))
     .filter((entry) => entry.weight > 0);
 

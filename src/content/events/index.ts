@@ -724,9 +724,19 @@ export const EVENTS: readonly EventDef[] = [
       {
         id: 'notes',
         label: 'Take the notes',
-        detail: 'Somebody spent a life learning this. It fits in a pocket.',
-        effects: [{ op: 'card', cardId: 'crossing_arc', upgraded: true }],
-        risk: 'None',
+        /* An upgraded card for nothing at all was the strictly correct pick on
+           this screen every time it came up, which makes the other three
+           decoration. The forge is banked down to embers and you relight it
+           enough to understand what you are reading — same price the option
+           above pays, at a fifth of the scale. */
+        detail:
+          'Somebody spent a life learning this. Reading it properly means working through it '
+          + 'at the bench, and the bench is barely warm.',
+        effects: [
+          { op: 'card', cardId: 'crossing_arc', upgraded: true },
+          { op: 'health', amount: -8 },
+        ],
+        risk: 'The body',
         payoff: 'Immediate, specific',
       },
       {

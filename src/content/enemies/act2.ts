@@ -139,11 +139,17 @@ export const ACT2_ENEMIES: readonly EnemyDef[] = [
         label: 'Guard Form',
         intent: [
           { kind: 'block', amount: 10, times: 1, label: 'Guard 10' },
-          { kind: 'debuff', amount: 1, times: 1, label: 'Vulnerable 1' },
+          { kind: 'debuff', amount: 2, times: 1, label: 'Vulnerable 2' },
         ],
         effects: [
           { op: 'block', amount: 10 },
-          { op: 'applyStatus', status: VULNERABLE, stacks: 1, target: 'enemy' },
+          /* 2, not 1. Vulnerable sheds a stack at the end of the target's
+             turn, and the move that follows this one in the script does not
+             attack — so a single stack was always spent on a turn that could
+             not use it, and the debuff read as a threat the enemy never
+             collected on. Two means at least one attacking turn lands under
+             it. */
+          { op: 'applyStatus', status: VULNERABLE, stacks: 2, target: 'enemy' },
         ],
       },
       {

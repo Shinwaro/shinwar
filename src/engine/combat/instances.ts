@@ -43,7 +43,11 @@ export function buildDeck(
   return { deck, uidCounter: counter };
 }
 
-export function mintEnemy(uidCounter: number, def: EnemyDef): Minted<EnemyState> {
+export function mintEnemy(
+  uidCounter: number,
+  def: EnemyDef,
+  startIndex = 0,
+): Minted<EnemyState> {
   return {
     value: {
       uid: `e${uidCounter}`,
@@ -53,7 +57,7 @@ export function mintEnemy(uidCounter: number, def: EnemyDef): Minted<EnemyState>
       block: 0,
       statuses: [],
       intentMoveId: null,
-      ai: { moveIndex: 0, lastMoveId: null, repeats: 0 },
+      ai: { moveIndex: startIndex, lastMoveId: null, repeats: 0, recent: [] },
     },
     uidCounter: uidCounter + 1,
   };

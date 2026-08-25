@@ -9,7 +9,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import type { EnemyAiState, EnemyDef, GameState } from '../src/engine/types.ts';
 import { reloadContent } from '../src/content/index.ts';
 import { applyAction, applyActions } from '../src/engine/reducer.ts';
-import { createInitialState } from '../src/engine/state.ts';
+import { createInitialState, createRunState } from '../src/engine/state.ts';
 import {
   canPlay,
   endTurnImmediately,
@@ -31,7 +31,9 @@ import { PLAYER as PLAYER_SIDE } from '../src/engine/combat/damage.ts';
 import { SCALD, WEAK } from '../src/content/statuses.ts';
 import { cards as cardTable, statuses as statusTable } from '../src/content/registry.ts';
 import { CLEAR_SPACE_ID } from '../src/content/environments.ts';
-import { ACTIVE_STANCES, HEAT, PLAYER, STANCES } from '../src/content/balance.ts';
+import { ENCOUNTERS } from '../src/content/encounters.ts';
+import { enemies as enemyTable } from '../src/content/registry.ts';
+import { ACTIVE_STANCES, AI, HEAT, PLAYER, STANCES } from '../src/content/balance.ts';
 import { IAI_SLASH, SEVER, SOLAR_PARRY, VECTOR_STEP } from '../src/content/cards/basic.ts';
 import { JETTISON } from '../src/content/cards/discard.ts';
 import { VULNERABLE } from '../src/content/statuses.ts';
@@ -526,7 +528,7 @@ describe('a phased boss', () => {
     flavor: '',
   };
 
-  const fresh: EnemyAiState = { moveIndex: 0, lastMoveId: null, repeats: 0 };
+  const fresh: EnemyAiState = { moveIndex: 0, lastMoveId: null, repeats: 0, recent: [] };
 
   it('cycles the opening list above the threshold', () => {
     let ai = fresh;
@@ -841,5 +843,119 @@ describe('Scald, and the way out of it', () => {
     const after = ventHeat(state, 3, 'test');
     expect(stacksOf(combatOf(after).statuses, SCALD)).toBe(1);
     expect(stacksOf(combatOf(after).statuses, WEAK), 'Weak declares no shedOnVent').toBe(2);
+  });
+});
+
+describe('an enemy is not the same fight twice', () => {
+  /* Two problems with one shape. A `sequence` enemy opened every fight on move
+     zero, so the second time you met one the whole fight was known before it
+     started. And a `weighted` enemy rolled flat with only a cap on consecutive
+     repeats, which produced A-B-A-B — a pattern the player could read that
+     nobody had written.
+
+     Neither change touches the guarantee that matters: the move is still chosen
+     once, at telegraph time, and never re-rolled after the player acts. */
+
+  const DEF: EnemyDef = {
+    id: 'test_rotation',
+    name: 'Rotation',
+    act: 1,
+    tier: 'normal',
+    maxHp: 30,
+    moves: [
+      { id: 'a', label: 'A', intent: [], effects: [] },
+      { id: 'b', label: 'B', intent: [], effects: [] },
+      { id: 'c', label: 'C', intent: [], effects: [] },
+    ],
+    script: {
+      kind: 'weighted',
+      maxRepeats: 2,
+      entries: [
+        { move: 'a', weight: 10 },
+        { move: 'b', weight: 10 },
+        { move: 'c', weight: 10 },
+      ],
+    },
+    flavor: '',
+  };
+
+  const blank: EnemyAiState = { moveIndex: 0, lastMoveId: null, repeats: 0, recent: [] };
+
+  it('starts a sequence somewhere other than the front', () => {
+    /* Through `startCombat`, because the roll happens at mint time and the
+       point is the fight you actually walk into. Every move in the rotation has
+       to be a possible opener, not merely "not always the first one". */
+    const encounter = ENCOUNTERS.find((entry) => entry.enemyIds.includes('bloom_weevil'));
+    if (encounter === undefined) throw new Error('test: no Bloom Weevil encounter');
+    const rotation = enemyTable.get('bloom_weevil').script;
+    if (rotation.kind !== 'sequence') throw new Error('test: Bloom Weevil stopped being a sequence');
+
+    const openers = new Set<string>();
+    for (let i = 0; i < 200; i++) {
+      const seed = `OPEN-${i}`;
+      const base: GameState = { ...createInitialState(seed), run: createRunState(seed, 0) };
+      const fight = telegraphAll(startCombat(base, encounter.id, CLEAR_SPACE_ID));
+      for (const enemy of fight.run?.combat?.enemies ?? []) {
+        if (enemy.defId === 'bloom_weevil' && enemy.intentMoveId !== null) {
+          openers.add(enemy.intentMoveId);
+        }
+      }
+    }
+    expect([...openers].sort()).toEqual([...rotation.moves].sort());
+  });
+
+  it('leans away from what it has just been doing', () => {
+    /* Three moves at equal weight. With flat weights the last move would come
+       up about a third of the time; with recency it should be markedly rarer —
+       asserted as "well under a third" rather than a precise figure, because
+       the exact number is `AI.recency` and that is a tuning knob. */
+    let ai = blank;
+    let rng = createRng('recency');
+    let repeatedLast = 0;
+    const rounds = 600;
+
+    for (let i = 0; i < rounds; i++) {
+      const previous = ai.lastMoveId;
+      const choice = chooseMove(DEF, ai, rng, 100);
+      if (previous !== null && choice.move.id === previous) repeatedLast += 1;
+      ai = choice.ai;
+      rng = choice.rng;
+    }
+
+    const share = repeatedLast / rounds;
+    expect(share, 'repeats as often as a flat roll would').toBeLessThan(0.22);
+    expect(share, 'never repeats at all — that is a lockout, not a lean').toBeGreaterThan(0);
+  });
+
+  it('still honours the hard repeat cap', () => {
+    // Recency is a lean; `maxRepeats` is a wall. A move may not run three times
+    // in a row however the weights fall.
+    let ai = blank;
+    let rng = createRng('cap');
+    let run = 0;
+    let longest = 0;
+
+    for (let i = 0; i < 400; i++) {
+      const previous = ai.lastMoveId;
+      const choice = chooseMove(DEF, ai, rng, 100);
+      run = choice.move.id === previous ? run + 1 : 0;
+      longest = Math.max(longest, run + 1);
+      ai = choice.ai;
+      rng = choice.rng;
+    }
+    expect(longest).toBeLessThanOrEqual(2);
+  });
+
+  it('never remembers more than it is allowed to', () => {
+    // `recent` is a field in GameState and so in every serialised replay. It
+    // must not grow with the length of the fight.
+    let ai = blank;
+    let rng = createRng('memory');
+    for (let i = 0; i < 50; i++) {
+      const choice = chooseMove(DEF, ai, rng, 100);
+      ai = choice.ai;
+      rng = choice.rng;
+      expect(ai.recent.length).toBeLessThanOrEqual(AI.recency.length);
+    }
   });
 });

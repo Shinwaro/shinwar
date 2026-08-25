@@ -385,6 +385,29 @@ export const MAP = {
  * rest sits on; the guarantees in the mapgen invariants override these where
  * they conflict.
  */
+/**
+ * How an enemy picks its next move.
+ *
+ * Two problems, one fix. A `sequence` enemy opened every fight on the same move
+ * forever, so the second time you met it the whole fight was known before it
+ * started. And a `weighted` enemy rolled flat every turn with only a cap on
+ * consecutive repeats, so it could play Bite, Plate, Bite, Plate and read as a
+ * pattern that was not one.
+ *
+ * `recency` is the multiplier applied to a move's weight by how recently it was
+ * played, most recent first. A move played last turn is worth a fifth of its
+ * printed weight, the turn before that half, and so on; anything older is at
+ * full weight. It never reaches zero, so a genuinely dangerous move is still
+ * possible twice in a row — it is a tendency, not a lockout, and the hard
+ * `maxRepeats` cap is still there underneath for the cases that must not repeat.
+ *
+ * The array's length is also the length of the history kept on every enemy in
+ * `GameState`, so it is deliberately short.
+ */
+export const AI = {
+  recency: [0.2, 0.45, 0.75],
+} as const;
+
 export const NODE_WEIGHTS = {
   combat: 30,
   unknown: 26,

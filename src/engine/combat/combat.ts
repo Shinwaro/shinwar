@@ -31,6 +31,7 @@ import { atCriticalHeat, gainHeat, resolveOverheat, ventHeat } from './heat.ts';
 import { addStacks, clearFresh, decayStatuses, statusEnergy, tickStatuses } from './keywords.ts';
 import { environmentRules, liveStance, pilotRules, stanceRulesFor } from './rules.ts';
 import { mintEnemy } from './instances.ts';
+import { startingMoveIndex } from './ai.ts';
 import { discardHand, draw, findInHand, narrateDraw, removeFromHand } from './piles.ts';
 import { telegraphAll } from './intents.ts';
 
@@ -58,8 +59,15 @@ export function startCombat(state: GameState, encounterId: string, environmentId
   if (encounter === undefined) throw new Error(`combat: no encounter '${encounterId}'`);
 
   let counter = run.uidCounter;
+  /* Each enemy starts somewhere in its own rotation, rolled per INSTANCE — so
+     two of the same thing on one board are not in lockstep, and meeting one a
+     second time is not the same fight replayed. See `startingMoveIndex`. */
+  let rng = run.rng;
   const enemies = encounter.enemyIds.map((enemyId) => {
-    const minted = mintEnemy(counter, enemyTable.get(enemyId));
+    const def = enemyTable.get(enemyId);
+    const start = startingMoveIndex(def, rng);
+    rng = start.rng;
+    const minted = mintEnemy(counter, def, start.index);
     counter = minted.uidCounter;
     return minted.value;
   });
@@ -69,9 +77,12 @@ export function startCombat(state: GameState, encounterId: string, environmentId
      builds Heat" — and a shuffle makes that a lottery. Every other fight in the
      game shuffles on the `combat` stream as normal; this is the one place the
      order is the content. */
+  /* `rng`, not `run.rng` — the starting-move rolls above advanced it, and
+     reading the original here would throw those rolls away and hand the shuffle
+     a stream position that had already been used. */
   const shuffled = run.tutorial
-    ? { value: run.pilot.deck, rng: run.rng }
-    : shuffle(run.rng, 'combat', run.pilot.deck);
+    ? { value: run.pilot.deck, rng }
+    : shuffle(rng, 'combat', run.pilot.deck);
 
   // Innate cards start in hand rather than in the shuffle — that is the whole
   // promise of the keyword, and it has to survive the shuffle to mean anything.

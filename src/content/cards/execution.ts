@@ -29,6 +29,11 @@ export const EXECUTION_CARDS: readonly CardDef[] = [
     rarity: 'uncommon',
     archetype: 'iai',
     cost: 1,
+    /* Exhausts. A 1-cost that refunds its own Energy on a kill pays for itself
+       every time it connects with something small — so in a swarm it was free,
+       repeatable, and the whole turn. Once a fight, it is a tool you save for
+       the right target. */
+    exhaust: true,
     effects: [
       { op: 'damage', amount: 7, target: 'enemy' },
       {

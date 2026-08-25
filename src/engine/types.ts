@@ -745,11 +745,19 @@ export interface IntentHit extends IntentTemplate {
 }
 
 export interface EnemyAiState {
-  /** Cursor into a `sequence` script. */
+  /** Cursor into a `sequence` script. Seeded per FIGHT, not always 0. */
   readonly moveIndex: number;
   readonly lastMoveId: string | null;
   /** Consecutive plays of `lastMoveId`, so a `weighted` script can cap repeats. */
   readonly repeats: number;
+  /**
+   * The last few move ids, most recent first, for recency weighting.
+   *
+   * Capped at `AI.recency.length` so it can never grow — this is a field in
+   * `GameState` and therefore in every serialised replay, and an unbounded
+   * history would make a long fight's state grow with its length.
+   */
+  readonly recent: readonly string[];
 }
 
 export interface EnemyState {
