@@ -266,20 +266,35 @@ export function drainBar(
    whatever the walk has reached, and the walk carries on. */
 
 let heatDrawn: number | null = null;
+/**
+ * Where the last SCHEDULED walk ends, which is not where the gauge is.
+ *
+ * Sever gains 3 Heat and then vents 2, and both walks are set up in the same
+ * pass — but `heatDrawn` only advances as the ticks actually paint, so when the
+ * vent was scheduled the gauge was still reading 0 and the vent computed its
+ * start from that. It walked to minus one. On screen: a gauge that half filled,
+ * dropped to 1, sat there, and eventually snapped back.
+ *
+ * A walk has to chain from where the walk before it LEFT OFF, so this is the
+ * cursor the scheduler uses and `heatDrawn` is only ever what is painted.
+ */
+let heatScheduled: number | null = null;
 /** Where a walk in progress will end, or null when nothing is walking. */
 let heatWalkingTo: number | null = null;
 
 /** Called by the gauge as it renders. Returns the value it should DRAW at. */
 export function stageHeat(heat: number): number {
-  // First sight of a gauge, or a player who does not want things moving: the
-  // number is simply the number.
-  if (heatDrawn === null || prefersReducedMotion()) heatDrawn = heat;
+  if (heatDrawn === null || prefersReducedMotion()) {
+    heatDrawn = heat;
+    heatScheduled = heat;
+  }
   return heatDrawn;
 }
 
 /** The gauge is not in this fight any more. */
 export function forgetHeat(): void {
   heatDrawn = null;
+  heatScheduled = null;
   heatWalkingTo = null;
 }
 
@@ -294,33 +309,36 @@ function paintHeat(value: number): void {
 }
 
 /** The stance panel takes the colour of what just happened to the gauge. */
-function flushStance(rising: boolean, hold: number): void {
-  const panel = document.querySelector('.stance-strip');
-  if (panel === null) return;
+function flushStance(rising: boolean, at: number, hold: number): void {
   const on = rising ? 'is-heating' : 'is-cooling';
-  panel.classList.add(on);
-  window.setTimeout(() => panel.classList.remove(on), hold);
+  window.setTimeout(() => {
+    const panel = document.querySelector('.stance-strip');
+    if (panel === null) return;
+    panel.classList.remove('is-heating', 'is-cooling');
+    panel.classList.add(on);
+    window.setTimeout(() => panel.classList.remove(on), hold);
+  }, at);
 }
 
 /**
  * Walk the gauge to `to`, one tick at a time, starting at `delay`.
  *
- * `heatDrawn` advances WITH the walk rather than jumping to the destination up
- * front, and that is the whole fix for a gauge that animated only sometimes.
- * The combat screen re-renders constantly — a hover, a selection, the enemy
- * moving — and every render asks `stageHeat` what to draw. While the target was
- * written down immediately, any render landing between the click and the first
- * tick painted the final value, and the walk then had nothing left to show. On
- * a one-tick change, which is most of them, that is every time.
+ * Returns how long the walk occupies, so the caller can put the NEXT beat after
+ * it rather than a fixed distance later. Sever's vent used to begin one beat
+ * after its gain regardless of how far the gain had to travel, so three Heat
+ * arriving and two leaving ran into each other; the gauge has to finish filling
+ * before it starts emptying or neither reads as anything.
  */
-export function stepHeat(to: number, delay: number, rising: boolean): void {
+export function stepHeat(to: number, delay: number, rising: boolean): number {
   if (heatDrawn === null || prefersReducedMotion()) {
     heatDrawn = to;
-    return;
+    heatScheduled = to;
+    return 0;
   }
-  const from = heatDrawn;
-  if (from === to) return;
+  const from = heatScheduled ?? heatDrawn;
+  if (from === to) return 0;
 
+  heatScheduled = to;
   heatWalkingTo = to;
   const count = Math.abs(to - from);
   const step = rising ? HEAT_RISE_MS : HEAT_TICK_MS;
@@ -333,13 +351,8 @@ export function stepHeat(to: number, delay: number, rising: boolean): void {
         paintHeat(value);
 
         /* Every tick that moves is marked for its own beat, in the colour of
-           the direction it moved.
-         *
-         * The vent had this from the start and reads perfectly; the gain did
-         * not, and went dim-to-warm through a 160ms transition that blurred
-         * three ticks into the gauge simply lighting up. The mark is what makes
-         * a count read as counting — the moving tick is briefly the brightest
-         * thing there, so the eye follows it along the row. */
+           the direction it moved — the moving tick is briefly the brightest
+           thing on the row, so the eye follows it along. */
         const index = rising ? value - 1 : value;
         const tick = document.querySelectorAll<HTMLElement>('.heat-tick')[index];
         const mark = rising ? 'is-charging' : 'is-venting';
@@ -352,13 +365,12 @@ export function stepHeat(to: number, delay: number, rising: boolean): void {
     );
   }
 
-  // The panel holding the gauge takes the colour of the direction, for as long
-  // as the walk lasts: warm while Heat arrives, cold while it leaves.
-  flushStance(rising, delay + count * step + step);
-
-  // The gauge is part of the beat, so the caller waits for it like everything
-  // else — an enemy turn should not open over a gauge still filling.
-  fxEndsAt = Math.max(fxEndsAt, performance.now() + delay + count * step);
+  const span = count * step;
+  // The panel wears the direction for exactly as long as the walk lasts, and
+  // starts when the walk does rather than the instant it was scheduled.
+  flushStance(rising, delay, span + step);
+  fxEndsAt = Math.max(fxEndsAt, performance.now() + delay + span);
+  return span;
 }
 
 /**
@@ -373,6 +385,7 @@ export function settleHeat(target: number | null): void {
   if (heatWalkingTo !== null) return;
   if (heatDrawn === target) return;
   const value = target;
+  heatScheduled = target;
   requestAnimationFrame(() => paintHeat(value));
 }
 
@@ -685,12 +698,16 @@ const FIRST_BEAT = 30;
  * understand; the first time you meet a three-enemy pack you are reading four
  * numbers you have never seen, and at 230 they overlapped into one event.
  */
-/* Widened once more when the sounds arrived. A beat now has to be long enough
-   for the thing that says it to finish saying it — at 290 the recordings ran
-   into each other and read as one noise, and a third of a second of air between
-   them is what separates "two events" from "one messy one". A little overlap on
-   the tails is fine; two of them STARTING together is not. */
-const BEAT_STEP = 380;
+/* Widened, twice, and both times because the fight was outrunning the player
+   rather than because it looked wrong.
+
+   It is the GAP AFTER a beat now, not the distance between two starts, which is
+   the difference that matters once beats have their own length: a Heat walk of
+   three ticks takes over a second, and the vent that follows it has to begin
+   when the gauge has finished filling rather than a fixed distance after it
+   started. Sever is the case that proved it — three arriving and two leaving
+   ran straight into each other. */
+const BEAT_STEP = 620;
 
 /**
  * How far ahead of its picture a sound starts.
@@ -936,9 +953,25 @@ export function playLogFx(
   const reduced = prefersReducedMotion();
   const drains = new Map<string, { delay: number; share: number }[]>();
 
-  let slot = -1;
+  /* A cursor in milliseconds, not a slot number.
+   *
+   * Beats used to be evenly spaced, which works only while every beat is
+   * instantaneous. A Heat walk is not: three ticks arriving is over a second of
+   * gauge, and the next beat has to wait for it. So each beat is placed at the
+   * cursor, and the cursor advances by however long that beat actually occupies
+   * plus the gap. */
+  let cursor = FIRST_BEAT;
   let beat: string | null = null;
-  const at = (): number => FIRST_BEAT + slot * BEAT_STEP;
+  let opened = false;
+
+  /** Take the next beat, unless this is a continuation of the current one. */
+  const openBeat = (key: string): number => {
+    if (key === beat) return cursor;
+    if (opened) cursor += BEAT_STEP;
+    beat = key;
+    opened = true;
+    return cursor;
+  };
 
   /* A card is announced by what it DOES. `cardSkill` is only for the ones that
      do nothing audible — a status, a Focus, an Energy — because a card being
@@ -967,7 +1000,7 @@ export function playLogFx(
     if (isPlay) {
       if (pendingSkill !== null && !cardSpoke) speak('cardSkill', pendingSkill.delay);
       cardSpoke = false;
-      pendingSkill = { delay: Math.max(0, at()) };
+      pendingSkill = { delay: Math.max(0, cursor) };
     }
 
     const sound = soundFor(entry, withRider);
@@ -976,11 +1009,12 @@ export function playLogFx(
     if (entry.kind === 'heat' && detail !== null && typeof detail['total'] === 'number') {
       const rising = typeof detail['gained'] === 'number';
       if (typeof detail['gained'] === 'number' || typeof detail['vented'] === 'number') {
-        slot += 1;
-        beat = `heat#${slot}`;
-        const delay = at();
-        if (!reduced) stepHeat(detail['total'], delay, rising);
+        const delay = openBeat(`heat#${entry.source}#${cursor}`);
         if (sound !== null) speak(sound, delay);
+        /* The walk's own length is added to the cursor, so whatever comes next
+           — a vent after a gain, most often — starts when the gauge has
+           finished rather than on top of it. */
+        if (!reduced) cursor += stepHeat(detail['total'], delay, rising);
         continue;
       }
     }
@@ -994,12 +1028,7 @@ export function playLogFx(
       const box = anchor.getBoundingClientRect();
       if (box.width === 0 && box.height === 0) continue;
 
-      const here = `${entry.source}#${hit.swing}#${hit.kind === 'shield' ? 's' : 'h'}`;
-      if (here !== beat) {
-        beat = here;
-        slot += 1;
-      }
-      const delay = at();
+      const delay = openBeat(`${entry.source}#${hit.swing}#${hit.kind === 'shield' ? 's' : 'h'}`);
 
       // The blow's own sound rides its beat, once per beat rather than once per
       // target: an arc through three enemies is one sound, not three.
@@ -1045,11 +1074,7 @@ export function playLogFx(
     /* ---- everything else: a stance, a draw, a card that only announced
             itself. One beat each, so an action that does two things says them
             in the order it did them. ---- */
-    if (sound !== null) {
-      slot += 1;
-      beat = `${entry.source}#${slot}`;
-      speak(sound, at());
-    }
+    if (sound !== null) speak(sound, openBeat(`${entry.source}#${cursor}#s`));
   }
 
   // The last card, if it never spoke for itself.
@@ -1067,5 +1092,5 @@ export function playLogFx(
   // How long the whole sequence takes, so the caller can wait for it. The enemy
   // turn should not start while the player's last three numbers are still in
   // the air — that is exactly the "everything at once" the pacing is fixing.
-  return slot < 0 ? 0 : at();
+  return opened ? cursor : 0;
 }
