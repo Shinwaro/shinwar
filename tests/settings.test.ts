@@ -13,6 +13,7 @@ import {
   resetSettings,
   setSetting,
   shakeAllowed,
+  volume,
 } from '../src/ui/settings.ts';
 import { play, stopAll, unlock } from '../src/ui/sound.ts';
 
@@ -90,11 +91,22 @@ describe('sound', () => {
      take the turn with it. They must all be silent no-ops and none of them may
      raise. */
 
-  it('is on by default and mutes without touching anything else', () => {
-    expect(getSettings().sound).toBe(true);
-    setSetting('sound', false);
-    expect(getSettings().sound).toBe(false);
+  it('starts audible and mutes without touching anything else', () => {
+    /* A level, not a switch. Zero IS the mute, so there is one control rather
+       than two that can disagree — and it starts above zero because nobody
+       discovers a setting they have to find before it does anything. */
+    expect(getSettings().volume).toBeGreaterThan(0);
+    setSetting('volume', 0);
+    expect(getSettings().volume).toBe(0);
     expect(getSettings().shake, 'muting changed the shake').toBe(true);
+  });
+
+  it('never lets a level out of range, whatever it is set to', () => {
+    // It comes off a slider, and a slider is an input.
+    setSetting('volume', 4);
+    expect(volume()).toBe(1);
+    setSetting('volume', -2);
+    expect(volume()).toBe(0);
   });
 
   it('never throws where there is no Audio at all, muted or not', () => {
@@ -102,15 +114,15 @@ describe('sound', () => {
        That is also the state the page is in before the first click, and it is
        the one worth asserting on: every one of these is called from the middle
        of a fight, and a sound that throws would take the turn with it. */
-    for (const on of [true, false]) {
-      setSetting('sound', on);
+    for (const on of [0.7, 0]) {
+      setSetting('volume', on);
       expect(() => {
         play('draw');
         play('cardAttack');
         play('overheat');
         play('nodeStation');
         stopAll();
-      }, `sound: ${on}`).not.toThrow();
+      }, `volume: ${on}`).not.toThrow();
     }
   });
 

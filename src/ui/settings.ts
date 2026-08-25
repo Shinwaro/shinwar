@@ -27,21 +27,27 @@ export interface Settings {
    */
   readonly shake: boolean;
   /**
-   * Every sound in the game, which is all of them synthesised — see `sound.ts`.
+   * How loud, from 0 to 1. Zero is off; there is no separate mute.
    *
-   * On by default. There is no `prefers-reduced-motion` equivalent for audio
-   * that browsers agree on, so the choice is the player's alone; off by default
-   * would mean almost nobody discovers it is there at all. Muting is one click
-   * in the corner rail, next to Log and Info.
+   * A slider rather than a switch because the sounds are recordings at
+   * different levels sitting under a fight that already has numbers flying off
+   * it, and "too loud" and "silent" are not the only two opinions a person can
+   * have about that.
+   *
+   * There is no `prefers-reduced-motion` equivalent for audio that browsers
+   * agree on, so the choice is the player's alone — and starting at zero would
+   * mean almost nobody discovers it is there.
    *
    * It resets with the tab, like everything else here. That is the no-saves
-   * rule holding, and it is worth naming because a mute is the setting people
+   * rule holding, and it is worth naming because volume is the setting people
    * most expect to be remembered.
    */
-  readonly sound: boolean;
+  readonly volume: number;
 }
 
-let current: Settings = { shake: true, sound: true };
+const DEFAULTS: Settings = { shake: true, volume: 0.7 };
+
+let current: Settings = DEFAULTS;
 
 const listeners = new Set<() => void>();
 
@@ -67,5 +73,10 @@ export function shakeAllowed(): boolean {
 
 /** Tests, and the fresh-start path. */
 export function resetSettings(): void {
-  current = { shake: true, sound: true };
+  current = DEFAULTS;
+}
+
+/** The one question the sound layer asks before making any noise. */
+export function volume(): number {
+  return Math.max(0, Math.min(1, current.volume));
 }

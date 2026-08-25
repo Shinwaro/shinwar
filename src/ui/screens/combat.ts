@@ -697,26 +697,18 @@ function build(
         selection.infoOpen = true;
         rerender();
       }),
-      /* Mute. Next to the two other things you reach for between decisions
-         rather than during one. It resets with the tab, like every setting
-         here — the no-saves rule covers preferences too. */
-      button(
-        getSettings().sound ? 'Sound on' : 'Sound off',
-        {
-          class: 'btn btn-quiet btn-corner',
-          'aria-label': getSettings().sound ? 'Turn sound off' : 'Turn sound on',
-          'aria-pressed': getSettings().sound ? 'true' : 'false',
-          'data-sound': 'own',
-        },
-        () => {
-          const next = !getSettings().sound;
-          setSetting('sound', next);
-          // Muting stops what is playing as well as what is waiting. A mute
-          // that lets the queue drain is a mute that does nothing for a second.
-          if (!next) stopAll();
-          rerender();
-        },
-      ),
+      /* Volume, next to the two other things you reach for between decisions
+         rather than during one.
+         *
+         * A slider rather than a switch: these are recordings at different
+         * levels sitting under a fight that already has numbers flying off it,
+         * and "too loud" and "silent" are not the only two opinions a person
+         * can have about that. Zero IS the mute, so there is one control rather
+         * than two that can disagree.
+         *
+         * `input`, not `change` — the level should follow the thumb rather than
+         * arriving when it is let go, or setting it is guesswork. */
+      renderVolume(rerender),
     ]),
     /* The log hangs off its own button. It used to sit at the bottom of the
        stage while the control that opened it was in the corner, so pressing
@@ -818,6 +810,61 @@ function captureHand(host: HTMLElement): Map<string, HeldCard> {
 }
 
 /** Which pile a card that left the hand actually landed in. */
+/**
+ * The volume control in the corner rail.
+ *
+ * The glyph is drawn rather than lettered: a speaker with waves that go away as
+ * the level drops, so the state is readable without reading. It is also the
+ * mute — clicking it drops to zero and clicking again restores what was there,
+ * which is the gesture people already have for this control.
+ */
+function renderVolume(rerender: () => void): HTMLElement {
+  const level = getSettings().volume;
+  const pct = Math.round(level * 100);
+
+  const glyph = el(
+    'span',
+    { class: 'vol-glyph', 'aria-hidden': 'true' },
+    [level <= 0 ? '🔇' : level < 0.34 ? '🔈' : level < 0.7 ? '🔉' : '🔊'],
+  );
+
+  const slider = el('input', {
+    class: 'vol-range',
+    type: 'range',
+    min: '0',
+    max: '100',
+    step: '5',
+    value: String(pct),
+    'aria-label': `Volume, ${pct} percent`,
+  }) as HTMLInputElement;
+
+  slider.addEventListener('input', () => {
+    const next = Number(slider.value) / 100;
+    setSetting('volume', next);
+    /* Silence takes effect on everything already scheduled, not just on the
+       next sound — a mute that lets half a second of an already-resolved turn
+       play out reads as the control not working. */
+    if (next <= 0) stopAll();
+    glyph.textContent = next <= 0 ? '🔇' : next < 0.34 ? '🔈' : next < 0.7 ? '🔉' : '🔊';
+    slider.setAttribute('aria-label', `Volume, ${Math.round(next * 100)} percent`);
+  });
+
+  /* The glyph is the mute, and it remembers. Dropping to zero and back to a
+     level you did not choose is worse than not having the shortcut. */
+  let restore = level > 0 ? level : 0.7;
+  const toggle = button('', { class: 'btn btn-quiet btn-corner vol-mute', 'data-sound': 'own' }, () => {
+    const now = getSettings().volume;
+    if (now > 0) restore = now;
+    setSetting('volume', now > 0 ? 0 : restore);
+    if (now > 0) stopAll();
+    rerender();
+  });
+  toggle.append(glyph);
+  toggle.setAttribute('aria-label', level > 0 ? 'Mute' : 'Unmute');
+
+  return el('div', { class: 'vol' }, [toggle, slider]);
+}
+
 function pileFor(state: GameState, uid: string): CardPile | null {
   const combat = state.run?.combat ?? null;
   if (combat === null) return null;

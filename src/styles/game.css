@@ -570,6 +570,40 @@
   gap: 0.75rem;
   padding-bottom: 0.6rem;
   border-bottom: 1px solid var(--line);
+  /* Room for the glow to sit inside rather than against the edge. */
+  padding-inline: 0.5rem;
+  padding-top: 0.35rem;
+  border-radius: var(--radius-sm);
+  transition:
+    box-shadow 0.22s ease-out,
+    background-color 0.22s ease-out;
+}
+
+/* The panel takes the colour of what is happening to the gauge inside it.
+ *
+ * Peripheral, on purpose. The ticks are the number and this is the weather —
+ * you can read the direction without looking straight at it, which is the point
+ * at the moment your eye is on the enemy row instead. Held for the length of
+ * the walk by `flushStance`, so it lasts exactly as long as the thing it is
+ * describing. */
+.stance-strip.is-heating {
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--heat-warm) 45%, transparent),
+    0 0 18px color-mix(in srgb, var(--heat-warm) 30%, transparent);
+  background: color-mix(in srgb, var(--heat-warm) 7%, transparent);
+}
+
+.stance-strip.is-cooling {
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--guard) 45%, transparent),
+    0 0 18px color-mix(in srgb, var(--guard) 30%, transparent);
+  background: color-mix(in srgb, var(--guard) 8%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stance-strip {
+    transition: none;
+  }
 }
 
 .stance-name {
@@ -2939,6 +2973,76 @@
   display: flex;
   justify-content: flex-end;
   gap: 0.35rem;
+}
+
+/* ---------- volume ----------
+
+   A glyph that is also the mute, and a slider beside it. Sits in the corner
+   rail with Log and Info because it is a thing you reach for BETWEEN decisions
+   — never during one — and it is the same shape as its neighbours so the rail
+   reads as one row rather than as two buttons and a control. */
+
+.vol {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.vol-mute {
+  padding-inline: 0.45rem;
+  min-width: 0;
+}
+
+.vol-glyph {
+  font-size: 0.9rem;
+  line-height: 1;
+}
+
+.vol-range {
+  width: 4.5rem;
+  height: 1.6rem;
+  accent-color: var(--accent);
+  cursor: pointer;
+  background: transparent;
+}
+
+/* Slim enough to read as part of the rail rather than as a browser control. */
+.vol-range::-webkit-slider-runnable-track {
+  height: 3px;
+  border-radius: 999px;
+  background: var(--line-strong);
+}
+
+.vol-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 0.7rem;
+  height: 0.7rem;
+  margin-top: -0.3rem;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.vol-range::-moz-range-track {
+  height: 3px;
+  border-radius: 999px;
+  background: var(--line-strong);
+}
+
+.vol-range::-moz-range-thumb {
+  width: 0.7rem;
+  height: 0.7rem;
+  border: 0;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+/* On a phone the rail is already tight and the slider is the first thing that
+   can go — the glyph still mutes, which is the control that matters mid-fight. */
+@media (max-width: 56rem) {
+  .vol-range {
+    display: none;
+  }
 }
 
 /* A popup under its own button, and it does not move the board.

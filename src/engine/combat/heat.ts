@@ -212,8 +212,12 @@ export function resolveOverheat(state: GameState): GameState {
   let next = appendLog(state, {
     source: 'heat',
     kind: 'heat',
+    /* `total` and `vented` as well, because an overheat empties the gauge and
+       the presentation layer has no other way to know that. Without them the
+       ticks jumped from full to nothing with no animation and no sound — the
+       single largest thing the gauge ever does, said the most quietly. */
     text: `Overheat at ${heat}.`,
-    detail: { heat, damage },
+    detail: { heat, damage, total: HEAT.min, vented: heat - HEAT.min },
   });
 
   // The turn is the real cost. Damage you can heal; a turn spent watching the

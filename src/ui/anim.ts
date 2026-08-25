@@ -266,6 +266,8 @@ export function drainBar(
    whatever the walk has reached, and the walk carries on. */
 
 let heatDrawn: number | null = null;
+/** Where a walk in progress will end, or null when nothing is walking. */
+let heatWalkingTo: number | null = null;
 
 /** Called by the gauge as it renders. Returns the value it should DRAW at. */
 export function stageHeat(heat: number): number {
@@ -278,6 +280,7 @@ export function stageHeat(heat: number): number {
 /** The gauge is not in this fight any more. */
 export function forgetHeat(): void {
   heatDrawn = null;
+  heatWalkingTo = null;
 }
 
 function paintHeat(value: number): void {
@@ -285,18 +288,29 @@ function paintHeat(value: number): void {
   const ticks = document.querySelectorAll<HTMLElement>('.heat-tick');
   ticks.forEach((tick, index) => {
     tick.classList.toggle('is-filled', index < value);
-    // Only the one going out this instant wears the cold colour.
     tick.classList.remove('is-venting');
   });
+}
+
+/** The stance panel takes the colour of what just happened to the gauge. */
+function flushStance(rising: boolean, hold: number): void {
+  const panel = document.querySelector('.stance-strip');
+  if (panel === null) return;
+  const on = rising ? 'is-heating' : 'is-cooling';
+  panel.classList.add(on);
+  window.setTimeout(() => panel.classList.remove(on), hold);
 }
 
 /**
  * Walk the gauge to `to`, one tick at a time, starting at `delay`.
  *
- * Slow on purpose. It used to move in 240ms however far it had to go, which
- * finished long before the sound describing it and read as the number simply
- * changing. A tick is its own beat now: three Heat takes three times as long as
- * one, which is the entire reason it is a count and not a bar.
+ * `heatDrawn` advances WITH the walk rather than jumping to the destination up
+ * front, and that is the whole fix for a gauge that animated only sometimes.
+ * The combat screen re-renders constantly — a hover, a selection, the enemy
+ * moving — and every render asks `stageHeat` what to draw. While the target was
+ * written down immediately, any render landing between the click and the first
+ * tick painted the final value, and the walk then had nothing left to show. On
+ * a one-tick change, which is most of them, that is every time.
  */
 export function stepHeat(to: number, delay: number, rising: boolean): void {
   if (heatDrawn === null || prefersReducedMotion()) {
@@ -306,31 +320,48 @@ export function stepHeat(to: number, delay: number, rising: boolean): void {
   const from = heatDrawn;
   if (from === to) return;
 
+  heatWalkingTo = to;
   const count = Math.abs(to - from);
+
   for (let i = 1; i <= count; i++) {
     const value = rising ? from + i : from - i;
-    const when = delay + (i - 1) * HEAT_TICK_MS;
-    window.setTimeout(() => {
-      paintHeat(value);
-      /* A vented tick is lit cold for the length of its own beat before it
-         goes dark, so emptying reads as cooling rather than as ticks simply
-         being missing. */
-      if (!rising) {
-        const tick = document.querySelectorAll<HTMLElement>('.heat-tick')[value];
-        tick?.classList.add('is-venting');
-        window.setTimeout(() => tick?.classList.remove('is-venting'), HEAT_TICK_MS);
-      }
-    }, when);
+    const last = i === count;
+    window.setTimeout(
+      () => {
+        paintHeat(value);
+        /* A vented tick is lit cold for its own beat before it goes dark, so
+           emptying reads as cooling rather than as ticks quietly missing. */
+        if (!rising) {
+          const tick = document.querySelectorAll<HTMLElement>('.heat-tick')[value];
+          tick?.classList.add('is-venting');
+          window.setTimeout(() => tick?.classList.remove('is-venting'), HEAT_TICK_MS);
+        }
+        if (last) heatWalkingTo = null;
+      },
+      delay + (i - 1) * HEAT_TICK_MS,
+    );
   }
+
+  // The panel holding the gauge takes the colour of the direction, for as long
+  // as the walk lasts: warm while Heat arrives, cold while it leaves.
+  flushStance(rising, delay + count * HEAT_TICK_MS + HEAT_TICK_MS);
+
   // The gauge is part of the beat, so the caller waits for it like everything
   // else — an enemy turn should not open over a gauge still filling.
   fxEndsAt = Math.max(fxEndsAt, performance.now() + delay + count * HEAT_TICK_MS);
-  heatDrawn = to;
 }
 
-/** Anything the beats did not claim goes straight to where it belongs. */
+/**
+ * Anything the beats did not walk through goes straight where it belongs.
+ *
+ * Skipped while a walk is in flight: `heatDrawn` is behind the target ON
+ * PURPOSE for the length of the animation, and jumping it here would undo
+ * exactly the thing that was just scheduled.
+ */
 export function settleHeat(target: number | null): void {
-  if (target === null || heatDrawn === null || heatDrawn === target) return;
+  if (target === null || heatDrawn === null) return;
+  if (heatWalkingTo !== null) return;
+  if (heatDrawn === target) return;
   const value = target;
   requestAnimationFrame(() => paintHeat(value));
 }
@@ -632,7 +663,7 @@ export function cardExitDuration(count: number, held: boolean): number {
    you just pressed, and anything you can perceive there reads as the click not
    having registered. Everything AFTER the first beat is where the pacing
    lives — see `BEAT_STEP`. */
-const FIRST_BEAT = 90;
+const FIRST_BEAT = 30;
 /**
  * Spacing between consecutive hits, so a multi-hit reads as several blows.
  *
@@ -673,7 +704,7 @@ const SOUND_LEAD = 90;
  * It is allowed to outlast its own sound. A gauge that stops when the noise
  * does is a gauge nobody sees move.
  */
-const HEAT_TICK_MS = 210;
+const HEAT_TICK_MS = 300;
 
 interface Hit {
   readonly target: string;

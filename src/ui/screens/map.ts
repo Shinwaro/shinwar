@@ -315,7 +315,6 @@ function buildMap(
          * is NOT an exception — it used to wait for the board to appear, which
          * is two screens later, so you pressed a star, read a paragraph,
          * pressed again, and only then heard where you had gone. */
-        play(nodeSound(node));
         store.dispatch({ kind: 'moveToNode', nodeId: node.id });
       },
     );
@@ -345,6 +344,19 @@ function buildMap(
     const show = (): void => setReadout(label);
     const hide = (): void => setReadout(null);
     onHoverOrFocus(star, (on) => (on ? show() : hide()));
+
+    /* The sound goes on POINTERDOWN, not on the click.
+     *
+     * A click only exists once the finger or the button comes back up, and
+     * between those two moments there is a whole gesture the player has already
+     * committed to. Audio also takes a moment to actually begin. Starting it at
+     * the press buys both back — it is the earliest instant the intent is
+     * known, and it is what makes the sound feel like part of the button rather
+     * than a reaction to it. */
+    if (isReachable) {
+      const voice = nodeSound(node);
+      if (voice !== null) star.addEventListener('pointerdown', () => play(voice));
+    }
 
     stars.append(star);
   }

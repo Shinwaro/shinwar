@@ -56,7 +56,7 @@ import stanceIaiUrl from '../assets/sound/stance-iai.mp3';
 import upgradeUrl from '../assets/sound/upgrade.mp3';
 import ventUrl from '../assets/sound/vent.mp3';
 
-import { getSettings } from './settings.ts';
+import { volume } from './settings.ts';
 
 /* ---------- the library ---------- */
 
@@ -97,17 +97,17 @@ export type SoundKey = keyof typeof LIBRARY;
  * they are the beat you are supposed to notice.
  */
 const LEVEL: Partial<Record<SoundKey, number>> = {
-  button: 0.45,
+  button: 0.85,
   draw: 0.5,
   drawTurn: 0.55,
-  cardAttack: 0.7,
-  cardAttackIai: 0.7,
+  cardAttack: 0.5,
+  cardAttackIai: 0.5,
   cardSkill: 0.6,
-  block: 0.6,
+  block: 0.42,
   blocked: 0.55,
   damage: 0.75,
-  heatGain: 0.55,
-  vent: 0.6,
+  heatGain: 0.4,
+  vent: 0.45,
   endTurn: 0.5,
   stanceIai: 0.7,
   stanceGuard: 0.7,
@@ -129,15 +129,19 @@ function element(key: SoundKey): HTMLAudioElement | null {
 
   const node = new Audio(LIBRARY[key]);
   node.preload = 'auto';
-  node.volume = LEVEL[key] ?? 0.8;
   players.set(key, node);
   return node;
 }
 
 function start(key: SoundKey): void {
-  if (!getSettings().sound) return;
+  const level = volume();
+  if (level <= 0) return;
   const node = element(key);
   if (node === null) return;
+
+  /* Set at play time, not at creation: the slider can move between one sound
+     and the next, and an element built at the old level would keep it. */
+  node.volume = Math.max(0, Math.min(1, (LEVEL[key] ?? 0.8) * level));
 
   /* One element per sound, rewound rather than cloned. Two copies of the same
      noise a frame apart is a flam, not an event — a card that hits three times
