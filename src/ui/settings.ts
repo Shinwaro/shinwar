@@ -26,9 +26,22 @@ export interface Settings {
    * got *through* rather than being absorbed, and off is one click away.
    */
   readonly shake: boolean;
+  /**
+   * Every sound in the game, which is all of them synthesised — see `sound.ts`.
+   *
+   * On by default. There is no `prefers-reduced-motion` equivalent for audio
+   * that browsers agree on, so the choice is the player's alone; off by default
+   * would mean almost nobody discovers it is there at all. Muting is one click
+   * in the corner rail, next to Log and Info.
+   *
+   * It resets with the tab, like everything else here. That is the no-saves
+   * rule holding, and it is worth naming because a mute is the setting people
+   * most expect to be remembered.
+   */
+  readonly sound: boolean;
 }
 
-let current: Settings = { shake: true };
+let current: Settings = { shake: true, sound: true };
 
 const listeners = new Set<() => void>();
 
@@ -54,5 +67,5 @@ export function shakeAllowed(): boolean {
 
 /** Tests, and the fresh-start path. */
 export function resetSettings(): void {
-  current = { shake: true };
+  current = { shake: true, sound: true };
 }

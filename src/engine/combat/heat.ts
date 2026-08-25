@@ -112,7 +112,10 @@ export function gainHeat(
 
   const next = appendLog(
     withCombat(state, (current) => ({ ...current, heat: total })),
-    { source, kind: 'heat', text: `Heat +${gained} (${total}/${HEAT.max}).`, detail: { total } },
+    /* `gained` rather than only `total`: a gain and a vent are both `kind:
+       'heat'` and the presentation layer has to tell them apart to answer them
+       differently. Matching on the TEXT would be a parser over prose. */
+    { source, kind: 'heat', text: `Heat +${gained} (${total}/${HEAT.max}).`, detail: { total, gained } },
   );
   return fireHook(next, 'onHeatGained', { amount: gained, total });
 }
@@ -136,7 +139,7 @@ export function ventHeat(
 
   let next = appendLog(
     withCombat(state, (current) => ({ ...current, heat: total })),
-    { source, kind: 'heat', text: `Vented ${vented} Heat (${total}/${HEAT.max}).`, detail: { total } },
+    { source, kind: 'heat', text: `Vented ${vented} Heat (${total}/${HEAT.max}).`, detail: { total, vented } },
   );
 
   /* A vent worth the name sheds the statuses that declare it.

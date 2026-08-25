@@ -31,6 +31,7 @@ import { mapInfo, renderInfoPanel } from '../components/info.ts';
 import { renderCardFace } from '../components/card.ts';
 import { definitionOf } from '../../engine/combat/combat.ts';
 import { RARITY_LABEL } from '../../content/balance.ts';
+import { playDescent } from '../sound.ts';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -271,6 +272,9 @@ function buildMap(
       },
       () => {
         if (!isReachable) return;
+        // The one sound the map makes, and it goes with the commitment rather
+        // than with the arrival: the click IS the descent.
+        playDescent();
         store.dispatch({ kind: 'moveToNode', nodeId: node.id });
       },
     );

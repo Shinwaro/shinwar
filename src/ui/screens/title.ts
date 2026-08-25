@@ -15,6 +15,7 @@ import { currentDepth, depthRules, undefinedDepthRuleCount } from '../../engine/
 import { MAX_DEPTH } from '../../content/balance.ts';
 import { button, el } from '../dom.ts';
 import { createWordmark } from '../wordmark.ts';
+import { unlock } from '../sound.ts';
 
 export function newSeed(): string {
   return formatSeed(Math.random);
@@ -160,7 +161,12 @@ export function renderTitle(store: Store): HTMLElement {
 
   /* -- go -- */
 
+  /* The two buttons that start something are also the first gesture the page
+     gets, and a browser will not let an `AudioContext` make a sound before one.
+     Building it here rather than at import time is the whole of the autoplay
+     dance — see `sound.ts`. */
   const begin = button('Begin run', { class: 'btn btn-primary' }, () => {
+    unlock();
     store.dispatch({ kind: 'beginRun' });
   });
 
@@ -170,6 +176,7 @@ export function renderTitle(store: Store): HTMLElement {
      not ask for is the other way to lose them. */
   const learn = el('div', { class: 'title-learn' }, [
     button('How to play', { class: 'btn' }, () => {
+      unlock();
       store.dispatch({ kind: 'beginTutorial' });
     }),
     el('span', { class: 'field-help' }, ['One fight, about two minutes. Nothing at stake.']),

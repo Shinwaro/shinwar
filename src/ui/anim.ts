@@ -29,6 +29,7 @@
 
 import type { LogEntry } from '../engine/types.ts';
 import { shakeAllowed } from './settings.ts';
+import { playCardSound, playDraw, playHeatGain, playVent } from './sound.ts';
 
 export function prefersReducedMotion(): boolean {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -618,11 +619,54 @@ export interface LogFxOptions {
   readonly playerMaxHealth: number;
 }
 
+/**
+ * The sound of a batch of log entries.
+ *
+ * Driven off the log rather than off the call sites, for the same reason the
+ * animations are: the log is the one place that already knows everything that
+ * happened, in order, with the numbers attached. Sprinkling `playX()` through
+ * the UI would mean every new effect needs remembering twice.
+ *
+ * Outside `prefersReducedMotion`, deliberately. Reduced motion is a statement
+ * about things moving on screen; it is not a request for silence, and treating
+ * it as one would take the audio away from exactly the players most likely to
+ * be relying on it.
+ */
+function playLogSound(fresh: readonly LogEntry[]): void {
+  for (const entry of fresh) {
+    const detail = entry.detail;
+    if (detail === null || typeof detail !== 'object' || Array.isArray(detail)) continue;
+
+    if (entry.kind === 'heat') {
+      const gained = detail['gained'];
+      const vented = detail['vented'];
+      if (typeof gained === 'number') playHeatGain(gained);
+      else if (typeof vented === 'number') playVent(vented);
+      continue;
+    }
+
+    if (entry.kind !== 'card') continue;
+
+    /* A play carries the card AND its cost; a draw carries a count. Two shapes,
+       no ambiguity, and neither is the reshuffle line — that one has no detail
+       at all and is correctly silent. */
+    const card = detail['card'];
+    if (typeof card === 'string' && detail['cost'] !== undefined) {
+      playCardSound(card);
+      continue;
+    }
+    const count = detail['count'];
+    if (typeof count === 'number') playDraw(count);
+  }
+}
+
 export function playLogFx(
   fresh: readonly LogEntry[],
   locate: (target: string) => Element | null,
   options: LogFxOptions,
 ): number {
+  playLogSound(fresh);
+
   if (prefersReducedMotion() || fresh.length === 0) {
     settleBars();
     return 0;

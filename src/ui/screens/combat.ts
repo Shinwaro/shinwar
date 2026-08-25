@@ -59,6 +59,7 @@ import {
 import { combatInfo, renderInfoPanel } from '../components/info.ts';
 import { renderCarried } from '../components/carried.ts';
 import { renderGains } from '../components/gains.ts';
+import { getSettings, setSetting } from '../settings.ts';
 
 /* ---------- pacing ----------
  *
@@ -692,6 +693,21 @@ function build(
         selection.infoOpen = true;
         rerender();
       }),
+      /* Mute. Next to the two other things you reach for between decisions
+         rather than during one. It resets with the tab, like every setting
+         here — the no-saves rule covers preferences too. */
+      button(
+        getSettings().sound ? 'Sound on' : 'Sound off',
+        {
+          class: 'btn btn-quiet btn-corner',
+          'aria-label': getSettings().sound ? 'Turn sound off' : 'Turn sound on',
+          'aria-pressed': getSettings().sound ? 'true' : 'false',
+        },
+        () => {
+          setSetting('sound', !getSettings().sound);
+          rerender();
+        },
+      ),
     ]),
     /* The log hangs off its own button. It used to sit at the bottom of the
        stage while the control that opened it was in the corner, so pressing
