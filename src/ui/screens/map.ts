@@ -31,6 +31,7 @@ import { mapInfo, renderInfoPanel } from '../components/info.ts';
 import { renderCardFace } from '../components/card.ts';
 import { definitionOf } from '../../engine/combat/combat.ts';
 import { RARITY_LABEL } from '../../content/balance.ts';
+import { play } from '../sound.ts';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -271,10 +272,30 @@ function buildMap(
       },
       () => {
         if (!isReachable) return;
-        /* No sound on the click. Each kind of place has its own, and they play
-           on ARRIVAL rather than on the commitment — which is also what makes
-           an Unknown work: it has no sound of its own, and whatever it turns
-           out to be announces itself. See `arrivalSound` in `app.ts`. */
+        /* On the CLICK, not on arrival.
+         *
+         * It was moved to the landing screen first, on the theory that the
+         * arrival is the moment the place is named — and that turned out to be
+         * a beat too late in practice. The click is the commitment; the sound
+         * belongs to the decision, and audio takes a moment to start, so
+         * anything later than this reads as a delayed reaction to a button.
+         *
+         * An Unknown stays quiet: it is not a place yet. Whatever it resolves
+         * into announces itself. A fight node is quiet here too — the fight has
+         * its own sound at its own moment. */
+        switch (node.type) {
+          case 'event':
+            play('nodeAnomaly');
+            break;
+          case 'station':
+            play('nodeStation');
+            break;
+          case 'safe':
+            play('nodeSafe');
+            break;
+          default:
+            break;
+        }
         store.dispatch({ kind: 'moveToNode', nodeId: node.id });
       },
     );

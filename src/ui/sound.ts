@@ -147,28 +147,53 @@ function start(key: SoundKey): void {
   if (started !== undefined) void started.catch(() => undefined);
 }
 
+/**
+ * The floor on the gap between two sounds STARTING.
+ *
+ * Overlapping tails are fine and often right — a blow landing while the reactor
+ * climbs is two things at once. Two beginnings on the same frame is not: it
+ * reads as one compound noise rather than as two events, and no amount of
+ * mixing rescues it. So the schedule is allowed to slide a sound later, never
+ * earlier, to keep this much air in front of it.
+ */
+const MIN_GAP = 140;
+
+/** When the last sound was scheduled to begin, on the same clock as `now()`. */
+let lastStart = -Infinity;
+
+function now(): number {
+  return typeof performance === 'object' ? performance.now() : Date.now();
+}
+
 /** Now. For the things that answer a click rather than a beat in a fight. */
 export function play(key: SoundKey): void {
   if (!ready) return;
-  start(key);
+  playAt(key, 0);
 }
 
 /**
- * At `delay` milliseconds from now — the same delay its animation was given.
+ * At `delay` milliseconds from now — a little ahead of the animation it belongs
+ * to, because audio takes a moment to actually begin.
  *
  * This is how sound stays welded to picture: `playLogFx` works out when each
- * blow lands and each bar moves, and hands the same number to both.
+ * blow lands and each bar moves, and hands the same timeline to both.
  */
 export function playAt(key: SoundKey, delay: number): void {
   if (!ready) return;
-  if (delay <= 0) {
+
+  const wanted = now() + Math.max(0, delay);
+  const at = Math.max(wanted, lastStart + MIN_GAP);
+  lastStart = at;
+
+  const wait = at - now();
+  if (wait <= 0) {
     start(key);
     return;
   }
   const handle = window.setTimeout(() => {
     pending.delete(handle);
     start(key);
-  }, delay);
+  }, wait);
   pending.add(handle);
 }
 
@@ -205,6 +230,7 @@ export function unlock(): void {
 export function stopAll(): void {
   for (const handle of pending) window.clearTimeout(handle);
   pending.clear();
+  lastStart = -Infinity;
   for (const node of players.values()) {
     node.pause();
     node.currentTime = 0;

@@ -113,35 +113,9 @@ function arrivalSound(state: GameState): void {
   if (screen === null) return;
   if (from === null && screen === 'map') return;
 
-  /* ---- the place, on the beat the place is named ----
-   *
-   * The landing IS the arrival: it is the screen that says "you set down on"
-   * and names where. Playing the sound when the station or the Anomaly opened
-   * instead put it a click late, after the player had already read the text and
-   * pressed on — the sound described something that had already happened.
-   *
-   * A fight is the exception and keeps its own moment. "Normal fight starts" is
-   * about the fight, not about the rock it happens over, and the landing for a
-   * combat node is still just a place being named. */
-  if (screen === 'landing') {
-    const nodeId = state.run?.landing?.nodeId ?? null;
-    const node = state.run?.map?.nodes.find((entry) => entry.id === nodeId) ?? null;
-    switch (node?.type) {
-      case 'event':
-        play('nodeAnomaly');
-        return;
-      case 'station':
-        play('nodeStation');
-        return;
-      case 'safe':
-        play('nodeSafe');
-        return;
-      default:
-        // Combat, and an Unknown that has not decided yet. Both announce
-        // themselves when they resolve into something.
-        return;
-    }
-  }
+  /* The place is announced by the map, on the click that chose it — see
+     `renderMap`. Nothing to do here for a landing. */
+  if (screen === 'landing') return;
 
   if (screen === 'combat') {
     const encounterId = state.run?.combat?.encounterId ?? null;
@@ -155,10 +129,10 @@ function arrivalSound(state: GameState): void {
     return;
   }
 
-  /* An Anomaly reached from an Unknown never had a landing of its own — the `?`
-     resolved straight into it — so it is announced here instead. */
-  if (screen === 'event' && from === 'landing') return;
-  if (screen === 'event') play('nodeAnomaly');
+  /* An Anomaly the player did not choose — a `?` that resolved into one — was
+     never announced on the map, because at the moment of the click it was not
+     an Anomaly yet. It gets its sound here, when it becomes one. */
+  if (screen === 'event' && from !== 'map') play('nodeAnomaly');
 }
 
 export function mountApp(root: HTMLElement, store: Store): void {

@@ -301,8 +301,10 @@ export function stepHeat(to: number, delay: number, rising: boolean): void {
   heatStage = { ticks: stage.ticks, from: to };
   if (from === to) return;
 
-  const stepMs = Math.min(90, Math.max(40, 240 / Math.max(1, Math.abs(to - from))));
   const count = Math.abs(to - from);
+  /* A fixed pace per tick, not a fixed total. Three Heat should take longer to
+     arrive than one — that is the whole reason it is a count and not a bar. */
+  const stepMs = HEAT_TICK_MS;
   for (let i = 1; i <= count; i++) {
     const value = rising ? from + i : from - i;
     window.setTimeout(() => paintHeat(stage.ticks, value), delay + (i - 1) * stepMs);
@@ -625,7 +627,32 @@ const FIRST_BEAT = 200;
  * understand; the first time you meet a three-enemy pack you are reading four
  * numbers you have never seen, and at 230 they overlapped into one event.
  */
-const BEAT_STEP = 290;
+/* Widened once more when the sounds arrived. A beat now has to be long enough
+   for the thing that says it to finish saying it — at 290 the recordings ran
+   into each other and read as one noise, and a third of a second of air between
+   them is what separates "two events" from "one messy one". A little overlap on
+   the tails is fine; two of them STARTING together is not. */
+const BEAT_STEP = 380;
+
+/**
+ * How far ahead of its picture a sound starts.
+ *
+ * Audio does not begin the instant it is asked to: there is decode and buffer
+ * latency between `play()` and the first sample, and it is enough that a sound
+ * fired on the same millisecond as its animation reads as slightly late. So it
+ * is given a head start, and the two land together.
+ */
+const SOUND_LEAD = 110;
+
+/**
+ * How long one Heat tick takes to light or go out.
+ *
+ * Paced against the sound rather than against the eye. The gauge used to sprint
+ * — three Heat in 120ms — and finish long before the noise describing it, which
+ * is the opposite of the problem the beat spacing solves. A gain of three now
+ * fills across most of a beat, which is roughly as long as it takes to hear.
+ */
+const HEAT_TICK_MS = 125;
 
 interface Hit {
   readonly target: string;
@@ -837,8 +864,11 @@ export function playLogFx(
   let pendingSkill: { delay: number } | null = null;
   let cardSpoke = false;
 
+  /* Sound leads its picture. `delay` is when the number floats and the bar
+     moves; the noise starts `SOUND_LEAD` before that, so the two arrive at the
+     ear and the eye together rather than the sound trailing. */
   const speak = (key: SoundKey, delay: number): void => {
-    playAt(key, delay);
+    playAt(key, Math.max(0, delay - SOUND_LEAD));
     cardSpoke = true;
   };
 
@@ -853,7 +883,7 @@ export function playLogFx(
     /* A new card resets the question. If the one before it never made a noise,
        it gets the skill sound now, on the beat it was played. */
     if (isPlay) {
-      if (pendingSkill !== null && !cardSpoke) playAt('cardSkill', pendingSkill.delay);
+      if (pendingSkill !== null && !cardSpoke) speak('cardSkill', pendingSkill.delay);
       cardSpoke = false;
       pendingSkill = { delay: Math.max(0, at()) };
     }
@@ -941,7 +971,7 @@ export function playLogFx(
   }
 
   // The last card, if it never spoke for itself.
-  if (pendingSkill !== null && !cardSpoke) playAt('cardSkill', pendingSkill.delay);
+  if (pendingSkill !== null && !cardSpoke) speak('cardSkill', pendingSkill.delay);
 
   for (const [key, steps] of drains) {
     drainBar(key, steps, key === 'player' ? null : locate(key.slice('enemy:'.length)));
