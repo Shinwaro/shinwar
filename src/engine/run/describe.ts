@@ -10,7 +10,14 @@
  * its risk/payoff categories. Never its numbers.
  */
 
-import type { ImplantDef, MapNode, RelicPassive, RunEffect, RunSegment } from '../types.ts';
+import type {
+  GameState,
+  ImplantDef,
+  MapNode,
+  RelicPassive,
+  RunEffect,
+  RunSegment,
+} from '../types.ts';
 import {
   cards as cardTable,
   relics as relicTable,
@@ -136,7 +143,7 @@ export function describeRunEffects(effects: readonly RunEffect[]): string {
  * be exactly what it will do. Hand-writing it means the day someone tunes
  * `damageFlat` from 2 to 3, the shop keeps promising 2.
  */
-export function describePassive(passive: RelicPassive): string {
+export function describePassive(passive: RelicPassive, state: GameState | null = null): string {
   const parts: string[] = [];
   const plus = (n: number): string => (n >= 0 ? `+${n}` : String(n));
 
@@ -162,8 +169,17 @@ export function describePassive(passive: RelicPassive): string {
   if (passive.damageFlat !== undefined && passive.damageFlat !== 0) {
     parts.push(`Every attack deals ${passive.damageFlat} more`);
   }
+  if (passive.healPerTurn !== undefined && passive.healPerTurn !== 0) {
+    /* Was missing entirely, so a relic or implant whose ONLY passive was this
+       generated the words "Nothing, yet." — a shelf item that said it did
+       nothing while doing something. */
+    parts.push(`Heal ${passive.healPerTurn} at the start of each turn`);
+  }
   if (passive.damageTakenFlat !== undefined && passive.damageTakenFlat !== 0) {
-    parts.push(`Every attack that reaches you deals ${passive.damageTakenFlat} less`);
+    // "your health", not "you": the reduction lands before Block, so an attack
+    // that reaches YOU may still be entirely absorbed. Same wording the
+    // hand-written relic text uses, for the same reason.
+    parts.push(`Every attack that reaches your health deals ${passive.damageTakenFlat} less`);
   }
   if (passive.overheatThreshold !== undefined && passive.overheatThreshold !== 0) {
     parts.push(`The overheat threshold rises by ${passive.overheatThreshold}`);
@@ -178,11 +194,32 @@ export function describePassive(passive: RelicPassive): string {
     parts.push(`${plus(passive.maxHealth)} max health`);
   }
 
-  return parts.length === 0 ? 'Nothing, yet.' : `${parts.join('. ')}.`;
+  if (parts.length === 0) return 'Nothing, yet.';
+
+  /* The gate goes last and covers everything before it, because that is what it
+     does — it is one switch on the whole passive, not a qualifier on the final
+     clause. The live health is spelled out beside the percentage for the same
+     reason a card does it: max health moves, so the fraction alone is a rule
+     and the number is a decision. */
+  const gate =
+    passive.whenHullBelowPct !== undefined
+      ? ` while your health is below ${passive.whenHullBelowPct}%${atPct(state, passive.whenHullBelowPct)}`
+      : passive.whenHullAbovePct !== undefined
+        ? ` while your health is above ${passive.whenHullAbovePct}%${atPct(state, passive.whenHullAbovePct)}`
+        : '';
+
+  return `${parts.join('. ')}${gate}.`;
 }
 
-export function describeImplant(def: ImplantDef): string {
-  return describePassive(def.passive);
+/** The health a percentage actually means right now. See the card describer. */
+function atPct(state: GameState | null, pct: number): string {
+  const max = state?.run?.pilot.maxHealth ?? 0;
+  if (max <= 0) return '';
+  return ` (${Math.floor((max * pct) / 100)} health)`;
+}
+
+export function describeImplant(def: ImplantDef, state: GameState | null = null): string {
+  return describePassive(def.passive, state);
 }
 
 /** `Honed Edge (2 of 3)` — what you already carry, for the shop shelf. */

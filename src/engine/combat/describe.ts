@@ -35,7 +35,24 @@ function targetSuffix(target: Target): string {
   }
 }
 
-function describeCondition(when: Extract<EffectOp, { op: 'conditional' }>['when']): string {
+/**
+ * The health a percentage actually means, right now.
+ *
+ * "Health is below 25%" is a rule; "below 25% (17 health)" is a decision you
+ * can make at a glance, and max health moves during a run so the number cannot
+ * be written into the card. Absent when there is no run to read — the reference
+ * pages and the tests describe cards with no pilot behind them.
+ */
+function atPct(state: GameState | null, pct: number): string {
+  const max = state?.run?.pilot.maxHealth ?? 0;
+  if (max <= 0) return '';
+  return ` (${Math.floor((max * pct) / 100)} health)`;
+}
+
+function describeCondition(
+  when: Extract<EffectOp, { op: 'conditional' }>['when'],
+  state: GameState | null,
+): string {
   switch (when.kind) {
     case 'stanceIs':
       return `in ${stanceName(when.stance)}`;
@@ -53,7 +70,9 @@ function describeCondition(when: Extract<EffectOp, { op: 'conditional' }>['when'
       // "health", to match the bar and the heal op. The condition is still
       // named hullBelowPct in the data because renaming a shipped condition
       // kind would churn every card that uses it for a word.
-      return `health is below ${when.value}%`;
+      return `health is below ${when.value}%${atPct(state, when.value)}`;
+    case 'hullAbovePct':
+      return `health is above ${when.value}%${atPct(state, when.value)}`;
     case 'killedThisPlay':
       return 'this kills an enemy';
     default: {
@@ -177,7 +196,7 @@ function describeOp(op: EffectOp, state: GameState | null, afterDamage = false):
         ? lowerFirst(then).replace(/^deal (\d+) damage/, 'deal $1 additional damage')
         : lowerFirst(then);
 
-      return `If ${describeCondition(op.when)}, ${body}${otherwise}`;
+      return `If ${describeCondition(op.when, state)}, ${body}${otherwise}`;
     }
     case 'scaleWith': {
       const per = op.per === 1 ? '' : `${op.per} `;

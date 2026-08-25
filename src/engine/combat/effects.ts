@@ -209,6 +209,10 @@ export function testCondition(state: GameState, context: EffectContext, when: Co
       return combat.cardsPlayedThisTurn >= when.value;
     case 'hullBelowPct':
       return run.pilot.health / Math.max(1, run.pilot.maxHealth) < when.value / 100;
+    case 'hullAbovePct':
+      /* Strictly above, so the two are never both true at the same number and
+         a card pair written against the same line cannot double-fire. */
+      return run.pilot.health / Math.max(1, run.pilot.maxHealth) > when.value / 100;
     case 'killedThisPlay':
       return context.killsThisPlay > 0;
     default: {

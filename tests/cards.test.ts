@@ -377,7 +377,7 @@ describe('spending the hand', () => {
     return makeFight({
       enemyIds: ['scrap_hound'],
       hand: [cardId, ...others],
-      drawPile: ['solar_shield', 'solar_shield', 'measured_draw', 'bulwark', 'iai_slash'],
+      drawPile: ['solar_shield', 'solar_shield', 'half_draw', 'bulwark', 'iai_slash'],
       energy: 3,
     });
   }

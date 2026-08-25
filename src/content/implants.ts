@@ -167,4 +167,54 @@ export const IMPLANTS: readonly ImplantDef[] = [
     passive: { startingFocus: 2 },
     flavor: 'You arrive already halfway into the cut.',
   },
+
+  /* ---------- reading the hull ----------
+     Same gate as the relics, and here it does something implants otherwise
+     cannot: an implant is a thing you AIM at with saved Alloy, so a threshold
+     implant is a purchase you make because of how the run has gone rather than
+     in spite of it. */
+
+  {
+    id: 'bulwark_lattice',
+    name: 'Bulwark Lattice',
+    rarity: 'rare',
+    price: 200,
+    maxStacks: 2,
+    passive: { whenHullBelowPct: 40, blockPerTurn: 6 },
+    flavor: 'It only unfolds when the readings say it has to. It is never wrong.',
+  },
+
+  {
+    id: 'vigil_plating',
+    name: 'Vigil Plating',
+    /* The high-side one, and the only implant that asks you to stay clean.
+       Priced as an epic because 3 off every attack is enormous — but it is the
+       first thing to switch off when the act goes badly, which is exactly the
+       turn you wanted it most. */
+    rarity: 'epic',
+    price: 250,
+    maxStacks: 1,
+    passive: { whenHullAbovePct: 50, damageTakenFlat: 3 },
+    flavor: 'Reactive plate. It reads your vitals and it is not sentimental.',
+  },
+
+  {
+    id: 'suture_weave',
+    name: 'Suture Weave',
+    rarity: 'common',
+    price: 115,
+    maxStacks: 3,
+    passive: { healPerTurn: 1 },
+    flavor: 'It closes things slowly and without being asked.',
+  },
+
+  {
+    id: 'shock_lattice',
+    name: 'Shock Lattice',
+    rarity: 'uncommon',
+    price: 145,
+    maxStacks: 2,
+    passive: { blockPerTurn: 3 },
+    flavor: 'The impact goes into the frame instead of into you.',
+  },
 ];

@@ -64,6 +64,15 @@ export type Condition =
   | { readonly kind: 'cardsPlayedThisTurnAtLeast'; readonly value: number }
   | { readonly kind: 'hullBelowPct'; readonly value: number }
   /**
+   * The mirror, for cards that are strongest while you are still whole.
+   *
+   * The pair is the point. `hullBelowPct` alone only ever produced comeback
+   * cards — dead weight until the run went wrong — and a deck of those is a
+   * deck that wants to be hurt. A card that pays ABOVE a line is the opposite
+   * bet: it asks you to stay clean, which is a plan you can actually hold.
+   */
+  | { readonly kind: 'hullAbovePct'; readonly value: number }
+  /**
    * Something died during this card's resolution.
    *
    * A condition rather than an op, which matters: effects run in order, so an
@@ -563,6 +572,25 @@ export interface ThreadDef {
  * the only thing in the game that raises Energy or draw.
  */
 export interface RelicPassive {
+  /**
+   * Gates the WHOLE passive on the hull, as a percentage of maximum.
+   *
+   * One field rather than a conditional variant of every number, because the
+   * interesting relics are the ones that turn on all at once at a threshold —
+   * "while you are nearly dead this thing hits like a truck" is one rule, not a
+   * conditional bolted onto `damageFlat`.
+   *
+   * Read inside `pilotRules`, which is where every consumer already looks, so a
+   * gated passive is invisible to the preview, the damage pipeline and the
+   * totals panel in exactly the same way at exactly the same moment. A gate
+   * that only some of those honoured would be a preview that disagrees with the
+   * result, which is the one thing the pipeline may never do.
+   *
+   * `maxHealth` is deliberately never gated: it applies once when the relic is
+   * taken and never again, so a threshold on it would mean nothing.
+   */
+  readonly whenHullBelowPct?: number;
+  readonly whenHullAbovePct?: number;
   readonly energyPerTurn?: number;
   readonly drawPerTurn?: number;
   readonly blockPerTurn?: number;

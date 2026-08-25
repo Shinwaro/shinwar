@@ -1090,7 +1090,7 @@ export const EVENTS: readonly EventDef[] = [
         label: 'Hold instruments for a shift',
         detail: 'You learn where things are inside a person. It is applicable.',
         effects: [
-          { op: 'card', cardId: 'pressure_cut' },
+          { op: 'card', cardId: 'hairline' },
           { op: 'health', amount: 10 },
         ],
         risk: 'None',

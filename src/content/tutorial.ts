@@ -28,10 +28,15 @@ export const TUTORIAL_ENEMIES: readonly EnemyDef[] = [
     id: TRAINING_HULK,
     name: 'Derelict Hauler',
     /* Short on purpose. The lesson is nine steps long and the fight has to fit
-       inside it — 28 means turn one's scripted Sever takes half of it and turn
-       two's hand finishes the job with room to spare. A tutorial that outlasts
-       its own explanation is a tutorial nobody completes. */
-    maxHp: 26,
+       inside it, and turn two's hand has to be able to finish the job — there
+       is a test on exactly that budget.
+
+       Down from 26 when Measured Draw left the pool. The Focus lesson is Settle
+       now, which is the better teacher (it gains Focus and does nothing else,
+       so the step is one idea) and deals no damage where Measured Draw dealt 4.
+       A tutorial that outlasts its own explanation is a tutorial nobody
+       completes, so the hauler gives the 4 back. */
+    maxHp: 22,
     act: 1,
     tier: 'normal',
     /* A three-beat cycle you can learn inside one fight: a small hit, a
@@ -94,8 +99,11 @@ export const TUTORIAL_DECK: readonly string[] = [
   'bulwark',
   'vector_step',
 
-  // Turn two. Measured Draw is the Focus lesson; Meridian Cut finishes it.
-  'measured_draw',
+  /* Turn two. Settle is the Focus lesson; Meridian Cut finishes it.
+     Measured Draw held this slot and was cut from the pool. Settle is the
+     better teacher anyway: it gains Focus and does nothing else, so the lesson
+     is one idea rather than an attack that also happens to bank a stack. */
+  'settle',
   'meridian_cut',
   'iai_slash',
   'solar_parry',
@@ -105,11 +113,10 @@ export const TUTORIAL_DECK: readonly string[] = [
   'sever',
   'solar_parry',
   'kindled_edge',
-  'measured_draw',
   'half_draw',
   'settle',
   'recalibrate',
-  'pressure_cut',
+  'hairline',
   'bulwark',
   'vector_step',
 ];
@@ -117,4 +124,4 @@ export const TUTORIAL_DECK: readonly string[] = [
 /** The cards the lesson names. Exported so a test can pin them to the hand. */
 export const TUTORIAL_BLOCK_CARD = 'solar_parry';
 export const TUTORIAL_HEAT_CARD = 'thermal_lance';
-export const TUTORIAL_FOCUS_CARD = 'measured_draw';
+export const TUTORIAL_FOCUS_CARD = 'settle';

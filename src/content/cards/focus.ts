@@ -126,9 +126,14 @@ export const FOCUS_CARDS: readonly CardDef[] = [
     type: 'skill',
     rarity: 'uncommon',
     archetype: 'guard',
-    cost: 1,
+    /* Two Energy, and 8 Block for it. At 1 it was three clauses and a stance
+       rider for the price of the cheapest card in the game — the opening play
+       of every GUARD turn, every turn, which is a card that removes the
+       decision it was supposed to be. At 2 it is a turn's worth of Energy and
+       has to earn it. */
+    cost: 2,
     effects: [
-      { op: 'block', amount: 5 },
+      { op: 'block', amount: 8 },
       { op: 'ventHeat', amount: 2 },
       { op: 'gainFocus', amount: 1 },
     ],
@@ -139,7 +144,7 @@ export const FOCUS_CARDS: readonly CardDef[] = [
     upgrade: {
       name: 'Stillwater Guard+',
       effects: [
-        { op: 'block', amount: 8 },
+        { op: 'block', amount: 12 },
         { op: 'ventHeat', amount: 3 },
         { op: 'gainFocus', amount: 1 },
       ],

@@ -285,6 +285,64 @@ export const RELICS: readonly RelicDef[] = [
     exclusive: true,
     flavor: 'Everything the order still owned, in a box the size of a fist.',
   },
+
+  /* ---------- reading the hull ----------
+
+     Relics that watch the one number the run is actually about. Declared as a
+     gate on the whole passive (`whenHullBelowPct` / `whenHullAbovePct`) rather
+     than as a conditional bolted onto a field, because the interesting version
+     of this is a relic that turns on all at once at a threshold — and because
+     `pilotRules` is the single place every consumer reads, so the preview, the
+     damage pipeline and the totals panel all agree about the moment it does.
+
+     The pool leaned heavily toward "a number, always". These are the ones with
+     a condition, and the condition is the whole reason to take them. */
+
+  {
+    id: 'deadmans_edge',
+    name: "Dead Man's Edge",
+    text: 'Every attack deals 10 more while your health is below 25%.',
+    rarity: 'epic',
+    passive: { whenHullBelowPct: 25, damageFlat: 10 },
+    flavor: 'It was sharpened by somebody who did not expect to need it twice.',
+  },
+
+  /* ---------- the defensive shelf ----------
+
+     Four relics touched Block, damage taken or healing, and three of them were
+     common. A run that wanted to survive rather than out-damage the act had
+     almost nothing to route toward. */
+
+  {
+    id: 'keel_brace',
+    name: 'Keel Brace',
+    text: 'Every attack that reaches your health deals 2 less.',
+    rarity: 'uncommon',
+    passive: { damageTakenFlat: 2 },
+    flavor: 'Two centimetres of the wrong alloy, in exactly the right place.',
+  },
+
+  {
+    id: 'harbour_plate',
+    name: 'Harbour Plate',
+    text: 'Gain 4 Block at the start of each turn.',
+    rarity: 'rare',
+    passive: { blockPerTurn: 4 },
+    flavor: 'Yard plate, meant for a hull that never has to move fast.',
+  },
+
+  {
+    id: 'the_long_watch',
+    name: 'The Long Watch',
+    /* The legendary the defensive side did not have. Three small numbers rather
+       than one large one, because a defensive legendary that is only a big
+       Block number is a card you play around once; this changes what a whole
+       turn costs the enemy and keeps paying while the fight runs long. */
+    text: 'Gain 6 Block at the start of each turn, every attack that reaches your health deals 2 less, and heal 2 each turn.',
+    rarity: 'legendary',
+    passive: { blockPerTurn: 6, damageTakenFlat: 2, healPerTurn: 2 },
+    flavor: 'Somebody stood this watch for eleven years and was relieved by nobody.',
+  },
 ];
 
 /* ---------- the handlers ----------

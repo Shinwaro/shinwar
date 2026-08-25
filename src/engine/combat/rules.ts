@@ -132,11 +132,34 @@ export function pilotRules(state: GameState): PilotRules {
    * are walked in registry order so two touching the same field always compose
    * the same way for a seed.
    */
+  /* A passive can be gated on the hull, and the gate is checked HERE — the one
+     place every consumer already reads. The preview, the damage pipeline, the
+     turn loop and the totals panel all call `pilotRules`, so a threshold turns
+     on for all of them in the same instant. Gating anywhere else would let the
+     preview disagree with the result. */
+  const fraction = (() => {
+    const pilot = state.run?.pilot;
+    if (pilot === undefined) return 1;
+    return pilot.health / Math.max(1, pilot.maxHealth);
+  })();
+  const live = (passive: RelicPassive): boolean => {
+    if (passive.whenHullBelowPct !== undefined && fraction >= passive.whenHullBelowPct / 100) {
+      return false;
+    }
+    if (passive.whenHullAbovePct !== undefined && fraction <= passive.whenHullAbovePct / 100) {
+      return false;
+    }
+    return true;
+  };
+
   const passives: RelicPassive[] = [];
   for (const def of relicTable.all()) {
-    if (held.includes(def.id) && def.passive !== undefined) passives.push(def.passive);
+    if (held.includes(def.id) && def.passive !== undefined && live(def.passive)) {
+      passives.push(def.passive);
+    }
   }
   for (const def of implantTable.all()) {
+    if (!live(def.passive)) continue;
     const count = fitted.filter((id) => id === def.id).length;
     for (let i = 0; i < Math.min(count, def.maxStacks); i++) passives.push(def.passive);
   }

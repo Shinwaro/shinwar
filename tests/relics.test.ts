@@ -20,6 +20,7 @@ import { computeDamage, previewDamage, PLAYER, enemyTarget } from '../src/engine
 import { playCard, startPlayerTurn } from '../src/engine/combat/combat.ts';
 import { overheatThreshold } from '../src/engine/combat/heat.ts';
 import { pilotRules, liveStance } from '../src/engine/combat/rules.ts';
+import { describeImplant, describePassive } from '../src/engine/run/describe.ts';
 import { PLAYER as PLAYER_BALANCE, RELIC_RARITY_WEIGHTS, REWARDS } from '../src/content/balance.ts';
 import { reloadContent } from '../src/content/index.ts';
 import {
@@ -147,6 +148,86 @@ describe('the relic pool', () => {
     }
 
     expect(held(state)).toContain('sect_reliquary');
+  });
+
+  it('gates a hull-conditional passive at the threshold and nowhere else', () => {
+    /* `whenHullBelowPct` / `whenHullAbovePct` gate the WHOLE passive, and the
+       gate is checked inside `pilotRules` — the one place the preview, the
+       damage pipeline, the turn loop and the totals panel all read. Checking it
+       anywhere else would let a preview disagree with the result, which is the
+       one thing this codebase does not permit.
+
+       Both bounds are exclusive, so a passive gated at N is off AT N. Asserted
+       on the boundary rather than only well inside it, because "below 25%" and
+       "at most 25%" are one character apart and behave differently exactly
+       once per run — at the moment it matters. */
+    const base: GameState = {
+      ...createInitialState('GATE'),
+      run: createRunState('GATE', 0),
+    };
+    const max = base.run?.pilot.maxHealth ?? 0;
+    expect(max).toBeGreaterThan(0);
+
+    const at = (health: number, ids: { relics?: readonly string[]; implants?: readonly string[] }): GameState => {
+      const run = base.run;
+      if (run === null) throw new Error('test: no run');
+      return {
+        ...base,
+        run: {
+          ...run,
+          pilot: {
+            ...run.pilot,
+            health,
+            relics: [...(ids.relics ?? [])],
+            implants: [...(ids.implants ?? [])],
+          },
+        },
+      };
+    };
+
+    const low = relicTable.get('deadmans_edge');
+    const pct = low.passive?.whenHullBelowPct;
+    if (pct === undefined) throw new Error('test: the epic lost its gate');
+    const bonus = low.passive?.damageFlat ?? 0;
+    /* `ceil`, not `floor`. The gate is `health / max < pct / 100`, so with 70
+       maximum and a 25% line the real boundary is 17.5: 17 health qualifies and
+       18 does not. `floor` lands on 17, which is INSIDE the gate — the version
+       of this test that used it failed, correctly, and that is the whole reason
+       to assert on the boundary rather than somewhere comfortably past it. */
+    const firstOff = Math.ceil((max * pct) / 100);
+
+    expect(pilotRules(at(max, { relics: ['deadmans_edge'] })).damageFlat, 'full health').toBe(0);
+    expect(pilotRules(at(firstOff, { relics: ['deadmans_edge'] })).damageFlat, 'just above the line').toBe(0);
+    expect(pilotRules(at(firstOff - 1, { relics: ['deadmans_edge'] })).damageFlat, 'just under').toBe(bonus);
+
+    // And the mirror, on an implant, so both bounds are covered on both shapes.
+    const high = implantTable.get('vigil_plating');
+    const above = high.passive.whenHullAbovePct;
+    if (above === undefined) throw new Error('test: Vigil Plating lost its gate');
+    const reduction = high.passive.damageTakenFlat ?? 0;
+    // Mirror boundary: `health / max > pct / 100`, so the highest health that
+    // does NOT qualify is the floor of the line.
+    const lastOff = Math.floor((max * above) / 100);
+
+    expect(pilotRules(at(max, { implants: ['vigil_plating'] })).damageTakenFlat, 'whole').toBe(reduction);
+    expect(pilotRules(at(lastOff, { implants: ['vigil_plating'] })).damageTakenFlat, 'at the line').toBe(0);
+    expect(pilotRules(at(lastOff + 1, { implants: ['vigil_plating'] })).damageTakenFlat, 'just over').toBe(reduction);
+    expect(pilotRules(at(1, { implants: ['vigil_plating'] })).damageTakenFlat, 'nearly dead').toBe(0);
+  });
+
+  it('says what every passive does, including the ones added late', () => {
+    /* `describePassive` walks the fields by hand, so a new one is silently
+       absent — and a passive whose ONLY field is missing generates the words
+       "Nothing, yet.", which is a shop shelf claiming an implant does nothing
+       while it heals you every turn. That is exactly what happened to
+       `healPerTurn`. This catches the next one. */
+    for (const def of implantTable.all()) {
+      expect(describeImplant(def), `${def.id} describes as nothing`).not.toBe('Nothing, yet.');
+    }
+    for (const def of relicTable.all()) {
+      if (def.passive === undefined) continue;
+      expect(describePassive(def.passive), `${def.id} describes as nothing`).not.toBe('Nothing, yet.');
+    }
   });
 
   it('keeps the top tiers scarce rather than hidden', () => {

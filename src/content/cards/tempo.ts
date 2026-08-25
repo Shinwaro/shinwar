@@ -354,42 +354,6 @@ export const TEMPO_CARDS: readonly CardDef[] = [
   },
 
   {
-    id: 'measured_draw',
-    name: 'Measured Draw',
-    type: 'attack',
-    rarity: 'common',
-    archetype: 'iai',
-    cost: 1,
-    // No `keepsFocus`. It was there so the card could not spend the stack it
-    // was building, which is true but reads as a third clause on a common that
-    // wants two — and "gain 1, do not spend 1" is a net zero the player has to
-    // work out. Spending one and gaining one is the same result, said in fewer
-    // words, and it keeps the card honest about being an IAI card.
-    effects: [
-      { op: 'damage', amount: 4, target: 'enemy' },
-      { op: 'gainFocus', amount: 1 },
-    ],
-    upgrade: {
-      name: 'Measured Draw+',
-      effects: [
-        { op: 'damage', amount: 6, target: 'enemy' },
-        { op: 'gainFocus', amount: 1 },
-      ],
-    },
-    flavor: 'A cut that asks a question rather than settling one.',
-  },
-
-  /* ---------- hitting everything ----------
-     One answer to a pack is not enough answers: the interesting version of AoE
-     is that each pays for the sweep with a different currency: the stance, the
-     gauge running backwards, or a status that spreads. Tuned low — a sweep that
-     also wins the fight makes single-target cards pointless.
-
-     Nothing here gains Heat for a bigger sweep. Runaway Bloom already is that
-     card, and a second one at smaller numbers is not a choice between two
-     things, it is the same thing twice. */
-
-  {
     id: 'sweeping_guard',
     name: 'Sweeping Guard',
     type: 'attack',
@@ -526,15 +490,19 @@ export const TEMPO_CARDS: readonly CardDef[] = [
     rarity: 'common',
     archetype: 'iai',
     cost: 1,
+    /* Vent 2, not 1. Two is the threshold that sheds a stack of Scald, so a
+       common in the IAI pool is a real answer to the status IAI decks meet most
+       — and a vent of 1 on a Focus card was a rounding error you never chose it
+       for. */
     effects: [
       { op: 'gainFocus', amount: 2 },
-      { op: 'ventHeat', amount: 1 },
+      { op: 'ventHeat', amount: 2 },
     ],
     upgrade: {
       name: 'Breath Count+',
       effects: [
         { op: 'gainFocus', amount: 3 },
-        { op: 'ventHeat', amount: 2 },
+        { op: 'ventHeat', amount: 3 },
       ],
     },
     flavor: 'Four in, four held, four out. The rest of it is just fighting.',

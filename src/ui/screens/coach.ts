@@ -26,6 +26,7 @@ import {
   TUTORIAL_FOCUS_CARD,
   TUTORIAL_HEAT_CARD,
 } from '../../content/tutorial.ts';
+import { cards as cardTable } from '../../content/registry.ts';
 import { button, el } from '../dom.ts';
 
 interface Step {
@@ -159,7 +160,10 @@ const STEPS: readonly Step[] = [
   },
   {
     title: 'Focus',
-    body: 'Play Measured Draw. It gains you a Focus — and the stance decides what that Focus becomes: damage in IAI, Block in GUARD.',
+    /* The card is NAMED from the registry rather than written in. The step used
+       to say "Play Measured Draw", and when that card was cut from the pool the
+       tutorial went on confidently naming a card that no longer existed. */
+    body: `Play ${cardTable.get(TUTORIAL_FOCUS_CARD).name}. It gains you a Focus — and the stance decides what that Focus becomes: damage in IAI, Block in GUARD.`,
     targets: aim(TUTORIAL_FOCUS_CARD),
     done: (state) => played(state, TUTORIAL_FOCUS_CARD),
   },

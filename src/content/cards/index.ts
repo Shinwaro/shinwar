@@ -24,6 +24,7 @@ import { DISCARD_CARDS } from './discard.ts';
 import { EXECUTION_CARDS } from './execution.ts';
 import { FOCUS_CARDS } from './focus.ts';
 import { GUARD_CARDS } from './guard.ts';
+import { HULL_CARDS } from './hull.ts';
 import { LEGENDARY_CARDS } from './legendary.ts';
 import { IAI_CARDS } from './iai.ts';
 import { NEUTRAL_CARDS } from './neutral.ts';
@@ -38,6 +39,7 @@ export const CARDS: readonly CardDef[] = [
   ...GUARD_CARDS,
   ...OVERHEAT_CARDS,
   ...NEUTRAL_CARDS,
+  ...HULL_CARDS,
   ...FOCUS_CARDS,
   ...TEMPO_CARDS,
   ...DISCARD_CARDS,

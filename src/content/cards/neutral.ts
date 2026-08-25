@@ -30,33 +30,22 @@ export const NEUTRAL_CARDS: readonly CardDef[] = [
     rarity: 'common',
     archetype: 'neutral',
     cost: 1,
-    effects: [{ op: 'draw', amount: 2 }],
-    upgrade: { name: 'Recalibrate+', cost: 0, effects: [{ op: 'draw', amount: 2 }] },
-    flavor: 'Half of piloting is admitting the last reading was wrong.',
-  },
-
-  {
-    id: 'pressure_cut',
-    name: 'Pressure Cut',
-    type: 'attack',
-    rarity: 'uncommon',
-    archetype: 'neutral',
-    cost: 1,
-    // 5, not 7. Vulnerable is worth more than a flat number on the same card —
-    // it multiplies everything that follows it this turn — so the attack it
-    // rides on should not also be the best 1-cost attack in the pool.
+    /* A Focus with the draw. Two cards for one Energy is exactly break-even —
+       you spent a card to get two — so the card was a cycler with no opinion.
+       The Focus is the opinion. */
     effects: [
-      { op: 'damage', amount: 5, target: 'enemy' },
-      { op: 'applyStatus', status: VULNERABLE, stacks: 1, target: 'enemy' },
+      { op: 'draw', amount: 2 },
+      { op: 'gainFocus', amount: 1 },
     ],
     upgrade: {
-      name: 'Pressure Cut+',
+      name: 'Recalibrate+',
+      cost: 0,
       effects: [
-        { op: 'damage', amount: 7, target: 'enemy' },
-        { op: 'applyStatus', status: VULNERABLE, stacks: 2, target: 'enemy' },
+        { op: 'draw', amount: 2 },
+        { op: 'gainFocus', amount: 1 },
       ],
     },
-    flavor: 'Open the seam. The vacuum finishes the argument.',
+    flavor: 'Half of piloting is admitting the last reading was wrong.',
   },
 
   {

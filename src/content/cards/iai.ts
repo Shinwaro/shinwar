@@ -221,24 +221,28 @@ export const IAI_CARDS: readonly CardDef[] = [
     type: 'attack',
     rarity: 'rare',
     archetype: 'iai',
+    /* 6 and 4, down from 9 and 6. It carried the Vulnerable cap AND 15 damage
+       in IAI off one card, which made the rare that decides a boss turn a card
+       you simply took whenever offered. The Vulnerable is the reason to play
+       it; the damage is what it does while doing that. */
     cost: 2,
     effects: [
-      { op: 'damage', amount: 9, target: 'enemy' },
+      { op: 'damage', amount: 6, target: 'enemy' },
       { op: 'applyStatus', status: VULNERABLE, stacks: 2, target: 'enemy' },
     ],
     stanceRider: {
       stance: 'iai',
-      effects: [{ op: 'damage', amount: 6, target: 'enemy' }],
+      effects: [{ op: 'damage', amount: 4, target: 'enemy' }],
     },
     upgrade: {
       name: 'Wavefront Cut+',
       effects: [
-        { op: 'damage', amount: 12, target: 'enemy' },
+        { op: 'damage', amount: 9, target: 'enemy' },
         { op: 'applyStatus', status: VULNERABLE, stacks: 2, target: 'enemy' },
       ],
       stanceRider: {
         stance: 'iai',
-        effects: [{ op: 'damage', amount: 8, target: 'enemy' }],
+        effects: [{ op: 'damage', amount: 6, target: 'enemy' }],
       },
     },
     flavor: 'It arrives before the sound does and leaves before the sound catches up.',
