@@ -18,19 +18,6 @@
         "preview"
       ],
       "port": 4173
-    },
-    {
-      "name": "shinwar-lan",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": [
-        "run",
-        "preview",
-        "--",
-        "--host",
-        "--port",
-        "4174"
-      ],
-      "port": 4174
     }
   ]
 }
