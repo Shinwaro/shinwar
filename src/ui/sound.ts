@@ -168,6 +168,22 @@ const MIN_GAP = 140;
 /** When the last sound was scheduled to begin, on the same clock as `now()`. */
 let lastStart = -Infinity;
 
+/**
+ * Forget the gap bookkeeping. Called at the top of every batch of events.
+ *
+ * `MIN_GAP` is about ordering the sounds of ONE resolution — an attack, then
+ * the Heat it cost. Left running across batches it became a throttle on the
+ * player instead: play a card whose last sound is scheduled 400ms out, play
+ * another immediately, and the second card's attack could not start until
+ * 540ms — a pause that grew the faster you played, and exactly the "slight
+ * pause on attacks" that arrived with the timing work.
+ *
+ * A new action is a new sequence. It starts now.
+ */
+export function resetSoundSchedule(): void {
+  lastStart = -Infinity;
+}
+
 function now(): number {
   return typeof performance === 'object' ? performance.now() : Date.now();
 }

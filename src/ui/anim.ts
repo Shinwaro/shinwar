@@ -29,7 +29,7 @@
 
 import type { LogEntry } from '../engine/types.ts';
 import { shakeAllowed } from './settings.ts';
-import { playAt } from './sound.ts';
+import { playAt, resetSoundSchedule } from './sound.ts';
 import type { SoundKey } from './sound.ts';
 import { cards as cardTable } from '../content/registry.ts';
 import { SECT_RITES } from '../content/threads.ts';
@@ -289,6 +289,7 @@ function paintHeat(value: number): void {
   ticks.forEach((tick, index) => {
     tick.classList.toggle('is-filled', index < value);
     tick.classList.remove('is-venting');
+    tick.classList.remove('is-charging');
   });
 }
 
@@ -322,6 +323,7 @@ export function stepHeat(to: number, delay: number, rising: boolean): void {
 
   heatWalkingTo = to;
   const count = Math.abs(to - from);
+  const step = rising ? HEAT_RISE_MS : HEAT_TICK_MS;
 
   for (let i = 1; i <= count; i++) {
     const value = rising ? from + i : from - i;
@@ -329,26 +331,34 @@ export function stepHeat(to: number, delay: number, rising: boolean): void {
     window.setTimeout(
       () => {
         paintHeat(value);
-        /* A vented tick is lit cold for its own beat before it goes dark, so
-           emptying reads as cooling rather than as ticks quietly missing. */
-        if (!rising) {
-          const tick = document.querySelectorAll<HTMLElement>('.heat-tick')[value];
-          tick?.classList.add('is-venting');
-          window.setTimeout(() => tick?.classList.remove('is-venting'), HEAT_TICK_MS);
-        }
+
+        /* Every tick that moves is marked for its own beat, in the colour of
+           the direction it moved.
+         *
+         * The vent had this from the start and reads perfectly; the gain did
+         * not, and went dim-to-warm through a 160ms transition that blurred
+         * three ticks into the gauge simply lighting up. The mark is what makes
+         * a count read as counting — the moving tick is briefly the brightest
+         * thing there, so the eye follows it along the row. */
+        const index = rising ? value - 1 : value;
+        const tick = document.querySelectorAll<HTMLElement>('.heat-tick')[index];
+        const mark = rising ? 'is-charging' : 'is-venting';
+        tick?.classList.add(mark);
+        window.setTimeout(() => tick?.classList.remove(mark), step);
+
         if (last) heatWalkingTo = null;
       },
-      delay + (i - 1) * HEAT_TICK_MS,
+      delay + (i - 1) * step,
     );
   }
 
   // The panel holding the gauge takes the colour of the direction, for as long
   // as the walk lasts: warm while Heat arrives, cold while it leaves.
-  flushStance(rising, delay + count * HEAT_TICK_MS + HEAT_TICK_MS);
+  flushStance(rising, delay + count * step + step);
 
   // The gauge is part of the beat, so the caller waits for it like everything
   // else — an enemy turn should not open over a gauge still filling.
-  fxEndsAt = Math.max(fxEndsAt, performance.now() + delay + count * HEAT_TICK_MS);
+  fxEndsAt = Math.max(fxEndsAt, performance.now() + delay + count * step);
 }
 
 /**
@@ -706,6 +716,17 @@ const SOUND_LEAD = 90;
  */
 const HEAT_TICK_MS = 300;
 
+/**
+ * The same, for Heat arriving.
+ *
+ * Slower than the vent, and that is not symmetry for its own sake. A vent goes
+ * out through cold blue, so each tick announces itself and 300ms is plenty to
+ * read three of them. Heat arriving only ever went from dim to warm, which at
+ * the same pace blurred into the whole gauge lighting at once — so it gets both
+ * a longer step and a flash of its own, below.
+ */
+const HEAT_RISE_MS = 380;
+
 interface Hit {
   readonly target: string;
   readonly text: string;
@@ -892,6 +913,10 @@ export function playLogFx(
     settleHeat(options.heat);
     return 0;
   }
+
+  /* A new batch is a new sequence, and the minimum gap between sounds is about
+     ordering THIS one — not about throttling the player across clicks. */
+  resetSoundSchedule();
 
   const withRider = ridersIn(fresh);
 

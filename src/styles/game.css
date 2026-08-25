@@ -670,6 +670,19 @@
   background: var(--heat-danger);
 }
 
+/* Coming in.
+ *
+ * The tick that just lit is briefly the brightest thing on the row, so the eye
+ * follows it along rather than seeing the gauge light up as a block. Without
+ * this a gain went dim-to-warm through the transition below and three ticks
+ * blurred into one event — which is exactly what a vent does NOT do, because a
+ * vent has always had its own colour on the way out. */
+.heat-tick.is-charging,
+.heat-tick.is-danger.is-charging {
+  background: color-mix(in srgb, var(--heat-warm) 60%, white);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--heat-warm) 70%, transparent);
+}
+
 /* Going out.
  *
  * A vented tick is lit cold for the length of its own beat before it goes dark,
