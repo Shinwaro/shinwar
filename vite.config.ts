@@ -1,9 +1,22 @@
 import { defineConfig } from 'vitest/config';
 
+/* The port a preview should bind, when something else has already chosen one.
+ *
+ * `vite preview` does not read `PORT`; left alone it takes 4173, and if that is
+ * busy it silently increments and reports the new one only in its own output.
+ * That is fine for a person reading a terminal and useless to a tool that was
+ * told which port to expect — it opens the assigned one and gets nothing.
+ *
+ * Reading the environment here is the whole fix, and it belongs here rather
+ * than in a script flag: this is build tooling, it never ships, and `src/`
+ * stays as pure as the guards demand. */
+const previewPort = Number(process.env['PORT']) || 4173;
+
 export default defineConfig({
   // Relative asset paths, so dist/ also works when opened from a file:// path
   // or served from somewhere other than the domain root.
   base: './',
+  preview: { port: previewPort },
   build: {
     outDir: 'dist',
     target: 'es2022',
