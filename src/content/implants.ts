@@ -208,13 +208,4 @@ export const IMPLANTS: readonly ImplantDef[] = [
     flavor: 'It closes things slowly and without being asked.',
   },
 
-  {
-    id: 'shock_lattice',
-    name: 'Shock Lattice',
-    rarity: 'uncommon',
-    price: 145,
-    maxStacks: 2,
-    passive: { blockPerTurn: 3 },
-    flavor: 'The impact goes into the frame instead of into you.',
-  },
 ];

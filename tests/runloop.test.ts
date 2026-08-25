@@ -8,9 +8,12 @@
 
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { Action, ActionLog } from '../src/engine/actions.ts';
-import type { CardDef, GameState } from '../src/engine/types.ts';
+import type { CardDef, GameState, NodeType } from '../src/engine/types.ts';
 import { applyAction, applyActions, replay } from '../src/engine/reducer.ts';
-import { createInitialState } from '../src/engine/state.ts';
+import { createInitialState, createRunState } from '../src/engine/state.ts';
+import { generateMap } from '../src/engine/map/mapgen.ts';
+import { createRng } from '../src/engine/rng.ts';
+import { ENCOUNTERS } from '../src/content/encounters.ts';
 import { hashState, stableStringify } from '../src/engine/serialize.ts';
 import { availableMoves, currentNode } from '../src/engine/map/route.ts';
 import { canPlay } from '../src/engine/combat/combat.ts';
@@ -374,5 +377,93 @@ describe('unknown nodes', () => {
     // what matters here, and mapgen covers the rest.
     if (unknown === undefined) return;
     expect(['unknown']).toContain(unknown.type);
+  });
+});
+
+describe("a Thread's reprisal opens the fight it promised", () => {
+  /* Marked pays `{ op: 'ambush', tier: 'elite' }` and for a long time did not
+     deliver one.
+
+     `forcedTier` was read in two places and both did `openCombat(node)`, which
+     takes `node.encounterId ?? fallbackEncounter()`. Neither consulted the
+     tier. On a combat node the reprisal opened that node's own ordinary fight;
+     on an Unknown or a Station it opened `fallbackEncounter` — "the first node
+     on the chart that has an encounter", an Act-1-shaped normal fight.
+     `concludeNode` then paid elite money for it, so the Thread had visibly
+     fired and the fight was just a fight.
+
+     Walked over many seeds and node types rather than asserted on one, because
+     the two paths through it are the landing and the end of an Anomaly, and the
+     node the reprisal lands on is whatever the route happened to reach. */
+
+  function ambushOn(seed: string, type: NodeType): string | null {
+    let state: GameState = {
+      ...createInitialState(seed),
+      run: createRunState(seed, 0),
+    };
+    const run = state.run;
+    if (run === null) throw new Error('test: no run');
+
+    const made = generateMap(createRng(seed), 1);
+    const node = made.map.nodes.find((entry) => entry.type === type);
+    if (node === undefined) return null;
+
+    state = {
+      ...state,
+      run: { ...run, map: made.map, position: node.id, forcedTier: 'elite', screen: 'landing' },
+    };
+    // The landing is the door the reprisal comes through.
+    state = {
+      ...state,
+      run: {
+        ...state.run!,
+        landing: { nodeId: node.id, title: node.name, body: '', resolved: [] },
+      },
+    };
+    const after = applyAction(state, { kind: 'leaveLanding' });
+    return after.run?.combat?.encounterId ?? null;
+  }
+
+  it('rolls an ELITE encounter, whatever the node underneath was', () => {
+    const tierOf = (id: string | null): string | null =>
+      ENCOUNTERS.find((entry) => entry.id === id)?.tier ?? null;
+
+    let checked = 0;
+    for (let i = 0; i < 60; i++) {
+      for (const type of ['unknown', 'event', 'combat', 'station'] as const) {
+        const encounterId = ambushOn(`AMBUSH-${i}`, type);
+        if (encounterId === null) continue;
+        checked += 1;
+        expect(tierOf(encounterId), `${type} node, seed ${i}: ${encounterId}`).toBe('elite');
+      }
+    }
+    expect(checked, 'no ambush was ever opened').toBeGreaterThan(50);
+  });
+
+  it('rolls a NORMAL encounter for a combat-tier reprisal', () => {
+    // The other half. `ambush` also ships with `tier: 'combat'`, and that one
+    // must not quietly become an Elite now that the tier is honoured.
+    const state = (() => {
+      const seed = 'AMBUSH-COMBAT';
+      const base: GameState = { ...createInitialState(seed), run: createRunState(seed, 0) };
+      const made = generateMap(createRng(seed), 1);
+      const node = made.map.nodes.find((entry) => entry.type === 'unknown');
+      if (node === undefined || base.run === null) throw new Error('test: no node');
+      return {
+        ...base,
+        run: {
+          ...base.run,
+          map: made.map,
+          position: node.id,
+          forcedTier: 'combat' as const,
+          screen: 'landing' as const,
+          landing: { nodeId: node.id, title: node.name, body: '', resolved: [] },
+        },
+      };
+    })();
+
+    const after = applyAction(state, { kind: 'leaveLanding' });
+    const encounterId = after.run?.combat?.encounterId ?? null;
+    expect(ENCOUNTERS.find((entry) => entry.id === encounterId)?.tier).toBe('normal');
   });
 });

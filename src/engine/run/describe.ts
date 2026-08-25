@@ -176,10 +176,11 @@ export function describePassive(passive: RelicPassive, state: GameState | null =
     parts.push(`Heal ${passive.healPerTurn} at the start of each turn`);
   }
   if (passive.damageTakenFlat !== undefined && passive.damageTakenFlat !== 0) {
-    // "your health", not "you": the reduction lands before Block, so an attack
-    // that reaches YOU may still be entirely absorbed. Same wording the
-    // hand-written relic text uses, for the same reason.
-    parts.push(`Every attack that reaches your health deals ${passive.damageTakenFlat} less`);
+    /* "Every attack against you deals N less", matching Ceramic Underplate —
+       which is the wording that describes what the number actually does. The
+       reduction is applied to the attack, before Block; it is not a filter on
+       what gets past Block, and "reaches your health" implied it was. */
+    parts.push(`Every attack against you deals ${passive.damageTakenFlat} less`);
   }
   if (passive.overheatThreshold !== undefined && passive.overheatThreshold !== 0) {
     parts.push(`The overheat threshold rises by ${passive.overheatThreshold}`);

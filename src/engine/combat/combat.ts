@@ -26,12 +26,12 @@ import { CLEAR_SPACE_ID } from '../../content/environments.ts';
 import { STRENGTH } from '../../content/statuses.ts';
 import { ENCOUNTERS } from '../../content/encounters.ts';
 import { healPlayer, PLAYER, enemyTarget, livingEnemies } from './damage.ts';
-import { applyEffects, createContext, retireCard } from './effects.ts';
+import { applyEffects, createContext } from './effects.ts';
 import { atCriticalHeat, gainHeat, resolveOverheat, ventHeat } from './heat.ts';
 import { addStacks, clearFresh, decayStatuses, statusEnergy, tickStatuses } from './keywords.ts';
 import { environmentRules, liveStance, pilotRules, stanceRulesFor } from './rules.ts';
 import { mintEnemy } from './instances.ts';
-import { discardHand, draw, findInHand, moveToDiscard, narrateDraw } from './piles.ts';
+import { discardHand, draw, findInHand, narrateDraw, removeFromHand } from './piles.ts';
 import { telegraphAll } from './intents.ts';
 
 /* ---------- setup ---------- */
@@ -448,10 +448,23 @@ export function playCard(state: GameState, cardUid: string, targetUid: string | 
   const cost = costOf(card);
   const target = targetUid === null ? null : enemyTarget(targetUid);
 
-  // Leave the hand and pay before resolving, so a card that draws cards cannot
-  // draw itself and a card that discards cannot discard itself.
+  /* A card in play is in NO pile, and that is the fix for a real bug.
+   *
+   * It used to go straight to the discard, with a comment claiming that stopped
+   * a card drawing or discarding itself. It stopped the first two and not the
+   * third: a card that discards your hand and then draws empties the discard
+   * into the deck to do it — and the played card is sitting in that discard, so
+   * the reshuffle sweeps it into the draw pile and the draw deals it back into
+   * your hand. Jettison's own log read "Discarded 3. Discard shuffled back into
+   * the deck. Drew Jettison." It was then exhausted from the hand, so the final
+   * state was right and the fight looked like Exhaust was broken: the card you
+   * had just spent came back and left again.
+   *
+   * Held out of every pile instead, and placed once at the end. Nothing can
+   * shuffle it, draw it or discard it while it is resolving, because it is not
+   * anywhere to be found. */
   let next = withCombat(state, (current) => ({
-    ...moveToDiscard(current, card),
+    ...removeFromHand(current, cardUid),
     energy: current.energy - cost,
     cardsPlayedThisTurn: current.cardsPlayedThisTurn + 1,
   }));
@@ -480,7 +493,16 @@ export function playCard(state: GameState, cardUid: string, targetUid: string | 
     result = { state: inRider.state, context: { ...inRider.context, fromRider: false } };
   }
 
-  next = retireCard(result.state, card, result.context.exhaustSelf || def.exhaust === true);
+  /* And now it lands, exactly once, in exactly one pile. */
+  const exhausted = result.context.exhaustSelf || def.exhaust === true;
+  next = withCombat(result.state, (current) =>
+    exhausted
+      ? { ...current, exhaust: [...current.exhaust, card] }
+      : { ...current, discard: [...current.discard, card] },
+  );
+  if (exhausted) {
+    next = fireHook(next, 'onCardExhausted', { cardUid: card.uid, cardId: def.id });
+  }
   next = fireHook(next, 'onCardPlayed', { cardUid: card.uid, cardId: def.id });
 
   next = checkOutcome(next);

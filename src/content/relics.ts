@@ -115,14 +115,6 @@ export const RELICS: readonly RelicDef[] = [
      Energy multiplies the whole deck rather than adding to it, so these are the
      rarest things in the pool and the reason a boss is worth reaching. */
   {
-    id: 'second_reactor',
-    name: 'Second Reactor',
-    text: 'Gain 1 Energy each turn.',
-    rarity: 'legendary',
-    passive: { energyPerTurn: 1 },
-    flavor: 'The cutter was built for one. Somebody disagreed, at length, with a torch.',
-  },
-  {
     id: 'the_long_sight',
     name: 'The Long Sight',
     text: 'Gain 1 Energy and draw 1 more card each turn, but every attack against you deals 2 more.',

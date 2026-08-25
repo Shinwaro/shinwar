@@ -33,6 +33,7 @@ import { cards as cardTable, statuses as statusTable } from '../src/content/regi
 import { CLEAR_SPACE_ID } from '../src/content/environments.ts';
 import { ACTIVE_STANCES, HEAT, PLAYER, STANCES } from '../src/content/balance.ts';
 import { IAI_SLASH, SEVER, SOLAR_PARRY, VECTOR_STEP } from '../src/content/cards/basic.ts';
+import { JETTISON } from '../src/content/cards/discard.ts';
 import { VULNERABLE } from '../src/content/statuses.ts';
 import {
   beginRunInCombat,
@@ -649,6 +650,80 @@ describe('the gap between the last blow and your turn', () => {
     const settled = endTurnImmediately(telegraphAll(makeFight({ enemyIds: ['cinder_wisp'] })));
     expect(roundOwed(settled)).toBe(false);
     if (combatOf(settled).outcome === 'ongoing') expect(combatOf(settled).turn).toBe(2);
+  });
+});
+
+describe('a card in play is in no pile', () => {
+  /* The played card used to go straight to the DISCARD before its own effects
+     ran, with a comment claiming that stopped it drawing or discarding itself.
+     It stopped the first two and not the third.
+
+     A card that discards your hand and then draws empties the discard back into
+     the deck to do it — and the played card was sitting in that discard. The
+     reshuffle swept it into the draw pile and the draw dealt it back into the
+     hand. It was then exhausted out of the hand, so the final state was correct
+     and the FIGHT looked like Exhaust was broken: the card you had just spent
+     appeared again and vanished again, and the log said so out loud —
+     "Discarded 3. Discard shuffled back into the deck. Drew Jettison."
+
+     Held out of every pile while it resolves now, and placed once at the end. */
+
+  it('cannot be shuffled back and drawn by its own draw', () => {
+    const state = makeFight({
+      enemyHp: 999,
+      hand: [JETTISON, IAI_SLASH, SOLAR_PARRY, SEVER],
+      energy: 9,
+    });
+    const played = combatOf(state).hand[0];
+    if (played === undefined) throw new Error('test: no card');
+
+    const before = state.log.length;
+    const after = playCard(state, played.uid, firstEnemy(state).uid);
+    const combat = combatOf(after);
+
+    // The reshuffle really did happen — otherwise this proves nothing.
+    const lines = after.log.slice(before).map((entry) => entry.text);
+    expect(lines.some((line) => /shuffled back/i.test(line)), 'no reshuffle in this fixture').toBe(
+      true,
+    );
+
+    expect(lines.filter((line) => /Drew Jettison/i.test(line)), 'drew itself').toEqual([]);
+    expect(combat.hand.some((card) => card.uid === played.uid), 'back in hand').toBe(false);
+    expect(combat.draw.some((card) => card.uid === played.uid), 'back in the deck').toBe(false);
+    expect(combat.discard.some((card) => card.uid === played.uid), 'in the discard').toBe(false);
+    expect(combat.exhaust.map((card) => card.uid)).toContain(played.uid);
+  });
+
+  it('lands in exactly one pile, for every card in the game', () => {
+    /* The general form, because the bug was one card away from being invisible:
+       whatever a card does while resolving, when it is finished it is in the
+       discard or the exhaust and never both, never neither, and never twice. */
+    for (const def of cardTable.all()) {
+      if (def.type === 'voided') continue;
+      const state = makeFight({
+        enemyIds: ['scrap_hound', 'cinder_wisp'],
+        enemyHp: 999,
+        hand: [def.id, IAI_SLASH, SOLAR_PARRY],
+        energy: 9,
+      });
+      const played = combatOf(state).hand[0];
+      if (played === undefined) throw new Error('test: no card');
+
+      const after = playCard(state, played.uid, firstEnemy(state).uid);
+      const combat = after.run?.combat;
+      if (combat === null || combat === undefined) continue; // the fight ended on it
+
+      const where = (['hand', 'draw', 'discard', 'exhaust'] as const).filter((pile) =>
+        combat[pile].some((card) => card.uid === played.uid),
+      );
+      expect(where, `${def.id} ended up in ${where.join('+') || 'nowhere'}`).toHaveLength(1);
+      expect(['discard', 'exhaust'], `${def.id}`).toContain(where[0]);
+
+      const copies = [...combat.hand, ...combat.draw, ...combat.discard, ...combat.exhaust].filter(
+        (card) => card.uid === played.uid,
+      );
+      expect(copies, `${def.id} exists twice`).toHaveLength(1);
+    }
   });
 });
 

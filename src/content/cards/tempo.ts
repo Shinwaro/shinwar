@@ -417,17 +417,21 @@ export const TEMPO_CARDS: readonly CardDef[] = [
     rarity: 'rare',
     archetype: 'neutral',
     cost: 2,
-    // Low damage, but the Rust runs on every one of them at once — the sweep
-    // that gets better the more things there are to hit.
+    /* Low damage, but the Rust runs on every one of them at once — the sweep
+       that gets better the more things there are to hit.
+
+       2 and 3, down from 3 and 4. Written when Rust was 1 damage a stack; at 2
+       this was 6 unblockable a turn on every enemy on the board from one card,
+       and it climbs, because a stack decays a turn and this lands three. */
     effects: [
       { op: 'damage', amount: 3, target: 'allEnemies' },
-      { op: 'applyStatus', status: RUST, stacks: 3, target: 'allEnemies' },
+      { op: 'applyStatus', status: RUST, stacks: 2, target: 'allEnemies' },
     ],
     upgrade: {
       name: 'Rusting Wind+',
       effects: [
         { op: 'damage', amount: 5, target: 'allEnemies' },
-        { op: 'applyStatus', status: RUST, stacks: 4, target: 'allEnemies' },
+        { op: 'applyStatus', status: RUST, stacks: 3, target: 'allEnemies' },
       ],
     },
     flavor: 'It does not cut. It starts something that finishes on its own.',

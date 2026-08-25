@@ -340,10 +340,15 @@ describe('passives reach the number they modify', () => {
   });
 
   it('raises Energy and draw at the start of the turn', () => {
-    const base = startPlayerTurn(makeFight({ drawPile: Array.from({ length: 20 }, () => 'hairline') }));
-    const armed = startPlayerTurn(
-      holding(makeFight({ drawPile: Array.from({ length: 20 }, () => 'hairline') }), 'second_reactor', 'wide_aperture'),
-    );
+    /* The Long Sight rather than Second Reactor + Wide Aperture. Second Reactor
+       was cut — Reactor Tuning sells the same Energy as an implant, and the
+       legendary shelf gained The Long Watch — and it happened to be the only
+       relic left in the pool granting `energyPerTurn`, so this is the one that
+       exercises the field at all. Both numbers come from one relic now. */
+    const deck = (): GameState =>
+      makeFight({ drawPile: Array.from({ length: 20 }, () => 'hairline') });
+    const base = startPlayerTurn(deck());
+    const armed = startPlayerTurn(holding(deck(), 'the_long_sight'));
 
     expect(combatOf(armed).energy).toBe(PLAYER_BALANCE.energyPerTurn + 1);
     expect(combatOf(armed).hand.length).toBe(combatOf(base).hand.length + 1);

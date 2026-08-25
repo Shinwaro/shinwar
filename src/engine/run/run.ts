@@ -15,7 +15,7 @@ import type {
 } from '../types.ts';
 import { appendLog, requireRun, withRun } from '../state.ts';
 import { fireHook } from '../hooks.ts';
-import { nextIntInclusive, weightedPick } from '../rng.ts';
+import { nextIntInclusive, pick, weightedPick } from '../rng.ts';
 import { generateMap } from '../map/mapgen.ts';
 import { canMoveTo, nodeById } from '../map/route.ts';
 import { startCombat } from '../combat/combat.ts';
@@ -41,7 +41,7 @@ import {
   cards as cardTable,
   enemies as enemyTable,
 } from '../../content/registry.ts';
-import { ENCOUNTERS as encounterTable } from '../../content/encounters.ts';
+import { ENCOUNTERS as encounterTable, encountersFor } from '../../content/encounters.ts';
 import { describeLanding } from './describe.ts';
 
 /* ---------- opening the run ---------- */
@@ -262,9 +262,16 @@ export function leaveLanding(state: GameState): GameState {
   if (node === undefined) return withRun(cleared, (current) => ({ ...current, screen: 'map' }));
 
   // A Thread's reprisal still takes the node, and it is announced on the way in
-  // rather than discovered on arrival at a fight you did not choose.
-  if (requireRun(cleared).forcedTier !== null) {
-    return openCombat(cleared, { ...node, type: 'combat' });
+  // rather than discovered on arrival at a fight you did not choose. The fight
+  // is rolled from the FORCED tier, not taken from whatever the node held.
+  const forced = requireRun(cleared).forcedTier;
+  if (forced !== null && forced !== 'boss') {
+    const ambush = forcedEncounter(cleared, forced);
+    return openCombat(ambush.state, {
+      ...node,
+      type: 'combat',
+      encounterId: ambush.encounterId,
+    });
   }
   return resolveNode(cleared, node);
 }
@@ -345,6 +352,39 @@ function openCombat(state: GameState, node: MapNode): GameState {
   return startCombat(staged, encounterId, node.environmentId ?? CLEAR_SPACE_ID);
 }
 
+/**
+ * The fight a Thread's reprisal actually opens.
+ *
+ * This did not exist, and Marked was broken because of it. `forcedTier` was
+ * read in two places — the landing and the end of an Anomaly — and both did
+ * `openCombat(node)`, which takes `node.encounterId ?? fallbackEncounter()`.
+ * Neither looks at the tier. So an elite reprisal on a combat node opened that
+ * node's ordinary fight, and on an Unknown or a Station it opened
+ * `fallbackEncounter` — literally "the first node on the chart that has an
+ * encounter", an Act-1-shaped normal fight. `concludeNode` then paid elite
+ * money for it, so the Thread looked like it had fired and the fight was just
+ * a fight. Exactly the report: "I get regular fights when it's activated."
+ *
+ * Rolled on the `events` stream, because a reprisal is a consequence of the
+ * Thread layer and taking it from `combat` would shift every fight roll after
+ * it for the same seed.
+ */
+function forcedEncounter(
+  state: GameState,
+  tier: 'combat' | 'elite',
+): { readonly encounterId: string | null; readonly state: GameState } {
+  const run = requireRun(state);
+  const node = run.position === null || run.map === null ? undefined : nodeById(run.map, run.position);
+  const pool = encountersFor(run.act, tier === 'elite' ? 'elite' : 'normal', node?.row);
+  if (pool.length === 0) return { encounterId: fallbackEncounter(run), state };
+
+  const picked = pick(run.rng, 'events', pool);
+  return {
+    encounterId: picked.value?.id ?? fallbackEncounter(run),
+    state: withRun(state, (current) => ({ ...current, rng: picked.rng })),
+  };
+}
+
 function fallbackEncounter(run: RunState): string | null {
   const map = run.map;
   const any = map?.nodes.find((node) => node.encounterId !== null)?.encounterId;
@@ -363,9 +403,13 @@ export function leaveEvent(state: GameState): GameState {
   const after = requireRun(cleared);
   if (after.forcedTier === null) return cleared;
 
+  if (after.forcedTier === 'boss') return cleared;
+
   const node = after.position === null || after.map === null ? undefined : nodeById(after.map, after.position);
   if (node === undefined) return withRun(cleared, (current) => ({ ...current, forcedTier: null }));
-  return openCombat(cleared, { ...node, type: 'combat' });
+
+  const ambush = forcedEncounter(cleared, after.forcedTier);
+  return openCombat(ambush.state, { ...node, type: 'combat', encounterId: ambush.encounterId });
 }
 
 /* ---------- finishing a fight ---------- */

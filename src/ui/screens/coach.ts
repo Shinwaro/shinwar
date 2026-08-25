@@ -31,7 +31,17 @@ import { button, el } from '../dom.ts';
 
 interface Step {
   readonly title: string;
-  readonly body: string;
+  /**
+   * A thunk, not a string, for the steps that name a card.
+   *
+   * `STEPS` is a module-level const, so anything it evaluates runs at IMPORT
+   * time — before `reloadContent()` has put a single card in the registry. A
+   * step that looked its card up eagerly threw "no card with id" during module
+   * evaluation and took the whole page down to a blank screen, and nothing in
+   * the test suite could see it because no test imports this module. Deferring
+   * to draw time is the fix and the reason.
+   */
+  readonly body: string | (() => string);
   /** Everything to ring. Empty centres the card and points at nothing. */
   readonly targets: readonly string[];
   /**
@@ -163,7 +173,8 @@ const STEPS: readonly Step[] = [
     /* The card is NAMED from the registry rather than written in. The step used
        to say "Play Measured Draw", and when that card was cut from the pool the
        tutorial went on confidently naming a card that no longer existed. */
-    body: `Play ${cardTable.get(TUTORIAL_FOCUS_CARD).name}. It gains you a Focus — and the stance decides what that Focus becomes: damage in IAI, Block in GUARD.`,
+    body: () =>
+      `Play ${cardTable.get(TUTORIAL_FOCUS_CARD).name}. It gains you a Focus — and the stance decides what that Focus becomes: damage in IAI, Block in GUARD.`,
     targets: aim(TUTORIAL_FOCUS_CARD),
     done: (state) => played(state, TUTORIAL_FOCUS_CARD),
   },
@@ -276,7 +287,7 @@ export function renderCoach(store: Store, onDone: () => void): HTMLElement {
       [
         el('p', { class: 'coach-step' }, [`${index + 1} of ${STEPS.length}`]),
         el('h2', { class: 'coach-title' }, [step.title]),
-        el('p', { class: 'coach-body' }, [step.body]),
+        el('p', { class: 'coach-body' }, [typeof step.body === 'function' ? step.body() : step.body]),
         el('div', { class: 'coach-actions' }, [
           step.done === null
             ? button(step.next ?? 'Next', { class: 'btn btn-primary btn-coach' }, advance)
