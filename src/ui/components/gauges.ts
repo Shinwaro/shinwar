@@ -20,6 +20,7 @@ import {
   masteries as masteryTable,
 } from '../../content/registry.ts';
 import { el } from '../dom.ts';
+import { stageHeat } from '../anim.ts';
 import { renderSigil } from './sigil.ts';
 
 export function renderStanceStrip(state: GameState): HTMLElement {
@@ -68,13 +69,20 @@ export function renderEnvironmentBadge(state: GameState): HTMLElement | null {
 export function renderHeatGauge(state: GameState): HTMLElement {
   const heat = heatStatus(state);
 
-  const ticks = Array.from({ length: heat.max }, (_, index) => {
-    const filled = index < heat.heat;
-    const past = index + 1 >= heat.threshold;
-    return el('span', {
-      class: `heat-tick${filled ? ' is-filled' : ''}${past ? ' is-danger' : ''}`,
+  /* Drawn at the value the gauge was ALREADY showing, not at the one state
+     holds — `stageHeat` hands back whichever that is, and `stepHeat` walks the
+     ticks the rest of the way on the same beat as the sound. Without the stage
+     the gauge would snap to the answer before the animation that explains it,
+     which is the same bug the health bars had. */
+  const ticks = Array.from({ length: heat.max }, (_, index) =>
+    el('span', {
+      class: `heat-tick${index + 1 >= heat.threshold ? ' is-danger' : ''}`,
       'aria-hidden': 'true',
-    });
+    }),
+  );
+  const drawAt = stageHeat(ticks, heat.heat);
+  ticks.forEach((tick, index) => {
+    if (index < drawAt) tick.classList.add('is-filled');
   });
 
   return el('div', { class: `heat ${heat.overheating ? 'is-overheating' : ''}` }, [

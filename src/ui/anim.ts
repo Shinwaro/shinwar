@@ -29,7 +29,8 @@
 
 import type { LogEntry } from '../engine/types.ts';
 import { shakeAllowed } from './settings.ts';
-import { play } from './sound.ts';
+import { playAt } from './sound.ts';
+import type { SoundKey } from './sound.ts';
 import { cards as cardTable } from '../content/registry.ts';
 import { SECT_RITES } from '../content/threads.ts';
 
@@ -244,6 +245,81 @@ export function drainBar(
 }
 
 /** Send every bar nobody staged a drain for straight to where it was going. */
+/* ---------- the Heat gauge ----------
+
+   Ten discrete ticks rather than a bar, so it animates as a count rather than
+   as a slide: three arriving Heat is three ticks lighting left to right, and a
+   vent of two is two going out right to left. The direction is the whole point
+   — Heat coming in and Heat leaving look nothing alike now, and each moves on
+   the same beat as the sound that says so.
+
+   Staged the same way the health bars are, and for the same reason: the render
+   draws the gauge from state, which is already the number AFTER everything in
+   this batch. Left alone it would snap to the answer before the animation that
+   explains it. So the ticks are pushed back to where they were, and walked
+   forward on the beat. */
+
+let heatShown: number | null = null;
+let heatStage: { readonly ticks: readonly HTMLElement[]; readonly from: number } | null = null;
+
+/** Called by the gauge as it renders. Returns the value it should DRAW at. */
+export function stageHeat(ticks: readonly HTMLElement[], heat: number): number {
+  const previous = heatShown;
+  heatShown = heat;
+
+  if (previous === null || previous === heat || prefersReducedMotion()) {
+    heatStage = null;
+    return heat;
+  }
+  heatStage = { ticks, from: previous };
+  return previous;
+}
+
+/** The gauge is not in this fight any more. */
+export function forgetHeat(): void {
+  heatShown = null;
+  heatStage = null;
+}
+
+function paintHeat(ticks: readonly HTMLElement[], value: number): void {
+  ticks.forEach((tick, index) => tick.classList.toggle('is-filled', index < value));
+}
+
+/**
+ * Walk the gauge from where it was drawn to where it now is, one tick at a
+ * time, starting at `delay`.
+ *
+ * `rising` decides the direction the ticks move in, not just the endpoint: a
+ * gain lights them in ascending order and a vent puts them out in descending
+ * order, so a glance tells you which happened even with the number covered.
+ */
+export function stepHeat(to: number, delay: number, rising: boolean): void {
+  const stage = heatStage;
+  if (stage === null) return;
+
+  const from = stage.from;
+  heatStage = { ticks: stage.ticks, from: to };
+  if (from === to) return;
+
+  const stepMs = Math.min(90, Math.max(40, 240 / Math.max(1, Math.abs(to - from))));
+  const count = Math.abs(to - from);
+  for (let i = 1; i <= count; i++) {
+    const value = rising ? from + i : from - i;
+    window.setTimeout(() => paintHeat(stage.ticks, value), delay + (i - 1) * stepMs);
+  }
+  fxEndsAt = Math.max(fxEndsAt, performance.now() + delay + count * stepMs);
+}
+
+/** Anything the beats did not claim goes straight to where it belongs. */
+export function settleHeat(): void {
+  const stage = heatStage;
+  heatStage = null;
+  if (stage === null || heatShown === null) return;
+  if (stage.from === heatShown) return;
+  const value = heatShown;
+  requestAnimationFrame(() => paintHeat(stage.ticks, value));
+}
+
 export function settleBars(): void {
   for (const [key, bar] of staged) {
     staged.delete(key);
@@ -639,92 +715,87 @@ export interface LogFxOptions {
  * it as one would take the audio away from exactly the players most likely to
  * be relying on it.
  */
-function playLogSound(fresh: readonly LogEntry[]): void {
-  /* A card and its stance rider arrive as two entries. A two-phase attack is
-     ONE sound, not the attack followed by the rider, so the batch is scanned
-     once first to find which cards fired a rider. */
-  const withRider = new Set<string>();
+/**
+ * Which sound an entry is, if it is one at all.
+ *
+ * Only the mapping lives here. WHEN it plays is decided in `playLogFx`, on the
+ * same timeline as the picture — see `playAt`.
+ */
+function soundFor(entry: LogEntry, withRider: ReadonlySet<string>): SoundKey | null {
+  const detail = entry.detail;
+  if (detail === null || typeof detail !== 'object' || Array.isArray(detail)) return null;
+
+  switch (entry.kind) {
+    case 'heat':
+      // Overheat first: it also carries a total, and it is the louder fact.
+      if (typeof detail['damage'] === 'number') return 'overheat';
+      if (typeof detail['gained'] === 'number') return 'heatGain';
+      if (typeof detail['vented'] === 'number') return 'vent';
+      return null;
+
+    case 'stance':
+      // A refused change is the game saying no, not a stance being entered.
+      if (detail['refused'] === true) return null;
+      if (detail['to'] === 'iai') return 'stanceIai';
+      if (detail['to'] === 'guard') return 'stanceGuard';
+      return null;
+
+    case 'card': {
+      // The rider's own line is silent; it is folded into the card's sound.
+      if (typeof detail['rider'] === 'string') return null;
+
+      const card = detail['card'];
+      if (typeof card === 'string' && detail['cost'] !== undefined) {
+        /* Only attacks announce themselves as a card. Everything else is
+           announced by what it DID — see `cardVoice` for the fallback when a
+           card does nothing that makes a noise of its own. */
+        if (cardTable.find(card)?.type !== 'attack') return null;
+        return withRider.has(card) ? 'cardAttackIai' : 'cardAttack';
+      }
+
+      /* Two draw sounds. The turn-start deal comes from `system`; anything else
+         is a card that drew mid-turn, which is a different event to a player. */
+      if (typeof detail['count'] === 'number') {
+        return entry.source === 'system' ? 'drawTurn' : 'draw';
+      }
+      return null;
+    }
+
+    case 'block':
+      // Only the player's own Block. An enemy plating itself is its business.
+      return detail['to'] === 'player' ? 'block' : null;
+
+    case 'damage': {
+      if (detail['to'] !== 'player') return null;
+      const toHull = detail['toHull'];
+      const blocked = detail['blocked'];
+      if (typeof toHull === 'number' && toHull > 0) return 'damage';
+      if (typeof blocked === 'number' && blocked > 0) return 'blocked';
+      return null;
+    }
+
+    case 'combat':
+      return typeof detail['health'] === 'number' ? 'heal' : null;
+
+    case 'thread':
+      return detail['thread'] === SECT_RITES ? 'rites' : null;
+
+    default:
+      return null;
+  }
+}
+
+/** Every card that fired a stance rider in this batch. A two-phase attack. */
+function ridersIn(fresh: readonly LogEntry[]): ReadonlySet<string> {
+  const out = new Set<string>();
   for (const entry of fresh) {
     const detail = entry.detail;
     if (detail === null || typeof detail !== 'object' || Array.isArray(detail)) continue;
     if (typeof detail['rider'] === 'string' && typeof detail['card'] === 'string') {
-      withRider.add(detail['card']);
+      out.add(detail['card']);
     }
   }
-
-  for (const entry of fresh) {
-    const detail = entry.detail;
-    if (detail === null || typeof detail !== 'object' || Array.isArray(detail)) continue;
-
-    switch (entry.kind) {
-      case 'heat': {
-        // Overheat first: it also carries a total, and it is the louder fact.
-        if (typeof detail['damage'] === 'number') play('overheat');
-        else if (typeof detail['gained'] === 'number') play('heatGain');
-        else if (typeof detail['vented'] === 'number') play('vent');
-        continue;
-      }
-
-      case 'stance': {
-        // A refused change is the game saying no, not a stance being entered.
-        if (detail['refused'] === true) continue;
-        if (detail['to'] === 'iai') play('stanceIai');
-        else if (detail['to'] === 'guard') play('stanceGuard');
-        continue;
-      }
-
-      case 'card': {
-        const card = detail['card'];
-        // The rider's own line is silent — it was folded into the card's sound.
-        if (typeof detail['rider'] === 'string') continue;
-
-        if (typeof card === 'string' && detail['cost'] !== undefined) {
-          const type = cardTable.find(card)?.type;
-          if (type === 'attack') play(withRider.has(card) ? 'cardAttackIai' : 'cardAttack');
-          // Powers use the skill sound: there is no recording for them, and a
-          // card being played should never be silent.
-          else if (type !== 'voided') play('cardSkill');
-          continue;
-        }
-
-        /* Two draw sounds. The turn-start deal comes from `system`; anything
-           else is a card that drew, mid-turn, which is a different event to a
-           player and gets a different sound. */
-        if (typeof detail['count'] === 'number') {
-          play(entry.source === 'system' ? 'drawTurn' : 'draw');
-        }
-        continue;
-      }
-
-      case 'block': {
-        // Only the player's own Block. An enemy plating itself is its business.
-        if (detail['to'] === 'player') play('block');
-        continue;
-      }
-
-      case 'damage': {
-        if (detail['to'] !== 'player') continue;
-        const toHull = detail['toHull'];
-        const blocked = detail['blocked'];
-        if (typeof toHull === 'number' && toHull > 0) play('damage');
-        else if (typeof blocked === 'number' && blocked > 0) play('blocked');
-        continue;
-      }
-
-      case 'combat': {
-        if (typeof detail['health'] === 'number') play('heal');
-        continue;
-      }
-
-      case 'thread': {
-        if (detail['thread'] === SECT_RITES) play('rites');
-        continue;
-      }
-
-      default:
-        continue;
-    }
-  }
+  return out;
 }
 
 export function playLogFx(
@@ -732,29 +803,78 @@ export function playLogFx(
   locate: (target: string) => Element | null,
   options: LogFxOptions,
 ): number {
-  playLogSound(fresh);
-
-  if (prefersReducedMotion() || fresh.length === 0) {
+  if (fresh.length === 0) {
     settleBars();
+    settleHeat();
     return 0;
   }
 
-  /* Which blows land on whom, and when. The bar has to drop on the same beat
-     as the number, and a card that hits three times has to drop three times —
-     one long slide reads as one big hit however many figures float off it. */
+  const withRider = ridersIn(fresh);
+
+  /* ---- one timeline, for the picture and the sound ----
+   *
+   * They used to be two passes: the sound fired immediately, in log order, and
+   * the animation was scheduled on beats. So every sound arrived before the
+   * thing it described, and a run of them took as long as the FILES took to
+   * play rather than as long as the fight took to resolve — progressively later
+   * and later behind the picture.
+   *
+   * Now there is one slot counter. Whatever advances the picture advances the
+   * sound, and both are handed the same delay. Playing Sever is: the attack, as
+   * the damage lands; then the gauge filling three, as the Heat is heard; then
+   * two going out right to left, as the vent is heard. Three beats, in that
+   * order, because that is the order the engine resolved them in. */
+  const reduced = prefersReducedMotion();
   const drains = new Map<string, { delay: number; share: number }[]>();
 
-  /* A beat is one swing, not one blow.
-  
-     Everything the engine tags with the same card and the same swing index
-     happens at once — so a card that hits all three enemies produces three
-     numbers on one beat, and a card that hits one enemy three times produces
-     three beats. Both arrive as a run of damage entries and only the swing
-     index tells them apart. */
   let slot = -1;
   let beat: string | null = null;
+  const at = (): number => FIRST_BEAT + slot * BEAT_STEP;
+
+  /* A card is announced by what it DOES. `cardSkill` is only for the ones that
+     do nothing audible — a status, a Focus, an Energy — because a card being
+     played should never be silent, and everything else already has a voice. */
+  let pendingSkill: { delay: number } | null = null;
+  let cardSpoke = false;
+
+  const speak = (key: SoundKey, delay: number): void => {
+    playAt(key, delay);
+    cardSpoke = true;
+  };
 
   for (const entry of fresh) {
+    const detail = entry.detail as Record<string, unknown> | null;
+    const isPlay =
+      entry.kind === 'card' &&
+      detail !== null &&
+      typeof detail['card'] === 'string' &&
+      detail['cost'] !== undefined;
+
+    /* A new card resets the question. If the one before it never made a noise,
+       it gets the skill sound now, on the beat it was played. */
+    if (isPlay) {
+      if (pendingSkill !== null && !cardSpoke) playAt('cardSkill', pendingSkill.delay);
+      cardSpoke = false;
+      pendingSkill = { delay: Math.max(0, at()) };
+    }
+
+    const sound = soundFor(entry, withRider);
+
+    /* ---- Heat: its own beat, and the gauge walks with it ---- */
+    if (entry.kind === 'heat' && detail !== null && typeof detail['total'] === 'number') {
+      const rising = typeof detail['gained'] === 'number';
+      if (typeof detail['gained'] === 'number' || typeof detail['vented'] === 'number') {
+        slot += 1;
+        beat = `heat#${slot}`;
+        const delay = at();
+        if (!reduced) stepHeat(detail['total'], delay, rising);
+        if (sound !== null) speak(sound, delay);
+        continue;
+      }
+    }
+
+    /* ---- blows: grouped by swing, exactly as before ---- */
+    let spokeHere = false;
     for (const hit of hitsFromEntry(entry)) {
       const anchor = locate(hit.target);
       if (anchor === null) continue;
@@ -767,7 +887,16 @@ export function playLogFx(
         beat = here;
         slot += 1;
       }
-      const delay = FIRST_BEAT + slot * BEAT_STEP;
+      const delay = at();
+
+      // The blow's own sound rides its beat, once per beat rather than once per
+      // target: an arc through three enemies is one sound, not three.
+      if (sound !== null && !spokeHere) {
+        speak(sound, delay);
+        spokeHere = true;
+      }
+
+      if (reduced) continue;
 
       // The thing struck reacts on the same beat as its number, so the two
       // read as one event rather than as a number and then a wobble.
@@ -799,18 +928,32 @@ export function playLogFx(
         delay,
       });
     }
+    if (spokeHere) continue;
+
+    /* ---- everything else: a stance, a draw, a card that only announced
+            itself. One beat each, so an action that does two things says them
+            in the order it did them. ---- */
+    if (sound !== null) {
+      slot += 1;
+      beat = `${entry.source}#${slot}`;
+      speak(sound, at());
+    }
   }
+
+  // The last card, if it never spoke for itself.
+  if (pendingSkill !== null && !cardSpoke) playAt('cardSkill', pendingSkill.delay);
 
   for (const [key, steps] of drains) {
     drainBar(key, steps, key === 'player' ? null : locate(key.slice('enemy:'.length)));
   }
-  /* Everything the blows did not claim goes straight where it was headed — a
+  /* Everything the beats did not claim goes straight where it was headed — a
      heal, a fight that has just started, an enemy whose whole hit was absorbed.
-     Without this a staged bar would sit at its old width forever. */
+     Without this a staged bar or gauge would sit at its old value forever. */
   settleBars();
+  settleHeat();
 
   // How long the whole sequence takes, so the caller can wait for it. The enemy
   // turn should not start while the player's last three numbers are still in
   // the air — that is exactly the "everything at once" the pacing is fixing.
-  return slot < 0 ? 0 : FIRST_BEAT + slot * BEAT_STEP;
+  return slot < 0 ? 0 : at();
 }

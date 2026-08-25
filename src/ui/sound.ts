@@ -16,9 +16,17 @@
  * assets they load in the background after the first gesture and the page opens
  * exactly as fast as it did before.
  *
- * ONE SOUND AT A TIME. The whole queue exists for that: an action that causes
- * two things — an attack that lands and then overheats you — says them in that
- * order rather than on top of each other. Nothing here interrupts anything.
+ * ON THE BEAT. Every sound is scheduled against the same timeline the floating
+ * numbers and the bars use, so an attack is heard as it lands and Heat is heard
+ * as the gauge fills.
+ *
+ * That replaced a strict one-at-a-time queue, and the queue was the wrong idea:
+ * a run of events took as long as the sounds took to say rather than as long as
+ * the fight took to resolve, so everything arrived progressively later than the
+ * thing it was describing. Being on time matters more than never overlapping —
+ * a blow landing while the reactor climbs is two things happening at once, and
+ * it should sound like it. The one rule kept is that a sound never plays over
+ * ITSELF: asked for again while running, it restarts.
  *
  * Nothing in here can change what happens. Like `settings.ts`, this is
  * presentation: a replayed action log produces the same run in silence.
@@ -108,10 +116,8 @@ const LEVEL: Partial<Record<SoundKey, number>> = {
 const players = new Map<SoundKey, HTMLAudioElement>();
 let ready = false;
 
-/** The queue. One deep in practice; capped so a long sound cannot bury a fight. */
-const queue: SoundKey[] = [];
-const QUEUE_MAX = 4;
-let current: HTMLAudioElement | null = null;
+/** Everything scheduled and not yet heard, so muting can cancel it. */
+const pending = new Set<number>();
 
 function element(key: SoundKey): HTMLAudioElement | null {
   const existing = players.get(key);
@@ -125,47 +131,45 @@ function element(key: SoundKey): HTMLAudioElement | null {
   return node;
 }
 
-function pump(): void {
-  if (current !== null) return;
-  const key = queue.shift();
-  if (key === undefined) return;
-
+function start(key: SoundKey): void {
+  if (!getSettings().sound) return;
   const node = element(key);
   if (node === null) return;
 
-  current = node;
+  /* One element per sound, rewound rather than cloned. Two copies of the same
+     noise a frame apart is a flam, not an event — a card that hits three times
+     should sound like three hits, which is what the beat spacing is for, not
+     like one hit smeared. */
   node.currentTime = 0;
-  const done = (): void => {
-    node.removeEventListener('ended', done);
-    node.removeEventListener('error', done);
-    current = null;
-    pump();
-  };
-  node.addEventListener('ended', done);
-  /* A file that fails to decode must not wedge the queue behind it forever —
-     silence for one event is a smaller problem than silence for the rest of the
-     run. */
-  node.addEventListener('error', done);
-
   const started = node.play();
-  if (started !== undefined) void started.catch(done);
+  /* A file that will not decode is silence for one event. It must not throw
+     into the middle of a turn. */
+  if (started !== undefined) void started.catch(() => undefined);
+}
+
+/** Now. For the things that answer a click rather than a beat in a fight. */
+export function play(key: SoundKey): void {
+  if (!ready) return;
+  start(key);
 }
 
 /**
- * Ask for a sound. It plays when whatever is playing has finished.
+ * At `delay` milliseconds from now — the same delay its animation was given.
  *
- * Silently does nothing before `unlock`, which is every moment before the first
- * click — a browser will not let audio start without a gesture, and a queue
- * filling up behind a context that cannot open is worse than no sound at all.
+ * This is how sound stays welded to picture: `playLogFx` works out when each
+ * blow lands and each bar moves, and hands the same number to both.
  */
-export function play(key: SoundKey): void {
-  if (!ready || !getSettings().sound) return;
-  /* Already waiting? Then it is the same event twice in one batch — a hand of
-     five drawn one card at a time — and it should be heard once. */
-  if (queue.includes(key)) return;
-  if (queue.length >= QUEUE_MAX) queue.shift();
-  queue.push(key);
-  pump();
+export function playAt(key: SoundKey, delay: number): void {
+  if (!ready) return;
+  if (delay <= 0) {
+    start(key);
+    return;
+  }
+  const handle = window.setTimeout(() => {
+    pending.delete(handle);
+    start(key);
+  }, delay);
+  pending.add(handle);
 }
 
 /**
@@ -187,20 +191,22 @@ export function unlock(): void {
   if (typeof document === 'undefined') return;
 
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) return;
-    // A hidden tab makes no noise, and the queue does not pile up waiting.
-    queue.length = 0;
-    if (current !== null) current.pause();
-    current = null;
+    if (document.hidden) stopAll();
   });
 }
 
-/** Mute takes effect on the next sound; whatever is playing is allowed to end. */
+/**
+ * Silence, including what was scheduled and has not happened yet.
+ *
+ * A mute that only stops what is audible right now lets the next half second of
+ * an already-resolved turn play out anyway, which reads as the button not
+ * working.
+ */
 export function stopAll(): void {
-  queue.length = 0;
-  if (current !== null) {
-    current.pause();
-    current.currentTime = 0;
+  for (const handle of pending) window.clearTimeout(handle);
+  pending.clear();
+  for (const node of players.values()) {
+    node.pause();
+    node.currentTime = 0;
   }
-  current = null;
 }

@@ -23,6 +23,7 @@ import { renderPause } from './screens/pause.ts';
 import { renderCoach } from './screens/coach.ts';
 import { el } from './dom.ts';
 import { play } from './sound.ts';
+import { forgetHeat } from './anim.ts';
 import { ENCOUNTERS } from '../content/encounters.ts';
 
 /** What is on screen right now: the phase, or the run's inner screen. */
@@ -100,6 +101,11 @@ function arrivalSound(state: GameState): void {
   if (screen === lastScreen) return;
   const from = lastScreen;
   lastScreen = screen;
+
+  /* Every fight starts fresh: the Heat gauge has no history to animate from,
+     and animating from the last fight's would be a lie. */
+  if (screen !== 'combat') forgetHeat();
+
   /* The first observation of a run is the chart opening, which is not an
      arrival anywhere — but the tutorial opens straight into a fight, and that
      one IS. So the silence is scoped to the map rather than to the first
@@ -107,30 +113,52 @@ function arrivalSound(state: GameState): void {
   if (screen === null) return;
   if (from === null && screen === 'map') return;
 
-  switch (screen) {
-    case 'combat': {
-      const encounterId = state.run?.combat?.encounterId ?? null;
-      const tier = ENCOUNTERS.find((entry) => entry.id === encounterId)?.tier ?? 'normal';
-      /* `forcedTier` is spent by `concludeNode`, so it is still set here — a
-         reprisal you were ambushed by is not a normal fight and should not
-         sound like one. */
-      const forced = state.run?.forcedTier ?? null;
-      const heavy = tier !== 'normal' || (forced !== null && forced !== 'combat');
-      play(heavy ? 'fightElite' : 'fightNormal');
-      return;
+  /* ---- the place, on the beat the place is named ----
+   *
+   * The landing IS the arrival: it is the screen that says "you set down on"
+   * and names where. Playing the sound when the station or the Anomaly opened
+   * instead put it a click late, after the player had already read the text and
+   * pressed on — the sound described something that had already happened.
+   *
+   * A fight is the exception and keeps its own moment. "Normal fight starts" is
+   * about the fight, not about the rock it happens over, and the landing for a
+   * combat node is still just a place being named. */
+  if (screen === 'landing') {
+    const nodeId = state.run?.landing?.nodeId ?? null;
+    const node = state.run?.map?.nodes.find((entry) => entry.id === nodeId) ?? null;
+    switch (node?.type) {
+      case 'event':
+        play('nodeAnomaly');
+        return;
+      case 'station':
+        play('nodeStation');
+        return;
+      case 'safe':
+        play('nodeSafe');
+        return;
+      default:
+        // Combat, and an Unknown that has not decided yet. Both announce
+        // themselves when they resolve into something.
+        return;
     }
-    case 'event':
-      play('nodeAnomaly');
-      return;
-    case 'station':
-      play('nodeStation');
-      return;
-    case 'safe':
-      play('nodeSafe');
-      return;
-    default:
-      return;
   }
+
+  if (screen === 'combat') {
+    const encounterId = state.run?.combat?.encounterId ?? null;
+    const tier = ENCOUNTERS.find((entry) => entry.id === encounterId)?.tier ?? 'normal';
+    /* `forcedTier` is spent by `concludeNode`, so it is still set here — a
+       reprisal you were ambushed by is not a normal fight and should not sound
+       like one. */
+    const forced = state.run?.forcedTier ?? null;
+    const heavy = tier !== 'normal' || (forced !== null && forced !== 'combat');
+    play(heavy ? 'fightElite' : 'fightNormal');
+    return;
+  }
+
+  /* An Anomaly reached from an Unknown never had a landing of its own — the `?`
+     resolved straight into it — so it is announced here instead. */
+  if (screen === 'event' && from === 'landing') return;
+  if (screen === 'event') play('nodeAnomaly');
 }
 
 export function mountApp(root: HTMLElement, store: Store): void {
