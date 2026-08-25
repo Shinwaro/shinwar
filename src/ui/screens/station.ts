@@ -301,7 +301,7 @@ function buildPicker(store: Store, state: GameState, local: Local, redraw: () =>
         ? null
         : button(
             `${forging ? 'Upgrade' : 'Strip'} ${definitionOf(chosen).name}`,
-            { class: 'btn btn-primary' },
+            { class: 'btn btn-primary', 'data-sound': 'own' },
             () => {
               const uid = chosen.uid;
               const mode = local.picking;

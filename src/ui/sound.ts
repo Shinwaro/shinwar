@@ -33,6 +33,7 @@
  */
 
 import blockedUrl from '../assets/sound/blocked.mp3';
+import buttonUrl from '../assets/sound/button.mp3';
 import cardAttackIaiUrl from '../assets/sound/card-attack-iai.mp3';
 import cardAttackUrl from '../assets/sound/card-attack.mp3';
 import cardSkillUrl from '../assets/sound/card-skill.mp3';
@@ -62,6 +63,7 @@ import { getSettings } from './settings.ts';
 const LIBRARY = {
   blocked: blockedUrl,
   block: guardBlockUrl,
+  button: buttonUrl,
   cardAttack: cardAttackUrl,
   cardAttackIai: cardAttackIaiUrl,
   cardSkill: cardSkillUrl,
@@ -95,6 +97,7 @@ export type SoundKey = keyof typeof LIBRARY;
  * they are the beat you are supposed to notice.
  */
 const LEVEL: Partial<Record<SoundKey, number>> = {
+  button: 0.45,
   draw: 0.5,
   drawTurn: 0.55,
   cardAttack: 0.7,
@@ -166,8 +169,8 @@ function now(): number {
 }
 
 /** Now. For the things that answer a click rather than a beat in a fight. */
-export function play(key: SoundKey): void {
-  if (!ready) return;
+export function play(key: SoundKey | null): void {
+  if (!ready || key === null) return;
   playAt(key, 0);
 }
 

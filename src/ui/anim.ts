@@ -250,76 +250,89 @@ export function drainBar(
    Ten discrete ticks rather than a bar, so it animates as a count rather than
    as a slide: three arriving Heat is three ticks lighting left to right, and a
    vent of two is two going out right to left. The direction is the whole point
-   — Heat coming in and Heat leaving look nothing alike now, and each moves on
-   the same beat as the sound that says so.
+   — Heat coming in and Heat leaving look nothing alike now — and a vented tick
+   goes out through cold blue on the way, so a glance tells you which happened
+   even with the number covered.
 
-   Staged the same way the health bars are, and for the same reason: the render
-   draws the gauge from state, which is already the number AFTER everything in
-   this batch. Left alone it would snap to the answer before the animation that
-   explains it. So the ticks are pushed back to where they were, and walked
-   forward on the beat. */
+   The animation owns the number, and the render asks IT what to draw. That is
+   the fix for the first version, which held references to the tick elements and
+   painted them on a timer: the combat screen replaces its entire subtree on
+   every store change, so anything scheduled more than a frame out was painting
+   detached nodes nobody could see while the live gauge sat at its final value.
+   No visible animation at all, which is exactly what it looked like.
 
-let heatShown: number | null = null;
-let heatStage: { readonly ticks: readonly HTMLElement[]; readonly from: number } | null = null;
+   So `heatDrawn` is what the gauge is showing, `stepHeat` walks it, and every
+   paint looks the ticks up fresh. A re-render mid-animation now redraws
+   whatever the walk has reached, and the walk carries on. */
+
+let heatDrawn: number | null = null;
 
 /** Called by the gauge as it renders. Returns the value it should DRAW at. */
-export function stageHeat(ticks: readonly HTMLElement[], heat: number): number {
-  const previous = heatShown;
-  heatShown = heat;
-
-  if (previous === null || previous === heat || prefersReducedMotion()) {
-    heatStage = null;
-    return heat;
-  }
-  heatStage = { ticks, from: previous };
-  return previous;
+export function stageHeat(heat: number): number {
+  // First sight of a gauge, or a player who does not want things moving: the
+  // number is simply the number.
+  if (heatDrawn === null || prefersReducedMotion()) heatDrawn = heat;
+  return heatDrawn;
 }
 
 /** The gauge is not in this fight any more. */
 export function forgetHeat(): void {
-  heatShown = null;
-  heatStage = null;
+  heatDrawn = null;
 }
 
-function paintHeat(ticks: readonly HTMLElement[], value: number): void {
-  ticks.forEach((tick, index) => tick.classList.toggle('is-filled', index < value));
+function paintHeat(value: number): void {
+  heatDrawn = value;
+  const ticks = document.querySelectorAll<HTMLElement>('.heat-tick');
+  ticks.forEach((tick, index) => {
+    tick.classList.toggle('is-filled', index < value);
+    // Only the one going out this instant wears the cold colour.
+    tick.classList.remove('is-venting');
+  });
 }
 
 /**
- * Walk the gauge from where it was drawn to where it now is, one tick at a
- * time, starting at `delay`.
+ * Walk the gauge to `to`, one tick at a time, starting at `delay`.
  *
- * `rising` decides the direction the ticks move in, not just the endpoint: a
- * gain lights them in ascending order and a vent puts them out in descending
- * order, so a glance tells you which happened even with the number covered.
+ * Slow on purpose. It used to move in 240ms however far it had to go, which
+ * finished long before the sound describing it and read as the number simply
+ * changing. A tick is its own beat now: three Heat takes three times as long as
+ * one, which is the entire reason it is a count and not a bar.
  */
 export function stepHeat(to: number, delay: number, rising: boolean): void {
-  const stage = heatStage;
-  if (stage === null) return;
-
-  const from = stage.from;
-  heatStage = { ticks: stage.ticks, from: to };
+  if (heatDrawn === null || prefersReducedMotion()) {
+    heatDrawn = to;
+    return;
+  }
+  const from = heatDrawn;
   if (from === to) return;
 
   const count = Math.abs(to - from);
-  /* A fixed pace per tick, not a fixed total. Three Heat should take longer to
-     arrive than one — that is the whole reason it is a count and not a bar. */
-  const stepMs = HEAT_TICK_MS;
   for (let i = 1; i <= count; i++) {
     const value = rising ? from + i : from - i;
-    window.setTimeout(() => paintHeat(stage.ticks, value), delay + (i - 1) * stepMs);
+    const when = delay + (i - 1) * HEAT_TICK_MS;
+    window.setTimeout(() => {
+      paintHeat(value);
+      /* A vented tick is lit cold for the length of its own beat before it
+         goes dark, so emptying reads as cooling rather than as ticks simply
+         being missing. */
+      if (!rising) {
+        const tick = document.querySelectorAll<HTMLElement>('.heat-tick')[value];
+        tick?.classList.add('is-venting');
+        window.setTimeout(() => tick?.classList.remove('is-venting'), HEAT_TICK_MS);
+      }
+    }, when);
   }
-  fxEndsAt = Math.max(fxEndsAt, performance.now() + delay + count * stepMs);
+  // The gauge is part of the beat, so the caller waits for it like everything
+  // else — an enemy turn should not open over a gauge still filling.
+  fxEndsAt = Math.max(fxEndsAt, performance.now() + delay + count * HEAT_TICK_MS);
+  heatDrawn = to;
 }
 
 /** Anything the beats did not claim goes straight to where it belongs. */
-export function settleHeat(): void {
-  const stage = heatStage;
-  heatStage = null;
-  if (stage === null || heatShown === null) return;
-  if (stage.from === heatShown) return;
-  const value = heatShown;
-  requestAnimationFrame(() => paintHeat(stage.ticks, value));
+export function settleHeat(target: number | null): void {
+  if (target === null || heatDrawn === null || heatDrawn === target) return;
+  const value = target;
+  requestAnimationFrame(() => paintHeat(value));
 }
 
 export function settleBars(): void {
@@ -615,7 +628,11 @@ export function cardExitDuration(count: number, held: boolean): number {
  * animation ones: the state has already changed, this is only how long the eye
  * is given to follow it.
  */
-const FIRST_BEAT = 200;
+/* Low, and lower than it was. The first beat is the game answering the button
+   you just pressed, and anything you can perceive there reads as the click not
+   having registered. Everything AFTER the first beat is where the pacing
+   lives — see `BEAT_STEP`. */
+const FIRST_BEAT = 90;
 /**
  * Spacing between consecutive hits, so a multi-hit reads as several blows.
  *
@@ -642,17 +659,21 @@ const BEAT_STEP = 380;
  * fired on the same millisecond as its animation reads as slightly late. So it
  * is given a head start, and the two land together.
  */
-const SOUND_LEAD = 110;
+const SOUND_LEAD = 90;
 
 /**
  * How long one Heat tick takes to light or go out.
  *
- * Paced against the sound rather than against the eye. The gauge used to sprint
- * — three Heat in 120ms — and finish long before the noise describing it, which
- * is the opposite of the problem the beat spacing solves. A gain of three now
- * fills across most of a beat, which is roughly as long as it takes to hear.
+ * Paced to be SEEN. The first version moved the whole gauge in 240ms however
+ * far it had to go, which is below the threshold at which a count reads as
+ * counting — it looked like the number simply changing. A tick is its own beat
+ * now: three Heat takes about two-thirds of a second to arrive, which is slow
+ * enough to watch and slow enough to feel like the reactor filling.
+ *
+ * It is allowed to outlast its own sound. A gauge that stops when the noise
+ * does is a gauge nobody sees move.
  */
-const HEAT_TICK_MS = 125;
+const HEAT_TICK_MS = 210;
 
 interface Hit {
   readonly target: string;
@@ -722,6 +743,11 @@ export interface LogFxOptions {
   readonly stage: Element | null;
   /** Denominator for the shake weight. A 9 is a lot at 40 health and not at 90. */
   readonly playerMaxHealth: number;
+  /**
+   * Where the Heat gauge should end up, so anything the beats did not walk
+   * through can be put right. Null outside a fight.
+   */
+  readonly heat: number | null;
 }
 
 /**
@@ -832,7 +858,7 @@ export function playLogFx(
 ): number {
   if (fresh.length === 0) {
     settleBars();
-    settleHeat();
+    settleHeat(options.heat);
     return 0;
   }
 
@@ -980,7 +1006,7 @@ export function playLogFx(
      heal, a fight that has just started, an enemy whose whole hit was absorbed.
      Without this a staged bar or gauge would sit at its old value forever. */
   settleBars();
-  settleHeat();
+  settleHeat(options.heat);
 
   // How long the whole sequence takes, so the caller can wait for it. The enemy
   // turn should not start while the player's last three numbers are still in

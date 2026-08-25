@@ -80,7 +80,7 @@ export function renderHeatGauge(state: GameState): HTMLElement {
       'aria-hidden': 'true',
     }),
   );
-  const drawAt = stageHeat(ticks, heat.heat);
+  const drawAt = stageHeat(heat.heat);
   ticks.forEach((tick, index) => {
     if (index < drawAt) tick.classList.add('is-filled');
   });

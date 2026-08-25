@@ -618,6 +618,12 @@
   height: 0.65rem;
   border-radius: 2px;
   background: rgba(255, 255, 255, 0.09);
+  /* Each tick fades rather than snapping, so a gauge walking three of them
+     reads as filling rather than as three separate state changes. Short enough
+     to finish inside its own beat — see `HEAT_TICK_MS`. */
+  transition:
+    background-color 0.16s ease-out,
+    box-shadow 0.16s ease-out;
 }
 
 .heat-tick.is-filled {
@@ -628,6 +634,20 @@
 }
 .heat-tick.is-danger.is-filled {
   background: var(--heat-danger);
+}
+
+/* Going out.
+ *
+ * A vented tick is lit cold for the length of its own beat before it goes dark,
+ * so emptying reads as COOLING rather than as ticks quietly being missing. It
+ * is the one place the GUARD blue appears on the Heat gauge, which is the
+ * point: venting is the guard stance's answer to the thing the gauge measures.
+ * Wins over `is-filled` and over `is-danger` because for that moment it is the
+ * only thing true about the tick. */
+.heat-tick.is-venting,
+.heat-tick.is-danger.is-venting {
+  background: var(--guard);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--guard) 55%, transparent);
 }
 
 .heat-value {

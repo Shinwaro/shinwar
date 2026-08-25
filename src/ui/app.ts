@@ -105,34 +105,31 @@ function arrivalSound(state: GameState): void {
   /* Every fight starts fresh: the Heat gauge has no history to animate from,
      and animating from the last fight's would be a lie. */
   if (screen !== 'combat') forgetHeat();
-
-  /* The first observation of a run is the chart opening, which is not an
-     arrival anywhere — but the tutorial opens straight into a fight, and that
-     one IS. So the silence is scoped to the map rather than to the first
-     transition of any kind. */
   if (screen === null) return;
-  if (from === null && screen === 'map') return;
 
-  /* The place is announced by the map, on the click that chose it — see
-     `renderMap`. Nothing to do here for a landing. */
-  if (screen === 'landing') return;
+  /* Places are announced by the CHART, on the click that chose them — see
+   * `nodeSound` in `renderMap`. Nothing is announced here on the way in, and
+   * that is the fix for the Anomaly that played twice: it sounded once on the
+   * click and once again when its screen opened, because both were trying to be
+   * the moment of arrival.
+   *
+   * The one thing left here is the place nobody clicked. An Unknown is not a
+   * place when you choose it, so it makes no sound then; when the `?` turns out
+   * to be an Anomaly or a fight, THAT is its arrival. */
+  if (from !== 'landing' && from !== 'map') return;
 
-  if (screen === 'combat') {
+  const nodeId = state.run?.position ?? null;
+  const node = state.run?.map?.nodes.find((entry) => entry.id === nodeId) ?? null;
+  if (node?.type !== 'unknown') return;
+
+  if (screen === 'event') play('nodeAnomaly');
+  else if (screen === 'combat') {
     const encounterId = state.run?.combat?.encounterId ?? null;
     const tier = ENCOUNTERS.find((entry) => entry.id === encounterId)?.tier ?? 'normal';
-    /* `forcedTier` is spent by `concludeNode`, so it is still set here — a
-       reprisal you were ambushed by is not a normal fight and should not sound
-       like one. */
     const forced = state.run?.forcedTier ?? null;
     const heavy = tier !== 'normal' || (forced !== null && forced !== 'combat');
     play(heavy ? 'fightElite' : 'fightNormal');
-    return;
   }
-
-  /* An Anomaly the player did not choose — a `?` that resolved into one — was
-     never announced on the map, because at the moment of the click it was not
-     an Anomaly yet. It gets its sound here, when it becomes one. */
-  if (screen === 'event' && from !== 'map') play('nodeAnomaly');
 }
 
 export function mountApp(root: HTMLElement, store: Store): void {
@@ -337,6 +334,30 @@ export function mountApp(root: HTMLElement, store: Store): void {
     render(state);
     coachIfNeeded(state);
   });
+
+  /* Every button that does not already say something for itself.
+   *
+   * Delegated from the root rather than wired per control, because there are
+   * about sixty of them across nine screens and the next one somebody adds
+   * should not have to remember. `data-sound="own"` opts out — End turn, the
+   * mute, the reward picks and the forge all have their own voice, and hearing
+   * two things for one press is worse than hearing none.
+   *
+   * Cards and stars are `.card` and `.star`, not `.btn`, so they are already
+   * outside this. Capture phase, so a handler that stops propagation cannot
+   * silence the click that reached it. */
+  root.addEventListener(
+    'click',
+    (event) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      const button = target.closest('button.btn');
+      if (button === null || button.getAttribute('data-sound') === 'own') return;
+      if (button.hasAttribute('disabled')) return;
+      play('button');
+    },
+    true,
+  );
 
   // The run bar's Pause button lives inside a screen, so it asks through here.
   root.addEventListener('shinwar:pause', openPause);

@@ -312,6 +312,7 @@ export function renderCombat(store: Store): HTMLElement {
         {
           stage: host.querySelector('.combat-inner'),
           playerMaxHealth: state.run?.pilot.maxHealth ?? 0,
+          heat: finished?.run?.combat?.heat ?? null,
         },
       );
       return;
@@ -365,6 +366,7 @@ export function renderCombat(store: Store): HTMLElement {
           ? host.querySelector('.stat--hull')
           : host.querySelector(`.enemy[data-uid="${CSS.escape(target)}"]`),
       {
+        heat: state.run?.combat?.heat ?? null,
         // The content column shakes, not the screen root — the root owns the
         // stage background, and a background that moves with the hit shows the
         // page edge behind it, which reads as the browser hiccuping rather
@@ -664,7 +666,7 @@ function build(
       pile('Exhaust', combat.exhaust.length, 'exhaust'),
     ]),
     el('div', { class: 'tray-actions' }, [
-      button('End turn', { class: 'btn btn-primary', 'aria-keyshortcuts': 'E' }, () => {
+      button('End turn', { class: 'btn btn-primary', 'aria-keyshortcuts': 'E', 'data-sound': 'own' }, () => {
         play('endTurn');
         selection.cardUid = null;
         selection.hoverUid = null;
@@ -704,6 +706,7 @@ function build(
           class: 'btn btn-quiet btn-corner',
           'aria-label': getSettings().sound ? 'Turn sound off' : 'Turn sound on',
           'aria-pressed': getSettings().sound ? 'true' : 'false',
+          'data-sound': 'own',
         },
         () => {
           const next = !getSettings().sound;

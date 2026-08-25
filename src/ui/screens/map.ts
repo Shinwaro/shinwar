@@ -32,6 +32,8 @@ import { renderCardFace } from '../components/card.ts';
 import { definitionOf } from '../../engine/combat/combat.ts';
 import { RARITY_LABEL } from '../../content/balance.ts';
 import { play } from '../sound.ts';
+import type { SoundKey } from '../sound.ts';
+import { ENCOUNTERS } from '../../content/encounters.ts';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -100,6 +102,34 @@ function captionOf(node: MapNode): HTMLElement {
       ? null
       : el('span', { class: 'star-env', 'data-environment': node.environmentId }, [environment]),
   ]);
+}
+
+/**
+ * What a place sounds like, from the chart.
+ *
+ * Read off the node rather than off the screen that follows it, so it can play
+ * on the click. A fight's weight comes from the encounter it names — an act
+ * finale and an Elite are the same kind of promise and share a sound.
+ */
+function nodeSound(node: MapNode): SoundKey | null {
+  switch (node.type) {
+    case 'event':
+      return 'nodeAnomaly';
+    case 'station':
+      return 'nodeStation';
+    case 'safe':
+      return 'nodeSafe';
+    case 'elite':
+    case 'boss':
+      return 'fightElite';
+    case 'combat': {
+      const tier = ENCOUNTERS.find((entry) => entry.id === node.encounterId)?.tier ?? 'normal';
+      return tier === 'normal' ? 'fightNormal' : 'fightElite';
+    }
+    default:
+      // An Unknown. Not a place yet.
+      return null;
+  }
 }
 
 export function renderMap(store: Store): HTMLElement {
@@ -280,22 +310,12 @@ function buildMap(
          * belongs to the decision, and audio takes a moment to start, so
          * anything later than this reads as a delayed reaction to a button.
          *
-         * An Unknown stays quiet: it is not a place yet. Whatever it resolves
-         * into announces itself. A fight node is quiet here too — the fight has
-         * its own sound at its own moment. */
-        switch (node.type) {
-          case 'event':
-            play('nodeAnomaly');
-            break;
-          case 'station':
-            play('nodeStation');
-            break;
-          case 'safe':
-            play('nodeSafe');
-            break;
-          default:
-            break;
-        }
+         * An Unknown is the one exception and stays quiet, because it is not a
+         * place yet: whatever it resolves into announces itself then. A fight
+         * is NOT an exception — it used to wait for the board to appear, which
+         * is two screens later, so you pressed a star, read a paragraph,
+         * pressed again, and only then heard where you had gone. */
+        play(nodeSound(node));
         store.dispatch({ kind: 'moveToNode', nodeId: node.id });
       },
     );
