@@ -22,6 +22,8 @@ import { renderGameOver } from './screens/gameover.ts';
 import { renderPause } from './screens/pause.ts';
 import { renderCoach } from './screens/coach.ts';
 import { el } from './dom.ts';
+import { play } from './sound.ts';
+import { ENCOUNTERS } from '../content/encounters.ts';
 
 /** What is on screen right now: the phase, or the run's inner screen. */
 type View = Phase | `run:${RunScreen}`;
@@ -75,6 +77,59 @@ function renderView(store: Store, view: View): HTMLElement {
       const unreachable: never = view;
       return unreachable;
     }
+  }
+}
+
+let lastScreen: string | null = null;
+
+/**
+ * The sound of getting somewhere.
+ *
+ * Every kind of place has one, and they fire on ARRIVAL rather than on the
+ * click that commits to the route — which is what makes an Unknown work
+ * without a sound of its own: it resolves into a fight or an Anomaly and that
+ * announces itself. Combat splits by what it is: an act finale, an Elite or a
+ * Thread's reprisal all get the heavy one.
+ *
+ * Watched here rather than in each screen because it is a TRANSITION, and no
+ * single screen can see one — the screen that is arriving has no idea what it
+ * replaced, and the one it replaced is gone by the time it could ask.
+ */
+function arrivalSound(state: GameState): void {
+  const screen = state.run?.screen ?? null;
+  if (screen === lastScreen) return;
+  const from = lastScreen;
+  lastScreen = screen;
+  /* The first observation of a run is the chart opening, which is not an
+     arrival anywhere — but the tutorial opens straight into a fight, and that
+     one IS. So the silence is scoped to the map rather than to the first
+     transition of any kind. */
+  if (screen === null) return;
+  if (from === null && screen === 'map') return;
+
+  switch (screen) {
+    case 'combat': {
+      const encounterId = state.run?.combat?.encounterId ?? null;
+      const tier = ENCOUNTERS.find((entry) => entry.id === encounterId)?.tier ?? 'normal';
+      /* `forcedTier` is spent by `concludeNode`, so it is still set here — a
+         reprisal you were ambushed by is not a normal fight and should not
+         sound like one. */
+      const forced = state.run?.forcedTier ?? null;
+      const heavy = tier !== 'normal' || (forced !== null && forced !== 'combat');
+      play(heavy ? 'fightElite' : 'fightNormal');
+      return;
+    }
+    case 'event':
+      play('nodeAnomaly');
+      return;
+    case 'station':
+      play('nodeStation');
+      return;
+    case 'safe':
+      play('nodeSafe');
+      return;
+    default:
+      return;
   }
 }
 
@@ -276,6 +331,7 @@ export function mountApp(root: HTMLElement, store: Store): void {
   render(store.getState());
   coachIfNeeded(store.getState());
   store.subscribe((state) => {
+    arrivalSound(state);
     render(state);
     coachIfNeeded(state);
   });

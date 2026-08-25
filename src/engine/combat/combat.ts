@@ -14,6 +14,7 @@ import {
   FOCUS_MAX,
   HEAT,
   PLAYER as PLAYER_BALANCE,
+  STANCES,
   STARTING_STANCE,
   WAVEFRONT,
 } from '../../content/balance.ts';
@@ -502,6 +503,21 @@ export function playCard(state: GameState, cardUid: string, targetUid: string | 
       fromRider: true,
     });
     result = { state: inRider.state, context: { ...inRider.context, fromRider: false } };
+
+    /* Said out loud. The rider firing is the difference between a card doing
+       what it prints and a card doing more, and until now the only trace was
+       an extra damage line that looked like part of the base effect. The
+       presentation layer reads it to tell a plain attack from a two-phase one;
+       the player reads it as the reason the number was bigger. */
+    result = {
+      ...result,
+      state: appendLog(result.state, {
+        source: def.id,
+        kind: 'card',
+        text: `${STANCES[rider.stance].name} rider.`,
+        detail: { card: def.id, rider: rider.stance },
+      }),
+    };
   }
 
   /* And now it lands, exactly once, in exactly one pile. */

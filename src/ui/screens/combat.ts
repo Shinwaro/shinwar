@@ -60,6 +60,7 @@ import { combatInfo, renderInfoPanel } from '../components/info.ts';
 import { renderCarried } from '../components/carried.ts';
 import { renderGains } from '../components/gains.ts';
 import { getSettings, setSetting } from '../settings.ts';
+import { play, stopAll } from '../sound.ts';
 
 /* ---------- pacing ----------
  *
@@ -664,6 +665,7 @@ function build(
     ]),
     el('div', { class: 'tray-actions' }, [
       button('End turn', { class: 'btn btn-primary', 'aria-keyshortcuts': 'E' }, () => {
+        play('endTurn');
         selection.cardUid = null;
         selection.hoverUid = null;
         store.dispatch({ kind: 'endTurn' });
@@ -704,7 +706,11 @@ function build(
           'aria-pressed': getSettings().sound ? 'true' : 'false',
         },
         () => {
-          setSetting('sound', !getSettings().sound);
+          const next = !getSettings().sound;
+          setSetting('sound', next);
+          // Muting stops what is playing as well as what is waiting. A mute
+          // that lets the queue drain is a mute that does nothing for a second.
+          if (!next) stopAll();
           rerender();
         },
       ),

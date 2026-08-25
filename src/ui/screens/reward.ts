@@ -20,6 +20,7 @@ import {
   relics as relicTable,
 } from '../../content/registry.ts';
 import { RARITY_LABEL } from '../../content/balance.ts';
+import { play } from '../sound.ts';
 import { button, el, fill, withChildren } from '../dom.ts';
 import { renderRunBar } from '../components/runbar.ts';
 import { renderCardFace } from '../components/card.ts';
@@ -53,7 +54,13 @@ function buildReward(store: Store, state: GameState): HTMLElement {
         'aria-pressed': taken ? 'true' : 'false',
         'aria-label': `${RARITY_LABEL[def.rarity]}: ${def.name}, ${describeCard(def)}`,
       },
-      () => store.dispatch({ kind: 'takeRewardCard', cardId }),
+      () => {
+        // Taking the reward after a fight is the other 'selection' moment —
+        // same sound as forging one, because it is the same beat: you chose,
+        // and the deck is different now.
+        play('upgrade');
+        store.dispatch({ kind: 'takeRewardCard', cardId });
+      },
     );
 
     fill(node, [
@@ -100,7 +107,10 @@ function buildReward(store: Store, state: GameState): HTMLElement {
                   'data-rarity': def.rarity,
                   'aria-pressed': taken ? 'true' : 'false',
                 },
-                () => store.dispatch({ kind: 'takeRewardRelic', relicId }),
+                () => {
+                  play('upgrade');
+                  store.dispatch({ kind: 'takeRewardRelic', relicId });
+                },
               );
               return withChildren(node, [
                 el('div', { class: 'card-head' }, [
@@ -137,7 +147,10 @@ function buildReward(store: Store, state: GameState): HTMLElement {
                   'data-rarity': def.rarity,
                   'aria-pressed': taken ? 'true' : 'false',
                 },
-                () => store.dispatch({ kind: 'takeRewardImplant', implantId }),
+                () => {
+                  play('upgrade');
+                  store.dispatch({ kind: 'takeRewardImplant', implantId });
+                },
               );
               return withChildren(node, [
                 el('div', { class: 'card-head' }, [

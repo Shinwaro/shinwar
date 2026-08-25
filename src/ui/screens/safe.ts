@@ -20,6 +20,7 @@ import { describeCard, describeCost } from '../../engine/combat/describe.ts';
 import { ECONOMY, RARITY_LABEL } from '../../content/balance.ts';
 import { cards as cardTable } from '../../content/registry.ts';
 import { button, el, onHoverOrFocus } from '../dom.ts';
+import { play } from '../sound.ts';
 import { liveScreen } from '../screen.ts';
 import { renderRunBar } from '../components/runbar.ts';
 import { renderCardFace } from '../components/card.ts';
@@ -176,6 +177,7 @@ function buildPicker(store: Store, state: GameState, local: Local, redraw: () =>
               local.picker = null;
               local.chosen = null;
               local.hovered = null;
+              if (forging) play('upgrade');
               store.dispatch(
                 forging
                   ? { kind: 'safePlanetUpgrade', cardUid: uid }

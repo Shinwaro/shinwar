@@ -14,14 +14,7 @@ import {
   setSetting,
   shakeAllowed,
 } from '../src/ui/settings.ts';
-import {
-  playCardSound,
-  playDescent,
-  playDraw,
-  playHeatGain,
-  playVent,
-  unlock,
-} from '../src/ui/sound.ts';
+import { play, stopAll, unlock } from '../src/ui/sound.ts';
 
 /** The tests run under `environment: 'node'`, so the query is stubbed. */
 function stubReducedMotion(reduce: boolean): void {
@@ -104,24 +97,27 @@ describe('sound', () => {
     expect(getSettings().shake, 'muting changed the shake').toBe(true);
   });
 
-  it('never throws with no audio context, muted or not', () => {
+  it('never throws where there is no Audio at all, muted or not', () => {
+    /* The tests run under `environment: 'node'`, where `Audio` does not exist.
+       That is also the state the page is in before the first click, and it is
+       the one worth asserting on: every one of these is called from the middle
+       of a fight, and a sound that throws would take the turn with it. */
     for (const on of [true, false]) {
       setSetting('sound', on);
       expect(() => {
-        playDraw(3);
-        playHeatGain(4);
-        playVent(2);
-        playCardSound('iai_slash');
-        playCardSound('no_such_card_at_all');
-        playDescent();
+        play('draw');
+        play('cardAttack');
+        play('overheat');
+        play('nodeStation');
+        stopAll();
       }, `sound: ${on}`).not.toThrow();
     }
   });
 
-  it('does not build a context just because a sound was asked for', () => {
-    /* `unlock` is called from the button that starts a run, and only from
-       there — a browser will not let a context make noise before a gesture, and
-       one built early is a suspended context holding hardware for nothing. */
+  it('asks for nothing before the first gesture', () => {
+    /* `unlock` is called from the buttons that start a run and nowhere else: a
+       browser will not let audio start without a gesture, and a queue filling
+       up behind one that cannot open is worse than no sound. */
     expect(() => unlock()).not.toThrow();
   });
 });

@@ -22,6 +22,9 @@
 
 import type { ThreadDef } from '../engine/types.ts';
 
+/** Named, because two other files now have an opinion about this one Thread. */
+export const SECT_RITES = 'sect_rites';
+
 export const THREAD_DEFS: readonly ThreadDef[] = [
   /* ---- mixed: a real cost now, a real payoff later ---- */
   {
@@ -61,7 +64,7 @@ export const THREAD_DEFS: readonly ThreadDef[] = [
     payoff: [{ op: 'alloy', amount: 130 }],
   },
   {
-    id: 'sect_rites',
+    id: SECT_RITES,
     name: 'The Rites',
     description: 'You knelt at a shrine of your own dead order and said the whole thing through.',
     tone: 'positive',

@@ -29,7 +29,9 @@
 
 import type { LogEntry } from '../engine/types.ts';
 import { shakeAllowed } from './settings.ts';
-import { playCardSound, playDraw, playHeatGain, playVent } from './sound.ts';
+import { play } from './sound.ts';
+import { cards as cardTable } from '../content/registry.ts';
+import { SECT_RITES } from '../content/threads.ts';
 
 export function prefersReducedMotion(): boolean {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -624,8 +626,13 @@ export interface LogFxOptions {
  *
  * Driven off the log rather than off the call sites, for the same reason the
  * animations are: the log is the one place that already knows everything that
- * happened, in order, with the numbers attached. Sprinkling `playX()` through
- * the UI would mean every new effect needs remembering twice.
+ * happened, in order, with the numbers attached. Sprinkling `play()` through
+ * the UI would mean every new effect needs remembering twice — and the ORDER
+ * would be whatever the call sites happened to run in, where here it is the
+ * order the fight actually resolved.
+ *
+ * Only sounds are chosen here. `sound.ts` owns the queue, and the rule that
+ * two of them never overlap.
  *
  * Outside `prefersReducedMotion`, deliberately. Reduced motion is a statement
  * about things moving on screen; it is not a request for silence, and treating
@@ -633,30 +640,90 @@ export interface LogFxOptions {
  * be relying on it.
  */
 function playLogSound(fresh: readonly LogEntry[]): void {
+  /* A card and its stance rider arrive as two entries. A two-phase attack is
+     ONE sound, not the attack followed by the rider, so the batch is scanned
+     once first to find which cards fired a rider. */
+  const withRider = new Set<string>();
+  for (const entry of fresh) {
+    const detail = entry.detail;
+    if (detail === null || typeof detail !== 'object' || Array.isArray(detail)) continue;
+    if (typeof detail['rider'] === 'string' && typeof detail['card'] === 'string') {
+      withRider.add(detail['card']);
+    }
+  }
+
   for (const entry of fresh) {
     const detail = entry.detail;
     if (detail === null || typeof detail !== 'object' || Array.isArray(detail)) continue;
 
-    if (entry.kind === 'heat') {
-      const gained = detail['gained'];
-      const vented = detail['vented'];
-      if (typeof gained === 'number') playHeatGain(gained);
-      else if (typeof vented === 'number') playVent(vented);
-      continue;
-    }
+    switch (entry.kind) {
+      case 'heat': {
+        // Overheat first: it also carries a total, and it is the louder fact.
+        if (typeof detail['damage'] === 'number') play('overheat');
+        else if (typeof detail['gained'] === 'number') play('heatGain');
+        else if (typeof detail['vented'] === 'number') play('vent');
+        continue;
+      }
 
-    if (entry.kind !== 'card') continue;
+      case 'stance': {
+        // A refused change is the game saying no, not a stance being entered.
+        if (detail['refused'] === true) continue;
+        if (detail['to'] === 'iai') play('stanceIai');
+        else if (detail['to'] === 'guard') play('stanceGuard');
+        continue;
+      }
 
-    /* A play carries the card AND its cost; a draw carries a count. Two shapes,
-       no ambiguity, and neither is the reshuffle line — that one has no detail
-       at all and is correctly silent. */
-    const card = detail['card'];
-    if (typeof card === 'string' && detail['cost'] !== undefined) {
-      playCardSound(card);
-      continue;
+      case 'card': {
+        const card = detail['card'];
+        // The rider's own line is silent — it was folded into the card's sound.
+        if (typeof detail['rider'] === 'string') continue;
+
+        if (typeof card === 'string' && detail['cost'] !== undefined) {
+          const type = cardTable.find(card)?.type;
+          if (type === 'attack') play(withRider.has(card) ? 'cardAttackIai' : 'cardAttack');
+          // Powers use the skill sound: there is no recording for them, and a
+          // card being played should never be silent.
+          else if (type !== 'voided') play('cardSkill');
+          continue;
+        }
+
+        /* Two draw sounds. The turn-start deal comes from `system`; anything
+           else is a card that drew, mid-turn, which is a different event to a
+           player and gets a different sound. */
+        if (typeof detail['count'] === 'number') {
+          play(entry.source === 'system' ? 'drawTurn' : 'draw');
+        }
+        continue;
+      }
+
+      case 'block': {
+        // Only the player's own Block. An enemy plating itself is its business.
+        if (detail['to'] === 'player') play('block');
+        continue;
+      }
+
+      case 'damage': {
+        if (detail['to'] !== 'player') continue;
+        const toHull = detail['toHull'];
+        const blocked = detail['blocked'];
+        if (typeof toHull === 'number' && toHull > 0) play('damage');
+        else if (typeof blocked === 'number' && blocked > 0) play('blocked');
+        continue;
+      }
+
+      case 'combat': {
+        if (typeof detail['health'] === 'number') play('heal');
+        continue;
+      }
+
+      case 'thread': {
+        if (detail['thread'] === SECT_RITES) play('rites');
+        continue;
+      }
+
+      default:
+        continue;
     }
-    const count = detail['count'];
-    if (typeof count === 'number') playDraw(count);
   }
 }
 

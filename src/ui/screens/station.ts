@@ -13,6 +13,7 @@
 import type { GameState } from '../../engine/types.ts';
 import type { Store } from '../store.ts';
 import { RARITY_LABEL } from '../../content/balance.ts';
+import { play } from '../sound.ts';
 import { requireRun } from '../../engine/state.ts';
 import { definitionOf } from '../../engine/combat/combat.ts';
 import { describeCard, describeCost } from '../../engine/combat/describe.ts';
@@ -306,6 +307,7 @@ function buildPicker(store: Store, state: GameState, local: Local, redraw: () =>
               const mode = local.picking;
               local.picking = null;
               local.chosen = null;
+              if (mode === 'forge') play('upgrade');
               store.dispatch(
                 mode === 'forge'
                   ? { kind: 'buyForge', cardUid: uid }

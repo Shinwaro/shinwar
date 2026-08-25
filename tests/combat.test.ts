@@ -23,11 +23,11 @@ import { intentOf, telegraphAll } from '../src/engine/combat/intents.ts';
 import { roundOwed } from '../src/engine/combat/combat.ts';
 import { chooseMove } from '../src/engine/combat/ai.ts';
 import { createRng } from '../src/engine/rng.ts';
-import { nextStance } from '../src/engine/combat/stance.ts';
-import { overheatDamageAt, ventHeat } from '../src/engine/combat/heat.ts';
+import { nextStance, setStance } from '../src/engine/combat/stance.ts';
+import { gainHeat, overheatDamageAt, ventHeat } from '../src/engine/combat/heat.ts';
 import { addStacks, clearFresh, decayStatuses, stacksOf } from '../src/engine/combat/keywords.ts';
 import { applyEffects, createContext } from '../src/engine/combat/effects.ts';
-import { PLAYER as PLAYER_SIDE } from '../src/engine/combat/damage.ts';
+import { PLAYER as PLAYER_SIDE, applyDamage, enemyTarget } from '../src/engine/combat/damage.ts';
 import { SCALD, WEAK } from '../src/content/statuses.ts';
 import { cards as cardTable, statuses as statusTable } from '../src/content/registry.ts';
 import { CLEAR_SPACE_ID } from '../src/content/environments.ts';
@@ -957,5 +957,101 @@ describe('an enemy is not the same fight twice', () => {
       rng = choice.rng;
       expect(ai.recent.length).toBeLessThanOrEqual(AI.recency.length);
     }
+  });
+});
+
+describe('what the log promises the presentation layer', () => {
+  /* Sound and the floating numbers are both driven off the log rather than off
+     the call sites, because the log is the one place that already knows
+     everything that happened, in order, with the numbers attached. That makes
+     these `detail` keys a CONTRACT: rename `gained` to `amount` and the heat
+     sound stops, silently, in a layer no unit test otherwise touches.
+
+     So they are asserted here, in the engine, next to the code that writes
+     them — the sound layer cannot assert them, because it is the thing that
+     would be wrong. */
+
+  const detailOf = (state: GameState, from: number, kind: string): Record<string, unknown> => {
+    const entry = state.log.slice(from).find((line) => line.kind === kind);
+    if (entry === undefined) throw new Error(`no '${kind}' entry was logged`);
+    const detail = entry.detail;
+    if (detail === null || typeof detail !== 'object' || Array.isArray(detail)) {
+      throw new Error(`'${kind}' logged no detail`);
+    }
+    return detail as Record<string, unknown>;
+  };
+
+  it('says which way the Heat went', () => {
+    // Both are `kind: 'heat'`. Only the detail tells a rise from a fall.
+    const state = makeFight({ heat: 4 });
+    const up = detailOf(gainHeat(state, 3, 'test', { fromCard: true }), state.log.length, 'heat');
+    expect(up['gained'], 'a gain must name what it gained').toBe(3);
+
+    const down = detailOf(ventHeat(state, 2, 'test'), state.log.length, 'heat');
+    expect(down['vented'], 'a vent must name what it vented').toBe(2);
+  });
+
+  it('says which stance was entered, and whether it was refused', () => {
+    const state = makeFight({ stance: 'iai' });
+    const changed = detailOf(setStance(state, 'guard', 'test'), state.log.length, 'stance');
+    expect(changed['to']).toBe('guard');
+    expect(changed['refused'], 'a real change must not look refused').toBeUndefined();
+  });
+
+  it('separates a card being played from a card being drawn', () => {
+    /* Both are `kind: 'card'`. A play carries the card and its cost; a draw
+       carries a count and comes from `system` at the start of a turn. */
+    const state = makeFight({ enemyHp: 999, hand: [IAI_SLASH], energy: 9 });
+    const played = detailOf(
+      playCard(state, handCard(state, 0).uid, firstEnemy(state).uid),
+      state.log.length,
+      'card',
+    );
+    expect(played['card']).toBe(IAI_SLASH);
+    expect(played['cost'], 'a play must carry a cost, even a zero one').toBeDefined();
+    expect(played['count'], 'a play is not a draw').toBeUndefined();
+  });
+
+  it('says when a stance rider fired, rather than leaving it to be inferred', () => {
+    /* The rider is what separates a plain attack from a two-phase one, and it
+       cannot be worked out from the card alone — it depends on the stance at
+       the moment it was played. It gets its own line. */
+    const inStance = makeFight({ enemyHp: 999, hand: [IAI_SLASH], energy: 9, stance: 'iai' });
+    const after = playCard(inStance, handCard(inStance, 0).uid, firstEnemy(inStance).uid);
+    const rider = after.log
+      .slice(inStance.log.length)
+      .find((line) => line.kind === 'card' && (line.detail as { rider?: unknown } | null)?.rider !== undefined);
+    expect(rider, 'IAI Slash in IAI logged no rider').toBeDefined();
+
+    // And not in the other stance, or every attack would sound two-phase.
+    const outOfStance = makeFight({ enemyHp: 999, hand: [IAI_SLASH], energy: 9, stance: 'guard' });
+    const plain = playCard(outOfStance, handCard(outOfStance, 0).uid, firstEnemy(outOfStance).uid);
+    const none = plain.log
+      .slice(outOfStance.log.length)
+      .find((line) => (line.detail as { rider?: unknown } | null)?.rider !== undefined);
+    expect(none, 'a rider fired out of its stance').toBeUndefined();
+  });
+
+  it('separates a blow that reached the hull from one the shield ate', () => {
+    const state = makeFight({ enemyIds: ['scrap_hound'] });
+    const hit = detailOf(
+      applyDamage(
+        state,
+        {
+          amount: 6,
+          attacker: enemyTarget(firstEnemy(state).uid),
+          target: PLAYER_SIDE,
+          isAttack: true,
+          attackOrdinal: 0,
+          consumesFocus: false,
+        },
+        'test',
+      ),
+      state.log.length,
+      'damage',
+    );
+    expect(hit['to']).toBe('player');
+    expect(typeof hit['toHull'], 'toHull is what the health bar and the sound read').toBe('number');
+    expect(typeof hit['blocked'], 'blocked is how a shielded hit is told apart').toBe('number');
   });
 });

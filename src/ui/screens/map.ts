@@ -31,7 +31,6 @@ import { mapInfo, renderInfoPanel } from '../components/info.ts';
 import { renderCardFace } from '../components/card.ts';
 import { definitionOf } from '../../engine/combat/combat.ts';
 import { RARITY_LABEL } from '../../content/balance.ts';
-import { playDescent } from '../sound.ts';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -272,9 +271,10 @@ function buildMap(
       },
       () => {
         if (!isReachable) return;
-        // The one sound the map makes, and it goes with the commitment rather
-        // than with the arrival: the click IS the descent.
-        playDescent();
+        /* No sound on the click. Each kind of place has its own, and they play
+           on ARRIVAL rather than on the commitment — which is also what makes
+           an Unknown work: it has no sound of its own, and whatever it turns
+           out to be announces itself. See `arrivalSound` in `app.ts`. */
         store.dispatch({ kind: 'moveToNode', nodeId: node.id });
       },
     );
