@@ -337,6 +337,20 @@ input[type='text']:hover {
   color: var(--heat-danger);
 }
 
+/* Block running out.
+ *
+ * Muted and translucent, and it falls rather than rises — see `floatText`. This
+ * is the one figure on the board that is not something happening TO you: armour
+ * does not get taken at the start of your turn, it stops applying. Giving it
+ * the shield's own full blue and the same upward arc as a hit made a number
+ * leaving your shield read as a number being taken off you. */
+.fx-float--expire {
+  color: color-mix(in srgb, var(--guard) 62%, var(--muted));
+  font-size: 0.9rem;
+  font-weight: 600;
+  opacity: 0.9;
+}
+
 /* ---------- motion ----------
    Skip the tweens, keep the state changes instant. */
 

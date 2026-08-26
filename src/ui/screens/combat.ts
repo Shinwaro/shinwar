@@ -53,6 +53,7 @@ import {
   flyCardOut,
   fadeExpiredPips,
   flashResources,
+  floatBlockExpired,
   playLogFx,
   prefersReducedMotion,
   setBarFill,
@@ -357,6 +358,14 @@ export function renderCombat(store: Store): HTMLElement {
        attributes rather than a second canvas — the asteroid scene already owns
        a loop, and a second one running behind every fight for the length of a
        run is a battery bug wearing an atmosphere costume. */
+    /* Armour that ran out rather than being spent. Only at the top of a turn,
+       which is the one moment Block goes without anything hitting it — a blow
+       absorbing it already floats its own blue number on its own beat. */
+    if (lastCombat !== null && state.run.combat.turn > lastCombat.turn) {
+      const lost = lastCombat.block - state.run.combat.block;
+      if (lost > 0) floatBlockExpired(lost);
+    }
+
     lastCombat = state.run.combat;
     host.dataset['stance'] = state.run.combat.stance;
     host.dataset['heat'] = state.run.combat.heat >= HEAT.overheatAt ? 'hot' : 'cool';
@@ -696,7 +705,29 @@ function build(
      press without looking. Out of the tray, into the corner, where a misclick
      costs nothing. */
   const corner = el('div', { class: 'combat-corner' }, [
+    /* Info and the volume on the top row; the log on its own beneath them.
+     *
+     * The log is the widest of the three and the only one that opens something
+     * — putting it first pushed the other two along and made the rail read as a
+     * list rather than as two settings and a drawer. It also hangs its panel
+     * directly under itself, which now means straight down the right edge
+     * rather than out from under a button with two neighbours. */
     el('div', { class: 'combat-corner-buttons' }, [
+      /* Everything the fight assumes you already know, one click from the
+         fight. An hour-long run cannot afford a tutorial and cannot afford a
+         player still guessing what Rust does in Act 3. */
+      button('Info', { class: 'btn btn-quiet btn-corner', 'aria-label': 'How combat works' }, () => {
+        selection.infoOpen = true;
+        rerender();
+      }),
+      /* Volume. A slider rather than a switch: these are recordings at
+         different levels sitting under a fight that already has numbers flying
+         off it, and "too loud" and "silent" are not the only two opinions a
+         person can have about that. Zero IS the mute, so there is one control
+         rather than two that can disagree. */
+      renderVolume(rerender),
+    ]),
+    el('div', { class: 'combat-corner-buttons combat-corner-buttons--log' }, [
       button(
         selection.logOpen ? 'Hide log' : 'Show log',
         { class: 'btn btn-quiet btn-corner btn-corner--log', 'aria-keyshortcuts': 'L' },
@@ -705,25 +736,6 @@ function build(
           rerender();
         },
       ),
-      /* Everything the fight assumes you already know, one click from the
-         fight. An hour-long run cannot afford a tutorial and cannot afford a
-         player still guessing what Rust does in Act 3. */
-      button('Info', { class: 'btn btn-quiet btn-corner', 'aria-label': 'How combat works' }, () => {
-        selection.infoOpen = true;
-        rerender();
-      }),
-      /* Volume, next to the two other things you reach for between decisions
-         rather than during one.
-         *
-         * A slider rather than a switch: these are recordings at different
-         * levels sitting under a fight that already has numbers flying off it,
-         * and "too loud" and "silent" are not the only two opinions a person
-         * can have about that. Zero IS the mute, so there is one control rather
-         * than two that can disagree.
-         *
-         * `input`, not `change` — the level should follow the thumb rather than
-         * arriving when it is let go, or setting it is guesswork. */
-      renderVolume(rerender),
     ]),
     /* The log hangs off its own button. It used to sit at the bottom of the
        stage while the control that opened it was in the corner, so pressing

@@ -64,7 +64,7 @@ function fxLayer(): HTMLElement {
  * and how much got through — and one label cannot carry both. A partly blocked
  * hit now floats a blue number and a red one.
  */
-export type FloatKind = 'damage' | 'shield' | 'block' | 'heal' | 'heat';
+export type FloatKind = 'damage' | 'shield' | 'block' | 'heal' | 'heat' | 'expire';
 
 export interface FloatRequest {
   readonly text: string;
@@ -113,15 +113,34 @@ export function floatText(request: FloatRequest): void {
 
   fxEndsAt = Math.max(fxEndsAt, performance.now() + request.delay + FLOAT_MS);
 
-  const animation = node.animate(
-    [
-      { opacity: 0, transform: 'translate(-50%, 0) scale(0.8)' },
-      { opacity: 1, transform: 'translate(-50%, -16px) scale(1)', offset: 0.22 },
-      { opacity: 1, transform: 'translate(-50%, -34px) scale(1)', offset: 0.68 },
-      { opacity: 0, transform: 'translate(-50%, -52px) scale(0.95)' },
-    ],
-    { duration: FLOAT_MS, delay: request.delay, easing: 'cubic-bezier(.2,.7,.3,1)', fill: 'both' },
-  );
+  /* Numbers rise. Block expiring FALLS, and slides off to the side.
+   *
+   * It is the one figure on the board that is not something happening to you —
+   * armour running out at the start of your turn is the absence of an event —
+   * and giving it the same upward arc as a hit meant a number leaving your
+   * shield read as a number being taken off you. Different direction, different
+   * colour, no confusion. */
+  const falling = request.kind === 'expire';
+  const frames: Keyframe[] = falling
+    ? [
+        { opacity: 0, transform: 'translate(-50%, -6px) scale(0.9)' },
+        { opacity: 0.9, transform: 'translate(-20%, 8px) scale(1)', offset: 0.28 },
+        { opacity: 0.7, transform: 'translate(0%, 20px) scale(0.96)', offset: 0.7 },
+        { opacity: 0, transform: 'translate(14%, 34px) scale(0.88)' },
+      ]
+    : [
+        { opacity: 0, transform: 'translate(-50%, 0) scale(0.8)' },
+        { opacity: 1, transform: 'translate(-50%, -16px) scale(1)', offset: 0.22 },
+        { opacity: 1, transform: 'translate(-50%, -34px) scale(1)', offset: 0.68 },
+        { opacity: 0, transform: 'translate(-50%, -52px) scale(0.95)' },
+      ];
+
+  const animation = node.animate(frames, {
+    duration: falling ? Math.round(FLOAT_MS * 0.72) : FLOAT_MS,
+    delay: request.delay,
+    easing: falling ? 'cubic-bezier(.4,0,.7,1)' : 'cubic-bezier(.2,.7,.3,1)',
+    fill: 'both',
+  });
 
   void animation.finished.then(
     () => node.remove(),
@@ -455,6 +474,33 @@ export function floatHealthChange(amount: number): void {
   });
 }
 
+/**
+ * Armour running out, at the start of a turn.
+ *
+ * The only figure on the board that is not something happening TO you: Block
+ * does not get taken, it stops applying. It used to just be gone between two
+ * frames, and a player who had banked 12 had no idea whether it had been spent
+ * or had simply expired.
+ */
+export function floatBlockExpired(amount: number): void {
+  if (amount <= 0) return;
+  const anchor = document.querySelector('.shield') ?? document.querySelector('.stat--hull');
+  if (anchor === null) return;
+
+  const box = anchor.getBoundingClientRect();
+  if (box.width === 0 && box.height === 0) return;
+
+  floatText({
+    text: `-${amount}`,
+    kind: 'expire',
+    // Off to the side of the shield rather than over it, so it cannot be read
+    // as the number the shield currently holds.
+    x: box.left + box.width + 12,
+    y: box.top + box.height * 0.5,
+    delay: 0,
+  });
+}
+
 /* ---------- Focus and Energy ----------
 
    Both are rows of small marks that simply had a different number of them lit
@@ -702,10 +748,10 @@ const CARD_FX_CLASS = 'fx-card';
 const CARD_FLY_MS = 320;
 /** The beat a played card holds before it leaves, so "played" reads as an act. */
 const CARD_PLAY_HOLD_MS = 150;
-/** Spacing when a whole hand is discarded at once. */
-const CARD_STAGGER_MS = 45;
+/** Spacing when a whole hand is discarded or dealt at once. */
+const CARD_STAGGER_MS = 90;
 /** Arriving cards. Slightly quicker than leaving — you want to read them. */
-const CARD_DEAL_MS = 280;
+const CARD_DEAL_MS = 340;
 
 /** Which pile a card is flying to. Where it went, not why. */
 export type CardPile = 'discard' | 'exhaust';
@@ -860,7 +906,12 @@ export function cardStagger(index: number): number {
  * first, and then the card it drew turns up. Causality, made visible.
  */
 export function cardDealAfterPlay(): number {
-  return CARD_PLAY_HOLD_MS + Math.round(CARD_FLY_MS * 0.55);
+  /* After the played card has LANDED, not most of the way through its flight.
+     Jettison is the case that shows why: it throws the hand away and deals a
+     new one, and at 55% the arrivals started while the card that caused them
+     was still crossing the screen — five things moving at once, which reads as
+     one blur rather than as a discard followed by a draw. */
+  return CARD_PLAY_HOLD_MS + CARD_FLY_MS;
 }
 
 /** How long a batch of exits occupies, so the caller can wait it out. */
@@ -912,7 +963,7 @@ const FIRST_BEAT = 0;
  * already making.
  */
 const BEAT_WITHIN = 250;
-const BEAT_BETWEEN = 620;
+const BEAT_BETWEEN = 800;
 
 /**
  * How far ahead of its picture a sound starts.

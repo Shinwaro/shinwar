@@ -3089,6 +3089,14 @@
   gap: 0.35rem;
 }
 
+/* The log sits on its own row under the other two. It is the widest control of
+   the three and the only one that opens something — in the same row it pushed
+   Info and the volume along and made the rail read as a list rather than as two
+   settings and a drawer. */
+.combat-corner-buttons--log {
+  margin-top: 0.35rem;
+}
+
 /* ---------- volume ----------
 
    A glyph that is also the mute, and a slider beside it. Sits in the corner
