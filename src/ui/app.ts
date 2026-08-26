@@ -115,7 +115,13 @@ function arrivalSound(state: GameState): void {
    *
    * The one thing left here is the place nobody clicked. An Unknown is not a
    * place when you choose it, so it makes no sound then; when the `?` turns out
-   * to be an Anomaly or a fight, THAT is its arrival. */
+   * to be an Anomaly or a fight, THAT is its arrival — a little late by
+   * definition, because until then there was nothing to announce. */
+  if (screen === 'landing' && state.run?.landing?.outcome === true) {
+    // A `?` that came to nothing much. The report screen, and flying on.
+    play('flyOn');
+    return;
+  }
   if (from !== 'landing' && from !== 'map') return;
 
   const nodeId = state.run?.position ?? null;

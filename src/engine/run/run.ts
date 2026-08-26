@@ -42,7 +42,7 @@ import {
   enemies as enemyTable,
 } from '../../content/registry.ts';
 import { ENCOUNTERS as encounterTable, encountersFor } from '../../content/encounters.ts';
-import { describeLanding } from './describe.ts';
+import { describeDerelict, describeLanding } from './describe.ts';
 
 /* ---------- opening the run ---------- */
 
@@ -261,6 +261,12 @@ export function leaveLanding(state: GameState): GameState {
   const cleared = withRun(state, (current) => ({ ...current, landing: null }));
   if (node === undefined) return withRun(cleared, (current) => ({ ...current, screen: 'map' }));
 
+  /* The second screen is a report, not a door. Resolving the node again from
+     here would re-roll a `?` you have already opened. */
+  if (landing.outcome === true) {
+    return withRun(cleared, (current) => ({ ...current, screen: 'map' }));
+  }
+
   // A Thread's reprisal still takes the node, and it is announced on the way in
   // rather than discovered on arrival at a fight you did not choose. The fight
   // is rolled from the FORCED tier, not taken from whatever the node held.
@@ -329,12 +335,32 @@ function resolveUnknown(state: GameState, node: MapNode): GameState {
       amount.value,
       'derelict',
     );
-    return appendLog(withRun(paid, (current) => ({ ...current, screen: 'map' })), {
-      source: 'derelict',
-      kind: 'reward',
-      text: 'A derelict, picked clean but for the alloy.',
-      detail: null,
-    });
+
+    /* Its own screen, rather than a log line on the way past.
+     *
+     * This is the one `?` outcome with nothing to decide, and it was also the
+     * only one that never got a moment: the Alloy landed and the chart came
+     * back in the same frame, so the node read as having done nothing. It is a
+     * small thing that happened and it is allowed to say so. */
+    return appendLog(
+      withRun(paid, (current) => ({
+        ...current,
+        screen: 'landing' as const,
+        landing: {
+          nodeId: node.id,
+          title: node.name,
+          body: describeDerelict(amount.value),
+          resolved: [],
+          outcome: true,
+        },
+      })),
+      {
+        source: 'derelict',
+        kind: 'reward',
+        text: 'A derelict, picked clean but for the alloy.',
+        detail: { alloy: amount.value },
+      },
+    );
   }
 
   // Ambush: the node had no encounter assigned, so pick one now.

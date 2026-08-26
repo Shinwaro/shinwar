@@ -244,6 +244,21 @@ export function implantStackLabel(def: ImplantDef, fitted: readonly string[]): s
  * rather than staying silent: a barren node used to be indistinguishable from a
  * misclick, and naming the emptiness is what turns it into a place you visited.
  */
+/**
+ * What a `?` turned out to be, when it turned out to be nothing much.
+ *
+ * Generated from the number, like every other line in the game. The two cases
+ * really are different to a player — a hold worth salvaging and a hulk somebody
+ * else already emptied — and one sentence covering both would be true of
+ * neither.
+ */
+export function describeDerelict(alloy: number): string {
+  if (alloy <= 0) {
+    return 'A hulk, and somebody was here first. Nothing in it worth the fuel to stop. You fly on.';
+  }
+  return `A hulk, dark and long dead. Somebody was here before you, but they left ${alloy} Alloy in the walls. You take it and fly on.`;
+}
+
 export function describeLanding(node: MapNode, enemyNames: readonly string[]): string {
   const names = joinNames(enemyNames);
 

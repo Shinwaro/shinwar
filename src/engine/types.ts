@@ -985,6 +985,18 @@ export interface RewardOffer {
  */
 export interface LandingState {
   readonly nodeId: string;
+  /**
+   * The SECOND screen, shown after the node has already happened rather than
+   * before it.
+   *
+   * A `?` that turns out to be a derelict used to pay its Alloy and drop you
+   * back on the chart in the same frame, so the one outcome with nothing to
+   * decide was also the one that never got said out loud — it read as the node
+   * doing nothing at all. Leaving this one goes back to the map instead of
+   * resolving the node again, which it would otherwise do, and re-rolling a `?`
+   * you have already opened is a different node every time you look at it.
+   */
+  readonly outcome?: boolean;
   /** The place, by name. */
   readonly title: string;
   /** One or two sentences. Generated — see `describeLanding`. */

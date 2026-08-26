@@ -682,11 +682,12 @@ export function cardExitDuration(count: number, held: boolean): number {
  * animation ones: the state has already changed, this is only how long the eye
  * is given to follow it.
  */
-/* Low, and lower than it was. The first beat is the game answering the button
-   you just pressed, and anything you can perceive there reads as the click not
-   having registered. Everything AFTER the first beat is where the pacing
-   lives — see `BEAT_STEP`. */
-const FIRST_BEAT = 30;
+/* Nothing. The first beat is the game answering the button you just pressed,
+   and it should land on the same frame the press did — a card that hits or
+   shields is not a thing to wait for. All of the pacing is in the gaps AFTER
+   it, and even there only between the beats that belong to different things.
+   See `BEAT_WITHIN` and `BEAT_BETWEEN`. */
+const FIRST_BEAT = 0;
 /**
  * Spacing between consecutive hits, so a multi-hit reads as several blows.
  *
@@ -698,16 +699,22 @@ const FIRST_BEAT = 30;
  * understand; the first time you meet a three-enemy pack you are reading four
  * numbers you have never seen, and at 230 they overlapped into one event.
  */
-/* Widened, twice, and both times because the fight was outrunning the player
-   rather than because it looked wrong.
-
-   It is the GAP AFTER a beat now, not the distance between two starts, which is
-   the difference that matters once beats have their own length: a Heat walk of
-   three ticks takes over a second, and the vent that follows it has to begin
-   when the gauge has finished filling rather than a fixed distance after it
-   started. Sever is the case that proved it — three arriving and two leaving
-   ran straight into each other. */
-const BEAT_STEP = 620;
+/* Two gaps, because "slow down" turned out to mean two different things.
+ *
+ * One number for everything was wrong in both directions at once. At 620 a card
+ * you played took most of a second to finish resolving — its own hit, its own
+ * Heat — and every one of those beats is a consequence of the SAME press, which
+ * a player reads as one action and does not need walking through. At 290 a room
+ * of three enemies swinging in sequence collapsed into one event and you could
+ * not tell who had hit you.
+ *
+ * So: the beats inside one thing are tight, and the beats between two different
+ * things — this enemy and then that one — get the room. The source of the beat
+ * is what tells them apart, which is exactly the distinction the player is
+ * already making.
+ */
+const BEAT_WITHIN = 250;
+const BEAT_BETWEEN = 620;
 
 /**
  * How far ahead of its picture a sound starts.
@@ -962,13 +969,23 @@ export function playLogFx(
    * plus the gap. */
   let cursor = FIRST_BEAT;
   let beat: string | null = null;
+  let beatSource: string | null = null;
   let opened = false;
 
-  /** Take the next beat, unless this is a continuation of the current one. */
-  const openBeat = (key: string): number => {
+  /**
+   * Take the next beat, unless this is a continuation of the current one.
+   *
+   * The gap depends on WHOSE beat is next. Everything that follows from one
+   * press — a card's hit, then the Heat it cost — is one action to the player
+   * and gets the tight gap; a beat belonging to something else, which in
+   * practice means the next enemy in the room, gets the room to be read as a
+   * separate event.
+   */
+  const openBeat = (key: string, source: string): number => {
     if (key === beat) return cursor;
-    if (opened) cursor += BEAT_STEP;
+    if (opened) cursor += source === beatSource ? BEAT_WITHIN : BEAT_BETWEEN;
     beat = key;
+    beatSource = source;
     opened = true;
     return cursor;
   };
@@ -1009,7 +1026,7 @@ export function playLogFx(
     if (entry.kind === 'heat' && detail !== null && typeof detail['total'] === 'number') {
       const rising = typeof detail['gained'] === 'number';
       if (typeof detail['gained'] === 'number' || typeof detail['vented'] === 'number') {
-        const delay = openBeat(`heat#${entry.source}#${cursor}`);
+        const delay = openBeat(`heat#${entry.source}#${cursor}`, entry.source);
         if (sound !== null) speak(sound, delay);
         /* The walk's own length is added to the cursor, so whatever comes next
            — a vent after a gain, most often — starts when the gauge has
@@ -1028,7 +1045,10 @@ export function playLogFx(
       const box = anchor.getBoundingClientRect();
       if (box.width === 0 && box.height === 0) continue;
 
-      const delay = openBeat(`${entry.source}#${hit.swing}#${hit.kind === 'shield' ? 's' : 'h'}`);
+      const delay = openBeat(
+        `${entry.source}#${hit.swing}#${hit.kind === 'shield' ? 's' : 'h'}`,
+        entry.source,
+      );
 
       // The blow's own sound rides its beat, once per beat rather than once per
       // target: an arc through three enemies is one sound, not three.
@@ -1074,7 +1094,7 @@ export function playLogFx(
     /* ---- everything else: a stance, a draw, a card that only announced
             itself. One beat each, so an action that does two things says them
             in the order it did them. ---- */
-    if (sound !== null) speak(sound, openBeat(`${entry.source}#${cursor}#s`));
+    if (sound !== null) speak(sound, openBeat(`${entry.source}#${cursor}#s`, entry.source));
   }
 
   // The last card, if it never spoke for itself.

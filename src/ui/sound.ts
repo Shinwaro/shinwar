@@ -43,6 +43,7 @@ import drawUrl from '../assets/sound/draw.mp3';
 import endTurnUrl from '../assets/sound/end-turn.mp3';
 import fightEliteUrl from '../assets/sound/fight-elite.mp3';
 import fightNormalUrl from '../assets/sound/fight-normal.mp3';
+import flyOnUrl from '../assets/sound/fly-on.mp3';
 import guardBlockUrl from '../assets/sound/block.mp3';
 import healUrl from '../assets/sound/heal.mp3';
 import heatGainUrl from '../assets/sound/heat-gain.mp3';
@@ -73,6 +74,7 @@ const LIBRARY = {
   endTurn: endTurnUrl,
   fightElite: fightEliteUrl,
   fightNormal: fightNormalUrl,
+  flyOn: flyOnUrl,
   heal: healUrl,
   heatGain: heatGainUrl,
   nodeAnomaly: nodeAnomalyUrl,

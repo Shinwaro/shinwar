@@ -467,3 +467,61 @@ describe("a Thread's reprisal opens the fight it promised", () => {
     expect(ENCOUNTERS.find((entry) => entry.id === encounterId)?.tier).toBe('normal');
   });
 });
+
+describe('a question mark that came to nothing much', () => {
+  /* The derelict outcome used to pay its Alloy and drop you back on the chart
+     in the same frame, so the one `?` result with nothing to decide was also
+     the only one that never got said out loud — it read as the node having done
+     nothing at all. It gets its own screen now.
+
+     Which introduces the thing worth testing: that screen names the node it
+     came from, and leaving it must NOT resolve that node again. A `?` re-rolled
+     on the way out is a different node every time you look at it. */
+
+  function derelictRun(): GameState | null {
+    for (let i = 0; i < 400; i++) {
+      const seed = `DERELICT-${i}`;
+      let state: GameState = { ...createInitialState(seed), run: createRunState(seed, 0) };
+      const made = generateMap(createRng(seed), 1);
+      const node = made.map.nodes.find((entry) => entry.type === 'unknown');
+      if (node === undefined || state.run === null) continue;
+
+      state = {
+        ...state,
+        run: {
+          ...state.run,
+          map: made.map,
+          position: node.id,
+          screen: 'landing',
+          landing: { nodeId: node.id, title: node.name, body: '', resolved: [] },
+        },
+      };
+      const after = applyAction(state, { kind: 'leaveLanding' });
+      if (after.run?.landing?.outcome === true) return after;
+    }
+    return null;
+  }
+
+  it('shows a screen that says what was there', () => {
+    const state = derelictRun();
+    if (state === null) throw new Error('test: no seed rolled a derelict in 400 tries');
+    expect(state.run?.screen).toBe('landing');
+    expect(state.run?.landing?.body, 'the screen says nothing').not.toBe('');
+    // Generated from the amount, so it names it rather than being one line for
+    // every possible outcome.
+    expect(state.run?.landing?.body).toMatch(/Alloy|Nothing in it/);
+    expect(state.run?.alloy ?? 0, 'the Alloy was not paid').toBeGreaterThan(0);
+  });
+
+  it('goes back to the chart on the way out, without re-rolling the node', () => {
+    const state = derelictRun();
+    if (state === null) throw new Error('test: no seed rolled a derelict in 400 tries');
+    const alloy = state.run?.alloy ?? 0;
+
+    const left = applyAction(state, { kind: 'leaveLanding' });
+    expect(left.run?.screen, 'the ? resolved a second time').toBe('map');
+    expect(left.run?.landing).toBe(null);
+    expect(left.run?.combat, 'it turned into a fight on the way out').toBe(null);
+    expect(left.run?.alloy, 'it paid twice').toBe(alloy);
+  });
+});
