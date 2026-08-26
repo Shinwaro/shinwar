@@ -118,7 +118,7 @@ describe('sound', () => {
       setSetting('volume', on);
       expect(() => {
         play('draw');
-        play('cardAttack');
+        play('atkBig');
         play('overheat');
         play('nodeStation');
         stopAll();

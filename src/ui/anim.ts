@@ -32,6 +32,7 @@ import { shakeAllowed } from './settings.ts';
 import { playAt, resetSoundSchedule } from './sound.ts';
 import type { SoundKey } from './sound.ts';
 import { cards as cardTable } from '../content/registry.ts';
+import { cardVoice } from './card-voice.ts';
 import { SECT_RITES } from '../content/threads.ts';
 
 export function prefersReducedMotion(): boolean {
@@ -403,6 +404,66 @@ export function settleHeat(target: number | null): void {
   const value = target;
   heatScheduled = target;
   requestAnimationFrame(() => paintHeat(value));
+}
+
+/* ---------- Focus and Energy ----------
+
+   Both are rows of small marks that simply had a different number of them lit
+   from one render to the next, which is a state change rather than an event.
+   Focus in particular is spent silently in the middle of an attack, so the
+   thing you were saving vanished with nothing to look at.
+
+   The mark that MOVED is flashed for a beat, in the direction it moved: coming
+   in reads as arriving, going out as being spent. Same idea as the Heat gauge's
+   per-tick colour, and it pairs with the sounds — the flash is what the noise is
+   describing. Not a walk, though: Focus and Energy change in one step and
+   animating them tick by tick would be inventing a process that is not there. */
+
+let lastFocus: number | null = null;
+let lastEnergy: number | null = null;
+
+/** How long a moved mark stays lit. */
+const RESOURCE_FLASH_MS = 420;
+
+function flashRow(marks: readonly HTMLElement[], from: number, to: number): void {
+  const rising = to > from;
+  const lo = Math.min(from, to);
+  const hi = Math.max(from, to);
+  const mark = rising ? 'is-gaining' : 'is-spending';
+
+  for (let index = lo; index < hi; index++) {
+    const node = marks[index];
+    if (node === undefined) continue;
+    node.classList.add(mark);
+    window.setTimeout(() => node.classList.remove(mark), RESOURCE_FLASH_MS);
+  }
+}
+
+/**
+ * Flash whatever moved on the Focus and Energy rows.
+ *
+ * Called after the render, which has already drawn the new counts — this only
+ * marks which of them changed. Nothing to stage, because there is no walk: the
+ * marks are already where they belong and the flash says which ones are new.
+ */
+export function flashResources(host: HTMLElement, focus: number, energy: number): void {
+  const focusMarks = [...host.querySelectorAll<HTMLElement>('.focus-tick')];
+  const energyMarks = [...host.querySelectorAll<HTMLElement>('.energy-pip')];
+
+  if (!prefersReducedMotion() && lastFocus !== null && lastFocus !== focus) {
+    flashRow(focusMarks, lastFocus, focus);
+  }
+  if (!prefersReducedMotion() && lastEnergy !== null && lastEnergy !== energy) {
+    flashRow(energyMarks, lastEnergy, energy);
+  }
+  lastFocus = focus;
+  lastEnergy = energy;
+}
+
+/** A new fight starts both from nothing. */
+export function forgetResources(): void {
+  lastFocus = null;
+  lastEnergy = null;
 }
 
 /* ---------- statuses falling off ----------
@@ -957,11 +1018,12 @@ function soundFor(entry: LogEntry, withRider: ReadonlySet<string>): SoundKey | n
 
       const card = detail['card'];
       if (typeof card === 'string' && detail['cost'] !== undefined) {
-        /* Only attacks announce themselves as a card. Everything else is
-           announced by what it DID — see `cardVoice` for the fallback when a
-           card does nothing that makes a noise of its own. */
-        if (cardTable.find(card)?.type !== 'attack') return null;
-        return withRider.has(card) ? 'cardAttackIai' : 'cardAttack';
+        /* Every card announces itself, in the voice of what it does — see
+           `cardVoice`. It used to be attacks only, with everything else left to
+           be described by its effects, which meant a shield and a Focus and a
+           Power all sounded the same as each other and as nothing. */
+        const def = cardTable.find(card);
+        return def === undefined ? null : cardVoice(def, withRider.has(card));
       }
 
       /* Two draw sounds. The turn-start deal comes from `system`; anything else
@@ -972,9 +1034,15 @@ function soundFor(entry: LogEntry, withRider: ReadonlySet<string>): SoundKey | n
       return null;
     }
 
-    case 'block':
+    case 'block': {
       // Only the player's own Block. An enemy plating itself is its business.
-      return detail['to'] === 'player' ? 'block' : null;
+      if (detail['to'] !== 'player') return null;
+      /* And only when it did NOT come from a card. A card that shields already
+         said so in its own voice at its own beat; hearing the shield twice for
+         one press is worse than hearing it once. Relic and stance Block still
+         speak, because nothing else announced those. */
+      return cardTable.find(entry.source) === undefined ? 'block' : null;
+    }
 
     case 'damage': {
       if (detail['to'] !== 'player') return null;

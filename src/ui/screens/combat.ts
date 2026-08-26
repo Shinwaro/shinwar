@@ -52,6 +52,7 @@ import {
   dealCardIn,
   flyCardOut,
   fadeExpiredPips,
+  flashResources,
   playLogFx,
   prefersReducedMotion,
   setBarFill,
@@ -348,8 +349,9 @@ export function renderCombat(store: Store): HTMLElement {
     }
 
     // Anything that expired this render gets a beat of leaving. After the DOM
-    // exists, because it works by comparing what is drawn to what was.
+    // exists, because both work by comparing what is drawn to what was.
     fadeExpiredPips(host);
+    flashResources(host, state.run.combat.focus, state.run.combat.energy);
 
     /* The stage reads the fight. The background is CSS keyed off these two
        attributes rather than a second canvas — the asteroid scene already owns
@@ -626,6 +628,10 @@ function build(
             store.dispatch({ kind: 'playCard', cardUid: card.uid, targetUid: null });
             return;
           }
+          /* Only the cards that WAIT. A card with nothing to aim at played on
+             the first press and has already spoken in its own voice; this is
+             the sound of being handed something and asked where. */
+          play('target');
           selection.cardUid = card.uid;
           selection.keyboardTargeting = false;
           if (selection.focusUid === null) selection.focusUid = alive[0]?.uid ?? null;

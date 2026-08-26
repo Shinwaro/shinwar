@@ -307,6 +307,8 @@ function buildPicker(store: Store, state: GameState, local: Local, redraw: () =>
               const mode = local.picking;
               local.picking = null;
               local.chosen = null;
+              // Confirming, not choosing. The pick made its own sound when the
+              // card was selected; this is the one that means it is yours.
               if (mode === 'forge') play('upgrade');
               store.dispatch(
                 mode === 'forge'
@@ -372,6 +374,9 @@ function buildPicker(store: Store, state: GameState, local: Local, redraw: () =>
             'aria-pressed': picked ? 'true' : 'false',
           },
           () => {
+            // Choosing which card, which is the same gesture as aiming one in a
+            // fight: something is picked up and the game is waiting on you.
+            if (!picked) play('target');
             local.chosen = picked ? null : card.uid;
             redraw();
           },

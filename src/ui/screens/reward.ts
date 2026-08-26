@@ -55,9 +55,8 @@ function buildReward(store: Store, state: GameState): HTMLElement {
         'aria-label': `${RARITY_LABEL[def.rarity]}: ${def.name}, ${describeCard(def)}`,
       },
       () => {
-        // Taking the reward after a fight is the other 'selection' moment —
-        // same sound as forging one, because it is the same beat: you chose,
-        // and the deck is different now.
+        /* The confirm sound, not the pick one: a reward has no second step —
+           pressing it is the moment the deck changes. */
         play('upgrade');
         store.dispatch({ kind: 'takeRewardCard', cardId });
       },

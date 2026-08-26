@@ -32,10 +32,24 @@
  * presentation: a replayed action log produces the same run in silence.
  */
 
+import atkAoeBigUrl from '../assets/sound/atk-aoe-big.mp3';
+import atkAoeMultihitUrl from '../assets/sound/atk-aoe-multihit.mp3';
+import atkAoeSmallUrl from '../assets/sound/atk-aoe-small.mp3';
+import atkBigUrl from '../assets/sound/atk-big.mp3';
+import atkDebuffAoeUrl from '../assets/sound/atk-debuff-aoe.mp3';
+import atkDebuffUrl from '../assets/sound/atk-debuff.mp3';
+import atkMiniUrl from '../assets/sound/atk-mini.mp3';
+import atkMultihitUrl from '../assets/sound/atk-multihit.mp3';
+import atkSmallUrl from '../assets/sound/atk-small.mp3';
+import blockSpecialUrl from '../assets/sound/block-special.mp3';
+import energyUrl from '../assets/sound/energy.mp3';
+import focusUrl from '../assets/sound/focus.mp3';
+import overclockedUrl from '../assets/sound/overclocked.mp3';
+import strengthUrl from '../assets/sound/strength.mp3';
+import targetUrl from '../assets/sound/target.mp3';
 import blockedUrl from '../assets/sound/blocked.mp3';
 import buttonUrl from '../assets/sound/button.mp3';
 import cardAttackIaiUrl from '../assets/sound/card-attack-iai.mp3';
-import cardAttackUrl from '../assets/sound/card-attack.mp3';
 import cardSkillUrl from '../assets/sound/card-skill.mp3';
 import damageUrl from '../assets/sound/damage.mp3';
 import drawTurnUrl from '../assets/sound/draw-turn.mp3';
@@ -64,8 +78,22 @@ import { volume } from './settings.ts';
 const LIBRARY = {
   blocked: blockedUrl,
   block: guardBlockUrl,
+  blockSpecial: blockSpecialUrl,
+  atkAoeBig: atkAoeBigUrl,
+  atkAoeMultihit: atkAoeMultihitUrl,
+  atkAoeSmall: atkAoeSmallUrl,
+  atkBig: atkBigUrl,
+  atkDebuff: atkDebuffUrl,
+  atkDebuffAoe: atkDebuffAoeUrl,
+  atkMini: atkMiniUrl,
+  atkMultihit: atkMultihitUrl,
+  atkSmall: atkSmallUrl,
+  energy: energyUrl,
+  focus: focusUrl,
+  overclocked: overclockedUrl,
+  strength: strengthUrl,
+  target: targetUrl,
   button: buttonUrl,
-  cardAttack: cardAttackUrl,
   cardAttackIai: cardAttackIaiUrl,
   cardSkill: cardSkillUrl,
   damage: damageUrl,
@@ -100,14 +128,27 @@ export type SoundKey = keyof typeof LIBRARY;
  */
 const LEVEL: Partial<Record<SoundKey, number>> = {
   button: 0.85,
+  target: 0.7,
   draw: 0.5,
   drawTurn: 0.55,
-  cardAttack: 0.36,
-  cardAttackIai: 0.36,
-  cardSkill: 0.6,
-  block: 0.42,
+  cardAttackIai: 0.5,
+  atkMini: 0.5,
+  atkSmall: 0.5,
+  atkBig: 0.55,
+  atkMultihit: 0.5,
+  atkAoeSmall: 0.5,
+  atkAoeBig: 0.55,
+  atkAoeMultihit: 0.55,
+  atkDebuff: 0.5,
+  atkDebuffAoe: 0.5,
+  block: 0.5,
+  blockSpecial: 0.5,
   blocked: 0.55,
   damage: 0.75,
+  strength: 0.6,
+  overclocked: 0.6,
+  focus: 0.55,
+  energy: 0.55,
   heatGain: 1,
   vent: 0.45,
   endTurn: 0.5,

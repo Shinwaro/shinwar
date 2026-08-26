@@ -23,8 +23,9 @@ import { renderPause } from './screens/pause.ts';
 import { renderCoach } from './screens/coach.ts';
 import { el } from './dom.ts';
 import { play } from './sound.ts';
-import { forgetHeat, forgetPips } from './anim.ts';
+import { forgetHeat, forgetPips, forgetResources } from './anim.ts';
 import { ENCOUNTERS } from '../content/encounters.ts';
+import { SECT_RITES } from '../content/threads.ts';
 
 /** What is on screen right now: the phase, or the run's inner screen. */
 type View = Phase | `run:${RunScreen}`;
@@ -115,6 +116,7 @@ function arrivalSound(state: GameState): void {
   if (screen !== 'combat') {
     forgetHeat();
     forgetPips();
+    forgetResources();
   }
   if (screen === null) return;
 
@@ -128,6 +130,20 @@ function arrivalSound(state: GameState): void {
    * place when you choose it, so it makes no sound then; when the `?` turns out
    * to be an Anomaly or a fight, THAT is its arrival — a little late by
    * definition, because until then there was nothing to announce. */
+  /* A Thread coming due is announced HERE, not from the log.
+   *
+   * Sounds are chosen in `playLogFx`, which only ever runs on the combat
+   * screen — and a Thread pays out while you are travelling, so the Rites
+   * completing made no sound at all. It has a screen of its own; this is the
+   * moment it appears. */
+  if (screen === 'landing') {
+    const resolved = state.run?.landing?.resolved ?? [];
+    if (resolved.some((thread) => thread.threadId === SECT_RITES)) {
+      play('rites');
+      return;
+    }
+  }
+
   if (screen === 'landing' && state.run?.landing?.outcome === true) {
     // A `?` that came to nothing much. The report screen, and flying on.
     play('flyOn');
@@ -366,12 +382,18 @@ export function mountApp(root: HTMLElement, store: Store): void {
   root.addEventListener(
     'click',
     (event) => {
+      const state = store.getState();
       const target = event.target;
       if (!(target instanceof Element)) return;
       const button = target.closest('button.btn');
       if (button === null || button.getAttribute('data-sound') === 'own') return;
       if (button.hasAttribute('disabled')) return;
-      play('button');
+      /* The main menu gets the picking sound rather than the plain click. It is
+         the same gesture as choosing a card — you are selecting from a set of
+         things, not confirming one — and the title screen is the first thing
+         anybody hears, so it should sound like the game rather than like a
+         button. */
+      play(state.run === null ? 'target' : 'button');
     },
     true,
   );

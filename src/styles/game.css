@@ -2756,6 +2756,63 @@
   border-color: var(--ink);
 }
 
+/* The one that moved.
+ *
+ * Focus and Energy used to change by having a different number of marks lit
+ * between two frames, which is a state change rather than an event — and Focus
+ * is spent silently in the middle of an attack, so the thing you were saving
+ * vanished with nothing to look at. The moving mark is lit for a beat, in the
+ * direction it moved, which is what the sounds are describing.
+ *
+ * Deliberately different shapes, not just colours: arriving swells, spending
+ * collapses. Direction survives being seen out of the corner of an eye. */
+.focus-tick.is-gaining,
+.energy-pip.is-gaining {
+  animation: mark-in 0.42s ease-out;
+}
+
+.focus-tick.is-spending,
+.energy-pip.is-spending {
+  animation: mark-out 0.42s ease-out;
+}
+
+@keyframes mark-in {
+  0% {
+    transform: scale(0.6);
+    filter: brightness(2.4);
+  }
+  55% {
+    transform: scale(1.28);
+    filter: brightness(1.9);
+  }
+  100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+}
+
+@keyframes mark-out {
+  0% {
+    transform: scale(1.24);
+    filter: brightness(2.2);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.86);
+    filter: brightness(1);
+    opacity: 0.55;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .focus-tick.is-gaining,
+  .focus-tick.is-spending,
+  .energy-pip.is-gaining,
+  .energy-pip.is-spending {
+    animation: none;
+  }
+}
+
 /* Armed: this stance will spend the stack on the next attack. Banking leaves
    the ticks plain, which is the difference the tooltip explains in words. */
 .resource--focus.is-armed .focus-tick.is-filled {

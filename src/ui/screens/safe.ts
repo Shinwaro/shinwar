@@ -209,6 +209,9 @@ function renderPickable(
       'aria-pressed': chosen ? 'true' : 'false',
     },
     () => {
+      // Same gesture as aiming a card in a fight: something picked up, the game
+      // waiting on you. Confirming has its own sound.
+      if (!chosen) play('target');
       local.chosen = chosen ? null : card.uid;
       redraw();
     },

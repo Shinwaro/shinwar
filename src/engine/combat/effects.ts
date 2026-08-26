@@ -533,7 +533,9 @@ function applyOp(state: GameState, op: EffectOp, context: EffectContext): Effect
           source: context.source,
           kind: 'combat',
           text: `Energy +${op.amount}.`,
-          detail: null,
+          // Named, so the presentation layer can tell an Energy from a heal —
+          // both are `kind: 'combat'` and only the detail separates them.
+          detail: { energy: op.amount },
         }),
       );
     }
