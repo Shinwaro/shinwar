@@ -108,7 +108,7 @@ const LEVEL: Partial<Record<SoundKey, number>> = {
   block: 0.42,
   blocked: 0.55,
   damage: 0.75,
-  heatGain: 0.85,
+  heatGain: 1,
   vent: 0.45,
   endTurn: 0.5,
   stanceIai: 0.5,

@@ -351,10 +351,6 @@ export function renderCombat(store: Store): HTMLElement {
     // exists, because it works by comparing what is drawn to what was.
     fadeExpiredPips(host);
 
-    const moved = animateHand(host, state, leaving, selection.playedUid);
-    selection.playedUid = null;
-    handBefore = captureHand(host);
-
     /* The stage reads the fight. The background is CSS keyed off these two
        attributes rather than a second canvas — the asteroid scene already owns
        a loop, and a second one running behind every fight for the length of a
@@ -363,7 +359,9 @@ export function renderCombat(store: Store): HTMLElement {
     host.dataset['stance'] = state.run.combat.stance;
     host.dataset['heat'] = state.run.combat.heat >= HEAT.overheatAt ? 'hot' : 'cool';
 
-    // After the DOM exists, so the floaters can find what they rise from.
+    /* The timeline is worked out BEFORE the hand moves, because the hand is
+       part of it: a turn that opens with Scald has to finish saying so before
+       the cards arrive, and only the timeline knows when that is. */
     const played = playLogFx(
       fresh,
       (target) =>
@@ -380,7 +378,12 @@ export function renderCombat(store: Store): HTMLElement {
         playerMaxHealth: state.run.pilot.maxHealth,
       },
     );
-    if (played > 0) fxRunning = played + SETTLE_MS;
+
+    const moved = animateHand(host, state, leaving, selection.playedUid, played.dealAt);
+    selection.playedUid = null;
+    handBefore = captureHand(host);
+
+    if (played.ms > 0) fxRunning = played.ms + SETTLE_MS;
     /* Cards in flight hold the enemy turn too. A hand discarding into the pile
        while the first enemy is already swinging reads as two things happening
        to two different games. */
@@ -891,6 +894,15 @@ function animateHand(
   state: GameState,
   before: Map<string, HeldCard>,
   playedUid: string | null,
+  /**
+   * When the turn-start deal should begin, from the sound timeline.
+   *
+   * The hand used to arrive the instant the render did, while its sound waited
+   * behind whatever the reactor was doing — so a turn that opened with Scald
+   * showed you the cards and told you about them a second later. Null when this
+   * batch has no turn-start draw in it, which is every other render.
+   */
+  dealAt: number | null,
 ): number {
   if (prefersReducedMotion()) return 0;
 
@@ -951,7 +963,7 @@ function animateHand(
 
      Leaving cards do not need this: their rects were measured before the
      render, while they were still on screen. */
-  const dealFrom = held ? cardDealAfterPlay() : 0;
+  const dealFrom = dealAt ?? (held ? cardDealAfterPlay() : 0);
   whenMeasurable(host, () => {
     const pile = host.querySelector<HTMLElement>('.pile[data-pile="draw"]')?.getBoundingClientRect();
     if (pile === undefined) return;

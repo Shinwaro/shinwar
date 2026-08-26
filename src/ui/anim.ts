@@ -281,6 +281,20 @@ let heatDrawn: number | null = null;
 let heatScheduled: number | null = null;
 /** Where a walk in progress will end, or null when nothing is walking. */
 let heatWalkingTo: number | null = null;
+/** When the walk in flight finishes, on `performance.now()`'s clock. */
+let heatEndsAt = 0;
+
+/**
+ * How much of a Heat walk is still to come.
+ *
+ * A turn's end and the turn that follows it are two separate dispatches, so the
+ * gauge emptying from GUARD is still walking when the next hand is dealt — and
+ * the new batch's timeline starts at zero and knows nothing about it. This is
+ * how the deal finds out.
+ */
+export function heatRemainingMs(): number {
+  return Math.max(0, heatEndsAt - performance.now());
+}
 
 /** Called by the gauge as it renders. Returns the value it should DRAW at. */
 export function stageHeat(heat: number): number {
@@ -296,6 +310,7 @@ export function forgetHeat(): void {
   heatDrawn = null;
   heatScheduled = null;
   heatWalkingTo = null;
+  heatEndsAt = 0;
 }
 
 function paintHeat(value: number): void {
@@ -366,6 +381,7 @@ export function stepHeat(to: number, delay: number, rising: boolean): number {
   }
 
   const span = count * step;
+  heatEndsAt = performance.now() + delay + span;
   // The panel wears the direction for exactly as long as the walk lasts, and
   // starts when the walk does rather than the instant it was scheduled.
   flushStance(rising, delay, span + step);
@@ -993,15 +1009,30 @@ function ridersIn(fresh: readonly LogEntry[]): ReadonlySet<string> {
   return out;
 }
 
+export interface LogFxTiming {
+  /** How long the whole sequence occupies. */
+  readonly ms: number;
+  /**
+   * When the turn-start deal should begin, or null if this batch has none.
+   *
+   * The hand used to fly in the instant the render landed, while its sound
+   * waited its turn on the beat timeline behind whatever the reactor was doing
+   * — so on a turn that opened with Scald you watched the cards arrive and
+   * heard them a second later. The deal is an event like any other and belongs
+   * on the same clock.
+   */
+  readonly dealAt: number | null;
+}
+
 export function playLogFx(
   fresh: readonly LogEntry[],
   locate: (target: string) => Element | null,
   options: LogFxOptions,
-): number {
+): LogFxTiming {
   if (fresh.length === 0) {
     settleBars();
     settleHeat(options.heat);
-    return 0;
+    return { ms: 0, dealAt: null };
   }
 
   /* A new batch is a new sequence, and the minimum gap between sounds is about
@@ -1061,6 +1092,7 @@ export function playLogFx(
      played should never be silent, and everything else already has a voice. */
   let pendingSkill: { delay: number } | null = null;
   let cardSpoke = false;
+  let dealAt: number | null = null;
 
   /* Sound leads its picture. `delay` is when the number floats and the bar
      moves; the noise starts `SOUND_LEAD` before that, so the two arrive at the
@@ -1160,7 +1192,23 @@ export function playLogFx(
     /* ---- everything else: a stance, a draw, a card that only announced
             itself. One beat each, so an action that does two things says them
             in the order it did them. ---- */
-    if (sound !== null) speak(sound, openBeat(`${entry.source}#${cursor}#s`, entry.source));
+    if (sound !== null) {
+      /* The turn-start deal waits for the reactor to finish.
+       *
+       * A turn ending and the turn after it are two dispatches, so a GUARD vent
+       * is still walking the gauge down when the next hand is dealt — and this
+       * batch's clock starts at zero knowing nothing about it. The result was a
+       * hand arriving over a gauge still emptying, with both sounds at once.
+       * Only the deal waits: making everything wait would put the pause back on
+       * the card you just played. */
+      if (sound === 'drawTurn') cursor = Math.max(cursor, heatRemainingMs());
+
+      const delay = openBeat(`${entry.source}#${cursor}#s`, entry.source);
+      speak(sound, delay);
+      // Handed back, so the cards fly in on the same beat their sound plays
+      // rather than the instant the render happened.
+      if (sound === 'drawTurn') dealAt = delay;
+    }
   }
 
   // The last card, if it never spoke for itself.
@@ -1178,5 +1226,5 @@ export function playLogFx(
   // How long the whole sequence takes, so the caller can wait for it. The enemy
   // turn should not start while the player's last three numbers are still in
   // the air — that is exactly the "everything at once" the pacing is fixing.
-  return opened ? cursor : 0;
+  return { ms: opened ? cursor : 0, dealAt };
 }
