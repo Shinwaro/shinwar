@@ -484,6 +484,41 @@
   color: var(--muted);
 }
 
+/* On its way out.
+ *
+ * A ghost of the pip that just expired, put back by `fadeExpiredPips` after the
+ * render has already removed the real one. It cannot be interacted with and it
+ * is hidden from screen readers — it is a note about something that has already
+ * stopped being true, and the live row is the truth. */
+.pip.is-expiring {
+  pointer-events: none;
+  animation: pip-out 0.48s ease-out forwards;
+}
+
+@keyframes pip-out {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+    filter: saturate(1);
+  }
+  25% {
+    opacity: 0.9;
+    transform: scale(1.06);
+    filter: saturate(0.4);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.86) translateY(-4px);
+    filter: saturate(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pip.is-expiring {
+    display: none;
+  }
+}
+
 .pip--debuff {
   border-color: color-mix(in srgb, var(--danger) 50%, var(--line));
   color: var(--danger);

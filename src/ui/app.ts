@@ -23,7 +23,7 @@ import { renderPause } from './screens/pause.ts';
 import { renderCoach } from './screens/coach.ts';
 import { el } from './dom.ts';
 import { play } from './sound.ts';
-import { forgetHeat } from './anim.ts';
+import { forgetHeat, forgetPips } from './anim.ts';
 import { ENCOUNTERS } from '../content/encounters.ts';
 
 /** What is on screen right now: the phase, or the run's inner screen. */
@@ -97,14 +97,25 @@ let lastScreen: string | null = null;
  * replaced, and the one it replaced is gone by the time it could ask.
  */
 function arrivalSound(state: GameState): void {
+  /* Keyed on the screen AND, for a landing, on which landing — a `?` that turns
+     out to be a derelict shows two of them in a row, and 'landing' to 'landing'
+     is not a screen change. The second one made no sound at all because of
+     that. */
   const screen = state.run?.screen ?? null;
-  if (screen === lastScreen) return;
-  const from = lastScreen;
-  lastScreen = screen;
+  const here =
+    screen === 'landing'
+      ? `landing#${state.run?.landing?.nodeId ?? ''}#${state.run?.landing?.outcome === true ? 'outcome' : 'arrival'}`
+      : screen;
+  if (here === lastScreen) return;
+  const from = lastScreen === null ? null : lastScreen.split('#')[0] ?? null;
+  lastScreen = here;
 
   /* Every fight starts fresh: the Heat gauge has no history to animate from,
      and animating from the last fight's would be a lie. */
-  if (screen !== 'combat') forgetHeat();
+  if (screen !== 'combat') {
+    forgetHeat();
+    forgetPips();
+  }
   if (screen === null) return;
 
   /* Places are announced by the CHART, on the click that chose them — see

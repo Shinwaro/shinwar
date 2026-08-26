@@ -378,6 +378,20 @@ export interface StatusDef {
   readonly kind: 'buff' | 'debuff';
   /** `turn`: one stack falls off at the end of the holder's turn. */
   readonly decay: 'turn' | 'never';
+  /**
+   * When `damagePerTurn` and `heatPerTurn` fire. Default `turnStart`.
+   *
+   * `turnEnd` also moves where the stack falls off: it goes immediately after
+   * the tick rather than with everything else at the end of the round. The two
+   * belong together — a status that bites as you finish your turn and then
+   * lingers a whole round longer is a status whose cost you cannot count.
+   *
+   * Rust is `turnEnd` and Scald is not, and that is the difference between the
+   * two: Scald is a clock you plan the turn AROUND, so it has to be on the
+   * board before you spend anything. Rust is a price the turn charges you for
+   * having taken it.
+   */
+  readonly tickAt?: 'turnStart' | 'turnEnd';
   /** Flat damage added per stack, on attacks the holder makes. Strength-likes. */
   readonly damageDealtFlat?: number;
   /** Multiplier on damage the holder deals. Weak is 0.75. */

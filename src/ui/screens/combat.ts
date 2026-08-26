@@ -51,6 +51,7 @@ import {
   clearEffects,
   dealCardIn,
   flyCardOut,
+  fadeExpiredPips,
   playLogFx,
   prefersReducedMotion,
   setBarFill,
@@ -346,6 +347,10 @@ export function renderCombat(store: Store): HTMLElement {
       scroller.scrollLeft = Math.min(handScroll, scroller.scrollWidth - scroller.clientWidth);
     }
 
+    // Anything that expired this render gets a beat of leaving. After the DOM
+    // exists, because it works by comparing what is drawn to what was.
+    fadeExpiredPips(host);
+
     const moved = animateHand(host, state, leaving, selection.playedUid);
     selection.playedUid = null;
     handBefore = captureHand(host);
@@ -489,7 +494,7 @@ function build(
         ? null
         : el(
             'div',
-            { class: 'pips pips--player', 'aria-label': 'Statuses on you' },
+            { class: 'pips pips--player', 'data-owner': 'player', 'aria-label': 'Statuses on you' },
             combat.statuses.map((held) => {
               const def = statusTable.find(held.status);
               return el(
@@ -498,6 +503,7 @@ function build(
                   class: `pip pip--${def?.kind ?? 'debuff'}`,
                   tabindex: '0',
                   title: def?.text ?? held.status,
+                  'data-status': held.status,
                 },
                 [describeStatus(held.status, held.stacks)],
               );

@@ -8,6 +8,7 @@ import type { GameState, StatusStack, StatusId } from '../types.ts';
 import { statuses as statusTable } from '../../content/registry.ts';
 import { applyDirectDamage, type Combatant } from './damage.ts';
 import { gainHeat } from './heat.ts';
+import { withCombat } from '../state.ts';
 
 export function stacksOf(held: readonly StatusStack[], status: StatusId): number {
   return held.find((entry) => entry.status === status)?.stacks ?? 0;
@@ -58,9 +59,12 @@ export function decayStatuses(held: readonly StatusStack[]): readonly StatusStac
   let out = held;
   for (const entry of held) {
     if (entry.fresh) continue;
-    if (statusTable.find(entry.status)?.decay === 'turn') {
-      out = addStacks(out, entry.status, -1);
-    }
+    const def = statusTable.find(entry.status);
+    if (def === undefined || def.decay !== 'turn') continue;
+    // A `turnEnd` status already shed its stack the moment it bit. Taking one
+    // here as well would cost it two a round.
+    if (def.tickAt === 'turnEnd') continue;
+    out = addStacks(out, entry.status, -1);
   }
   return out;
 }
@@ -108,7 +112,11 @@ export function statusEnergy(held: readonly StatusStack[]): number {
  * Unblockable on purpose: Block is the answer to nearly everything else, so the
  * pressure worth adding is the kind that walks past it.
  */
-export function tickStatuses(state: GameState, who: Combatant): GameState {
+export function tickStatuses(
+  state: GameState,
+  who: Combatant,
+  phase: 'turnStart' | 'turnEnd' = 'turnStart',
+): GameState {
   const combat = state.run?.combat;
   if (combat === undefined || combat === null) return state;
 
@@ -121,6 +129,7 @@ export function tickStatuses(state: GameState, who: Combatant): GameState {
   for (const stack of held) {
     const def = statusTable.find(stack.status);
     if (def === undefined) continue;
+    if ((def.tickAt ?? 'turnStart') !== phase) continue;
 
     const damage = (def.damagePerTurn ?? 0) * stack.stacks;
     if (damage > 0) {
@@ -132,6 +141,26 @@ export function tickStatuses(state: GameState, who: Combatant): GameState {
     const heat = (def.heatPerTurn ?? 0) * stack.stacks;
     if (heat > 0 && who.kind === 'player') {
       next = gainHeat(next, heat, stack.status);
+    }
+
+    /* The stack goes with the bite, for anything that bites at the end of a
+       turn. Seeing 3 Rust take 6 off you and then drop to 2 in the same beat is
+       one readable event; the old order — tick at the start, decay a round
+       later somewhere else — meant the number on the board and the number you
+       were about to take never matched. */
+    if (phase === 'turnEnd' && def.decay === 'turn') {
+      next = withCombat(next, (current) =>
+        who.kind === 'player'
+          ? { ...current, statuses: addStacks(current.statuses, stack.status, -1) }
+          : {
+              ...current,
+              enemies: current.enemies.map((enemy) =>
+                enemy.uid === who.uid
+                  ? { ...enemy, statuses: addStacks(enemy.statuses, stack.status, -1) }
+                  : enemy,
+              ),
+            },
+      );
     }
   }
   return next;

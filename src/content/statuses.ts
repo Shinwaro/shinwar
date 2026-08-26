@@ -85,9 +85,17 @@ export const STATUSES: readonly StatusDef[] = [
   {
     id: RUST,
     name: 'Rust',
-    text: 'Takes 2 damage per stack at the start of its turn. Ignores Block.',
+    text: 'Takes 2 damage per stack at the end of its turn, then loses a stack. Ignores Block.',
     kind: 'debuff',
     decay: 'turn',
+    /* The END of the turn, and the stack goes with the bite.
+     *
+     * At the start it was a bill for a turn you had not taken yet, and the
+     * stack then hung around a further round before falling off somewhere else
+     * — so the number on the board and the number you were about to take never
+     * agreed. Charged for the turn you just took, and paid off in the same
+     * beat, it is a cost you can actually count. */
+    tickAt: 'turnEnd',
     /* 1 was not worth a card. Rust costs a whole play to apply, decays a stack
        a turn, and pays out at the START of the target's turn — so a single
        stack landed for 1 and was gone. At 2 the trade is a real one: it beats

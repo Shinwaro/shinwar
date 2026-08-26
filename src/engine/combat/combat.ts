@@ -590,6 +590,13 @@ export function endPlayerTurn(state: GameState): GameState {
   const decay = environmentRules(next).heatDecayPerTurn ?? 0;
   if (decay > 0) next = ventHeat(next, decay, environmentTable.get(combat.environmentId).name);
 
+  /* Rust bites here — at the END of the turn it charged you for — and sheds its
+     stack in the same beat. See `StatusDef.tickAt`. Before `onTurnEnd` so a
+     relic reacting to the end of a turn sees the damage as part of it. */
+  next = tickStatuses(next, PLAYER, 'turnEnd');
+  next = checkOutcome(next);
+  if (requireCombat(next).outcome !== 'ongoing') return next;
+
   next = fireHook(next, 'onTurnEnd', { turn: requireCombat(next).turn });
   next = resolveOverheat(next);
 
@@ -651,8 +658,9 @@ export function advanceEnemyTurn(state: GameState): GameState {
     }));
 
     // Whatever is eating this enemy eats it before it swings, so a rust that
-    // kills it means the move never lands.
-    next = tickStatuses(next, enemyTarget(uid));
+    // kills it means the move never lands. `turnStart` statuses only — Rust
+    // moved to the end of its holder's turn and is applied after the move.
+    next = tickStatuses(next, enemyTarget(uid), 'turnStart');
     if (next.run?.combat?.enemies.find((entry) => entry.uid === uid)?.hp === 0) return next;
 
     next = appendLog(next, {
@@ -663,6 +671,10 @@ export function advanceEnemyTurn(state: GameState): GameState {
     });
 
     next = applyEffects(next, move.effects, createContext(uid, enemyTarget(uid), PLAYER)).state;
+
+    /* And the end of ITS turn, which is where Rust bites and sheds. Same rule
+       for both sides: the price is charged for the turn you just took. */
+    next = tickStatuses(next, enemyTarget(uid), 'turnEnd');
 
     // Spent — unless this enemy still owes another activation, which is what
     // Chronal Shear does. The second pass has to resolve the move that was

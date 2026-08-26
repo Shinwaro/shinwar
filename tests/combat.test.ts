@@ -28,7 +28,7 @@ import { gainHeat, overheatDamageAt, ventHeat } from '../src/engine/combat/heat.
 import { addStacks, clearFresh, decayStatuses, stacksOf } from '../src/engine/combat/keywords.ts';
 import { applyEffects, createContext } from '../src/engine/combat/effects.ts';
 import { PLAYER as PLAYER_SIDE, applyDamage, enemyTarget } from '../src/engine/combat/damage.ts';
-import { SCALD, WEAK } from '../src/content/statuses.ts';
+import { RUST, SCALD, WEAK } from '../src/content/statuses.ts';
 import { cards as cardTable, statuses as statusTable } from '../src/content/registry.ts';
 import { CLEAR_SPACE_ID } from '../src/content/environments.ts';
 import { ENCOUNTERS } from '../src/content/encounters.ts';
@@ -1053,5 +1053,69 @@ describe('what the log promises the presentation layer', () => {
     expect(hit['to']).toBe('player');
     expect(typeof hit['toHull'], 'toHull is what the health bar and the sound read').toBe('number');
     expect(typeof hit['blocked'], 'blocked is how a shielded hit is told apart').toBe('number');
+  });
+});
+
+describe('Rust charges for the turn you took', () => {
+  /* It used to bite at the START of the holder's turn and shed its stack a
+     round later, in `closeRound`, with everything else. Two problems in one:
+     the bill arrived for a turn you had not spent yet, and because the decay
+     happened somewhere else entirely, the number on the board and the number
+     you were about to take never agreed.
+
+     End of the turn, and the stack goes with the bite. `tickAt` on the status
+     row rather than a branch in the turn loop — Scald stays at the start,
+     because Scald is a clock you plan the turn AROUND and has to be on the
+     board before you spend anything. */
+
+  const RUST_PER_STACK = statusTable.get(RUST).damagePerTurn ?? 0;
+
+  it('does nothing at the start of the turn', () => {
+    const state = makeFight({
+      playerStatuses: [{ status: RUST, stacks: 3, fresh: false }],
+    });
+    const before = hullOf(state);
+    const opened = startPlayerTurn(state);
+    expect(hullOf(opened), 'it billed before the turn was taken').toBe(before);
+    expect(stacksOf(combatOf(opened).statuses, RUST)).toBe(3);
+  });
+
+  it('bites at the end of the turn and sheds a stack in the same beat', () => {
+    /* Measured against the same round WITHOUT the Rust, because ending a turn
+       also hands the enemy its move — a raw hull difference is that blow plus
+       this one, and asserting on the total would pass for the wrong reason. */
+    const armed = startPlayerTurn(
+      makeFight({ playerStatuses: [{ status: RUST, stacks: 3, fresh: false }] }),
+    );
+    const bare = startPlayerTurn(makeFight({}));
+
+    const withRust = hullOf(armed) - hullOf(endTurnVia(armed));
+    const without = hullOf(bare) - hullOf(endTurnVia(bare));
+
+    expect(withRust - without, 'three stacks, at the printed rate').toBe(3 * RUST_PER_STACK);
+    expect(
+      stacksOf(combatOf(endTurnVia(armed)).statuses, RUST),
+      'it lost two stacks, or none',
+    ).toBe(2);
+  });
+
+  it('is not taken twice a round by the end-of-round decay', () => {
+    /* The trap in moving it: `decayStatuses` runs for everything at the end of
+       a round, so a status that already shed at its own tick would lose two a
+       round and vanish in half the time it says it does. */
+    let state = startPlayerTurn(
+      makeFight({ enemyHp: 999, playerStatuses: [{ status: RUST, stacks: 4, fresh: false }] }),
+    );
+    state = endTurnVia(state);
+    expect(stacksOf(combatOf(state).statuses, RUST), 'after one full round').toBe(3);
+    state = endTurnVia(state);
+    expect(stacksOf(combatOf(state).statuses, RUST), 'after two').toBe(2);
+  });
+
+  it('leaves Scald at the start of the turn, where it can be planned around', () => {
+    const scald = statusTable.get(SCALD);
+    expect(scald.tickAt ?? 'turnStart', 'Scald moved to the end of the turn').toBe('turnStart');
+    const state = makeFight({ heat: 0, playerStatuses: [{ status: SCALD, stacks: 2, fresh: false }] });
+    expect(combatOf(startPlayerTurn(state)).heat, 'Scald stopped ticking on the way in').toBe(2);
   });
 });

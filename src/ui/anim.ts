@@ -389,6 +389,72 @@ export function settleHeat(target: number | null): void {
   requestAnimationFrame(() => paintHeat(value));
 }
 
+/* ---------- statuses falling off ----------
+
+   A debuff that expires used to be there and then not be there, between two
+   frames, with nothing in between. Whether the Vulnerable you were counting on
+   is still up is a question the player is asking every turn, and the answer
+   arrived as a silent absence — you had to notice a thing that was no longer
+   drawn.
+
+   So a pip that goes gets one beat of going. The render draws what state holds,
+   as it should; this walks the difference afterwards and puts a ghost back
+   where the missing one was, to fade on its own and remove itself.
+
+   Keyed by owner AND status, so a stack dropping from 3 to 2 is a pip that
+   changed rather than one that left — only the last stack fades. */
+
+interface PipMemory {
+  readonly text: string;
+  readonly cls: string;
+}
+
+const lastPips = new Map<string, Map<string, PipMemory>>();
+
+/** How long a departing pip lingers. Matches the CSS below. */
+const PIP_FADE_MS = 480;
+
+export function fadeExpiredPips(host: HTMLElement): void {
+  const seen = new Set<string>();
+
+  for (const box of host.querySelectorAll<HTMLElement>('.pips[data-owner]')) {
+    const owner = box.dataset['owner'];
+    if (owner === undefined) continue;
+    seen.add(owner);
+
+    const now = new Map<string, PipMemory>();
+    for (const pip of box.querySelectorAll<HTMLElement>('.pip[data-status]')) {
+      const id = pip.dataset['status'];
+      if (id === undefined) continue;
+      now.set(id, { text: pip.textContent ?? '', cls: pip.className });
+    }
+
+    const before = lastPips.get(owner);
+    lastPips.set(owner, now);
+    if (before === undefined || prefersReducedMotion()) continue;
+
+    for (const [id, was] of before) {
+      if (now.has(id)) continue;
+      const ghost = document.createElement('span');
+      ghost.className = `${was.cls} is-expiring`;
+      ghost.textContent = was.text;
+      ghost.setAttribute('aria-hidden', 'true');
+      box.append(ghost);
+      window.setTimeout(() => ghost.remove(), PIP_FADE_MS);
+    }
+  }
+
+  // An enemy that died takes its statuses with it and is not a fade.
+  for (const owner of [...lastPips.keys()]) {
+    if (!seen.has(owner)) lastPips.delete(owner);
+  }
+}
+
+/** A new fight knows nothing about the last one's statuses. */
+export function forgetPips(): void {
+  lastPips.clear();
+}
+
 export function settleBars(): void {
   for (const [key, bar] of staged) {
     staged.delete(key);

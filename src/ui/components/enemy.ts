@@ -46,6 +46,9 @@ export function renderEnemy(
       {
         class: `pip pip--${statusTable.find(held.status)?.kind ?? 'debuff'}`,
         title: statusTable.find(held.status)?.text ?? held.status,
+        // Identity, so the animation layer can tell one that fell off from one
+        // that only changed its count. See `fadeExpiredPips`.
+        'data-status': held.status,
       },
       [describeStatus(held.status, held.stacks)],
     ),
@@ -110,7 +113,9 @@ export function renderEnemy(
         ),
       ]),
       hpBar,
-      statusRow.length > 0 ? el('div', { class: 'pips' }, statusRow) : null,
+      // Always rendered, even empty: a pip that expires needs somewhere to fade
+      // out, and a container that disappears with it takes the fade with it.
+      el('div', { class: 'pips', 'data-owner': enemy.uid }, statusRow),
       marked
         ? el('div', { class: 'debris-mark', title: 'A rock is coming for this one at the end of the round.' }, [
             el('span', { 'aria-hidden': 'true' }, ['◎']),

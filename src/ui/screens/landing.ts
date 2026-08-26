@@ -29,11 +29,23 @@ const HOLD_MS = 2600;
 
 export function renderLanding(store: Store): HTMLElement {
   let timer = 0;
-  let left = false;
+
+  /* The latch is per LANDING, not per mount, and that distinction is a bug
+   * report: a `?` that turns out to be a derelict shows a second landing after
+   * the first, and the screen is not remounted between them — the shell sees
+   * 'landing' both times and only re-renders. A single `left` flag latched on
+   * the first Continue and the second screen's button then did nothing at all.
+   * No way forward, no way back: the run was over.
+   *
+   * The flag still exists, because the auto-advance timer and a click can both
+   * fire for the same screen and dispatching twice would skip a node. It is
+   * just scoped to the screen it belongs to. */
+  let showing = '';
+  let leftFor = '';
 
   const leave = (): void => {
-    if (left) return;
-    left = true;
+    if (leftFor === showing) return;
+    leftFor = showing;
     window.clearTimeout(timer);
     store.dispatch({ kind: 'leaveLanding' });
   };
@@ -52,6 +64,10 @@ export function renderLanding(store: Store): HTMLElement {
      * Thread ends up feeling like the game did something arbitrary. If anything
      * came due, the screen waits.
      */
+    /* Two screens for one node — the arrival and, for a `?`, what it turned
+       out to be — so the node id alone does not identify which one this is. */
+    showing = `${landing.nodeId}#${landing.outcome === true ? 'outcome' : 'arrival'}`;
+
     const held = landing.resolved.length > 0;
     window.clearTimeout(timer);
     if (!held) timer = window.setTimeout(leave, HOLD_MS);
@@ -60,8 +76,12 @@ export function renderLanding(store: Store): HTMLElement {
       'div',
       { class: `landing-inner${prefersReducedMotion() ? '' : ' is-arriving'}` },
       [
-        el('p', { class: 'landing-lede' }, ['You set down on']),
-        el('h1', { class: 'landing-name' }, [landing.title]),
+        /* "You set down on Dolmen Span" belongs to arriving, and the second
+           screen is not an arrival — you are already there, and what it says is
+           what you found. Repeating the header made the two screens look like
+           the same one shown twice. */
+        landing.outcome === true ? null : el('p', { class: 'landing-lede' }, ['You set down on']),
+        landing.outcome === true ? null : el('h1', { class: 'landing-name' }, [landing.title]),
         el('p', { class: 'landing-body' }, [landing.body]),
 
         /* The causal link, spelled out: the Thread by name, what you took on,
