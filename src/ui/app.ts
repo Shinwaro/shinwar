@@ -23,7 +23,7 @@ import { renderPause } from './screens/pause.ts';
 import { renderCoach } from './screens/coach.ts';
 import { el } from './dom.ts';
 import { play } from './sound.ts';
-import { forgetHeat, forgetPips, forgetResources } from './anim.ts';
+import { floatHealthChange, forgetHeat, forgetPips, forgetResources } from './anim.ts';
 import { ENCOUNTERS } from '../content/encounters.ts';
 import { SECT_RITES } from '../content/threads.ts';
 
@@ -127,6 +127,11 @@ function healthSound(state: GameState): void {
   if (before === null || before === health || screen === 'combat') return;
 
   play(health > before ? 'heal' : 'damage');
+  /* And the number, for the same reason: the bar moving in the corner is not
+     something you see while you are reading the option you just picked. After
+     a frame, so the run bar the figure rises from has been drawn. */
+  const moved = health - before;
+  requestAnimationFrame(() => floatHealthChange(moved));
 }
 
 function arrivalSound(state: GameState): void {

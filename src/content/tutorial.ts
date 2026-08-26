@@ -125,3 +125,12 @@ export const TUTORIAL_DECK: readonly string[] = [
 export const TUTORIAL_BLOCK_CARD = 'solar_parry';
 export const TUTORIAL_HEAT_CARD = 'thermal_lance';
 export const TUTORIAL_FOCUS_CARD = 'settle';
+/**
+ * The card the lesson spends its Focus on.
+ *
+ * Gaining a Focus and spending one are two different ideas and were taught as
+ * one: the step said what the stack WOULD become and then moved on, so the only
+ * resource whose whole point is being banked for later was never actually seen
+ * to pay out.
+ */
+export const TUTORIAL_SPEND_CARD = 'meridian_cut';

@@ -282,6 +282,20 @@ let heatDrawn: number | null = null;
 let heatScheduled: number | null = null;
 /** Where a walk in progress will end, or null when nothing is walking. */
 let heatWalkingTo: number | null = null;
+/**
+ * Which walk is the current one.
+ *
+ * A turn can schedule two: Heat arriving and then an overheat emptying the
+ * gauge, both set up in the same pass. Every paint carries the id of the walk
+ * that scheduled it, and a paint from a superseded walk is dropped.
+ *
+ * Without this the FIRST walk's last step cleared `heatWalkingTo` while the
+ * second was still running — so a `settleHeat` from the next render jumped the
+ * gauge to its final value, and the second walk's remaining timers then painted
+ * their way down from where they had got to. On screen: the gauge hit 0, sprang
+ * back up to 8, and counted down again over a couple of seconds.
+ */
+let heatWalkId = 0;
 /** When the walk in flight finishes, on `performance.now()`'s clock. */
 let heatEndsAt = 0;
 
@@ -356,6 +370,8 @@ export function stepHeat(to: number, delay: number, rising: boolean): number {
 
   heatScheduled = to;
   heatWalkingTo = to;
+  heatWalkId += 1;
+  const walk = heatWalkId;
   const count = Math.abs(to - from);
   const step = rising ? HEAT_RISE_MS : HEAT_TICK_MS;
 
@@ -364,6 +380,9 @@ export function stepHeat(to: number, delay: number, rising: boolean): number {
     const last = i === count;
     window.setTimeout(
       () => {
+        // A paint from a walk that has been superseded is a paint of a number
+        // that stopped being true before it arrived.
+        if (walk !== heatWalkId) return;
         paintHeat(value);
 
         /* Every tick that moves is marked for its own beat, in the colour of
@@ -375,7 +394,7 @@ export function stepHeat(to: number, delay: number, rising: boolean): number {
         tick?.classList.add(mark);
         window.setTimeout(() => tick?.classList.remove(mark), step);
 
-        if (last) heatWalkingTo = null;
+        if (last && walk === heatWalkId) heatWalkingTo = null;
       },
       delay + (i - 1) * step,
     );
@@ -404,6 +423,36 @@ export function settleHeat(target: number | null): void {
   const value = target;
   heatScheduled = target;
   requestAnimationFrame(() => paintHeat(value));
+}
+
+/**
+ * A number rising off the hull, outside a fight.
+ *
+ * Combat draws its own — every blow floats a figure on its beat — but that
+ * whole layer only runs on the combat screen, so an Anomaly that costs you 12
+ * health and a Safe Planet that gives you 8 changed a digit in the run bar and
+ * nothing else. The bar moved, and if you were reading the option text rather
+ * than the corner of the screen you never saw it.
+ *
+ * Takes the amount rather than reading state, because the caller is watching a
+ * difference and only it knows which way.
+ */
+export function floatHealthChange(amount: number): void {
+  if (amount === 0) return;
+  const anchor = document.querySelector('.stat--hull');
+  if (anchor === null) return;
+
+  const box = anchor.getBoundingClientRect();
+  if (box.width === 0 && box.height === 0) return;
+
+  floatText({
+    text: amount > 0 ? `+${amount}` : String(amount),
+    // The same two colours the fight uses. Health is health wherever you are.
+    kind: amount > 0 ? 'heal' : 'damage',
+    x: box.left + box.width / 2,
+    y: box.top + box.height * 0.32,
+    delay: 0,
+  });
 }
 
 /* ---------- Focus and Energy ----------
@@ -1100,6 +1149,15 @@ export interface LogFxTiming {
    * on the same clock.
    */
   readonly dealAt: number | null;
+  /**
+   * The cards drawn in this batch, by uid.
+   *
+   * Needed because "what is in my hand now that was not before" is the wrong
+   * question for a card like Jettison: it discards the hand and draws, the
+   * discard is shuffled back in to do it, and the same instances can come
+   * straight back. Those never looked like they arrived.
+   */
+  readonly drawn: readonly string[];
 }
 
 export function playLogFx(
@@ -1110,7 +1168,7 @@ export function playLogFx(
   if (fresh.length === 0) {
     settleBars();
     settleHeat(options.heat);
-    return { ms: 0, dealAt: null };
+    return { ms: 0, dealAt: null, drawn: [] };
   }
 
   /* A new batch is a new sequence, and the minimum gap between sounds is about
@@ -1171,6 +1229,7 @@ export function playLogFx(
   let pendingSkill: { delay: number } | null = null;
   let cardSpoke = false;
   let dealAt: number | null = null;
+  const drawn: string[] = [];
 
   /* Sound leads its picture. `delay` is when the number floats and the bar
      moves; the noise starts `SOUND_LEAD` before that, so the two arrive at the
@@ -1279,6 +1338,12 @@ export function playLogFx(
     }
     if (spokeHere) continue;
 
+    /* Whatever this batch drew, so the hand knows which of its cards arrived
+       rather than having to infer it from what was there before. */
+    if (entry.kind === 'card' && detail !== null && Array.isArray(detail['uids'])) {
+      for (const uid of detail['uids']) if (typeof uid === 'string') drawn.push(uid);
+    }
+
     /* ---- everything else: a stance, a draw, a card that only announced
             itself. One beat each, so an action that does two things says them
             in the order it did them. ---- */
@@ -1316,5 +1381,5 @@ export function playLogFx(
   // How long the whole sequence takes, so the caller can wait for it. The enemy
   // turn should not start while the player's last three numbers are still in
   // the air — that is exactly the "everything at once" the pacing is fixing.
-  return { ms: opened ? cursor : 0, dealAt };
+  return { ms: opened ? cursor : 0, dealAt, drawn };
 }

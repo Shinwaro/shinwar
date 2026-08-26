@@ -24,6 +24,7 @@ import type { Store } from '../store.ts';
 import {
   TUTORIAL_BLOCK_CARD,
   TUTORIAL_FOCUS_CARD,
+  TUTORIAL_SPEND_CARD,
   TUTORIAL_HEAT_CARD,
 } from '../../content/tutorial.ts';
 import { cards as cardTable } from '../../content/registry.ts';
@@ -134,8 +135,14 @@ const STEPS: readonly Step[] = [
        folding them into one meant the number appeared while the player was
        still looking at their hand. */
     title: 'There it is',
-    body: 'Six Block, sitting above your health. The hauler swings for six at the end of this turn — that is the whole of it absorbed, and nothing reaches you.',
-    targets: ['.shield'],
+    /* Two things happened, and only one of them used to be mentioned.
+     *
+     * Solar Shield's GUARD rider puts Weak on what it is aimed at, so the card
+     * the lesson opens with is also the player's first status — and it went by
+     * unnamed while the step talked about Block. A pip appearing on the enemy
+     * with no explanation is how a player learns to ignore pips. */
+    body: 'Six Block, sitting above your health — the hauler swings for six at the end of this turn, and that is the whole of it absorbed. The mark on the hauler is Weak: while it is there, everything it swings for hits softer. Most statuses fall off on their own.',
+    targets: ['.shield', '.enemy .pip'],
     done: null,
   },
   {
@@ -177,6 +184,17 @@ const STEPS: readonly Step[] = [
       `Play ${cardTable.get(TUTORIAL_FOCUS_CARD).name}. It gains you a Focus — and the stance decides what that Focus becomes: damage in IAI, Block in GUARD.`,
     targets: aim(TUTORIAL_FOCUS_CARD),
     done: (state) => played(state, TUTORIAL_FOCUS_CARD),
+  },
+  {
+    /* Gaining a Focus and spending one are two ideas, and they were taught as
+       one: the step above says what the stack WOULD become and then moved on.
+       The only resource whose whole point is being banked for later was never
+       seen to pay out. */
+    title: 'Spend it',
+    body: () =>
+      `One Focus, banked. Play ${cardTable.get(TUTORIAL_SPEND_CARD).name} — the stack goes into it, and the row empties as it does. That is what Focus is: something you put away on a quiet turn and cash on a loud one.`,
+    targets: [...aim(TUTORIAL_SPEND_CARD), '.resource--focus'],
+    done: (state) => played(state, TUTORIAL_SPEND_CARD),
   },
   {
     title: 'The rest is for you to explore.',

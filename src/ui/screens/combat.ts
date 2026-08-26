@@ -381,7 +381,7 @@ export function renderCombat(store: Store): HTMLElement {
       },
     );
 
-    const moved = animateHand(host, state, leaving, selection.playedUid, played.dealAt);
+    const moved = animateHand(host, state, leaving, selection.playedUid, played.dealAt, played.drawn);
     selection.playedUid = null;
     handBefore = captureHand(host);
 
@@ -909,6 +909,16 @@ function animateHand(
    * batch has no turn-start draw in it, which is every other render.
    */
   dealAt: number | null,
+  /**
+   * What this batch drew, by uid.
+   *
+   * A card is normally "arriving" because it was not in the hand before. That
+   * is the wrong test for Jettison, which discards the hand and draws — the
+   * discard is shuffled back in to do it, so the same instances can come
+   * straight back and look like cards that never moved. The engine says what it
+   * dealt; this trusts that over the comparison.
+   */
+  drawn: readonly string[],
 ): number {
   if (prefersReducedMotion()) return 0;
 
@@ -918,7 +928,7 @@ function animateHand(
     const uid = node.dataset['uid'];
     if (uid === undefined) continue;
     now.add(uid);
-    if (!before.has(uid)) arrived.push(node);
+    if (!before.has(uid) || drawn.includes(uid)) arrived.push(node);
   }
 
   const pileRect = (key: string): DOMRect | null =>

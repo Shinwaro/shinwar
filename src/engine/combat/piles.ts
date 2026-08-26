@@ -90,7 +90,15 @@ export function narrateDraw(
       text: nameCards
         ? `Drew ${names.join(', ')}.`
         : `Drew ${result.moved.length} card${result.moved.length === 1 ? '' : 's'}.`,
-      detail: { count: result.moved.length },
+      /* The uids as well as the count.
+       *
+       * Jettison discards your hand and draws — and because the discard is
+       * shuffled straight back into the deck to do it, the cards that come back
+       * are often the very same instances. The animation layer works out what
+       * arrived by comparing the hand to the hand before it, so those looked
+       * like cards that had never left and did not deal in. Only the engine
+       * knows they went and came back. */
+      detail: { count: result.moved.length, uids: result.moved.map((card) => card.uid) },
     });
   }
 
