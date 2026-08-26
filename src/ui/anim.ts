@@ -423,7 +423,7 @@ let lastFocus: number | null = null;
 let lastEnergy: number | null = null;
 
 /** How long a moved mark stays lit. */
-const RESOURCE_FLASH_MS = 420;
+const RESOURCE_FLASH_MS = 380;
 
 function flashRow(marks: readonly HTMLElement[], from: number, to: number): void {
   const rising = to > from;
@@ -440,11 +440,17 @@ function flashRow(marks: readonly HTMLElement[], from: number, to: number): void
 }
 
 /**
- * Flash whatever moved on the Focus and Energy rows.
+ * Fade whatever moved on the Focus and Energy rows.
  *
  * Called after the render, which has already drawn the new counts — this only
- * marks which of them changed. Nothing to stage, because there is no walk: the
- * marks are already where they belong and the flash says which ones are new.
+ * marks which of them changed. Nothing to stage, because there is no walk:
+ * Focus and Energy change in one step, and animating them one at a time would
+ * be inventing a process that is not there.
+ *
+ * The CSS does the rest, and the two directions are not symmetric: a gained
+ * mark is already drawn lit so it fades IN from nothing, while a spent one has
+ * already been erased and has to be painted lit again for the length of the
+ * fade before it goes.
  */
 export function flashResources(host: HTMLElement, focus: number, energy: number): void {
   const focusMarks = [...host.querySelectorAll<HTMLElement>('.focus-tick')];
@@ -993,7 +999,7 @@ export interface LogFxOptions {
  * Only the mapping lives here. WHEN it plays is decided in `playLogFx`, on the
  * same timeline as the picture — see `playAt`.
  */
-function soundFor(entry: LogEntry, withRider: ReadonlySet<string>): SoundKey | null {
+function soundFor(entry: LogEntry, withRider: ReadonlyMap<string, string>): SoundKey | null {
   const detail = entry.detail;
   if (detail === null || typeof detail !== 'object' || Array.isArray(detail)) return null;
 
@@ -1023,7 +1029,7 @@ function soundFor(entry: LogEntry, withRider: ReadonlySet<string>): SoundKey | n
            be described by its effects, which meant a shield and a Focus and a
            Power all sounded the same as each other and as nothing. */
         const def = cardTable.find(card);
-        return def === undefined ? null : cardVoice(def, withRider.has(card));
+        return def === undefined ? null : cardVoice(def, withRider.get(card) ?? null);
       }
 
       /* Two draw sounds. The turn-start deal comes from `system`; anything else
@@ -1044,14 +1050,12 @@ function soundFor(entry: LogEntry, withRider: ReadonlySet<string>): SoundKey | n
       return cardTable.find(entry.source) === undefined ? 'block' : null;
     }
 
-    case 'damage': {
-      if (detail['to'] !== 'player') return null;
-      const toHull = detail['toHull'];
-      const blocked = detail['blocked'];
-      if (typeof toHull === 'number' && toHull > 0) return 'damage';
-      if (typeof blocked === 'number' && blocked > 0) return 'blocked';
+    /* Damage is the one entry that can be TWO events. A blow the shield partly
+       ate puts up a blue number and a red one, on their own beats, and it
+       should sound like both — so the sound is chosen per hit rather than per
+       entry. See the loop in `playLogFx`. */
+    case 'damage':
       return null;
-    }
 
     case 'combat':
       return typeof detail['health'] === 'number' ? 'heal' : null;
@@ -1064,15 +1068,21 @@ function soundFor(entry: LogEntry, withRider: ReadonlySet<string>): SoundKey | n
   }
 }
 
-/** Every card that fired a stance rider in this batch. A two-phase attack. */
-function ridersIn(fresh: readonly LogEntry[]): ReadonlySet<string> {
-  const out = new Set<string>();
+/**
+ * Which stance's rider each card fired in this batch, if any.
+ *
+ * The STANCE, not just the fact of one. Sever's rider is GUARD venting Heat,
+ * and treating any fired rider as "the two-phase attack" gave every Sever
+ * played in GUARD the IAI sound.
+ */
+function ridersIn(fresh: readonly LogEntry[]): ReadonlyMap<string, string> {
+  const out = new Map<string, string>();
   for (const entry of fresh) {
     const detail = entry.detail;
     if (detail === null || typeof detail !== 'object' || Array.isArray(detail)) continue;
-    if (typeof detail['rider'] === 'string' && typeof detail['card'] === 'string') {
-      out.add(detail['card']);
-    }
+    const rider = detail['rider'];
+    const card = detail['card'];
+    if (typeof rider === 'string' && typeof card === 'string') out.set(card, rider);
   }
   return out;
 }
@@ -1204,6 +1214,8 @@ export function playLogFx(
 
     /* ---- blows: grouped by swing, exactly as before ---- */
     let spokeHere = false;
+    // One voice per beat, so three enemies eating one arc is one sound.
+    const spokeOnBeat = new Set<number>();
     for (const hit of hitsFromEntry(entry)) {
       const anchor = locate(hit.target);
       if (anchor === null) continue;
@@ -1221,6 +1233,16 @@ export function playLogFx(
       if (sound !== null && !spokeHere) {
         speak(sound, delay);
         spokeHere = true;
+      }
+
+      /* A hit on YOU says what it did, per number rather than per blow. A blow
+         the shield partly ate is two events — the part it stopped and the part
+         it did not — and they already have two numbers on two beats. Hearing
+         only the worse of the two lost the whole point of having armour. */
+      if (hit.target === 'player' && !spokeOnBeat.has(delay)) {
+        if (hit.kind === 'shield') speak('blocked', delay);
+        else if (hit.toHull > 0) speak('damage', delay);
+        spokeOnBeat.add(delay);
       }
 
       if (reduced) continue;

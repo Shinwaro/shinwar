@@ -115,10 +115,14 @@ function walk(ops: readonly EffectOp[], into: Shape): void {
 /**
  * The one sound this card makes when it is played.
  *
- * `rider` is whether its stance bonus actually fired, which is not a property
- * of the card — it depends on the stance at the moment of play.
+ * `rider` is WHICH stance's bonus fired, or null — not a property of the card,
+ * because it depends on where you were standing when you played it.
+ *
+ * Which stance matters, and taking a boolean here was a bug: Sever's rider is
+ * GUARD venting 2 Heat, so every Sever played in GUARD came out with the IAI
+ * sound. The IAI voice belongs to the IAI bonus and to nothing else.
  */
-export function cardVoice(def: CardDef, rider: boolean): SoundKey {
+export function cardVoice(def: CardDef, rider: string | null): SoundKey {
   const shape: Shape = {
     damage: false,
     aoe: false,
@@ -145,7 +149,7 @@ export function cardVoice(def: CardDef, rider: boolean): SoundKey {
     /* The stance bonus wins over the shape. A card that hits harder because of
        where you are standing is that card, whatever else it is doing — which is
        the whole reason IAI has a sound of its own. */
-    if (rider) return 'cardAttackIai';
+    if (rider === 'iai') return 'cardAttackIai';
 
     if (shape.aoe) {
       if (shape.multi) return 'atkAoeMultihit';

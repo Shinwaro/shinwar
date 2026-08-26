@@ -55,27 +55,35 @@ describe('a card is announced by its shape', () => {
         wrong.push(`${id} is not a card any more`);
         continue;
       }
-      const got = cardVoice(def, false);
+      const got = cardVoice(def, null);
       if (got !== want) wrong.push(`${def.name}: ${got}, wanted ${want}`);
     }
     expect(wrong).toEqual([]);
   });
 
-  it('lets the IAI rider win over the shape, when it actually fired', () => {
+  it('lets the IAI rider win over the shape, and only the IAI one', () => {
     /* A card that hits harder for where you are standing is that card, whatever
        else it is doing — which is the whole reason IAI has a sound of its own.
        It depends on the stance at the moment of play, so it is an argument
-       rather than a property of the card. */
-    const def = cardTable.get('iai_slash');
-    expect(cardVoice(def, false)).not.toBe('cardAttackIai');
-    expect(cardVoice(def, true)).toBe('cardAttackIai');
+       rather than a property of the card.
+     *
+     * WHICH stance is the part that was wrong: Sever's rider is GUARD venting
+     * Heat, and a boolean here gave every Sever played in GUARD the two-phase
+     * attack sound. */
+    const slash = cardTable.get('iai_slash');
+    expect(cardVoice(slash, null)).not.toBe('cardAttackIai');
+    expect(cardVoice(slash, 'iai')).toBe('cardAttackIai');
+
+    const sever = cardTable.get('sever');
+    expect(sever.stanceRider?.stance, 'Sever stopped being the GUARD case').toBe('guard');
+    expect(cardVoice(sever, 'guard'), 'a GUARD rider is not an IAI attack').toBe('atkBig');
   });
 
   it('gives every shipped card a voice', () => {
     // `cardSkill` is the floor, not a failure — but a card should never fall
     // through to it just because a new op was added and nobody taught this.
     for (const def of cardTable.all()) {
-      expect(typeof cardVoice(def, false), def.id).toBe('string');
+      expect(typeof cardVoice(def, null), def.id).toBe('string');
     }
   });
 
@@ -85,7 +93,7 @@ describe('a card is announced by its shape', () => {
        sounds the same again, which is where this started. */
     const tally = new Map<string, number>();
     for (const def of cardTable.all()) {
-      const voice = cardVoice(def, false);
+      const voice = cardVoice(def, null);
       tally.set(voice, (tally.get(voice) ?? 0) + 1);
     }
     const total = cardTable.all().length;

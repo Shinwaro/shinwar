@@ -97,6 +97,38 @@ let lastScreen: string | null = null;
  * single screen can see one — the screen that is arriving has no idea what it
  * replaced, and the one it replaced is gone by the time it could ask.
  */
+/**
+ * Health moving outside a fight.
+ *
+ * Combat announces its own damage and healing from the log, but the log is only
+ * read on the combat screen — so an Anomaly that costs you 12 health, a Safe
+ * Planet that gives you 8, a repair bought at a Station and a Thread coming due
+ * all happened in complete silence. They are the same two events; the hull is
+ * the hull wherever you are standing.
+ *
+ * Watched as a difference rather than read from the log, because these arrive
+ * through half a dozen different paths and the one thing they all have in
+ * common is that the number changed.
+ */
+let lastHealth: number | null = null;
+
+function healthSound(state: GameState): void {
+  const health = state.run?.pilot.health ?? null;
+  const screen = state.run?.screen ?? null;
+
+  if (health === null) {
+    lastHealth = null;
+    return;
+  }
+  const before = lastHealth;
+  lastHealth = health;
+
+  // In a fight the blows already speak, on the beat, with the numbers.
+  if (before === null || before === health || screen === 'combat') return;
+
+  play(health > before ? 'heal' : 'damage');
+}
+
 function arrivalSound(state: GameState): void {
   /* Keyed on the screen AND, for a landing, on which landing — a `?` that turns
      out to be a derelict shows two of them in a row, and 'landing' to 'landing'
@@ -364,6 +396,7 @@ export function mountApp(root: HTMLElement, store: Store): void {
   coachIfNeeded(store.getState());
   store.subscribe((state) => {
     arrivalSound(state);
+    healthSound(state);
     render(state);
     coachIfNeeded(state);
   });

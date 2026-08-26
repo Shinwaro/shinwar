@@ -149,7 +149,7 @@ const LEVEL: Partial<Record<SoundKey, number>> = {
   overclocked: 0.6,
   focus: 0.55,
   energy: 0.55,
-  heatGain: 1,
+  heatGain: 0.4,
   vent: 0.45,
   endTurn: 0.5,
   stanceIai: 0.5,

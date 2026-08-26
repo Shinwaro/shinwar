@@ -2761,46 +2761,55 @@
  * Focus and Energy used to change by having a different number of marks lit
  * between two frames, which is a state change rather than an event — and Focus
  * is spent silently in the middle of an attack, so the thing you were saving
- * vanished with nothing to look at. The moving mark is lit for a beat, in the
- * direction it moved, which is what the sounds are describing.
+ * vanished with nothing to look at.
  *
- * Deliberately different shapes, not just colours: arriving swells, spending
- * collapses. Direction survives being seen out of the corner of an eye. */
+ * A fade, in the direction it moved. The first version scaled and brightened,
+ * which was almost invisible on a gain: the mark was ALREADY drawn lit by the
+ * render, so there was nothing to appear. So a gained mark fades in from
+ * nothing, and a spent one is painted lit again for the length of the fade and
+ * then goes — otherwise it is fading something the render has already erased.
+ */
 .focus-tick.is-gaining,
 .energy-pip.is-gaining {
-  animation: mark-in 0.42s ease-out;
+  animation: mark-in 0.38s ease-out;
 }
 
-.focus-tick.is-spending,
+/* Painted as if still full, then let go. The render has already emptied it. */
+.focus-tick.is-spending {
+  background: var(--ink);
+  border-color: var(--ink);
+  animation: mark-out 0.38s ease-in;
+}
+
 .energy-pip.is-spending {
-  animation: mark-out 0.42s ease-out;
+  background: var(--accent);
+  border-color: var(--accent);
+  animation: mark-out 0.38s ease-in;
 }
 
 @keyframes mark-in {
   0% {
-    transform: scale(0.6);
-    filter: brightness(2.4);
+    opacity: 0;
+    transform: scale(0.7);
   }
-  55% {
-    transform: scale(1.28);
-    filter: brightness(1.9);
+  60% {
+    opacity: 1;
+    transform: scale(1.18);
   }
   100% {
+    opacity: 1;
     transform: scale(1);
-    filter: brightness(1);
   }
 }
 
 @keyframes mark-out {
   0% {
-    transform: scale(1.24);
-    filter: brightness(2.2);
     opacity: 1;
+    transform: scale(1.14);
   }
   100% {
-    transform: scale(0.86);
-    filter: brightness(1);
-    opacity: 0.55;
+    opacity: 0;
+    transform: scale(0.8);
   }
 }
 
