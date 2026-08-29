@@ -177,7 +177,7 @@ export const MAP_INFO: readonly InfoSection[] = [
     entries: [
       { term: 'You choose forward, never back', text: 'A route is a commitment. Lines only run up the chart, so what you skip is skipped for the act.' },
       { term: 'The Wavefront', text: 'From Act 2, the collapse front follows you up the chart. A Station or a Safe Planet costs two rows of lead instead of one — the detour is priced.' },
-      { term: 'The Reliquary', text: 'Halfway through Act 2, a full row of your own order’s vault. Every route crosses it, and it is the only place a legendary card comes from.' },
+      { term: 'The Reliquary', text: 'Halfway through Act 2, a full row of your own order’s vault. Every route crosses it, and it is the only place a Mythic card comes from.' },
       { term: 'The Manifest', text: 'The panel beside the chart lists the Threads you are holding. Each one comes due later in the same run, always.' },
     ],
   },

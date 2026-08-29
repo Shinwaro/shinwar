@@ -131,13 +131,16 @@ export function rollCardChoices(
   const pool = offerableCards();
   if (pool.length === 0) return { cardIds: [], rng };
 
-  /* A boss offers epics, and offers them flat.
+  /* A boss offers one tier, flat — `REWARDS.bossOfferRarity`.
   
-     Same argument as its relics and implants: the tier is the finale's, not a
-     roll's, and the three have to be comparable to each other or the screen is
-     one right answer with two decorations beside it. The archetype nudge is
-     dropped here too — the nudge exists to rescue a run that keeps being
-     offered nothing it wants, and eleven epics is not a drought. */
+     Same argument as its relics: the tier is the finale's, not a roll's, and
+     the three have to be comparable to each other or the screen is one right
+     answer with two decorations beside it. The archetype nudge is dropped here
+     too — the nudge exists to rescue a run that keeps being offered nothing it
+     wants, and a full tier of cards is not a drought.
+
+     The IMPLANT row is the one exception and it rolls its tier; see
+     `rollBossImplants` for why the two differ. */
   if (tier === 'boss') {
     const epics = pool.filter((card) => card.rarity === REWARDS.bossOfferRarity);
     if (epics.length > 0) {
@@ -302,8 +305,8 @@ export function rollRelics(
   /*
    * One tier for the whole offer, rolled first.
    *
-   * Rolling each slot independently produced screens with a common, a rare and
-   * a legendary side by side, which is not a choice — it is a right answer with
+   * Rolling each slot independently produced screens with a Common, an Epic and
+   * a Mythic side by side, which is not a choice — it is a right answer with
    * two decorations next to it. Picking the tier first and then filling from it
    * means the three are comparable, and the decision is which effect suits the
    * build rather than which border is shiniest.
@@ -322,10 +325,10 @@ export function rollRelics(
      the boss telling you the last hour did not matter, and a rolled tier means
      the three fights that end the three acts are not comparable to each other.
      Falls back to the roll only if the tier is exhausted, which takes carrying
-     every epic relic in the game. */
+     every relic on it. */
   if (tier === 'boss' && usable.includes(REWARDS.bossOfferRarity)) {
-    const epics = pool.filter((def) => def.rarity === REWARDS.bossOfferRarity);
-    const picked = sample(rng, 'rewards', epics, Math.min(REWARDS.relicChoices, epics.length));
+    const finale = pool.filter((def) => def.rarity === REWARDS.bossOfferRarity);
+    const picked = sample(rng, 'rewards', finale, Math.min(REWARDS.relicChoices, finale.length));
     return { relicIds: picked.value.map((def) => def.id), rng: picked.rng };
   }
 

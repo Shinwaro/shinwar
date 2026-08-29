@@ -290,8 +290,8 @@ export const DISCARD_CARDS: readonly CardDef[] = [
     exhaust: true,
     /* Two, not three. At three it was Empty the Rack's number applied to the
        whole board for the same Energy, which makes the single-target card
-       pointless in every fight with more than one enemy — and Empty the Rack is
-       a rare that has to still be worth taking. */
+       pointless in every fight with more than one enemy — and Empty the Rack
+       has to still be worth taking at its own tier. */
     effects: [
       { op: 'discard', amount: 0, all: true },
       {

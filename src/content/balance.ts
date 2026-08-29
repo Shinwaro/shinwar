@@ -523,10 +523,10 @@ export const RARITY_WEIGHTS: {
  * The same ladder, for relics — and it has to be its own table.
  *
  * Relics shared `RARITY_WEIGHTS` with cards until the Reliquary arrived and
- * zeroed the top two tiers. That gate is about *cards*: one legendary card a
- * run, from one place. Relics have nothing to do with it, and sharing the
- * table meant zeroing two card tiers silently made three legendary relics and
- * the artifact unobtainable — a regression nothing failed on, because no test
+ * zeroed the top two tiers. That gate is about *cards*: one Mythic card a run,
+ * from one place. Relics have nothing to do with it, and sharing the table
+ * meant zeroing two card tiers silently made three Mythic relics and the
+ * Artifact unobtainable — a regression nothing failed on, because no test
  * asserted that every relic can actually be reached.
  *
  * Two tables, because the two systems now have genuinely different rules.
