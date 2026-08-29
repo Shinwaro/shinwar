@@ -12,7 +12,8 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "sim": "node sim/index.ts",
-    "dump": "node --experimental-strip-types tools/dump.ts"
+    "dump": "node --experimental-strip-types tools/dump.ts",
+    "pages": "node --experimental-strip-types tools/pages/build.ts"
   },
   "devDependencies": {
     "@types/node": "^24.10.1",

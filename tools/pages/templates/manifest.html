@@ -1,0 +1,391 @@
+<title>Shinwar Manifest</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;1,400&display=swap">
+
+<style>
+/* The game's own tokens. Shinwar is dark by decision — `color-scheme: dark` is
+   set deliberately in tokens.css and there is no light mode — so this reference
+   commits to the same single world rather than inventing a second one. */
+:root {
+  color-scheme: dark;
+  --bg: #050507;
+  --surface: #101116;
+  --surface-2: #16171d;
+  --ink: #f2f0ec;
+  --muted: rgba(242, 240, 236, 0.66);
+  --faint: rgba(242, 240, 236, 0.4);
+  --line: rgba(255, 255, 255, 0.12);
+  --line-strong: rgba(255, 255, 255, 0.28);
+  --accent: #e8a87c;
+  --iai: #f0a13c;
+  --guard: #6ba8e8;
+  --flow: #8fd6a8;
+  --danger: #d4574f;
+
+  --r-basic: rgba(255, 255, 255, 0.34);
+  --r-common: rgba(255, 255, 255, 0.34);
+  --r-uncommon: #6ba8e8;
+  --r-epic: #b79ae0;
+  --r-legendary: #f2c744;
+  --r-mythic: #ff7a4d;
+  --r-artifact: #f4e3b0;
+
+  --sans: 'IBM Plex Sans', ui-sans-serif, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --cond: 'IBM Plex Sans Condensed', 'IBM Plex Sans', ui-sans-serif, 'Segoe UI', sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap { max-width: 78rem; margin: 0 auto; padding: 3rem 1.5rem 6rem; }
+
+/* ---------- masthead ---------- */
+
+.eyebrow {
+  font-family: var(--cond);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 0 0 0.5rem;
+}
+
+h1 {
+  font-family: var(--cond);
+  font-size: clamp(2rem, 5vw, 3.1rem);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.05;
+  margin: 0 0 0.6rem;
+  text-wrap: balance;
+}
+
+.standfirst { color: var(--muted); max-width: 46rem; margin: 0; font-size: 1.02rem; }
+
+.counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.75rem;
+  margin: 1.5rem 0 0;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--line-strong);
+}
+.count-n {
+  font-family: var(--mono);
+  font-size: 1.7rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  display: block;
+  line-height: 1;
+}
+.count-l {
+  font-family: var(--cond);
+  font-size: 0.68rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+/* ---------- nav ---------- */
+
+nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 1.5rem 0 0;
+  position: sticky;
+  top: 0;
+  padding: 0.7rem 0;
+  background: linear-gradient(var(--bg) 78%, transparent);
+  z-index: 5;
+}
+
+nav a {
+  font-family: var(--cond);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--faint);
+  text-decoration: none;
+  padding: 0.25rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+}
+nav a:hover, nav a:focus-visible { color: var(--ink); border-color: var(--accent); }
+
+/* ---------- sections ---------- */
+
+h2 {
+  font-family: var(--cond);
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 3rem 0 0.3rem;
+  padding-top: 1.3rem;
+  border-top: 1px solid var(--line);
+  scroll-margin-top: 4rem;
+}
+
+.lede { color: var(--muted); margin: 0 0 1.2rem; max-width: 48rem; font-size: 0.94rem; }
+
+/* ---------- tables ---------- */
+
+.scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+
+thead th {
+  font-family: var(--cond);
+  font-size: 0.64rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--faint);
+  text-align: left;
+  padding: 0 0.7rem 0.45rem;
+  border-bottom: 1px solid var(--line-strong);
+  white-space: nowrap;
+}
+
+tbody td { padding: 0.65rem 0.7rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+tbody tr:last-child td { border-bottom: 0; }
+
+.nm { font-weight: 500; color: var(--ink); white-space: nowrap; }
+.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+/* ---------- the card table ---------- */
+
+.cards td { border-left: 3px solid transparent; }
+.cards tr[data-rarity='basic'] td:first-child,
+.cards tr[data-rarity='common'] td:first-child { border-left-color: var(--r-common); }
+.cards tr[data-rarity='uncommon'] td:first-child { border-left-color: var(--r-uncommon); }
+.cards tr[data-rarity='epic'] td:first-child { border-left-color: var(--r-epic); }
+.cards tr[data-rarity='legendary'] td:first-child { border-left-color: var(--r-legendary); }
+.cards tr[data-rarity='mythic'] td:first-child { border-left-color: var(--r-mythic); }
+.cards tr[data-rarity='artifact'] td:first-child { border-left-color: var(--r-artifact); }
+
+.c-cost { width: 3rem; }
+.c-name { min-width: 11rem; }
+.c-tier { width: 6rem; }
+.c-text { min-width: 20rem; }
+
+.cost {
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  display: inline-grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  color: var(--accent);
+}
+
+.c-name .sub {
+  display: block;
+  font-family: var(--cond);
+  font-size: 0.66rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--faint);
+  margin-top: 0.1rem;
+}
+
+.tier {
+  font-family: var(--cond);
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--tc, var(--r-common));
+}
+.tier[data-rarity='basic'], .tier[data-rarity='common'] { --tc: var(--r-common); }
+.tier[data-rarity='uncommon'] { --tc: var(--r-uncommon); }
+.tier[data-rarity='epic'] { --tc: var(--r-epic); }
+.tier[data-rarity='legendary'] { --tc: var(--r-legendary); }
+.tier[data-rarity='mythic'] { --tc: var(--r-mythic); }
+.tier[data-rarity='artifact'] { --tc: var(--r-artifact); }
+
+.tag {
+  display: inline-block;
+  font-family: var(--cond);
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--faint);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  padding: 0 0.3rem;
+  margin: 0.25rem 0.25rem 0 0;
+}
+.tag--start { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+.tag--elite { color: var(--iai); border-color: color-mix(in srgb, var(--iai) 45%, transparent); }
+.tag--boss { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+.tag--iai { color: var(--iai); }
+.tag--guard { color: var(--guard); }
+.tag--flow { color: var(--flow); }
+
+.rider {
+  margin-top: 0.3rem;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+.rider-k {
+  font-family: var(--cond);
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: var(--iai);
+  margin-right: 0.35rem;
+}
+
+.up {
+  display: flex;
+  gap: 0.45rem;
+  align-items: baseline;
+  margin-top: 0.4rem;
+  padding-top: 0.4rem;
+  border-top: 1px dashed var(--line);
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+.up-k {
+  font-family: var(--mono);
+  color: var(--accent);
+  font-weight: 600;
+}
+.up .cost { width: 1.3rem; height: 1.3rem; font-size: 0.72rem; }
+.rider--up { margin-top: 0.2rem; }
+
+footer {
+  margin-top: 3rem;
+  padding-top: 1.2rem;
+  border-top: 1px solid var(--line);
+  color: var(--faint);
+  font-size: 0.82rem;
+}
+
+a { color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+</style>
+
+<div class="wrap">
+
+  <header>
+    <p class="eyebrow">Shinwar &middot; content reference</p>
+    <h1>Shinwar Manifest</h1>
+    <p class="standfirst">
+      Everything the game ships, with its rules text generated by the engine's own
+      <code>describeCard()</code> and <code>describeImplant()</code> — the same functions that print
+      it on screen. Nothing here is transcribed by hand, so nothing here can drift from what you
+      actually play.
+    </p>
+    <div class="counts">
+      <div><span class="count-n">{{NCARDS}}</span><span class="count-l">Cards</span></div>
+      <div><span class="count-n">{{NRELICS}}</span><span class="count-l">Relics</span></div>
+      <div><span class="count-n">{{NIMPLANTS}}</span><span class="count-l">Implants</span></div>
+      <div><span class="count-n">{{NENEMIES}}</span><span class="count-l">Enemies</span></div>
+      <div><span class="count-n">{{NENCOUNTERS}}</span><span class="count-l">Encounters</span></div>
+      <div><span class="count-n">{{NENVS}}</span><span class="count-l">Environments</span></div>
+    </div>
+
+    <nav aria-label="Sections">
+      <a href="#cards">Cards</a>
+      <a href="#relics">Relics</a>
+      <a href="#implants">Implants</a>
+      <a href="#environments">Environments</a>
+      <a href="#enemies">Enemies</a>
+      <a href="#encounters">Encounters</a>
+      <a href="#masteries">Masteries</a>
+      <a href="#statuses">Statuses</a>
+      <a href="#keywords">Keywords</a>
+    </nav>
+  </header>
+
+  <main>
+
+    <h2 id="cards">Cards</h2>
+    <p class="lede">
+      By tier, then name. The dashed line under a card is its upgrade — only the parts that change
+      are shown, and a cost circle appears there only when the cost itself moves.
+      <strong>{{RARITYMIX}}</strong>. By type: {{TYPEMIX}}.
+    </p>
+    <div class="scroll">
+      <table class="cards">
+        <thead><tr><th></th><th>Card</th><th>Tier</th><th>Rules</th></tr></thead>
+        <tbody>{{CARDROWS}}</tbody>
+      </table>
+    </div>
+
+    <h2 id="relics">Relics</h2>
+    <p class="lede">
+      From Elites and act finales. One per Elite, and a boss offers three of a fixed tier and lets
+      you take one.
+    </p>
+    {{RELICS}}
+
+    <h2 id="implants">Implants</h2>
+    <p class="lede">
+      Bought at a Station, or chosen from a boss's three. <em>Max</em> is how many one run may fit —
+      the small ones stack into a build, the run-definers are capped at one so a pile of Alloy
+      cannot simply buy six Energy.
+    </p>
+    {{IMPLANTS}}
+
+    <h2 id="environments">Environments</h2>
+    <p class="lede">
+      Shown on the node before you commit to the route, and they change the rules of that fight for
+      both sides. Bosses always fight in Clear Space.
+    </p>
+    {{ENVS}}
+
+    <h2 id="enemies">Enemies</h2>
+    <p class="lede">Moves are listed in the order their script runs them.</p>
+    {{ENEMIES}}
+
+    <h2 id="encounters">Encounters</h2>
+    <p class="lede">
+      What actually appears on a node. <em>From row</em> holds an encounter back until the chart has
+      had time to teach you what it needs — a Swarm on the arrival node is not variety, it is a
+      difficulty spike wearing variety's coat.
+    </p>
+    {{ENCOUNTERS}}
+
+    <h2 id="masteries">Stance Masteries</h2>
+    <p class="lede">
+      Bought at a Station. A Mastery permanently rewrites one stance, so the deck you already have
+      reads differently afterwards.
+    </p>
+    {{MASTERIES}}
+
+    <h2 id="statuses">Statuses</h2>
+    <p class="lede">Both multiplicative statuses are capped, and the cap is in the data beside the number it caps.</p>
+    {{STATUSES}}
+
+    <h2 id="keywords">Keywords</h2>
+    <p class="lede">
+      Four. The target is at most fourteen at 1.0 — depth is meant to come from stance and heat
+      recontextualising a small vocabulary, not from more nouns.
+    </p>
+    {{KEYWORDS}}
+
+  </main>
+
+  <footer>
+    Generated from <code>src/content/</code> through the engine's own describe functions. Rebuild it
+    after any content change rather than editing it by hand.
+  </footer>
+
+</div>

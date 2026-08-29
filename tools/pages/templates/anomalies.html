@@ -1,0 +1,556 @@
+<title>Anomaly Ledger</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;1,400&display=swap">
+
+<style>
+/* SHINWAR's own tokens. The game is dark by decision, not by default —
+   `color-scheme: dark` is set deliberately in tokens.css and there is no light
+   mode — so this reference commits to the same single world rather than
+   inventing a second one the game does not have. */
+:root {
+  color-scheme: dark;
+  --bg: #050507;
+  --surface: #101116;
+  --surface-2: #16171d;
+  --ink: #f2f0ec;
+  --muted: rgba(242, 240, 236, 0.66);
+  --faint: rgba(242, 240, 236, 0.4);
+  --line: rgba(255, 255, 255, 0.12);
+  --line-strong: rgba(255, 255, 255, 0.28);
+  --accent: #e8a87c;
+  --iai: #f0a13c;
+  --guard: #6ba8e8;
+  --good: #7fc98f;
+  --danger: #d4574f;
+
+  --tone-pos: #7fc98f;
+  --tone-mix: #e8a87c;
+  --tone-cost: #d4574f;
+
+  --r-common: rgba(255, 255, 255, 0.34);
+  --r-uncommon: #6ba8e8;
+  --r-epic: #b79ae0;
+  --r-legendary: #f2c744;
+  --r-mythic: #ff7a4d;
+  --r-artifact: #f4e3b0;
+
+  --sans: 'IBM Plex Sans', ui-sans-serif, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --cond: 'IBM Plex Sans Condensed', 'IBM Plex Sans', ui-sans-serif, 'Segoe UI', sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2.5rem;
+  max-width: 82rem;
+  margin: 0 auto;
+  padding: 3rem 1.5rem 6rem;
+}
+
+@media (min-width: 1080px) {
+  .wrap { grid-template-columns: 13rem minmax(0, 1fr); gap: 3rem; align-items: start; }
+}
+
+/* ---------- masthead ---------- */
+
+.mast { grid-column: 1 / -1; border-bottom: 1px solid var(--line-strong); padding-bottom: 1.5rem; }
+
+.eyebrow {
+  font-family: var(--cond);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 0 0 0.5rem;
+}
+
+h1 {
+  font-family: var(--cond);
+  font-size: clamp(2rem, 5vw, 3.1rem);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.05;
+  margin: 0 0 0.6rem;
+  text-wrap: balance;
+}
+
+.standfirst { color: var(--muted); max-width: 46rem; margin: 0; font-size: 1.02rem; }
+
+.counts { display: flex; flex-wrap: wrap; gap: 1.75rem; margin-top: 1.5rem; }
+.count-n {
+  font-family: var(--mono);
+  font-size: 1.7rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  display: block;
+  line-height: 1;
+}
+.count-l {
+  font-family: var(--cond);
+  font-size: 0.68rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+/* ---------- index rail ---------- */
+
+.rail { display: none; }
+
+@media (min-width: 1080px) {
+  .rail {
+    display: block;
+    position: sticky;
+    top: 2rem;
+    max-height: calc(100vh - 4rem);
+    overflow-y: auto;
+    font-family: var(--cond);
+    font-size: 0.82rem;
+  }
+  .rail a {
+    display: block;
+    padding: 0.22rem 0;
+    color: var(--faint);
+    text-decoration: none;
+    border-left: 2px solid transparent;
+    padding-left: 0.7rem;
+  }
+  .rail a:hover, .rail a:focus-visible { color: var(--ink); border-left-color: var(--accent); }
+}
+
+.rail-head {
+  font-family: var(--cond);
+  font-size: 0.66rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--faint);
+  margin: 0 0 0.6rem 0.7rem;
+}
+
+/* ---------- sections ---------- */
+
+.body { min-width: 0; }
+
+h2 {
+  font-family: var(--cond);
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  margin: 3.5rem 0 0.4rem;
+  padding-top: 1.4rem;
+  border-top: 1px solid var(--line);
+}
+
+h2:first-child { margin-top: 0; border-top: 0; padding-top: 0; }
+
+.lede { color: var(--muted); margin: 0 0 1.5rem; max-width: 46rem; }
+
+/* ---------- findings ---------- */
+
+.finds { display: grid; gap: 1rem; margin-bottom: 1.5rem; }
+
+.find {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--flag, var(--line-strong));
+  border-radius: 3px;
+  padding: 1rem 1.15rem;
+}
+.find--fixed { --flag: var(--good); }
+.find--open { --flag: var(--danger); }
+
+.find-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+  align-items: baseline;
+  margin-bottom: 0.35rem;
+}
+.find-t { font-family: var(--cond); font-weight: 600; font-size: 1.05rem; }
+.find-s {
+  font-family: var(--cond);
+  font-size: 0.63rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--flag);
+}
+.find p { margin: 0.35rem 0 0; color: var(--muted); font-size: 0.94rem; }
+.find p:first-of-type { margin-top: 0; }
+
+/* ---------- tables ---------- */
+
+.scroll { overflow-x: auto; }
+
+table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+
+thead th {
+  font-family: var(--cond);
+  font-size: 0.64rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--faint);
+  text-align: left;
+  padding: 0 0.7rem 0.45rem;
+  border-bottom: 1px solid var(--line-strong);
+  white-space: nowrap;
+}
+
+tbody td {
+  padding: 0.7rem;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+
+tbody tr:last-child td { border-bottom: 0; }
+
+.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.strong { color: var(--ink); font-weight: 600; }
+.dim { color: var(--faint); }
+.nothing { color: rgba(242, 240, 236, 0.22); }
+
+/* ---------- one anomaly ---------- */
+
+.ev {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 1.15rem 1.15rem 0.5rem;
+  margin-bottom: 1.1rem;
+  scroll-margin-top: 1.5rem;
+}
+
+.ev-name {
+  font-family: var(--cond);
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin: 0 0 0.3rem;
+}
+
+.ev-body {
+  margin: 0 0 0.9rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-style: italic;
+  max-width: 52rem;
+}
+
+.opts { font-size: 0.86rem; }
+.opts td { padding: 0.75rem 0.7rem; }
+.opts tr.is-leave { opacity: 0.45; }
+
+.c-opt { min-width: 13rem; }
+.c-now { min-width: 11rem; }
+.c-later { min-width: 12rem; }
+.c-card { min-width: 15rem; }
+.c-tag { min-width: 8rem; }
+
+.opt-label { display: block; font-weight: 500; color: var(--ink); }
+.opt-detail { display: block; color: var(--faint); font-size: 0.8rem; font-style: italic; margin-top: 0.15rem; }
+
+/* ---------- chips, tags, figures ---------- */
+
+.chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  font-family: var(--cond);
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.1rem 0.45rem;
+  border: 1px solid currentColor;
+  border-radius: 2px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.chip--pos { color: var(--tone-pos); }
+.chip--mix { color: var(--tone-mix); }
+.chip--cost { color: var(--tone-cost); }
+.chip-when { font-family: var(--mono); font-size: 0.68rem; opacity: 0.75; }
+
+.later { margin-top: 0.35rem; font-size: 0.8rem; color: var(--muted); }
+.later-k {
+  font-family: var(--cond);
+  font-size: 0.6rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--faint);
+  margin-right: 0.3rem;
+}
+
+.tag {
+  display: block;
+  font-family: var(--cond);
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.tag--q { color: var(--faint); }
+
+.card-inline {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.2rem 0.45rem;
+  border-left: 3px solid var(--rar, var(--r-common));
+  padding-left: 0.6rem;
+}
+.card-inline[data-rarity='common'] { --rar: var(--r-common); }
+.card-inline[data-rarity='uncommon'] { --rar: var(--r-uncommon); }
+.card-inline[data-rarity='epic'] { --rar: var(--r-epic); }
+.card-inline[data-rarity='legendary'] { --rar: var(--r-legendary); }
+.card-inline[data-rarity='mythic'] { --rar: var(--r-mythic); }
+.card-inline[data-rarity='artifact'] { --rar: var(--r-artifact); }
+
+.ci-cost {
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  color: var(--faint);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  padding: 0 0.3rem;
+  align-self: start;
+}
+.ci-name { font-weight: 500; }
+.ci-rar {
+  font-family: var(--cond);
+  font-size: 0.6rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--rar);
+  align-self: center;
+}
+.ci-text { grid-column: 1 / -1; color: var(--muted); font-size: 0.8rem; }
+
+.n { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.pos { color: var(--good); }
+.neg { color: var(--danger); }
+
+/* ---------- rate tables ---------- */
+
+.rates { display: grid; gap: 2rem; }
+@media (min-width: 900px) { .rates { grid-template-columns: 1fr 1fr; } }
+
+.rate-h {
+  font-family: var(--cond);
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin: 0 0 0.15rem;
+}
+.rate-sub { color: var(--faint); font-size: 0.82rem; margin: 0 0 0.7rem; }
+
+.verdict {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 1.2rem 1.3rem;
+  margin: 1.5rem 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2rem;
+  align-items: center;
+}
+.v-fig {
+  font-family: var(--mono);
+  font-size: 2.3rem;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--danger);
+  font-variant-numeric: tabular-nums;
+}
+.v-txt { color: var(--muted); max-width: 40rem; min-width: 16rem; flex: 1; font-size: 0.94rem; }
+.v-txt strong { color: var(--ink); }
+
+a { color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+footer {
+  grid-column: 1 / -1;
+  margin-top: 3rem;
+  padding-top: 1.2rem;
+  border-top: 1px solid var(--line);
+  color: var(--faint);
+  font-size: 0.82rem;
+}
+</style>
+
+<div class="wrap">
+
+  <header class="mast">
+    <p class="eyebrow">Shinwar · content audit</p>
+    <h1>Anomaly Ledger</h1>
+    <p class="standfirst">
+      Every Anomaly, every option, and what each one actually does — pulled straight from the
+      engine's own generators, so nothing here can drift from the game. Where an option opens a
+      Thread, the Thread's payoff is printed beside it. Where it hands you a card, the card's real
+      rules text is printed beside it.
+    </p>
+    <div class="counts">
+      <div><span class="count-n">{{NEVENTS}}</span><span class="count-l">Anomalies</span></div>
+      <div><span class="count-n">{{NOPTS}}</span><span class="count-l">Options</span></div>
+      <div><span class="count-n">{{NTHREADS}}</span><span class="count-l">Threads</span></div>
+    </div>
+  </header>
+
+  <nav class="rail" aria-label="Anomalies">
+    <p class="rail-head">Anomalies</p>
+    {{INDEX}}
+  </nav>
+
+  <main class="body">
+
+    <h2>What the audit found</h2>
+    <p class="lede">
+      Three things, one of which was invisible to every test in the project.
+    </p>
+
+    <div class="finds">
+      <div class="find find--fixed">
+        <div class="find-head">
+          <span class="find-t">Three Threads could never happen</span>
+          <span class="find-s">Fixed</span>
+        </div>
+        <p>
+          <strong>Salvage Claim</strong>, <strong>The Passenger</strong> and
+          <strong>Borrowed Charts</strong> were defined, validated, tone-balanced — and referenced
+          by nothing. No option in any Anomaly opened them, so no run could ever contain them.
+          Three of the ten Threads, and three of the four <em>mixed</em> ones, which the design
+          calls the most interesting kind.
+        </p>
+        <p>
+          The tone test read the pool and happily reported a healthy 30/40/30 split of content half
+          of which was unreachable. It is the same shape as the enemy-mark bug: a registry entry
+          nothing points at fails silently and looks exactly like a thing that has not happened yet.
+          All three now have homes chosen to fit their fiction, and a test asserts the direction
+          that rots — every Thread reachable, every reference real.
+        </p>
+      </div>
+
+      <div class="find find--fixed">
+        <div class="find-head">
+          <span class="find-t">An option whose prose promised a deferral it did not have</span>
+          <span class="find-s">Fixed</span>
+        </div>
+        <p>
+          The Becalmed's <em>Buy the charts</em> read "sold at the price of being desperate" and
+          paid out instantly. It now opens Borrowed Charts — the Thread named after it, which had
+          no home. The Archive Hulk's rack sale became a claim that takes weeks to clear, and the
+          Lifeboat's tow now carries someone who talks.
+        </p>
+      </div>
+
+      <div class="find find--fixed">
+        <div class="find-head">
+          <span class="find-t">Health was worth four times more sold than bought</span>
+          <span class="find-s">Fixed</span>
+        </div>
+        <p>
+          Anomalies bought health at an average of 13.4 Alloy a point and sold it back at 3.6, so
+          "sell at every Anomaly, repair at the next Station" was worth about <strong>3.7&times;</strong>
+          on every point traded. That is not a strategy a player discovers — it is a tax on players
+          who do not.
+        </p>
+        <p>
+          One rate now, both directions: <strong>{{SELLRATE}} selling, {{BUYRATE}} buying</strong>,
+          a gap of {{RATIO}}&times;. Max health goes at 15, because it does not come back. Options
+          that also open Coolant Leak are priced on the health they really cost — the immediate loss
+          plus the leak's ten — discounted by 1.5, since a deferred and uncertain loss is not worth
+          the same as one you take now. The Ember Field's <em>Vent coolant to cross</em> was already
+          sitting exactly on that line and is untouched; the rest were fitted to it.
+        </p>
+        <p>
+          A test now holds every trade inside the band, holds max health near 15, and refuses to let
+          any option borrow more Alloy than Yard Debt collects.
+        </p>
+      </div>
+
+    </div>
+
+    <h2>The exchange rate</h2>
+    <p class="lede">
+      Every option that trades health for Alloy in either direction, sorted by rate.
+    </p>
+
+    <div class="verdict">
+      <span class="v-fig" style="color: var(--good)">{{RATIO}}&times;</span>
+      <p class="v-txt">
+        The gap between the two columns below, down from 3.7&times;.
+        <strong>Selling averages {{SELLRATE}} Alloy a point; buying averages {{BUYRATE}}.</strong>
+        Trading health in a loop is now worth almost exactly nothing, which is what it should be
+        worth — the decision is whether you can spare the health at all, not which direction to run
+        it in.
+      </p>
+    </div>
+
+    </div>
+
+    <div class="rates">
+      <div>
+        <p class="rate-h">Selling health</p>
+        <p class="rate-sub">Alloy gained per point of health given up.</p>
+        <div class="scroll">
+          <table>
+            <thead><tr><th>Anomaly</th><th>Option</th><th>Alloy</th><th>HP</th><th>Rate</th></tr></thead>
+            <tbody>{{SELLS}}</tbody>
+          </table>
+        </div>
+      </div>
+      <div>
+        <p class="rate-h">Buying health</p>
+        <p class="rate-sub">Alloy spent per point of health recovered.</p>
+        <div class="scroll">
+          <table>
+            <thead><tr><th>Anomaly</th><th>Option</th><th>Alloy</th><th>HP</th><th>Rate</th></tr></thead>
+            <tbody>{{BUYS}}</tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <h2>Threads</h2>
+    <p class="lede">
+      What each Thread pays, how many nodes later, and how many options can open it. The last
+      column is the one that was lying: three of these read zero.
+    </p>
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr><th>Thread</th><th>Nodes</th><th>Payoff</th><th>Ways in</th><th>Omen</th></tr>
+        </thead>
+        <tbody>{{THREADS}}</tbody>
+      </table>
+    </div>
+
+    <h2>Every Anomaly</h2>
+    <p class="lede">
+      Options in the order the player sees them. The greyed row is always the "leave" — validated
+      to be genuinely worthless, which is what makes the other three read as decisions rather than
+      a slot machine you are forced to pull. "Now" is generated from the effect ops, exactly as the
+      game generates it on screen.
+    </p>
+
+    {{EVENTS}}
+
+  </main>
+
+  <footer>
+    Generated from <code>src/content/events/</code>, <code>src/content/threads.ts</code> and
+    <code>src/content/cards/</code> via the engine's own <code>describeRunEffects()</code> and
+    <code>describeCard()</code>. Rebuild it after any content change rather than editing it by hand.
+  </footer>
+
+</div>

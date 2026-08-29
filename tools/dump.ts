@@ -2,6 +2,10 @@
  *
  * `npm run dump` — writes `tools/out/pools.json`, which is gitignored because
  * it is derived and would be stale in the diff the moment anything changed.
+ * `buildPools()` is the same data in memory, for `tools/pages/` — the
+ * reference pages read it directly rather than going through the file, so
+ * there is exactly one description of a card in the repo and no build order
+ * to remember.
  *
  * The whole point is that nothing in a reference table is typed by a person.
  * A hand-maintained list of a hundred cards is wrong within a week, and a
@@ -17,7 +21,7 @@
  */
 
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { reloadContent } from '../src/content/index.ts';
@@ -37,7 +41,7 @@ import {
 } from '../src/content/registry.ts';
 import { describeCard, describeRider } from '../src/engine/combat/describe.ts';
 import { describeImplant, describeRunEffects } from '../src/engine/run/describe.ts';
-import type { CardDef } from '../src/engine/types.ts';
+import type { CardDef, RunEffect } from '../src/engine/types.ts';
 
 reloadContent();
 
@@ -57,7 +61,45 @@ function damagePerTurn(id: string): number {
   return Math.round(perMove.reduce((a, b) => a + b, 0) / perMove.length);
 }
 
-const pools = {
+/** A payoff that hands you a card should show the card, not its id. */
+function cardSummary(id: string): {
+  id: string;
+  name: string;
+  rarity: string;
+  cost: string;
+  text: string;
+  type: string;
+} {
+  const def = cards.find(id);
+  return def === undefined
+    ? { id, name: id, rarity: 'unknown', cost: '?', text: '', type: '?' }
+    : {
+        id,
+        name: def.name,
+        rarity: def.rarity,
+        cost: String(def.cost),
+        text: describeCard(def),
+        type: def.type,
+      };
+}
+
+/** Every `op` of one kind in a payoff, totalled. */
+function total(effects: readonly RunEffect[], op: RunEffect['op']): number {
+  /* The ops that carry a number contribute it; the ones that do not — a forge,
+     a card lost — contribute one apiece, because for those the count IS the
+     payoff. */
+  return effects.reduce(
+    (sum, effect) => (effect.op !== op ? sum : sum + ('amount' in effect ? effect.amount : 1)),
+    0,
+  );
+}
+
+function cardsIn(effects: readonly RunEffect[]): ReturnType<typeof cardSummary>[] {
+  return effects.flatMap((effect) => (effect.op === 'card' ? [cardSummary(effect.cardId)] : []));
+}
+
+export function buildPools() {
+  return {
   cards: cards.all().map((card) => ({
     id: card.id,
     name: card.name,
@@ -162,6 +204,10 @@ const pools = {
     omen: thread.omen,
     after: thread.trigger.count,
     payoff: describeRunEffects(thread.payoff),
+    cards: cardsIn(thread.payoff),
+    alloy: total(thread.payoff, 'alloy'),
+    health: total(thread.payoff, 'health'),
+    maxHealth: total(thread.payoff, 'maxHealth'),
     repeatable: thread.repeatable === true,
     mastery:
       thread.mastery === undefined
@@ -184,15 +230,37 @@ const pools = {
       payoff: option.payoff,
       isLeave: option.isLeave === true,
       effects: describeRunEffects(option.effects),
+      threads: option.effects.flatMap((effect) =>
+        effect.op === 'setThread' ? [effect.threadId] : [],
+      ),
+      cards: cardsIn(option.effects),
+      alloy: total(option.effects, 'alloy'),
+      health: total(option.effects, 'health'),
+      maxHealth: total(option.effects, 'maxHealth'),
+      forge: total(option.effects, 'upgradeRandomCard'),
+      lose: option.effects.filter((effect) => effect.op === 'removeRandomCard').length,
     })),
   })),
-} as const;
+  };
+}
 
-const out = join(dirname(fileURLToPath(import.meta.url)), 'out');
-mkdirSync(out, { recursive: true });
-writeFileSync(join(out, 'pools.json'), `${JSON.stringify(pools, null, 1)}\n`, 'utf8');
+export type Pools = ReturnType<typeof buildPools>;
 
-const counts = Object.entries(pools)
-  .map(([key, value]) => `${value.length} ${key}`)
-  .join(', ');
-process.stdout.write(`tools/out/pools.json — ${counts}\n`);
+/* Writing the file is what this module does as a COMMAND. Importing it, as
+ * `tools/pages/` does, must not write anything — a library with a side effect
+ * on import is how a build ends up depending on the order its imports happen
+ * to resolve in.
+ */
+if (process.argv[1] !== undefined && import.meta.url.endsWith(basename(process.argv[1]))) {
+  const pools = buildPools();
+  const out = join(dirname(fileURLToPath(import.meta.url)), 'out');
+  mkdirSync(out, { recursive: true });
+  writeFileSync(join(out, 'pools.json'), `${JSON.stringify(pools, null, 1)}
+`, 'utf8');
+
+  const counts = Object.entries(pools)
+    .map(([key, value]) => `${(value as readonly unknown[]).length} ${key}`)
+    .join(', ');
+  process.stdout.write(`tools/out/pools.json — ${counts}
+`);
+}

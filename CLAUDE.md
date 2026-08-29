@@ -109,6 +109,12 @@ or determinism breaks in ways that take a day to find.
 
 `CONTENT.md` has the step-by-step. `BALANCE.md` has every tuning number and why it is what it is.
 
+**The reference pages regenerate themselves.** `npm run pages` rebuilds the Manifest, the Bestiary
+and the Anomaly Ledger from the content registries — every rules string on them comes from
+`describeCard` and friends, so they cannot drift from the build. They are published as Artifacts
+rather than served from the site. **`tools/pages/PAGES.md` holds the three URLs**; publish to those
+and the pages update in place. Publishing without them makes a fourth copy nobody will maintain.
+
 **Ask before** adding an effect op, a keyword, or a fourth combat resource. Those three are where
 complexity gets in. Check whether `conditional` + `scaleWith` already expresses it.
 
