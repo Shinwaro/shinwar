@@ -15,15 +15,23 @@ the page in place; publishing without it makes a fourth copy that nobody will
 remember to update. If you are Claude and about to publish one of these, pass
 the URL from this table as `url`.
 
-## Rebuilding
+## Reading them
 
 ```bash
 npm run pages
 ```
 
-Writes all three into `tools/out/pages/`, which is gitignored — they are
-derived, and a derived file in the diff is a derived file that will be stale.
-Then publish each one to its URL above.
+Writes all four into `tools/out/pages/` — the three pages plus an
+`index.html` front door that links them and carries the current counts. The
+command prints a `file://` link to it. **Bookmark that one file**; it is the
+easy way in, and it is always the working tree rather than whatever was last
+published.
+
+The directory is gitignored: these are derived, and a derived file in the diff
+is a derived file that will be stale. Run the command again after any content
+change and reload.
+
+To update the shared copies, publish each page to its URL in the table above.
 
 ## How they are put together
 
