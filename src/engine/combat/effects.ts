@@ -42,6 +42,20 @@ export interface EffectContext {
    * already true only for the first instance of the first attack.
    */
   readonly focusSpent: boolean;
+  /**
+   * Stacks of Focus this card has BANKED during its own resolution.
+   *
+   * A card cannot spend the Focus it just gained, and Settle is what the
+   * absence of that rule looked like: "Gain 1 Focus" followed by a GUARD rider
+   * granting Block, so in GUARD the rider converted the stack the base effect
+   * had banked one line earlier and the Focus row never moved at all. The card
+   * exists to put a stack away on a quiet turn, and in one of the two stances
+   * that was unreachable — while its generated text went on promising it.
+   *
+   * Banking and spending are two turns of decision compressed into one card,
+   * which is not a decision. A stack has to outlive the play that made it.
+   */
+  readonly focusGained: number;
   /** A card id, an enemy uid, a module id — whatever is answerable in the log. */
   readonly source: string;
   readonly actor: Combatant;
@@ -106,6 +120,7 @@ export function createContext(source: string, actor: Combatant, chosen: Combatan
     chosen,
     exhaustSelf: false,
     focusSpent: false,
+    focusGained: 0,
     killsThisPlay: 0,
     discardedThisPlay: 0,
     hitsThisPlay: 0,
@@ -207,6 +222,11 @@ export function testCondition(state: GameState, context: EffectContext, when: Co
       return combat.hand.length >= when.value;
     case 'cardsPlayedThisTurnAtLeast':
       return combat.cardsPlayedThisTurn >= when.value;
+    case 'targetHullBelowPct':
+      return targetHullFraction(state, context) < when.value / 100;
+    case 'targetHullAbovePct':
+      // Strictly above, so the pair can never both be true at the same line.
+      return targetHullFraction(state, context) > when.value / 100;
     case 'hullBelowPct':
       return run.pilot.health / Math.max(1, run.pilot.maxHealth) < when.value / 100;
     case 'hullAbovePct':
@@ -222,9 +242,36 @@ export function testCondition(state: GameState, context: EffectContext, when: Co
   }
 }
 
+/**
+ * How whole the thing this card is aimed at is, from 0 to 1.
+ *
+ * Read off the INSTANCE's maximum rather than the definition's, so an enemy
+ * buffed above its printed hull is measured against what it actually has —
+ * otherwise a card could read "below 30%" while the bar in front of the player
+ * says something else entirely.
+ *
+ * A missing target is treated as whole. That is the safe direction: an
+ * execution rider that fires into nothing is a card that lied, and one that
+ * declines to fire is a card that did nothing.
+ */
+function targetHullFraction(state: GameState, context: EffectContext): number {
+  const combat = requireCombat(state);
+  const { targets } = resolveTargets(state, context, 'enemy');
+  const target = targets[0];
+  if (target === undefined || target.kind === 'player') return 1;
+  const enemy = combat.enemies.find((entry) => entry.uid === target.uid);
+  if (enemy === undefined) return 1;
+  return enemy.hp / Math.max(1, enemy.maxHp);
+}
+
 export function scaleValue(state: GameState, source: ScaleSource, context: EffectContext): number {
   const combat = requireCombat(state);
   switch (source) {
+    case 'targetHullMissingPct':
+      /* Whole percentage points of the target's health that are gone. Floored,
+         so the count only rises when a whole point has actually been lost and
+         the card can never claim a step it did not earn. */
+      return Math.floor((1 - targetHullFraction(state, context)) * 100);
     case 'currentHeat':
       return combat.heat;
     case 'focus':
@@ -297,8 +344,13 @@ function applyOp(state: GameState, op: EffectOp, context: EffectContext): Effect
             target.kind === 'player'
               ? true
               : (combat.enemies.find((enemy) => enemy.uid === target.uid)?.hp ?? 0) > 0;
+          /* `combat.focus > context.focusGained` is the new half: a stack this
+             card banked a moment ago is not available to it. See
+             `EffectContext.focusGained`. */
           const spendsHere =
-            !context.focusSpent && cardTable.find(context.source)?.keepsFocus !== true;
+            !context.focusSpent &&
+            combat.focus > context.focusGained &&
+            cardTable.find(context.source)?.keepsFocus !== true;
           next = applyDamage(
             next,
             {
@@ -325,9 +377,7 @@ function applyOp(state: GameState, op: EffectOp, context: EffectContext): Effect
                * same guard the Block side uses, so both halves of the mechanic
                * spend at exactly the same rate.
                */
-              consumesFocus:
-                !context.focusSpent &&
-                cardTable.find(context.source)?.keepsFocus !== true,
+              consumesFocus: spendsHere,
             },
             context.source,
           );
@@ -372,7 +422,8 @@ function applyOp(state: GameState, op: EffectOp, context: EffectContext): Effect
         !context.focusSpent &&
         combatNow !== undefined &&
         combatNow !== null &&
-        combatNow.focus > 0 &&
+        // Not the stack this card just banked — see `EffectContext.focusGained`.
+        combatNow.focus > context.focusGained &&
         stanceNow?.focusMode === 'block' &&
         cardTable.find(context.source)?.keepsFocus !== true
           ? (stanceNow?.focusPerStack ?? 0)
@@ -432,7 +483,20 @@ function applyOp(state: GameState, op: EffectOp, context: EffectContext): Effect
           text: `${statusTable.find(op.status)?.name ?? op.status} ${op.stacks >= 0 ? '+' : ''}${op.stacks} on ${
             target.kind === 'player' ? 'you' : combatantName(next, target)
           }.`,
-          detail: { status: op.status, stacks: op.stacks },
+          /* `to` as well, and it is what makes a debuff-only move VISIBLE.
+           *
+           * The animation layer finds the thing an entry happened to by reading
+           * `detail.to` — that is how a blow knows which enemy to shake and
+           * which side of the board to float its number on. A status carried no
+           * `to`, so an enemy whose whole turn was "apply 2 Vulnerable" produced
+           * a log line and nothing else at all: no beat, no sound, no movement.
+           * On screen it was indistinguishable from the enemy doing nothing,
+           * which is the worst possible reading of the turn it just spent. */
+          detail: {
+            status: op.status,
+            stacks: op.stacks,
+            to: target.kind === 'player' ? 'player' : target.uid,
+          },
         });
       }
       /* Remember whether this card has handed out something a vent would shed,
@@ -468,14 +532,18 @@ function applyOp(state: GameState, op: EffectOp, context: EffectContext): Effect
         ...combat,
         focus: Math.max(0, Math.min(FOCUS_MAX, combat.focus + op.amount)),
       }));
-      return keep(
-        appendLog(next, {
+      const banked = requireCombat(next).focus - requireCombat(state).focus;
+      return {
+        state: appendLog(next, {
           source: context.source,
           kind: 'combat',
           text: `Focus +${op.amount} (${requireCombat(next).focus}).`,
           detail: { focus: requireCombat(next).focus },
         }),
-      );
+        // What actually landed, not what was asked for — a gain against a full
+        // stack banks nothing and must not protect a stack it did not add.
+        context: { ...context, focusGained: context.focusGained + Math.max(0, banked) },
+      };
     }
 
     case 'setStance':

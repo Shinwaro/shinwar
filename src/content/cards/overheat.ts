@@ -17,8 +17,11 @@ export const OVERHEAT_CARDS: readonly CardDef[] = [
     rarity: 'common',
     archetype: 'overheat',
     cost: 0,
-    effects: [{ op: 'ventHeat', amount: 3 }],
-    upgrade: { name: 'Purge Cycle+', effects: [{ op: 'ventHeat', amount: 5 }] },
+    /* Two, not three. A free 3-vent answered a whole turn of IAI and half an
+       overheat, which made the gauge something you cleaned up rather than
+       something you played around — and the upgrade at 5 wiped the board. */
+    effects: [{ op: 'ventHeat', amount: 2 }],
+    upgrade: { name: 'Purge Cycle+', effects: [{ op: 'ventHeat', amount: 4 }] },
     flavor: 'Open every port and let the dark have it.',
   },
 
@@ -57,7 +60,7 @@ export const OVERHEAT_CARDS: readonly CardDef[] = [
     id: 'criticality',
     name: 'Criticality',
     type: 'attack',
-    rarity: 'rare',
+    rarity: 'epic',
     archetype: 'overheat',
     cost: 2,
     effects: [
@@ -86,7 +89,7 @@ export const OVERHEAT_CARDS: readonly CardDef[] = [
     id: 'runaway_bloom',
     name: 'Runaway Bloom',
     type: 'attack',
-    rarity: 'epic',
+    rarity: 'legendary',
     archetype: 'overheat',
     cost: 1,
     effects: [
@@ -165,7 +168,7 @@ export const OVERHEAT_CARDS: readonly CardDef[] = [
     id: 'thermal_lance',
     name: 'Thermal Lance',
     type: 'attack',
-    rarity: 'rare',
+    rarity: 'epic',
     archetype: 'overheat',
     cost: 2,
     effects: [
@@ -196,7 +199,7 @@ export const OVERHEAT_CARDS: readonly CardDef[] = [
     id: 'overpressure',
     name: 'Overpressure',
     type: 'skill',
-    rarity: 'epic',
+    rarity: 'legendary',
     archetype: 'overheat',
     cost: 0,
     exhaust: true,

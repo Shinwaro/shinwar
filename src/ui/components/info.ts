@@ -178,7 +178,7 @@ export const MAP_INFO: readonly InfoSection[] = [
       { term: 'You choose forward, never back', text: 'A route is a commitment. Lines only run up the chart, so what you skip is skipped for the act.' },
       { term: 'The Wavefront', text: 'From Act 2, the collapse front follows you up the chart. A Station or a Safe Planet costs two rows of lead instead of one — the detour is priced.' },
       { term: 'The Reliquary', text: 'Halfway through Act 2, a full row of your own order’s vault. Every route crosses it, and it is the only place a legendary card comes from.' },
-      { term: 'Carrying', text: 'The Manifest under the chart lists the Threads you are holding. Each one comes due later in the same run, always.' },
+      { term: 'The Manifest', text: 'The panel beside the chart lists the Threads you are holding. Each one comes due later in the same run, always.' },
     ],
   },
 ];
@@ -212,7 +212,36 @@ export function combatInfo(): readonly InfoSection[] {
         },
         {
           term: 'Draw and discard',
-          text: `You draw ${PLAYER.drawPerTurn} at the start of each turn. When the draw pile empties, the discard is shuffled back in. Exhausted cards do not come back this fight.`,
+          text: `Your deck is shuffled at the start of the fight and you draw ${PLAYER.drawPerTurn} a turn from it. Whatever you played and whatever you did not play both go to the discard when the turn ends — you never keep a hand. When the draw pile runs out, the discard is shuffled and becomes the new draw pile.`,
+        },
+        {
+          term: 'Burn',
+          text: 'A card that burns leaves the fight for good — not to the discard, so no shuffle brings it back. It is back in your deck for the next fight. The Burned pile beside your draw and discard counts them.',
+        },
+      ],
+    },
+    {
+      heading: 'What an enemy is about to do',
+      entries: [
+        {
+          swatch: 'var(--intent-attack)',
+          term: '⚔ It attacks',
+          text: 'The number is what will land before your Block eats into it, recomputed as you change things. 3 x 5 is three separate hits of five, and each one is checked against your Block on its own.',
+        },
+        {
+          swatch: 'var(--intent-block)',
+          term: '⛨ It plates itself',
+          text: 'Block on the enemy, absorbed before your damage reaches its health. Attacking into it is not wasted, but it costs you the plating first.',
+        },
+        {
+          swatch: 'var(--intent-buff)',
+          term: '▲ It strengthens itself',
+          text: 'It is spending this turn to hit harder on the next ones — cold, like the plating, because both are the enemy working on itself rather than on you. The turn to kill it, or to get ahead on Block, is now.',
+        },
+        {
+          swatch: 'var(--intent-debuff)',
+          term: '▼ It affects you',
+          text: 'Vulnerable, Weak, Scald. Red like the swing, because it is aimed at you the same way — deeper, and dashed, so the two stay one glance apart. This is the part you cannot Block away.',
         },
       ],
     },
@@ -225,11 +254,11 @@ export function combatInfo(): readonly InfoSection[] {
         },
         {
           term: `Overheat at ${HEAT.overheatAt}`,
-          text: `End your turn at ${HEAT.overheatAt} or above and the reactor bites: damage, and one less Energy next turn.`,
+          text: `End your turn at ${HEAT.overheatAt} or above and three things happen at once: you lose ${Math.round(HEAT.overheatDamagePctOfMax * 100)}% of your maximum health, the same at every point above the line; you get 0 Energy on your next turn; and one card burns out of your hand — gone for the rest of the fight. You go back to 0 Heat after.`,
         },
         {
           term: `${HEAT.criticalAt} ends the turn`,
-          text: `Reaching ${HEAT.criticalAt} does not wait for you to finish — the turn ends immediately, the reactor takes the next one, and a card burns away. The gauge blows back to zero with it.`,
+          text: `Reaching ${HEAT.criticalAt} does not wait for you to finish — the turn ends there and then, wherever you were, and everything above happens anyway. On top of it you are ${HEAT.criticalEnergyLoss} Energy short the turn after.`,
         },
       ],
     },

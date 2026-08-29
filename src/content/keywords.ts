@@ -1,7 +1,7 @@
 /* What the words on a card mean.
  *
  * A card's rules text is generated from its ops, which keeps it honest — but
- * honest is not the same as *understandable*. "Exhaust." is exact and tells a
+ * honest is not the same as *understandable*. "Burn." is exact and tells a
  * first-time player nothing, and there was nowhere in the game that explained
  * it. Every term that needs explaining now carries its explanation onto the
  * card, in fine print under the rules line.
@@ -22,9 +22,16 @@ export interface KeywordDef {
 
 export const KEYWORDS: readonly KeywordDef[] = [
   {
+    /* "Burn", not "Exhaust".
+     *
+     * The pile is called Burned, overheating "burns a card", and the ship is a
+     * reactor — so the deck term may as well be the word the rest of the game
+     * already uses. `exhaust` stays the name of the FIELD and of the pile in
+     * state: renaming shipped data for a word churns every card that sets it
+     * and every replay that carries it, for nothing the player can see. */
     id: 'exhaust',
-    name: 'Exhaust',
-    text: 'Gone for the rest of the fight once played.',
+    name: 'Burn',
+    text: 'Gone for the rest of the fight once played. Back in your deck next fight.',
   },
   {
     id: 'innate',

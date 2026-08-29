@@ -39,23 +39,54 @@
      One ladder, used by everything that has a tier: cards, relics, implants,
      and the inventory lines that list them.
 
-     It exists because there were three ladders and they disagreed — a
-     legendary card was hot orange and a legendary relic was the accent, and
-     the inventory had no colours at all, which is what made a missing rule
-     look like a design decision. A player learning "orange means legendary"
-     had to learn it twice and unlearn it once.
+     It exists because there were three ladders and they disagreed — a top-tier
+     card was hot orange and a top-tier relic was the accent, and the inventory
+     had no colours at all, which is what made a missing rule look like a design
+     decision. A player learning "orange means the good one" had to learn it
+     twice and unlearn it once.
 
-     Known collision, left alone deliberately: uncommon and rare borrow --guard
-     and --iai, which the stance block above reserves. Repainting them would
-     change the left edge of every card in the game, and that is a look
-     decision rather than a bug fix. Recorded here so it is a known debt and
-     not a discovery. */
+     The rungs were renamed: what was Rare is Epic, what was Epic is Legendary,
+     and what was Legendary is Mythic. Purple and gold moved with the NAMES
+     rather than staying on the rungs, because the association a player brings
+     to the game is with the word — purple is epic and gold is legendary almost
+     everywhere else — and a ladder that fights that is a ladder they have to
+     learn instead of recognise.
+
+     Known collision, left alone deliberately: uncommon borrows --guard, which
+     the stance block above reserves. Repainting it would change the left edge
+     of every card in the game, and that is a look decision rather than a bug
+     fix. Recorded here so it is a known debt and not a discovery. */
   --rarity-common: var(--line-strong);
   --rarity-uncommon: var(--guard);
-  --rarity-rare: var(--iai);
   --rarity-epic: #b79ae0;
-  --rarity-legendary: #ff7a4d;
+  --rarity-legendary: #f2c744;
+  /* Above gold, and it cannot be gold. The hottest thing on the ladder. */
+  --rarity-mythic: #ff7a4d;
   --rarity-artifact: #f4e3b0;
+
+  /* ---- what an enemy is about to do ----
+     The telegraph is the most important thing on the board, and it is read in
+     a glance rather than parsed. Four hues, one per kind, so "it swings" and
+     "it makes itself stronger" and "it affects you" are different colours
+     rather than three lines of the same text.
+
+     They are grouped by who the beat is FOR, which is the thing a player is
+     actually reading: the two reds are aimed at you, the blue and the teal are
+     the enemy working on itself. That is why the debuff is a deep red rather
+     than the violet it started as — "it swings" and "it makes you Vulnerable"
+     are the same news, and they were on opposite sides of the wheel.
+
+     The two reds are separated by depth, by the glyph, and by the dashed border
+     the debuff carries, because colour is never the only channel.
+
+     Deliberately their own tokens rather than borrowed ones: a violet that
+     means "legendary" in the inventory and "Vulnerable incoming" on the board is one
+     colour with two jobs, and the day one is retuned the other changes for no
+     reason. */
+  --intent-attack: var(--danger);
+  --intent-block: var(--guard);
+  --intent-buff: #3fd0ab;
+  --intent-debuff: #8c1b1b;
 
   /* ---- semantic ---- */
   --danger: #d4574f;
@@ -74,4 +105,8 @@
   --radius-sm: 0.45rem;
   /* Never smaller than this for anything tappable. */
   --tap: 2.75rem;
+  /* The Manifest rail beside the star chart, and the matching empty track on
+     the other side of it that keeps the chart centred. One number, because the
+     two must agree or the centring is a near miss. */
+  --manifest-w: 12rem;
 }

@@ -12,7 +12,7 @@ import { createRng } from '../src/engine/rng.ts';
 import { createRunState } from '../src/engine/state.ts';
 import { ENCOUNTERS } from '../src/content/encounters.ts';
 import { MAP } from '../src/content/balance.ts';
-import { CLEAR_SPACE_ID, ENVIRONMENTS } from '../src/content/environments.ts';
+import { CLEAR_SPACE_ID, ENVIRONMENTS, RADIATION_BELT_ID } from '../src/content/environments.ts';
 
 const SEEDS = Array.from({ length: 1000 }, (_, i) => `MAP-${i}`);
 
@@ -171,7 +171,16 @@ describe('the guarantees, across 1000 seeds', () => {
         };
 
         expect(canShop(map.startId), `${seed} act${act}: no route reaches a Station`).toBe(true);
-        expect(canSkip(map.startId), `${seed} act${act}: forced through a Station`).toBe(true);
+        /* Acts 1 and 2 only, and the exception is the design rather than a
+           let-off: Act 3 plants a full row of Stations two before the boss, so
+           every route is forced through one on purpose. The finale is the fight
+           a run cannot walk into underprepared, and it sits furthest from
+           anywhere to spend. */
+        if (act !== 3) {
+          expect(canSkip(map.startId), `${seed} act${act}: forced through a Station`).toBe(true);
+        } else {
+          expect(canSkip(map.startId), `${seed} act3: should be forced to a Station`).toBe(false);
+        }
       }
     }
   });
@@ -201,14 +210,21 @@ describe('the guarantees, across 1000 seeds', () => {
           expect(node.row, `${seed} act${act}: ${node.id}`).toBeLessThanOrEqual(high);
         }
 
-        // No row may be entirely Stations. That shape IS the old bug.
+        /* No row may be entirely Stations — that shape IS the old bug — with
+           one exception, which is Act 3's planted row two before the boss. It
+           is the same shape and it is deliberate this time, and it is pinned to
+           exactly one row so it cannot creep back into the middle of the act
+           where the bug lived. */
+        const planted = act === 3 && MAP.stationBeforeAct3Boss ? rows - 3 : -1;
         for (let row = 0; row < rows; row++) {
           const cells = map.nodes.filter((node) => node.row === row);
           if (cells.length === 0) continue;
-          expect(
-            cells.every((node) => node.type === 'station'),
-            `${seed} act${act}: row ${row} is all Stations`,
-          ).toBe(false);
+          const solid = cells.every((node) => node.type === 'station');
+          if (row === planted) {
+            expect(solid, `${seed} act3: row ${row} should be the Station row`).toBe(true);
+            continue;
+          }
+          expect(solid, `${seed} act${act}: row ${row} is all Stations`).toBe(false);
         }
 
         charts += 1;
@@ -364,18 +380,26 @@ describe('the guarantees, across 1000 seeds', () => {
     expect(laterActsVary, 'no Act 3 origin ever rolled anything but Clear Space').toBe(true);
   });
 
-  it('fights every boss in Clear Space', () => {
+  it('fights every boss in a fixed environment, never a rolled one', () => {
     /* The boss is the act's whole argument about your deck, and an environment
-       is a rule applied to both sides. Stacked, the hardest fight in the act
-       was also the one most decided by a roll the player never saw and never
-       chose. Fixing it makes the boss the constant two runs can be compared
-       against. */
+       is a rule applied to both sides. Rolled, the hardest fight in the act was
+       also the one most decided by something the player never saw and never
+       chose. Fixed, it is the constant two runs can be compared against — which
+       is what makes "I lost to it" mean anything.
+
+       Acts 1 and 2 fix it to Clear Space. Act 3 fixes it to the Radiation Belt,
+       and that is the design rather than an exception: the last fight has to be
+       unwinnable by grinding, and the Belt is the only rule in the game that
+       charges both sides for time passing. Asserted per act rather than as one
+       blanket rule, so the exception cannot quietly spread. */
     for (const seed of SEEDS.slice(0, 200)) {
       for (const act of [1, 2, 3] as const) {
         const { map } = generateMap(createRng(seed), act);
         const boss = map.nodes.find((node) => node.id === map.bossId);
         expect(boss?.type, `${seed} act${act}: bossId is not a boss`).toBe('boss');
-        expect(boss?.environmentId, `${seed} act${act} boss`).toBe(CLEAR_SPACE_ID);
+        expect(boss?.environmentId, `${seed} act${act} boss`).toBe(
+          act === 3 ? RADIATION_BELT_ID : CLEAR_SPACE_ID,
+        );
       }
     }
   });

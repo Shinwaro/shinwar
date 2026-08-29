@@ -26,9 +26,9 @@ import type {
 } from '../types.ts';
 import { nextInt, pick, weightedPick } from '../rng.ts';
 import { RELIQUARY_EVENT_ID } from '../../content/events/reliquary.ts';
-import { MAP, NODE_WEIGHTS } from '../../content/balance.ts';
+import { MAP, NODE_ACT_SCALE, NODE_WEIGHTS } from '../../content/balance.ts';
 import { ACT_FINALES, ARRIVAL_NAME, PLACE_DESIGNATIONS, PLACE_STEMS } from '../../content/places.ts';
-import { CLEAR_SPACE_ID } from '../../content/environments.ts';
+import { CLEAR_SPACE_ID, RADIATION_BELT_ID } from '../../content/environments.ts';
 import { environments as environmentTable } from '../../content/registry.ts';
 import { encountersFor } from '../../content/encounters.ts';
 
@@ -198,6 +198,14 @@ function assignTypes(
      guarantee is now stated as two invariants on the finished chart. */
   const stationBand = stationRowsFor(rows);
 
+  /* Except in Act 3, where one full row comes back, two before the boss. The
+     finale is the fight you cannot walk into underprepared, and it is also the
+     furthest from anywhere to spend. See `MAP.stationBeforeAct3Boss`. */
+  const stationRow = act === 3 && MAP.stationBeforeAct3Boss ? rows - 3 : -1;
+
+  // How much an Elite and a Station are worth this act. See `NODE_ACT_SCALE`.
+  const scale = NODE_ACT_SCALE[act];
+
   for (let row = 0; row < rows; row++) {
     for (const col of skeleton.cells[row] ?? []) {
       const id = nodeId(row, col);
@@ -214,6 +222,13 @@ function assignTypes(
       }
       if (MAP.restBeforeBoss && row === rows - 2) {
         types.set(id, 'safe');
+        continue;
+      }
+      /* Act 3's Station row. Before the rest rather than after it, so the order
+         is spend, then recover, then fight — a repair you buy and then walk
+         past a Safe Planet to reach the boss reads backwards. */
+      if (row === stationRow) {
+        types.set(id, 'station');
         continue;
       }
       /* The Reliquary row, in Act 2 only. A full row, so no route can miss it.
@@ -243,7 +258,12 @@ function assignTypes(
          is gone with the row itself — there is nothing placed unconditionally
          left to look forward at. */
       const nearbyStations = typesWithin(skeleton, types, row, col, MAP.stationSpacing);
-      const afterStation = nearbyStations.includes('station');
+      /* Looking back catches a shop that follows a shop. It cannot catch one
+         that sits just BEFORE Act 3's planted row, because that row is placed
+         unconditionally rather than rolled — so the window in front of it is
+         closed here by hand, exactly as it is for the rest before the boss. */
+      const beforeStationRow = stationRow >= 0 && row >= stationRow - MAP.stationSpacing;
+      const afterStation = nearbyStations.includes('station') || beforeStationRow;
       const inStationBand = row >= stationBand.from && row <= stationBand.to;
       /*
        * Looking back catches a rest that follows a rest. It cannot catch one
@@ -273,10 +293,10 @@ function assignTypes(
         { value: 'event' as NodeType, weight: afterBlank ? 0 : NODE_WEIGHTS.event },
         // Nothing special in the opening rows: Act 1 should feel plain before
         // it starts offering deals.
-        { value: 'elite' as NodeType, weight: early ? 0 : NODE_WEIGHTS.elite },
+        { value: 'elite' as NodeType, weight: early ? 0 : NODE_WEIGHTS.elite * scale.elite },
         {
           value: 'station' as NodeType,
-          weight: !inStationBand || afterStation ? 0 : NODE_WEIGHTS.station,
+          weight: !inStationBand || afterStation ? 0 : NODE_WEIGHTS.station * scale.station,
         },
         // Kept apart by `safeSpacing`; see `typesWithin` above.
         { value: 'safe' as NodeType, weight: early || afterSafe ? 0 : NODE_WEIGHTS.safe },
@@ -484,24 +504,32 @@ function assignEnvironments(
         continue;
       }
 
-      /* The boss fights in Clear Space, always.
+      /* The boss fights in a FIXED environment — never a rolled one.
        *
        * An environment is a rule that applies to both sides, and a boss is
-       * already the act's whole argument about your deck. Stacking the two
-       * meant the hardest fight in the act was also the one most likely to be
-       * decided by a roll made before you could see it — a Radiation Belt boss
-       * and a Clear Space boss are not the same fight, and the player chose
-       * neither.
+       * already the act's whole argument about your deck. Rolling the two
+       * together meant the hardest fight in the act was also the one most
+       * likely to be decided by something the player never saw and never
+       * chose — a Radiation Belt boss and a Clear Space boss are not the same
+       * fight.
        *
-       * It also makes the boss the constant the act is measured against. Two
-       * runs that reach the same boss now reach the same fight, which is what
-       * makes "I lost to it" mean something.
+       * Fixed, it is still the constant the act is measured against: two runs
+       * that reach the same boss reach the same fight, which is what makes "I
+       * lost to it" mean something.
+       *
+       * Acts 1 and 2 fix it to Clear Space. Act 3 fixes it to the Radiation
+       * Belt, and that is the point rather than an exception: the last fight is
+       * the one that has to be unwinnable by grinding, and the Belt is the only
+       * rule in the game that charges both sides for time passing. The boss's
+       * own escalation says "you cannot afford to take all day"; the Belt makes
+       * it true on a clock that runs whether or not anybody acts. It is on the
+       * node before you commit to it, like every other environment.
        *
        * The roll is skipped rather than made and discarded — there is nothing
        * for the stream to stay in step with here, since a fixed assignment is
        * not a choice. */
       if (row === rows - 1) {
-        assigned.set(id, CLEAR_SPACE_ID);
+        assigned.set(id, act === 3 ? RADIATION_BELT_ID : CLEAR_SPACE_ID);
         continue;
       }
       const rolled = weightedPick(current, 'map', pool);
@@ -767,13 +795,22 @@ export function mapProblems(map: RunMap): string[] {
     problems.push('no route from the origin reaches a Station');
   }
 
-  // Never forced: some path from the origin reaches the boss without one.
-  memo.clear();
-  const clean = walk(map.startId, (node) => {
-    if (node.type === 'station') return false;
-    return node.id === map.bossId ? true : null;
-  });
-  if (!clean) problems.push('every route from the origin is forced through a Station');
+  /* Never forced: some path from the origin reaches the boss without one.
+   *
+   * Acts 1 and 2 only, and the exception is the point rather than a let-off.
+   * Act 3 plants a full row of Stations two before the boss — see
+   * `MAP.stationBeforeAct3Boss` — so every route is forced through one, on
+   * purpose: the finale is the fight a run cannot walk into underprepared, and
+   * it sits furthest from anywhere to spend. Asserting the opposite here would
+   * be asserting that the last act must not do the thing it was built to do. */
+  if (!(map.act === 3 && MAP.stationBeforeAct3Boss)) {
+    memo.clear();
+    const clean = walk(map.startId, (node) => {
+      if (node.type === 'station') return false;
+      return node.id === map.bossId ? true : null;
+    });
+    if (!clean) problems.push('every route from the origin is forced through a Station');
+  }
 
   for (const node of map.nodes) {
     for (const nextId of node.next) {

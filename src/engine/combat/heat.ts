@@ -39,6 +39,11 @@ export function overheatThreshold(state: GameState): number {
  * A fraction of MAX health, not a flat number: a flat 3 stops mattering the
  * moment the deck is doing forty a turn, which is exactly why Heat was never
  * something anyone had to think about. A fraction scales with the run for free.
+ *
+ * The same fraction at every point above the line. It used to climb with the
+ * gauge, which turned "should I end the turn here" into arithmetic the player
+ * had to redo on every point — see `HEAT.overheatDamagePctOfMax`. `threshold`
+ * still matters: it is where the charge starts, and relics move it.
  */
 export function overheatDamageAt(
   heat: number,
@@ -46,9 +51,7 @@ export function overheatDamageAt(
   threshold: number = HEAT.overheatAt,
 ): number {
   if (heat < threshold) return 0;
-  const over = heat - threshold;
-  const pct = HEAT.overheatDamagePctOfMax + over * HEAT.overheatDamagePctPerPoint;
-  return Math.max(1, Math.round(maxHealth * pct));
+  return Math.max(1, Math.round(maxHealth * HEAT.overheatDamagePctOfMax));
 }
 
 /** Everything a Heat gauge needs to state its own consequences. Queried, never recomputed in the UI. */
@@ -144,24 +147,37 @@ export function ventHeat(
 
   /* A vent worth the name sheds the statuses that declare it.
    *
-   * The size is measured on what was ACTUALLY vented, not on what was asked
-   * for — venting 4 against a gauge holding 1 is a vent of 1, and it should not
-   * clear a stack of anything. That is also what stops the counterplay being
-   * "hold a big vent and fire it at zero Heat", which would be free.
+   * The size is the vent's OWN size — what the card or the stance said — not
+   * how much of it the gauge happened to have to give. It was the latter, and
+   * that is the bug: an enemy applies Scald, your turn opens with the 1 Heat
+   * the Scald itself just handed you, and Stillwater Guard's "Vent 2" vents 1
+   * and sheds nothing. The card says 2, Scald says "venting 2 or more sheds a
+   * stack", both are true, and the stack stays — with nothing on screen
+   * explaining why. Counterplay that reads as broken is worse than no
+   * counterplay.
+   *
+   * The exploit that rule was guarding against is still shut, one line up:
+   * a vent against an empty gauge vents nothing and returns before it gets
+   * here, so "hold a big vent and fire it at zero Heat" still buys nothing.
+   * You have to actually be venting something.
    *
    * One stack per vent, however large. Scald is meant to cost you turns to
    * unwind, not to evaporate the moment you draw the right card. */
-  if (options.shed !== false) next = shedOnVent(next, vented, source);
+  if (options.shed !== false) next = shedOnVent(next, amount, source);
 
   return fireHook(next, 'onHeatVented', { amount: vented, total });
 }
 
-/** Drop one stack of every status whose `shedOnVent` this vent has met. */
-function shedOnVent(state: GameState, vented: number, source: string): GameState {
+/**
+ * Drop one stack of every status whose `shedOnVent` this vent has met.
+ *
+ * `size` is what the vent was FOR, not what it moved — see the call site.
+ */
+function shedOnVent(state: GameState, size: number, source: string): GameState {
   const combat = requireCombat(state);
   const shedding = combat.statuses.filter((held) => {
     const threshold = statusTable.find(held.status)?.shedOnVent;
-    return threshold !== undefined && vented >= threshold;
+    return threshold !== undefined && size >= threshold;
   });
   if (shedding.length === 0) return state;
 
@@ -199,6 +215,57 @@ export function atCriticalHeat(state: GameState): boolean {
   return combat !== null && combat.outcome === 'ongoing' && combat.heat >= HEAT.criticalAt;
 }
 
+/** Does the reactor still have a card to take? Drives the UI's playback timer. */
+export function burnPending(state: GameState): boolean {
+  const combat = state.run?.combat ?? null;
+  return combat !== null && combat.outcome === 'ongoing' && combat.burnOwed > 0;
+}
+
+/**
+ * Take one card the reactor is owed, out of the hand.
+ *
+ * Random, on the `combat` stream — the one place the player does not choose,
+ * and it is the consequence of a threshold they could see coming all turn.
+ *
+ * Dispatched by the UI a beat after the hand is dealt so the card burns where
+ * the player can see it, and swept up by `endPlayerTurn` if it somehow was not
+ * — a debt the reactor forgets is a rule that only applies sometimes.
+ */
+export function collectBurn(state: GameState): GameState {
+  const combat = state.run?.combat ?? null;
+  if (combat === null || combat.outcome !== 'ongoing' || combat.burnOwed <= 0) return state;
+
+  // Nothing to take. The debt still clears: it is a card off THIS hand or none,
+  // not an IOU that follows you into a turn you can actually use.
+  if (combat.hand.length === 0) {
+    return withCombat(state, (current) => ({ ...current, burnOwed: 0 }));
+  }
+
+  const run = requireRun(state);
+  if (run.combat === null) return state;
+  const rolled = randomFromHand(run.combat, run.rng, 1);
+  const burned = rolled.picked[0];
+  if (burned === undefined) {
+    return withCombat(state, (current) => ({ ...current, burnOwed: 0 }));
+  }
+
+  let next = withRun(state, (current) => ({
+    ...current,
+    rng: rolled.rng,
+    combat:
+      current.combat === null
+        ? null
+        : { ...moveToExhaust(current.combat, burned), burnOwed: current.combat.burnOwed - 1 },
+  }));
+  next = appendLog(next, {
+    source: 'heat',
+    kind: 'heat',
+    text: `${cardTable.find(burned.defId)?.name ?? burned.defId} burned away.`,
+    detail: { card: burned.defId, burned: burned.uid },
+  });
+  return fireHook(next, 'onCardExhausted', { cardUid: burned.uid, cardId: burned.defId });
+}
+
 /**
  * End of the player's turn. Runs *after* the stance passive, so IAI's +1 can
  * be the point that tips you over — which is the whole bargain IAI offers.
@@ -209,16 +276,37 @@ export function resolveOverheat(state: GameState): GameState {
   if (damage === 0) return state;
 
   const heat = combat.heat;
-  let next = appendLog(state, {
-    source: 'heat',
-    kind: 'heat',
-    /* `total` and `vented` as well, because an overheat empties the gauge and
-       the presentation layer has no other way to know that. Without them the
-       ticks jumped from full to nothing with no animation and no sound — the
-       single largest thing the gauge ever does, said the most quietly. */
-    text: `Overheat at ${heat}.`,
-    detail: { heat, damage, total: HEAT.min, vented: heat - HEAT.min },
-  });
+  /* The gauge empties HERE, in the same breath as the log line that says so.
+   *
+   * It did not. The entry claimed `total: 0, vented: 8` and the state went on
+   * holding 8 until the *next* turn started, where the reactor-vent branch
+   * cleared it — so for the whole enemy phase the animation and the state
+   * disagreed about the single biggest thing the gauge ever does. The visible
+   * result was the bug that survived two attempts to fix it in the animation
+   * layer, where it never was: the ticks walked honestly down to zero, the walk
+   * finished, and the very next render read the state, found 8 still sitting
+   * there, and painted the gauge full again — for about half a second, until
+   * the next turn finally zeroed it and it fell a second time.
+   *
+   * A log entry is a description of a state change. One that describes a change
+   * happening a turn later is not a description, it is a promise, and the
+   * presentation layer has no way to tell the difference.
+   *
+   * The turn-start branch keeps its own clear: an enemy can add Heat during the
+   * phase between, and a vent turn is meant to open cold. */
+  let next = appendLog(
+    withCombat(state, (current) => ({ ...current, heat: HEAT.min })),
+    {
+      source: 'heat',
+      kind: 'heat',
+      /* `total` and `vented` as well, because an overheat empties the gauge and
+         the presentation layer has no other way to know that. Without them the
+         ticks jumped from full to nothing with no animation and no sound — the
+         single largest thing the gauge ever does, said the most quietly. */
+      text: `Overheat at ${heat}.`,
+      detail: { heat, damage, total: HEAT.min, vented: heat - HEAT.min },
+    },
+  );
 
   // The turn is the real cost. Damage you can heal; a turn spent watching the
   // fight happen without you is what makes the gauge something to plan around
@@ -233,28 +321,24 @@ export function resolveOverheat(state: GameState): GameState {
   next = fireHook(next, 'onOverheat', { heat, damage });
   next = applyDirectDamage(next, PLAYER, damage, 'heat', `overheat at ${heat}`);
 
-  // Burn a card from hand. Random, on the `combat` stream — the one place the
-  // player does not choose, and it is a consequence of a threshold they could
-  // see coming all turn.
-  const run = requireRun(next);
-  if (run.combat !== null && run.combat.hand.length > 0) {
-    const rolled = randomFromHand(run.combat, run.rng, 1);
-    const burned = rolled.picked[0];
-    if (burned !== undefined) {
-      next = withRun(next, (current) => ({
-        ...current,
-        rng: rolled.rng,
-        combat: current.combat === null ? null : moveToExhaust(current.combat, burned),
-      }));
-      next = appendLog(next, {
-        source: 'heat',
-        kind: 'heat',
-        text: `${cardTable.find(burned.defId)?.name ?? burned.defId} burned away.`,
-        detail: { card: burned.defId },
-      });
-      next = fireHook(next, 'onCardExhausted', { cardUid: burned.uid, cardId: burned.defId });
-    }
-  }
+  /* The card is OWED, not taken.
+   *
+   * It used to be taken here, out of the hand that was about to be discarded
+   * anyway — correct, and completely invisible. The most memorable thing an
+   * overheat does happened to a card in a hand that was already on its way to
+   * the pile, in the same frame, with nothing to look at.
+   *
+   * `collectBurn` takes it after the next hand is dealt instead. The cost is
+   * identical: a vent turn hands you 0 Energy, so a card off that hand is a
+   * card you could not have played either way. What changes is that you watch
+   * it go. */
+  next = withCombat(next, (current) => ({ ...current, burnOwed: current.burnOwed + 1 }));
+  next = appendLog(next, {
+    source: 'heat',
+    kind: 'heat',
+    text: 'A card will burn out of the next hand.',
+    detail: null,
+  });
 
   if (heat >= HEAT.criticalAt) {
     next = appendLog(

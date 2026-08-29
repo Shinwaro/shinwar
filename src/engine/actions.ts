@@ -27,6 +27,14 @@ export type Action =
       can be watched rather than arriving in a single frame. */
   | { readonly kind: 'advanceEnemies' }
   /**
+   * Collect a burn the reactor is owed. One card, out of the hand.
+   *
+   * Its own action for the same reason `advanceEnemies` is: the UI paces it. A
+   * card burning is a beat, and a beat that resolves in the same dispatch as
+   * the hand it comes out of is a beat nobody sees.
+   */
+  | { readonly kind: 'burnCard' }
+  /**
    * Close the round and begin the player's turn.
    *
    * Its own step so the UI can hold the gap open while the last enemy's blow is

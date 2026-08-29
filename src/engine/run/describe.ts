@@ -158,7 +158,7 @@ export function describePassive(passive: RelicPassive, state: GameState | null =
     /* "Start each turn with N" read as a floor you are set to. It is not — the
        turn loop adds it on top of whatever the stance retained — so the word is
        "gain". */
-    parts.push(`Gain ${passive.blockPerTurn} Block at the start of each turn`);
+    parts.push(`Gain ${passive.blockPerTurn} Block at the start of your turn`);
   }
   if (passive.focusPerTurn !== undefined && passive.focusPerTurn !== 0) {
     parts.push(`Gain ${passive.focusPerTurn} Focus each turn`);
@@ -166,8 +166,16 @@ export function describePassive(passive: RelicPassive, state: GameState | null =
   if (passive.ventPerTurn !== undefined && passive.ventPerTurn !== 0) {
     parts.push(`Vent ${passive.ventPerTurn} Heat each turn`);
   }
+  if (passive.damageEveryHit !== undefined && passive.damageEveryHit !== 0) {
+    parts.push(`Every hit of a card deals ${passive.damageEveryHit} more damage`);
+  }
   if (passive.damageFlat !== undefined && passive.damageFlat !== 0) {
-    parts.push(`Every attack deals ${passive.damageFlat} more`);
+    /* "Every attack" was a promise the pipeline does not keep. The bonus lands
+       on a card's FIRST swing only — every target of that swing gets it, later
+       swings of the same card get none — so a three-hit card was quietly worth
+       a third of what the line said. See `firstSwingOfCard` in `damage.ts`.
+       The words now describe the rule rather than the intention behind it. */
+    parts.push(`The first hit of every card deals ${passive.damageFlat} more damage`);
   }
   if (passive.healPerTurn !== undefined && passive.healPerTurn !== 0) {
     /* Was missing entirely, so a relic or implant whose ONLY passive was this

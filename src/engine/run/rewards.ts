@@ -20,7 +20,8 @@ import type {
   RngState,
   RunState,
 } from '../types.ts';
-import { nextFloat, pick, sample, weightedPick } from '../rng.ts';
+import { RARITY_ORDER } from '../types.ts';
+import { nextFloat, nextInt, pick, sample, weightedPick } from '../rng.ts';
 import { STARTING_DECK } from '../../content/cards/basic.ts';
 import {
   ACTIVE_STANCES,
@@ -107,7 +108,7 @@ export function offerableCards(): readonly CardDef[] {
            die roll in Act 3 delivers it after the deck is already finished —
            and a run that never rolled one never had the choice at all. One per
            run, at a known place, chosen. See `content/events/reliquary.ts`. */
-        card.rarity !== 'legendary' &&
+        card.rarity !== 'mythic' &&
         card.rarity !== 'artifact' &&
         card.type !== 'status' &&
         card.type !== 'voided' &&
@@ -177,9 +178,22 @@ export function rollReward(
   alloy: number,
   drought: number,
   tier: 'combat' | 'elite' | 'boss' = 'combat',
+  /**
+   * A Thread's reprisal. Pays cards and Alloy; pays no relic.
+   *
+   * A reprisal is a bill, not an opportunity. Dropping a relic made being
+   * Marked something a player would deliberately arrange — take the Thread,
+   * collect the free Elite drop — which inverts the entire point of a Thread:
+   * it is supposed to be a consequence you accepted, not a shop with a
+   * fight in front of it. The cards stay, because a fight with no reward at
+   * all reads as the game punishing you twice for one choice.
+   */
+  reprisal = false,
 ): RolledReward {
   const cards = rollCardChoices(rng, run, act, drought, tier);
-  const withRelics = rollRelics(cards.rng, run, tier);
+  const withRelics = reprisal
+    ? { relicIds: [] as readonly string[], rng: cards.rng }
+    : rollRelics(cards.rng, run, tier);
   const withImplants = rollBossImplants(withRelics.rng, tier);
 
   return {
@@ -200,14 +214,27 @@ export function rollReward(
 /**
  * Three implants at a boss, alongside the three relics.
  *
- * Boss only, and always epic — see `REWARDS.bossOfferRarity`. Everywhere else
- * implants are bought at a Station with Alloy you wanted for something else,
- * which is the right price for a thing that changes what a card is worth. An
- * act finale is the one place the run is allowed to change twice, and asking
- * "what can a turn do" and "what is a card worth" in the same breath is most of
- * what makes a boss read as a chapter ending rather than a bigger enemy.
+ * Boss only. Everywhere else implants are bought at a Station with Alloy you
+ * wanted for something else, which is the right price for a thing that changes
+ * what a card is worth. An act finale is the one place the run is allowed to
+ * change twice, and asking "what can a turn do" and "what is a card worth" in
+ * the same breath is most of what makes a boss read as a chapter ending rather
+ * than a bigger enemy.
  *
- * A short offer rather than a padded one when the tier runs low, for the same
+ * ANY TIER, and all three from the SAME one.
+ *
+ * The tier used to be fixed at `REWARDS.bossOfferRarity`, which made three
+ * bosses hand you three versions of the same screen — and, because the top of
+ * the shelf is thin, often literally the same three implants. Rolling the tier
+ * makes the finale a thing that can surprise you; keeping all three ON that
+ * tier is what stops the roll turning into a non-choice, because a screen
+ * offering one mythic and two commons is not a decision, it is a formality.
+ *
+ * The roll is uniform over the tiers that actually have implants, so a thin
+ * tier is not more likely to come up merely for being thin. `sample` is on the
+ * `rewards` stream like everything else here.
+ *
+ * A short offer rather than a padded one when a tier runs low, for the same
  * reason `rollRelics` makes short offers: padding from a neighbouring tier
  * brings back the mixed screen where one option is obviously the answer.
  */
@@ -217,14 +244,23 @@ export function rollBossImplants(
 ): { readonly implantIds: readonly ImplantId[]; readonly rng: RngState } {
   if (tier !== 'boss') return { implantIds: [], rng };
 
-  const pool = implantTable
-    .all()
-    .filter((def) => def.rarity === REWARDS.bossOfferRarity);
-  if (pool.length === 0) return { implantIds: [], rng };
+  const all = implantTable.all();
+  /* Read off the pool rather than off the ladder, so a tier nobody has written
+     an implant for is not a tier the boss can roll into an empty screen. Sorted
+     by the ladder rather than by encounter order — `RARITY_ORDER` — because the
+     roll has to be reproducible from the seed and a Set's iteration order is
+     the order things happened to be written in. */
+  const tiers = RARITY_ORDER.filter((rank) => all.some((def) => def.rarity === rank));
+  if (tiers.length === 0) return { implantIds: [], rng };
+
+  const rolled = nextInt(rng, 'rewards', 0, tiers.length);
+  const chosen = tiers[rolled.value];
+  const pool = all.filter((def) => def.rarity === chosen);
+  if (pool.length === 0) return { implantIds: [], rng: rolled.rng };
 
   // Implants stack, so an offer is never filtered against what is already
   // held — a second Honed Edge is a real choice, not a duplicate.
-  const picked = sample(rng, 'rewards', pool, Math.min(REWARDS.implantChoices, pool.length));
+  const picked = sample(rolled.rng, 'rewards', pool, Math.min(REWARDS.implantChoices, pool.length));
   return { implantIds: picked.value.map((def) => def.id), rng: picked.rng };
 }
 

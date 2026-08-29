@@ -17,9 +17,27 @@
  * inside the turn, Alloy is a decision three nodes from now, health is the
  * only unconditional one, and Block is the reason a defensive deck would
  * bother. If they all paid Energy they would be one card printed five times.
+ *
+ * ---- the second family: cards that read the bar ----
+ *
+ * The originals above pay out for a kill, which is binary — it happened or it
+ * did not. These read how far along the enemy is instead, which turns the same
+ * targeting question into a sliding one: not "can I finish this" but "which of
+ * these three is worth hitting right now".
+ *
+ * Two shapes, on purpose. `targetHullBelowPct` is a threshold and produces
+ * finishers; `targetHullMissingPct` is a slope and produces cards that get
+ * quietly better all fight. And one of them reads the line from the OTHER side
+ * — a card that wants a whole target is an opener, which against a pack is the
+ * opposite instruction to everything else here and is the reason the family
+ * does not collapse into "always hit the hurt one".
+ *
+ * All of them read the target's INSTANCE maximum, so a buffed enemy is measured
+ * against the bar the player can actually see.
  */
 
 import type { CardDef } from '../../engine/types.ts';
+import { WEAK } from '../statuses.ts';
 
 export const EXECUTION_CARDS: readonly CardDef[] = [
   {
@@ -94,7 +112,7 @@ export const EXECUTION_CARDS: readonly CardDef[] = [
     id: 'marrow_draw',
     name: 'Marrow Draw',
     type: 'attack',
-    rarity: 'rare',
+    rarity: 'epic',
     archetype: 'iai',
     cost: 2,
     exhaust: true,
@@ -124,7 +142,7 @@ export const EXECUTION_CARDS: readonly CardDef[] = [
     id: 'clean_sweep',
     name: 'Clean Sweep',
     type: 'attack',
-    rarity: 'rare',
+    rarity: 'epic',
     archetype: 'guard',
     cost: 2,
     // The AoE case is the whole reason this tier exists: the condition counts
@@ -156,7 +174,7 @@ export const EXECUTION_CARDS: readonly CardDef[] = [
     id: 'the_last_word',
     name: 'The Last Word',
     type: 'attack',
-    rarity: 'epic',
+    rarity: 'legendary',
     archetype: 'iai',
     cost: 2,
     exhaust: true,
@@ -195,7 +213,7 @@ export const EXECUTION_CARDS: readonly CardDef[] = [
     id: 'salvage_rights',
     name: 'Salvage Rights',
     type: 'attack',
-    rarity: 'rare',
+    rarity: 'epic',
     archetype: 'neutral',
     cost: 1,
     /* Weaker than the yardstick on purpose. The card is not the 4 damage — it
@@ -232,5 +250,250 @@ export const EXECUTION_CARDS: readonly CardDef[] = [
       ],
     },
     flavor: 'You stopped calling it looting somewhere around the second act.',
+  },
+  /* ---- reading the bar ---- */
+
+  {
+    /* The common one, and the one that teaches the family. Six is a fair 1-cost
+       hit on its own, so the card is never dead — it simply doubles when you
+       aim it at something that is nearly finished, which is the whole lesson in
+       one number. */
+    id: 'finishing_line',
+    name: 'Finishing Line',
+    type: 'attack',
+    rarity: 'common',
+    archetype: 'iai',
+    cost: 1,
+    effects: [
+      { op: 'damage', amount: 6, target: 'enemy' },
+      {
+        op: 'conditional',
+        when: { kind: 'targetHullBelowPct', value: 40 },
+        then: [{ op: 'damage', amount: 6, target: 'enemy' }],
+      },
+    ],
+    upgrade: {
+      name: 'Finishing Line+',
+      effects: [
+        { op: 'damage', amount: 8, target: 'enemy' },
+        {
+          op: 'conditional',
+          // The upgrade widens the window rather than raising the number. A
+          // finisher that fires more often is worth more than one that hits
+          // harder in the same narrow band.
+          when: { kind: 'targetHullBelowPct', value: 55 },
+          then: [{ op: 'damage', amount: 8, target: 'enemy' }],
+        },
+      ],
+    },
+    flavor: 'Everything before this was arithmetic.',
+  },
+
+  {
+    /* The mirror, and the reason the family is not just executions. Against a
+       pack this says "hit the one nobody has touched", which is the opposite of
+       every other card here; against a boss it is simply a good 1-cost that
+       stops being good, which is a real cost rather than a printed one. */
+    id: 'first_blood',
+    name: 'First Blood',
+    type: 'attack',
+    rarity: 'uncommon',
+    archetype: 'neutral',
+    cost: 1,
+    effects: [
+      { op: 'damage', amount: 5, target: 'enemy' },
+      {
+        op: 'conditional',
+        when: { kind: 'targetHullAbovePct', value: 70 },
+        then: [{ op: 'damage', amount: 7, target: 'enemy' }],
+      },
+    ],
+    upgrade: {
+      name: 'First Blood+',
+      effects: [
+        { op: 'damage', amount: 7, target: 'enemy' },
+        {
+          op: 'conditional',
+          when: { kind: 'targetHullAbovePct', value: 60 },
+          then: [{ op: 'damage', amount: 9, target: 'enemy' }],
+        },
+      ],
+    },
+    flavor: 'The first cut is the only one it has no answer for.',
+  },
+
+  {
+    /* The defensive read, and the one that makes the family a build rather than
+       a pile of attacks.
+     *
+     * It reads the line from the OPENER's side, like First Blood, and that is
+     * deliberate: a defensive card that pays out against something already
+     * nearly dead is a card that pays out on the turn you least need it. This
+     * one asks you to meet the thing while it is still whole — brace, take the
+     * edge off it with the Weak, and be rewarded for having gone first.
+     *
+     * Twelve Block on an untouched target is a lot for two Energy. It is meant
+     * to be: it is the whole of the card's good case, it is gone by the time
+     * the fight is half over, and against a boss on its second phase this is
+     * six Block and two Weak for two — which is a fair, dull rate.
+     */
+    id: 'meet_the_charge',
+    name: 'Meet the Charge',
+    type: 'skill',
+    rarity: 'uncommon',
+    archetype: 'guard',
+    cost: 2,
+    effects: [
+      { op: 'block', amount: 6 },
+      { op: 'applyStatus', status: WEAK, stacks: 2, target: 'enemy' },
+      {
+        op: 'conditional',
+        when: { kind: 'targetHullAbovePct', value: 80 },
+        then: [{ op: 'block', amount: 6 }],
+      },
+    ],
+    upgrade: {
+      name: 'Meet the Charge+',
+      effects: [
+        { op: 'block', amount: 8 },
+        { op: 'applyStatus', status: WEAK, stacks: 2, target: 'enemy' },
+        {
+          op: 'conditional',
+          // The window widens rather than the number rising, same as the rest
+          // of the family: a card that fires more often beats one that fires
+          // harder in the same narrow band.
+          when: { kind: 'targetHullAbovePct', value: 65 },
+          then: [{ op: 'block', amount: 8 }],
+        },
+      ],
+    },
+    flavor: 'Everything it has, it has right now. Stand where it is going.',
+  },
+
+  {
+    /* The name says what it does, which is the point of it.
+     *
+     * Every other card in this family is a good card that gets better; this one
+     * is two entirely different cards behind one threshold. Five is not a play,
+     * it is what you get for being wrong — and sixteen for one Energy is well
+     * above any curve in the game, which is what a card called Execute should
+     * be worth when it is right.
+     *
+     * Written as `then`/`else` rather than as a base hit with a rider, because
+     * the two halves are alternatives and not a sum: a rider would print "Deal
+     * 5 damage. If the target is below 20%, deal 11 additional damage", and the
+     * player would have to do the arithmetic to see the card.
+     */
+    id: 'execute',
+    name: 'Execute',
+    type: 'attack',
+    rarity: 'uncommon',
+    archetype: 'iai',
+    cost: 1,
+    effects: [
+      {
+        op: 'conditional',
+        when: { kind: 'targetHullBelowPct', value: 30 },
+        then: [{ op: 'damage', amount: 16, target: 'enemy' }],
+        else: [{ op: 'damage', amount: 5, target: 'enemy' }],
+      },
+    ],
+    upgrade: {
+      name: 'Execute+',
+      effects: [
+        {
+          op: 'conditional',
+          when: { kind: 'targetHullBelowPct', value: 40 },
+          then: [{ op: 'damage', amount: 20, target: 'enemy' }],
+          else: [{ op: 'damage', amount: 7, target: 'enemy' }],
+        },
+      ],
+    },
+    flavor: 'The sect had a word for the moment. It was not a long word.',
+  },
+
+  {
+    /* The slope, at the tier where a slope is worth a card. Two a step at 10%
+       is 18 extra into something on its last legs and nothing at all on turn
+       one, which is exactly the curve — it is a card you hold, and holding a
+       card is a decision the deck did not previously have to make. */
+    id: 'widening_gyre',
+    name: 'Widening Gyre',
+    type: 'attack',
+    rarity: 'epic',
+    archetype: 'iai',
+    /* One Energy, and the ceiling is the reason it can be.
+     *
+     * Against a target at 10% it is 5 + nine steps = 23 for one Energy, which
+     * is above anything else at the price. Against a full one it is 5, which is
+     * below everything at the price. A card whose good case is enormous and
+     * whose bad case is a wasted draw is a card you HOLD — and holding a card
+     * for the right turn is the decision the whole family exists to create. At
+     * two Energy the bad case was unplayable rather than merely poor, which
+     * meant nobody held it, they cut it. */
+    cost: 1,
+    effects: [
+      { op: 'damage', amount: 5, target: 'enemy' },
+      {
+        op: 'scaleWith',
+        source: 'targetHullMissingPct',
+        per: 10,
+        then: [{ op: 'damage', amount: 2, target: 'enemy' }],
+      },
+    ],
+    upgrade: {
+      name: 'Widening Gyre+',
+      effects: [
+        { op: 'damage', amount: 7, target: 'enemy' },
+        {
+          op: 'scaleWith',
+          source: 'targetHullMissingPct',
+          per: 10,
+          then: [{ op: 'damage', amount: 3, target: 'enemy' }],
+        },
+      ],
+    },
+    flavor: 'It opens as it turns. By the end there is nothing in the middle of it.',
+  },
+
+  {
+    /* The payoff card. Not more damage — tempo, which is what an execution is
+       actually worth in a pack: the Energy and the card come back and the turn
+       keeps going, so finishing one thing is what pays for finishing the next.
+       Priced at the tier where a turn that does not end is worth a slot. */
+    id: 'terminal_velocity',
+    name: 'Terminal Velocity',
+    type: 'attack',
+    rarity: 'legendary',
+    archetype: 'overheat',
+    cost: 2,
+    effects: [
+      { op: 'damage', amount: 14, target: 'enemy' },
+      { op: 'gainHeat', amount: 2 },
+      {
+        op: 'conditional',
+        when: { kind: 'targetHullBelowPct', value: 40 },
+        then: [
+          { op: 'gainEnergy', amount: 2 },
+          { op: 'draw', amount: 1 },
+        ],
+      },
+    ],
+    upgrade: {
+      name: 'Terminal Velocity+',
+      effects: [
+        { op: 'damage', amount: 18, target: 'enemy' },
+        { op: 'gainHeat', amount: 2 },
+        {
+          op: 'conditional',
+          when: { kind: 'targetHullBelowPct', value: 50 },
+          then: [
+            { op: 'gainEnergy', amount: 2 },
+            { op: 'draw', amount: 1 },
+          ],
+        },
+      ],
+    },
+    flavor: 'Past a certain point the fall is doing the work and you are only aiming.',
   },
 ];

@@ -133,7 +133,7 @@ function blockOf(combat: CombatState, who: Combatant): number {
 /** Every status on this combatant that feeds the named pipeline field. */
 function namedStatuses(
   stacks: readonly StatusStack[],
-  field: 'damageDealtFlat' | 'damageDealtMult' | 'damageTakenMult',
+  field: 'damageDealtFlat' | 'damageDealtMult' | 'damageTakenMult' | 'damageTakenFlat',
 ): {
   readonly name: string;
   readonly value: number;
@@ -258,12 +258,24 @@ export function computeDamage(state: GameState, input: DamageInput): DamageBreak
       ctx = record(ctx, `${stance.name} hot`, 'add', ctx.amount + (stance.hotDamage ?? 0));
     }
 
-    /* Relics and implants: flat, before anything multiplies, and only on the
-       card's first swing — see `DamageInput.firstSwingOfCard`. Every target of
-       that swing gets it; later swings of the same card get none. */
-    const relicFlat = pilotRules(state).damageFlat;
-    if (relicFlat !== 0 && input.firstSwingOfCard !== false) {
-      ctx = record(ctx, 'Relics', 'add', ctx.amount + relicFlat);
+    /* Relics and implants, in two flavours, both flat and both before anything
+       multiplies.
+
+       `damageFlat` lands only on the card's FIRST swing — see
+       `DamageInput.firstSwingOfCard`. Every target of that swing gets it; later
+       swings of the same card get none, which is what stops a three-hit card
+       tripling it.
+
+       `damageEveryHit` lands on all of them, which is precisely why the numbers
+       on it are smaller. The two are different build questions — heavy single
+       swings against many small ones — and the totals panel names them
+       separately for the same reason. */
+    const carried = pilotRules(state);
+    if (carried.damageFlat !== 0 && input.firstSwingOfCard !== false) {
+      ctx = record(ctx, 'Relics', 'add', ctx.amount + carried.damageFlat);
+    }
+    if (carried.damageEveryHit !== 0) {
+      ctx = record(ctx, 'Relics, every hit', 'add', ctx.amount + carried.damageEveryHit);
     }
   }
 
@@ -300,6 +312,15 @@ export function computeDamage(state: GameState, input: DamageInput): DamageBreak
   if (input.isAttack && input.target.kind === 'player') {
     const soak = pilotRules(state).damageTakenFlat;
     if (soak !== 0) ctx = record(ctx, 'Relics', 'reduce', Math.max(0, ctx.amount - soak));
+  }
+  /* Plating the target is WEARING, as opposed to bolted to the ship. Tempered
+     is the only one today. Same step as the relic soak and for the same reason:
+     it is the last thing between a number and a hull, and anything that
+     multiplies has already had its say. */
+  for (const status of namedStatuses(targetStatuses, 'damageTakenFlat')) {
+    const soak = status.value * status.stacks;
+    if (soak === 0) continue;
+    ctx = record(ctx, `${status.name} ${status.stacks}`, 'reduce', Math.max(0, ctx.amount - soak));
   }
   const struck = input.target;
   if (input.isAttack && struck.kind === 'enemy') {

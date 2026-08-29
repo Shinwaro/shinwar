@@ -535,22 +535,75 @@
   color: var(--guard);
 }
 
-/* The intent is the most important thing on an enemy. It gets the size. */
+/* The intent is the most important thing on an enemy. It gets the size.
+
+   One mark per part of the telegraph, and the COLOUR is the sentence. The hues
+   are grouped by who the beat is for: the two reds are aimed at you — a bright
+   one for the swing, a deep one for whatever it is about to put on you — and
+   the cold pair is the enemy working on itself, blue for plating and teal for
+   making itself stronger. Never colour alone: every mark carries a glyph, and
+   the debuff carries a dashed border on top of that, because the two reds are
+   deliberately close. */
 .intent {
   display: flex;
-  align-items: baseline;
-  gap: 0.4rem;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
   font-family: var(--mono);
   font-size: 1.05rem;
   font-variant-numeric: tabular-nums;
 }
 
-.intent--attack {
-  color: var(--iai);
+.intent-hit {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  padding: 0.08rem 0.45rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  line-height: 1.35;
+  color: var(--muted);
 }
 
-.intent--other {
-  color: var(--guard);
+.intent-hit[data-kind='attack'] {
+  color: var(--intent-attack);
+  border-color: color-mix(in srgb, var(--intent-attack) 60%, transparent);
+  background: color-mix(in srgb, var(--intent-attack) 14%, transparent);
+}
+
+.intent-hit[data-kind='block'] {
+  color: var(--intent-block);
+  border-color: color-mix(in srgb, var(--intent-block) 60%, transparent);
+  background: color-mix(in srgb, var(--intent-block) 14%, transparent);
+}
+
+/* It is about to make itself stronger. The one telegraph that pays off on a
+   later turn rather than this one, so it wants to be seen a turn early — and it
+   sits with the plating on the cold half of the wheel, because both are the
+   enemy spending a turn on itself rather than on you. */
+.intent-hit[data-kind='buff'] {
+  color: var(--intent-buff);
+  border-color: color-mix(in srgb, var(--intent-buff) 60%, transparent);
+  background: color-mix(in srgb, var(--intent-buff) 14%, transparent);
+}
+
+/* It is about to affect YOU — Vulnerable, Weak, Scald.
+
+   A solid deep dark red badge, and the FILL is what carries the colour. That is
+   the only way to get "deep dark red" and legible type in the same chip: a red
+   dark enough to read as its own thing beside the swing is far too dark to set
+   text in, so the chip wears the hue at nearly full strength and the type sits
+   on top of it in plain ink. What the eye reports is the fill.
+
+   The dashed border stays as the third channel after the depth and the glyph,
+   lightened just enough that the dashes are visible against the fill — the two
+   reds are close on purpose and this is what keeps them one glance apart. */
+.intent-hit[data-kind='debuff'] {
+  color: var(--ink);
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--intent-debuff) 55%, var(--ink));
+  background: color-mix(in srgb, var(--intent-debuff) 88%, transparent);
 }
 
 .intent-icon {
@@ -1247,14 +1300,27 @@
   background: var(--surface-solid);
 }
 
+/* The pressable end of the bar. One cell, however many controls are in it —
+   see `runbar.ts` for why that matters to a fixed-column grid. */
+.run-bar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.4rem;
+}
+
 /* ---------- the star chart ----------
    Hairline lanes on an SVG layer, real buttons as stars over it. Quiet by
    default: only the lanes you are choosing between carry a caption, because
    fifty labels is noise and three to six is the decision. */
 
+/* Wider than the rest of the game's 62rem column, because the chart now shares
+   its row with the Manifest — at 62rem the panel would have taken its 15rem out
+   of the sky. Everything above it (the run bar, the head) simply stretches,
+   which is what a header row is for. */
 .map-inner {
   width: 100%;
-  max-width: 62rem;
+  max-width: 78rem;
   margin: 0 auto;
   display: grid;
   gap: 0.75rem;
@@ -1267,39 +1333,92 @@
   letter-spacing: 0.01em;
 }
 
+/* The chart and its Manifest, side by side — and the CHART stays centred.
+
+   The Manifest used to sit above the chart at full width, so the sky moved down
+   by however many Threads you happened to be carrying. Beside it, it is the
+   same shape as the relic rail in a fight: a standing list you glance at, next
+   to the thing you are actually deciding about.
+
+   Beside it is not the same as pushing it, though. A two-track row hands the
+   chart the left column and the panel the right, which slides the whole sky off
+   centre the moment you pick up a Thread — the chart is the thing being read,
+   and it should not move because of what is written next to it. So when there
+   is a panel the row is three tracks wide with a matching empty one on the
+   left, and the chart sits in the middle of the screen whatever is beside it.
+
+   The class comes from `map.ts` rather than from `:has()`, because the screen
+   already knows whether it built a Manifest and a selector is a worse way to
+   ask a question you have the answer to. */
+.map-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 0.75rem;
+}
+
+.map-body.has-manifest {
+  grid-template-columns: var(--manifest-w) minmax(0, 1fr) var(--manifest-w);
+}
+
+.map-body.has-manifest .map-viewport { grid-column: 2; }
+
+.map-body.has-manifest .manifest {
+  grid-column: 3;
+  max-height: min(66dvh, 40rem);
+  overflow-y: auto;
+}
+
+/* Below this there is no room for a column beside the chart, so it goes back
+   under it — where it costs vertical space, which on a phone is the cheaper of
+   the two prices. */
+@media (max-width: 66rem) {
+  .map-body.has-manifest {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .map-body.has-manifest .map-viewport,
+  .map-body.has-manifest .manifest {
+    grid-column: 1;
+  }
+
+  .map-body.has-manifest .manifest {
+    max-height: none;
+  }
+}
+
 /*
- * The chart opens on your feet, not on the boss.
+ * The chart opens on where you are standing.
  *
- * `column-reverse` puts the scroll ORIGIN at the bottom of the content, so a
- * freshly mounted viewport starts looking at the starting row — which is drawn
- * last because the chart runs boss-first. There is exactly one child, so
- * nothing visually reorders.
- *
- * This is CSS rather than script on purpose. Four scripted attempts failed for
- * the same reason each time: the screen is rebuilt and the element that was
- * scrolled gets detached a moment later, so any timing fix is a race against a
- * re-render it cannot see. A scroll origin is a property of the box, and it
- * survives the box being replaced.
+ * It used to open at the bottom by way of `flex-direction: column-reverse`,
+ * which puts the scroll ORIGIN at the end of the content — a neat trick that
+ * answered the wrong question. "The starting row" and "your position" are the
+ * same node exactly once per act, so a chart handed back after a fight in the
+ * middle of Act 2 still opened at the entrance. The placement is script now,
+ * polled for the frame the box actually has a height — see `place` in
+ * `map.ts` — and there is one rule instead of a rule and a stylesheet trick.
  */
 .map-viewport {
   position: relative;
   height: min(66dvh, 40rem);
   display: flex;
-  flex-direction: column-reverse;
+  flex-direction: column;
   overflow-y: auto;
   overflow-x: hidden;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: #04050a;
+  /* The chart is the one box in the game that is mostly empty space, so it is
+     where grab-and-pull is most worth advertising. */
+  cursor: grab;
 }
 
 .map-field {
   position: relative;
   width: 100%;
   height: 118rem;
-  /* The viewport is a reversed flex column so the chart opens on the starting
-     row. A flex item shrinks by default, which collapsed the whole field to the
-     viewport's height and left nothing to scroll. */
+  /* A flex item shrinks by default, which collapsed the whole field to the
+     viewport's height and left nothing at all to scroll. */
   flex: 0 0 auto;
   /* The galaxy the act sits in. Fixed to the field rather than the viewport so
      it scrolls with the chart — the sky should move when you move through it.
@@ -1643,7 +1762,7 @@
 .env-badge[data-environment='sensor_fog'] { border-left-color: var(--guard); }
 .env-badge[data-environment='chronal_shear'] { border-left-color: var(--danger); }
 
-.intent--hidden {
+.intent--hidden .intent-hit {
   border-style: dashed;
   color: var(--muted);
 }
@@ -1775,9 +1894,9 @@
    every relic in the inventory drew the default grey — a missing rule that
    looked exactly like a decision that tiers do not matter once held. */
 .mastery-line[data-rarity='uncommon'] { border-left-color: var(--rarity-uncommon); }
-.mastery-line[data-rarity='rare'] { border-left-color: var(--rarity-rare); }
 .mastery-line[data-rarity='epic'] { border-left-color: var(--rarity-epic); }
 .mastery-line[data-rarity='legendary'] { border-left-color: var(--rarity-legendary); }
+.mastery-line[data-rarity='mythic'] { border-left-color: var(--rarity-mythic); }
 .mastery-line[data-rarity='artifact'] { border-left-color: var(--rarity-artifact); }
 
 /* The tier in words as well as in colour. A colour alone is a code the player
@@ -1799,9 +1918,9 @@
 }
 
 .mastery-line[data-rarity='uncommon'] { --tier: var(--rarity-uncommon); }
-.mastery-line[data-rarity='rare'] { --tier: var(--rarity-rare); }
 .mastery-line[data-rarity='epic'] { --tier: var(--rarity-epic); }
 .mastery-line[data-rarity='legendary'] { --tier: var(--rarity-legendary); }
+.mastery-line[data-rarity='mythic'] { --tier: var(--rarity-mythic); }
 .mastery-line[data-rarity='artifact'] { --tier: var(--rarity-artifact); }
 
 /* ---------- the Wavefront ----------
@@ -1876,6 +1995,24 @@
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   background: var(--surface);
+}
+
+/* Beside the chart it is a rail, not a section: narrower, tighter, and set at
+   the size of the carrying rail in a fight — because that is the same job. It
+   is glanced at while the eye is somewhere else, so it should take as little of
+   the row as it can and still be readable. */
+.map-body.has-manifest .manifest {
+  gap: 0.4rem;
+  padding: 0.5rem 0.6rem;
+}
+
+.map-body.has-manifest .manifest-name { font-size: 0.8rem; }
+.map-body.has-manifest .manifest-due { font-size: 0.68rem; }
+
+.map-body.has-manifest .manifest-desc,
+.map-body.has-manifest .manifest-omen {
+  font-size: 0.72rem;
+  line-height: 1.35;
 }
 
 .manifest-heading {
@@ -2318,9 +2455,9 @@
 .card--face[data-rarity='basic'],
 .card--face[data-rarity='common'] { border-left-color: var(--rarity-common); }
 .card--face[data-rarity='uncommon'] { border-left-color: var(--rarity-uncommon); }
-.card--face[data-rarity='rare'] { border-left-color: var(--rarity-rare); }
 .card--face[data-rarity='epic'] { border-left-color: var(--rarity-epic); }
 .card--face[data-rarity='legendary'] { border-left-color: var(--rarity-legendary); }
+.card--face[data-rarity='mythic'] { border-left-color: var(--rarity-mythic); }
 .card--face[data-rarity='artifact'] {
   border-left-color: var(--rarity-artifact);
   box-shadow: inset 2px 0 12px rgba(244, 227, 176, 0.12);
@@ -2437,9 +2574,9 @@
 }
 
 .card--pick[data-rarity='uncommon'] { border-left: 3px solid var(--rarity-uncommon); }
-.card--pick[data-rarity='rare'] { border-left: 3px solid var(--rarity-rare); }
 .card--pick[data-rarity='epic'] { border-left: 3px solid var(--rarity-epic); }
 .card--pick[data-rarity='legendary'] { border-left: 3px solid var(--rarity-legendary); }
+.card--pick[data-rarity='mythic'] { border-left: 3px solid var(--rarity-mythic); }
 .card--pick[data-rarity='artifact'] { border-left: 3px solid var(--rarity-artifact); }
 
 
@@ -2553,9 +2690,9 @@
    legendary relic and a legendary card were different colours — the tier is
    one fact about an object and it should look like one fact. */
 .relic-card[data-rarity='uncommon'] { border-left-color: var(--rarity-uncommon); }
-.relic-card[data-rarity='rare'] { border-left-color: var(--rarity-rare); }
 .relic-card[data-rarity='epic'] { border-left-color: var(--rarity-epic); }
 .relic-card[data-rarity='legendary'] { border-left-color: var(--rarity-legendary); }
+.relic-card[data-rarity='mythic'] { border-left-color: var(--rarity-mythic); }
 .relic-card[data-rarity='artifact'] { border-left-color: var(--rarity-artifact); }
 
 .shop-lot--wide {
@@ -3085,6 +3222,11 @@
 
 .combat-corner-buttons {
   display: flex;
+  /* Wraps rather than pushing itself off the edge. There are three controls in
+     the top row now and the volume slider is the wide one, so on a short
+     desktop window the rail folds instead of hanging Fullscreen past the
+     right margin. */
+  flex-wrap: wrap;
   justify-content: flex-end;
   gap: 0.35rem;
 }
@@ -3276,9 +3418,9 @@
    about them that matters. */
 .carried-row[data-rarity='common'] { border-left-color: var(--rarity-common); }
 .carried-row[data-rarity='uncommon'] { border-left-color: var(--rarity-uncommon); }
-.carried-row[data-rarity='rare'] { border-left-color: var(--rarity-rare); }
 .carried-row[data-rarity='epic'] { border-left-color: var(--rarity-epic); }
 .carried-row[data-rarity='legendary'] { border-left-color: var(--rarity-legendary); }
+.carried-row[data-rarity='mythic'] { border-left-color: var(--rarity-mythic); }
 .carried-row[data-rarity='artifact'] { border-left-color: var(--rarity-artifact); }
 .carried-row--mastery { border-left-color: var(--iai); }
 
@@ -3409,11 +3551,11 @@
   pointer-events: auto;
 }
 
-/* The opening step, which points at nothing. */
-.coach-card--centre {
-  top: 50%;
-  transform: translate(-50%, -50%);
-}
+/* No `--centre` variant any more. Every step is placed by the same script rule
+   — above the hand, clear of the rings, as near the middle as those allow —
+   including the opening one, which points at nothing and therefore aims at the
+   middle on its own. Two placements that disagreed about where the hand is was
+   the whole of the bug. See `placeCard` in `coach.ts`. */
 
 .coach-step {
   margin: 0 0 0.3rem;
@@ -3463,17 +3605,6 @@
     width: auto;
     transform: none;
     overscroll-behavior: contain;
-  }
-
-  /* The opening step rings nothing, so there is no gap to find — but dead
-     centre on a phone is exactly where the hand is, and a tutorial that opens
-     by covering the cards is the wrong first impression even on a step with
-     nothing to tap. High and clear of them instead. */
-  .coach-card--centre {
-    top: 3.5rem;
-    transform: none;
-    max-height: 60dvh;
-    overflow-y: auto;
   }
 
   /* Compact, because the gap it has to fit into is whatever the board leaves
@@ -3773,9 +3904,9 @@
 }
 
 .hand .card[data-rarity='uncommon'] { border-left-color: var(--rarity-uncommon); }
-.hand .card[data-rarity='rare'] { border-left-color: var(--rarity-rare); }
 .hand .card[data-rarity='epic'] { border-left-color: var(--rarity-epic); }
 .hand .card[data-rarity='legendary'] { border-left-color: var(--rarity-legendary); }
+.hand .card[data-rarity='mythic'] { border-left-color: var(--rarity-mythic); }
 .hand .card[data-rarity='artifact'] { border-left-color: var(--rarity-artifact); }
 
 /* ---------- what it all adds up to ----------

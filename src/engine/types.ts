@@ -73,6 +73,22 @@ export type Condition =
    */
   | { readonly kind: 'hullAbovePct'; readonly value: number }
   /**
+   * The same two lines, read on the TARGET instead of on you.
+   *
+   * `hullBelowPct` and `hullAbovePct` are about the state of your own run;
+   * these are about the state of the thing in front of you, which is a
+   * different question and a different kind of card. Below is an execution —
+   * it asks you to pick the one that is nearly dead. Above is an opener — it
+   * asks you to pick the one that is still whole, which against a pack is the
+   * opposite instruction and against a boss is free.
+   *
+   * A condition rather than an op, and a pair rather than one, for the same
+   * reason the pilot's own two are a pair: a lone "below" only ever produces
+   * finishers, and a deck of finishers has nothing to do on turn one.
+   */
+  | { readonly kind: 'targetHullBelowPct'; readonly value: number }
+  | { readonly kind: 'targetHullAbovePct'; readonly value: number }
+  /**
    * Something died during this card's resolution.
    *
    * A condition rather than an op, which matters: effects run in order, so an
@@ -98,7 +114,17 @@ export type ScaleSource =
    * ones the last one did. It reads the effect context rather than the combat
    * state, which is why `scaleValue` takes both.
    */
-  | 'discardedThisPlay';
+  | 'discardedThisPlay'
+  /**
+   * Whole percentage points of health the TARGET has lost.
+   *
+   * The scaling half of the enemy-health family — `targetHullBelowPct` is a
+   * threshold and this is a slope. Written in percentage points rather than raw
+   * health so one card reads the same against a 30-hull Shard and a 430-hull
+   * boss: "for every 10% of health the target is missing" is a sentence about
+   * how the fight is going, not about which enemy is in front of you.
+   */
+  | 'targetHullMissingPct';
 
 export type EffectOp =
   | { readonly op: 'damage'; readonly amount: number; readonly target: Target; readonly times?: number }
@@ -168,16 +194,16 @@ export type CardType = 'attack' | 'skill' | 'power' | 'status' | 'voided';
  *   legendary  run-defining; you build around it
  *   artifact   unique, and changes how a whole system reads
  */
-export type Rarity = 'basic' | 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary' | 'artifact';
+export type Rarity = 'basic' | 'common' | 'uncommon' | 'epic' | 'legendary' | 'mythic' | 'artifact';
 
 /** Offerable tiers, weakest first. The order drives sorting and display. */
 export const RARITY_ORDER: readonly Rarity[] = [
   'basic',
   'common',
   'uncommon',
-  'rare',
   'epic',
   'legendary',
+  'mythic',
   'artifact',
 ];
 
@@ -396,8 +422,17 @@ export interface StatusDef {
   readonly damageDealtFlat?: number;
   /** Multiplier on damage the holder deals. Weak is 0.75. */
   readonly damageDealtMult?: number;
-  /** Multiplier on damage the holder takes. Vulnerable is 1.5. */
+  /** Multiplier on damage the holder takes. Vulnerable is 1.25. */
   readonly damageTakenMult?: number;
+  /**
+   * Flat reduction, per stack, on attacks that reach the holder.
+   *
+   * Tempered's half of the defensive game. Applied with the relic plating in
+   * step 5 of the pipeline — after everything that multiplies, before Block —
+   * because armour is the last thing between a number and you, and applying it
+   * earlier would let a Vulnerable multiply the reduction back up again.
+   */
+  readonly damageTakenFlat?: number;
   /**
    * Floor on the compounded multiplier, however many stacks are held.
    *
@@ -612,8 +647,25 @@ export interface RelicPassive {
   readonly ventPerTurn?: number;
   /** Health back at the start of each turn. Capped at the pilot's maximum. */
   readonly healPerTurn?: number;
-  /** Added to every attack you make. */
+  /**
+   * Added to the FIRST swing of every card you play.
+   *
+   * Every target of that swing gets it; later swings of the same card get
+   * none. That is what keeps a three-hit card from tripling flat bonuses, and
+   * it is the reason the shelf has two of these rather than one.
+   */
   readonly damageFlat?: number;
+  /**
+   * Added to EVERY swing, including the later hits of a multi-hit card.
+   *
+   * The other half of the pair, and the expensive one — on a card that swings
+   * three times it is worth three times what `damageFlat` is, so the numbers
+   * on it are correspondingly smaller. Split rather than replaced because the
+   * two make genuinely different builds: `damageFlat` rewards a deck of heavy
+   * single swings, this rewards a deck that hits often, and a shelf that only
+   * had one of them only ever asked one question.
+   */
+  readonly damageEveryHit?: number;
   /** Taken off every attack that reaches you, after Block. */
   readonly damageTakenFlat?: number;
   /** Moves the overheat threshold. Positive means more room. */
@@ -842,6 +894,22 @@ export interface CombatState {
    * the start of the turn it costs you.
    */
   readonly skipNextTurn: boolean;
+  /**
+   * Cards the reactor is owed, to be taken out of the hand you draw next.
+   *
+   * An overheat used to burn a card the instant it resolved — out of the hand
+   * that was about to be discarded anyway, at the end of the turn. Correct, and
+   * completely invisible: the card left a hand that was already leaving, so
+   * nobody ever saw the most memorable thing an overheat does.
+   *
+   * Owed instead, and collected after the next hand is dealt. The cost is the
+   * same — a vent turn hands you 0 Energy, so a card off that hand is a card
+   * you could not have played either way — and now it happens on its own beat,
+   * in front of you, with a sound and a card burning up where it sat.
+   *
+   * A count rather than a flag because nothing says only one thing can owe one.
+   */
+  readonly burnOwed: number;
   /**
    * Enemies that still owe an action this round, in order. The player's turn
    * ends by filling this; the round ends when it empties. Stepping one enemy
@@ -1198,6 +1266,22 @@ export interface RunState {
    * the moment it is spent.
    */
   readonly forcedTier: 'combat' | 'elite' | 'boss' | null;
+  /**
+   * A node whose own content is still owed, after an ambush took its turn.
+   *
+   * A Thread's reprisal used to REPLACE the node it landed on: you routed for a
+   * Station, the reprisal arrived, you fought an Elite, and the Station was
+   * simply gone. That is a second punishment nobody agreed to — the Thread was
+   * supposed to cost you a fight, not a fight and the thing you were walking
+   * towards — and it was at its worst exactly when the player had planned
+   * carefully, because a careful plan is what makes losing the node hurt.
+   *
+   * So the reprisal INTERRUPTS instead. The fight happens, its reward is taken,
+   * and then the node opens as though you had just arrived. Held as an id
+   * rather than a flag because the reward screen sits between the two and the
+   * node has to survive it.
+   */
+  readonly ambushOwes: string | null;
   /** The collapse front. `null` in Act 1, where it would only be noise. */
   readonly wavefront: WavefrontState | null;
   readonly combat: CombatState | null;

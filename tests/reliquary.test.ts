@@ -110,11 +110,11 @@ describe('placement', () => {
 describe('the gate', () => {
   it('offers no legendary or artifact anywhere else', () => {
     for (const card of offerableCards()) {
-      expect(card.rarity, card.id).not.toBe('legendary');
+      expect(card.rarity, card.id).not.toBe('mythic');
       expect(card.rarity, card.id).not.toBe('artifact');
     }
     for (const act of [1, 2, 3] as const) {
-      expect(RARITY_WEIGHTS[act].legendary).toBe(0);
+      expect(RARITY_WEIGHTS[act].mythic).toBe(0);
       expect(RARITY_WEIGHTS[act].artifact).toBe(0);
     }
   });
@@ -125,7 +125,7 @@ describe('the gate', () => {
        ever hold. */
     const top = cardTable
       .all()
-      .filter((card) => card.rarity === 'legendary' || card.rarity === 'artifact');
+      .filter((card) => card.rarity === 'mythic' || card.rarity === 'artifact');
     expect(top.length).toBeGreaterThan(0);
 
     const offered = new Set(reliquaryCardIds());

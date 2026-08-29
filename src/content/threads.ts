@@ -102,7 +102,10 @@ export const THREAD_DEFS: readonly ThreadDef[] = [
     tone: 'costly',
     omen: 'Something is following your heading.',
     trigger: { kind: 'nodes', count: 4 },
-    // The reprisal takes the node it lands on, and pays elite money for it.
+    /* The reprisal INTERRUPTS the node it lands on rather than taking it: the
+       fight happens, its reward is taken, and then the node opens as though you
+       had just arrived. It pays elite money and no relic — a bill, not an
+       opportunity. See `RunState.ambushOwes` and `rollReward`. */
     payoff: [{ op: 'ambush', tier: 'elite' }],
   },
   {

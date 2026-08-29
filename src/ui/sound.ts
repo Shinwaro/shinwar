@@ -48,6 +48,7 @@ import overclockedUrl from '../assets/sound/overclocked.mp3';
 import strengthUrl from '../assets/sound/strength.mp3';
 import targetUrl from '../assets/sound/target.mp3';
 import blockedUrl from '../assets/sound/blocked.mp3';
+import burnUrl from '../assets/sound/burn.mp3';
 import buttonUrl from '../assets/sound/button.mp3';
 import cardAttackIaiUrl from '../assets/sound/card-attack-iai.mp3';
 import cardSkillUrl from '../assets/sound/card-skill.mp3';
@@ -78,6 +79,7 @@ import { volume } from './settings.ts';
 const LIBRARY = {
   blocked: blockedUrl,
   block: guardBlockUrl,
+  burn: burnUrl,
   blockSpecial: blockSpecialUrl,
   atkAoeBig: atkAoeBigUrl,
   atkAoeMultihit: atkAoeMultihitUrl,
@@ -144,6 +146,7 @@ const LEVEL: Partial<Record<SoundKey, number>> = {
   block: 0.5,
   blockSpecial: 0.5,
   blocked: 0.55,
+  burn: 0.7,
   damage: 0.75,
   strength: 0.6,
   overclocked: 0.6,

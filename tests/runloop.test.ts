@@ -20,7 +20,7 @@ import { canPlay } from '../src/engine/combat/combat.ts';
 import { archetypeLean } from '../src/engine/run/rewards.ts';
 import { removalCost } from '../src/engine/run/economy.ts';
 import { stockShop } from '../src/engine/run/shop.ts';
-import { repairOffer } from '../src/engine/run/run.ts';
+import { concludeNode, repairOffer } from '../src/engine/run/run.ts';
 import { reloadContent } from '../src/content/index.ts';
 import { cards as cardTable } from '../src/content/registry.ts';
 import { ECONOMY, PLAYER } from '../src/content/balance.ts';
@@ -290,16 +290,23 @@ describe('the Station', () => {
       run: { ...run, screen: 'station', alloy: 400, pilot: { ...run.pilot, health: 20 } },
     };
 
-    /* Priced by the point, at a rate that climbs with the act, and it fills
-       you up rather than paying for a fraction. */
+    /* Priced by the point, at a rate that climbs with the act, and capped at
+       half your maximum — a repair used to fill the bar, which made health a
+       currency rather than a resource: the run's whole arc flattened into "can
+       I afford the next Station". */
     const offer = repairOffer(parked.run!);
     const missing = run.pilot.maxHealth - 20;
+    const ceiling = Math.floor(run.pilot.maxHealth / 2);
     expect(offer.rate).toBe(ECONOMY.repairPerHealth[parked.run!.act]);
-    expect(offer.healed).toBe(missing);
-    expect(offer.price).toBe(missing * offer.rate);
+    expect(offer.healed).toBe(Math.min(missing, ceiling));
+    expect(offer.healed, 'the cap actually bites at 20 of 70').toBeLessThan(missing);
+    expect(offer.price).toBe(offer.healed * offer.rate);
 
     const repaired = applyAction(parked, { kind: 'stationRepair' });
-    expect(repaired.run?.pilot.health).toBe(run.pilot.maxHealth);
+    expect(repaired.run?.pilot.health).toBe(20 + offer.healed);
+    expect(repaired.run?.pilot.health, 'never to full from a bad act').toBeLessThan(
+      run.pilot.maxHealth,
+    );
     expect(repaired.run?.alloy).toBe(400 - offer.price);
 
     // One per Station. A second attempt changes nothing at all.
@@ -465,6 +472,54 @@ describe("a Thread's reprisal opens the fight it promised", () => {
     const after = applyAction(state, { kind: 'leaveLanding' });
     const encounterId = after.run?.combat?.encounterId ?? null;
     expect(ENCOUNTERS.find((entry) => entry.id === encounterId)?.tier).toBe('normal');
+  });
+
+  it('interrupts the node rather than replacing it', () => {
+    /* The reprisal used to EAT the node. You routed two rows for a Station, the
+       Thread came due, you fought an Elite, and the Station was simply gone —
+       a second punishment nobody agreed to, and worst exactly when the player
+       had planned carefully, because a careful plan is what makes losing the
+       node hurt.
+
+       Now it interrupts: the fight happens, its reward is taken, and the node
+       opens as though you had just arrived. */
+    const seed = 'AMBUSH-OWES';
+    const base: GameState = { ...createInitialState(seed), run: createRunState(seed, 0) };
+    const made = generateMap(createRng(seed), 1);
+    const node = made.map.nodes.find((entry) => entry.type === 'station');
+    if (node === undefined || base.run === null) throw new Error('test: no station');
+
+    const arriving: GameState = {
+      ...base,
+      run: {
+        ...base.run,
+        map: made.map,
+        position: node.id,
+        forcedTier: 'elite' as const,
+        screen: 'landing' as const,
+        landing: { nodeId: node.id, title: node.name, body: '', resolved: [] },
+      },
+    };
+
+    const fighting = applyAction(arriving, { kind: 'leaveLanding' });
+    expect(fighting.run?.screen, 'the reprisal opens a fight').toBe('combat');
+    expect(fighting.run?.ambushOwes, 'and the Station is remembered').toBe(node.id);
+
+    /* Win it, take the reward screen, and leave. The node should be waiting on
+       the other side of it. */
+    const won = concludeNode({
+      ...fighting,
+      run: {
+        ...fighting.run!,
+        combat: { ...fighting.run!.combat!, outcome: 'won' as const, enemies: [] },
+      },
+    });
+    expect(won.run?.screen, 'the reward comes first').toBe('reward');
+    expect(won.run?.pendingReward?.relicIds, 'a reprisal pays no relic').toEqual([]);
+
+    const left = applyAction(won, { kind: 'leaveReward' });
+    expect(left.run?.screen, 'and then the Station opens').toBe('station');
+    expect(left.run?.ambushOwes, 'the debt is spent').toBeNull();
   });
 });
 

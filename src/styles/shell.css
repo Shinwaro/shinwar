@@ -297,7 +297,40 @@ input[type='text']:hover {
 }
 
 .card.fx-card--exhaust {
-  border-color: var(--danger);
+  border-color: var(--heat-warm);
+}
+
+/* ---------- a card burning ----------
+
+   The ember front, clipped to the card's own box: a band of heat that starts
+   below the card and is driven up through it while the card itself chars and
+   curls. Two elements and one gradient — see `burnCard` in `anim.ts`.
+
+   The band is a child rather than a pseudo-element because `element.animate`
+   cannot drive a pseudo-element, and the front has to be on the same clock as
+   the card it is eating. */
+
+.fx-ember {
+  position: absolute;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  pointer-events: none;
+  will-change: opacity;
+}
+
+.fx-ember-band {
+  position: absolute;
+  /* Wider than the card and starting below it, so the front arrives already
+     lit rather than fading in at the bottom edge. */
+  left: -12%;
+  width: 124%;
+  height: 62%;
+  top: 100%;
+  background:
+    radial-gradient(78% 120% at 50% 100%, rgba(255, 232, 176, 0.95), rgba(255, 150, 54, 0.62) 38%,
+      rgba(214, 74, 24, 0.28) 62%, rgba(214, 74, 24, 0) 78%);
+  filter: blur(7px);
+  will-change: transform;
 }
 
 .fx-float {
@@ -337,6 +370,35 @@ input[type='text']:hover {
   color: var(--heat-danger);
 }
 
+/* A status landing on somebody.
+ *
+ * Words rather than a number, because "Vulnerable +2" is the information and a
+ * bare 2 over an enemy that took no damage says nothing at all. Smaller than a
+ * damage figure and in the violet the board already uses for "something was put
+ * on you" — an enemy whose whole turn is a debuff now moves something on
+ * screen, which it did not before. */
+.fx-float--status {
+  /* Deep red rather than the rose it was, and as deep as legibility allows: a
+     float has no fill behind it, so this is the hue set directly on the board
+     and the token itself sits at about 2.7:1, which is unreadable. Mixed toward
+     the brighter danger red until it clears — the heavy text-shadow every float
+     carries does the rest. */
+  color: color-mix(in srgb, var(--intent-debuff) 45%, var(--danger));
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+/* The other half: something gaining a buff, in the same teal the telegraph uses
+   for "it is making itself stronger". One colour for both would have made
+   "Strength +3" and "Vulnerable +2" look like the same news. */
+.fx-float--boon {
+  color: var(--intent-buff);
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
 /* Block running out.
  *
  * Muted and translucent, and it falls rather than rises — see `floatText`. This
@@ -367,4 +429,23 @@ input[type='text']:hover {
   .btn:active {
     transform: none;
   }
+}
+
+/* ---------- grab and pull ----------
+
+   Press anywhere in a scrollable box and drag it — see `drag-scroll.ts`. Mouse
+   only, because a finger already has the gesture natively.
+
+   The cursor lives on the body rather than on the box being dragged: once a
+   pan is running the pointer regularly leaves the box it started in, and a
+   grabbing cursor that reverts halfway through reads as the drag having been
+   dropped. `user-select` goes with it — preventing the default on pointermove
+   stops the browser scrolling but not the browser selecting, and a pan that
+   highlights half a screen of text on the way is not a pan. */
+
+body.is-dragging,
+body.is-dragging * {
+  cursor: grabbing !important;
+  user-select: none;
+  -webkit-user-select: none;
 }

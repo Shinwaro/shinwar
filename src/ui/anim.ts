@@ -31,7 +31,7 @@ import type { LogEntry } from '../engine/types.ts';
 import { shakeAllowed } from './settings.ts';
 import { playAt, resetSoundSchedule } from './sound.ts';
 import type { SoundKey } from './sound.ts';
-import { cards as cardTable } from '../content/registry.ts';
+import { cards as cardTable, statuses as statusTable } from '../content/registry.ts';
 import { cardVoice } from './card-voice.ts';
 import { SECT_RITES } from '../content/threads.ts';
 
@@ -64,7 +64,7 @@ function fxLayer(): HTMLElement {
  * and how much got through — and one label cannot carry both. A partly blocked
  * hit now floats a blue number and a red one.
  */
-export type FloatKind = 'damage' | 'shield' | 'block' | 'heal' | 'heat' | 'expire';
+export type FloatKind = 'damage' | 'shield' | 'block' | 'heal' | 'heat' | 'expire' | 'status' | 'boon';
 
 export interface FloatRequest {
   readonly text: string;
@@ -302,21 +302,50 @@ let heatScheduled: number | null = null;
 /** Where a walk in progress will end, or null when nothing is walking. */
 let heatWalkingTo: number | null = null;
 /**
- * Which walk is the current one.
+ * Which BATCH of events owns the walks currently in flight.
  *
- * A turn can schedule two: Heat arriving and then an overheat emptying the
- * gauge, both set up in the same pass. Every paint carries the id of the walk
- * that scheduled it, and a paint from a superseded walk is dropped.
+ * Every paint carries this, and a paint from a superseded batch is dropped.
  *
- * Without this the FIRST walk's last step cleared `heatWalkingTo` while the
- * second was still running — so a `settleHeat` from the next render jumped the
- * gauge to its final value, and the second walk's remaining timers then painted
- * their way down from where they had got to. On screen: the gauge hit 0, sprang
- * back up to 8, and counted down again over a couple of seconds.
+ * The unit matters and getting it wrong is the whole of the overheat bug. It
+ * used to be per WALK: every `stepHeat` bumped it, so the second walk of a pass
+ * silently cancelled the first. One pass regularly schedules two or three —
+ * IAI's Heat at turn end, then the overheat emptying the gauge, and a card that
+ * pushed the gauge to the ceiling adds a third — and only the last one ever
+ * painted. So the rise never happened, and the fall then started painting from
+ * a number the gauge had never reached: on screen, a gauge sitting at 7 that
+ * snapped up near the ceiling and counted back down, with the Heat-gain sound
+ * arriving over the top of it because the sound had been scheduled for a rise
+ * that was thrown away.
+ *
+ * Walks inside one pass are consecutive by construction — each is scheduled
+ * after the one before it has finished, because `playLogFx` advances its cursor
+ * by the walk's own length — so they chain instead of racing. Only a NEW pass
+ * supersedes, and that is the case the counter was originally added for.
  */
 let heatWalkId = 0;
-/** When the walk in flight finishes, on `performance.now()`'s clock. */
+/**
+ * Which pass `heatWalkId` was last claimed for.
+ *
+ * `playLogFx` bumps `heatPass` once per batch; the first `stepHeat` of a batch
+ * notices the mismatch and takes a new walk id, and the rest of that batch
+ * shares it.
+ */
+let heatWalkPass = -1;
+let heatPass = 0;
+/** When the LAST walk scheduled so far finishes, on `performance.now()`'s clock. */
 let heatEndsAt = 0;
+
+/**
+ * A new batch of events is being laid out.
+ *
+ * Called once at the top of `playLogFx`, before anything is scheduled. It does
+ * not cancel anything on its own — a batch with no Heat in it must leave a vent
+ * from the turn before still walking, which is exactly what the turn-start deal
+ * waits for.
+ */
+function openHeatPass(): void {
+  heatPass += 1;
+}
 
 /**
  * How much of a Heat walk is still to come.
@@ -345,6 +374,10 @@ export function forgetHeat(): void {
   heatScheduled = null;
   heatWalkingTo = null;
   heatEndsAt = 0;
+  // So the first walk of the next fight claims a fresh id rather than inheriting
+  // one whose timers are still queued from the fight that just ended.
+  heatWalkPass = -1;
+  heatWalkId += 1;
 }
 
 function paintHeat(value: number): void {
@@ -384,15 +417,32 @@ export function stepHeat(to: number, delay: number, rising: boolean): number {
     heatScheduled = to;
     return 0;
   }
+  /* First walk of this batch? Then everything still queued belongs to an older
+     one and is abandoned wherever it had got to — so this walk chains from what
+     is ON SCREEN rather than from where the abandoned walk was headed. Later
+     walks in the same batch keep the id and chain from the cursor. */
+  if (heatWalkPass !== heatPass) {
+    heatWalkId += 1;
+    heatWalkPass = heatPass;
+    heatScheduled = heatDrawn;
+  }
+
   const from = heatScheduled ?? heatDrawn;
   if (from === to) return 0;
 
   heatScheduled = to;
   heatWalkingTo = to;
-  heatWalkId += 1;
   const walk = heatWalkId;
   const count = Math.abs(to - from);
   const step = rising ? HEAT_RISE_MS : HEAT_TICK_MS;
+
+  /* Claimed before the timers are queued, so each step can ask whether it is
+     the end of the WHOLE sequence rather than the end of its own walk. A later
+     walk in the same batch overwrites this with a bigger number, which is how
+     an earlier walk's final step knows not to declare the gauge settled. */
+  const span0 = count * step;
+  const endsAt = performance.now() + delay + span0;
+  heatEndsAt = endsAt;
 
   for (let i = 1; i <= count; i++) {
     const value = rising ? from + i : from - i;
@@ -413,14 +463,17 @@ export function stepHeat(to: number, delay: number, rising: boolean): number {
         tick?.classList.add(mark);
         window.setTimeout(() => tick?.classList.remove(mark), step);
 
-        if (last && walk === heatWalkId) heatWalkingTo = null;
+        /* Settled only when the last step of the last walk lands. An earlier
+           walk in the same batch finishing is not the gauge arriving, and
+           saying so let a `settleHeat` from the next render jump it to the
+           final value while the rest was still walking. */
+        if (last && walk === heatWalkId && heatEndsAt === endsAt) heatWalkingTo = null;
       },
       delay + (i - 1) * step,
     );
   }
 
-  const span = count * step;
-  heatEndsAt = performance.now() + delay + span;
+  const span = span0;
   // The panel wears the direction for exactly as long as the walk lasts, and
   // starts when the walk does rather than the instant it was scheduled.
   flushStance(rising, delay, span + step);
@@ -752,6 +805,15 @@ const CARD_PLAY_HOLD_MS = 150;
 const CARD_STAGGER_MS = 90;
 /** Arriving cards. Slightly quicker than leaving — you want to read them. */
 const CARD_DEAL_MS = 340;
+/**
+ * A card burning. Longer than a flight, on purpose.
+ *
+ * A burn is the one card exit that is not a filing operation — the card is not
+ * going anywhere, it is being destroyed — and at 320ms it read as a discard
+ * that happened to be orange. Long enough to watch, short enough that a deck
+ * built on burning does not become a slideshow.
+ */
+const CARD_BURN_MS = 760;
 
 /** Which pile a card is flying to. Where it went, not why. */
 export type CardPile = 'discard' | 'exhaust';
@@ -797,6 +859,15 @@ export function flyCardOut(
   node.style.height = `${from.height}px`;
   fxLayer().append(node);
 
+  /* A burn goes nowhere. Everything else is filing — a card you played or a
+     hand you did not, sorted into a pile, and the flight to the pile is the
+     sentence. A burned card is destroyed, and flying it to a counter said the
+     opposite of the word on its own face. */
+  if (exit.pile === 'exhaust') {
+    burnCard(node, from, exit.played ? CARD_PLAY_HOLD_MS + delay : delay, exit.played);
+    return;
+  }
+
   const start = centreOf(from);
   const end = centreOf(to);
   const dx = end.x - start.x;
@@ -841,6 +912,117 @@ export function flyCardOut(
   void animation.finished.then(
     () => node.remove(),
     () => node.remove(),
+  );
+}
+
+/**
+ * A card burning up where it sat.
+ *
+ * Three things at once, and each is one channel of the same event: the card
+ * flares and then chars (filter and border), it curls and lifts as it goes
+ * (transform), and an ember front sweeps up through it (its own element, clipped
+ * to the card's box). Nothing here needs a library — a transform, a filter, and
+ * one gradient behind a mask of `overflow: hidden`.
+ *
+ * The ember is a child rather than a `::before`, because a pseudo-element cannot
+ * be driven by `element.animate` and the front has to be on the same clock as
+ * the card it is eating.
+ */
+function burnCard(node: HTMLElement, from: DOMRect, delay: number, played: boolean): void {
+  /* The played beat first: a burn card you CHOSE still lifts and brightens
+     where it was, exactly like any other card you played, and only then goes
+     up. Losing that made a card you spent a turn on look like one the reactor
+     took off you. */
+  if (played) {
+    node.animate(
+      [
+        { offset: 0, transform: 'translate3d(0,0,0) scale(1)', filter: 'brightness(1)' },
+        {
+          offset: 1,
+          transform: 'translate3d(0,-14px,0) scale(1.06)',
+          filter: 'brightness(1.45)',
+        },
+      ],
+      { duration: CARD_PLAY_HOLD_MS, easing: 'cubic-bezier(.3,.0,.2,1)', fill: 'both' },
+    );
+  }
+
+  const lift = played ? -14 : 0;
+  const animation = node.animate(
+    [
+      {
+        offset: 0,
+        transform: `translate3d(0,${lift}px,0) scale(${played ? 1.06 : 1}) rotate(0deg)`,
+        opacity: 1,
+        filter: 'brightness(1) sepia(0) contrast(1)',
+        borderColor: 'var(--heat-warm)',
+        boxShadow: '0 12px 40px rgba(0, 0, 0, 0.55)',
+      },
+      {
+        offset: 0.16,
+        transform: `translate3d(0,${lift - 4}px,0) scale(1.03) rotate(-0.6deg)`,
+        opacity: 1,
+        filter: 'brightness(1.9) sepia(0.2) contrast(1.1)',
+        borderColor: '#ffb14d',
+        boxShadow: '0 0 34px rgba(255, 150, 60, 0.75)',
+      },
+      {
+        offset: 0.55,
+        transform: `translate3d(-4px,${lift - 20}px,0) scale(0.95) rotate(-2.4deg)`,
+        opacity: 0.82,
+        filter: 'brightness(1.15) sepia(0.55) contrast(1.35)',
+        borderColor: '#8a3a18',
+        boxShadow: '0 0 26px rgba(255, 110, 40, 0.4)',
+      },
+      {
+        offset: 1,
+        transform: `translate3d(-10px,${lift - 58}px,0) scale(0.74) rotate(-5deg)`,
+        opacity: 0,
+        filter: 'brightness(0.3) sepia(0.9) contrast(1.7)',
+        borderColor: '#241512',
+        boxShadow: '0 0 0 rgba(0, 0, 0, 0)',
+      },
+    ],
+    { duration: CARD_BURN_MS, delay, easing: 'cubic-bezier(.25,.5,.2,1)', fill: 'both' },
+  );
+
+  /* The front that eats it. Its own element so the card's own transform does
+     not carry it along — a burn front that rises WITH the card never crosses
+     it. */
+  const ember = document.createElement('div');
+  ember.className = 'fx-ember';
+  ember.style.left = `${from.left}px`;
+  ember.style.top = `${from.top}px`;
+  ember.style.width = `${from.width}px`;
+  ember.style.height = `${from.height}px`;
+  const band = document.createElement('div');
+  band.className = 'fx-ember-band';
+  ember.append(band);
+  fxLayer().append(ember);
+
+  band.animate(
+    [
+      { offset: 0, transform: 'translateY(0)' },
+      { offset: 1, transform: `translateY(-${Math.round(from.height * 1.9)}px)` },
+    ],
+    { duration: CARD_BURN_MS, delay, easing: 'cubic-bezier(.3,.15,.4,1)', fill: 'both' },
+  );
+  const fade = ember.animate([{ offset: 0, opacity: 1 }, { offset: 0.82, opacity: 1 }, { offset: 1, opacity: 0 }], {
+    duration: CARD_BURN_MS,
+    delay,
+    fill: 'both',
+  });
+
+  fxEndsAt = Math.max(fxEndsAt, performance.now() + delay + CARD_BURN_MS);
+
+  const clear = (): void => {
+    node.remove();
+    ember.remove();
+  };
+  void animation.finished.then(clear, clear);
+  void fade.finished.then(
+    () => ember.remove(),
+    () => ember.remove(),
   );
 }
 
@@ -905,6 +1087,17 @@ export function cardStagger(index: number): number {
  * two events in the order they actually happened: the card that drew it goes
  * first, and then the card it drew turns up. Causality, made visible.
  */
+/**
+ * The beat a played card holds before it leaves.
+ *
+ * Exported because the burn sound has to land on the same instant the burn
+ * starts, and for a card you played that is after the hold — two places
+ * agreeing on one number, rather than the number written down twice.
+ */
+export function cardPlayHoldMs(): number {
+  return CARD_PLAY_HOLD_MS;
+}
+
 export function cardDealAfterPlay(): number {
   /* After the played card has LANDED, not most of the way through its flight.
      Jettison is the case that shows why: it throws the hand away and deals a
@@ -914,10 +1107,17 @@ export function cardDealAfterPlay(): number {
   return CARD_PLAY_HOLD_MS + CARD_FLY_MS;
 }
 
-/** How long a batch of exits occupies, so the caller can wait it out. */
-export function cardExitDuration(count: number, held: boolean): number {
+/**
+ * How long a batch of exits occupies, so the caller can wait it out.
+ *
+ * `burning` because a burn takes more than twice as long as a flight, and the
+ * enemy turn starting over it is exactly the "everything at once" the pacing
+ * exists to stop.
+ */
+export function cardExitDuration(count: number, held: boolean, burning = false): number {
   if (count === 0) return 0;
-  return cardStagger(count - 1) + CARD_FLY_MS + (held ? CARD_PLAY_HOLD_MS : 0);
+  const exit = burning ? CARD_BURN_MS : CARD_FLY_MS;
+  return cardStagger(count - 1) + exit + (held ? CARD_PLAY_HOLD_MS : 0);
 }
 
 /* ---------- the timeline ---------- */
@@ -1047,6 +1247,35 @@ function hitsFromEntry(entry: LogEntry): readonly Hit[] {
     const amount = typeof detail['amount'] === 'number' ? detail['amount'] : 0;
     if (amount <= 0) return [];
     return [{ target, text: `+${amount}`, kind: 'block', toHull: 0, swing: 0 }];
+  }
+
+  /* A status arriving is an event and gets a beat of its own.
+   *
+   * It had none, which meant an enemy whose whole turn was "apply 2 Vulnerable"
+   * moved nothing on screen — the pip appeared silently on the next render and
+   * the turn read as the enemy passing. The float is the name and the count,
+   * because "Vulnerable +2" is the information; a bare number over an enemy
+   * that took no damage would be worse than nothing. */
+  if (entry.kind === 'status') {
+    const stacks = typeof detail['stacks'] === 'number' ? detail['stacks'] : 0;
+    if (stacks === 0) return [];
+    const id = typeof detail['status'] === 'string' ? detail['status'] : '';
+    const def = statusTable.find(id);
+    const name = def?.name ?? id;
+    if (name === '') return [];
+    /* Buffs and debuffs get different colours, from the same vocabulary the
+       enemy telegraph uses — teal for something making itself stronger, rose
+       for something being put on somebody. A single colour for both would make
+       "Strength +3" and "Vulnerable +2" look like the same news. */
+    return [
+      {
+        target,
+        text: `${name} ${stacks > 0 ? '+' : ''}${stacks}`,
+        kind: stacks < 0 ? 'expire' : def?.kind === 'buff' ? 'boon' : 'status',
+        toHull: 0,
+        swing: 0,
+      },
+    ];
   }
 
   return [];
@@ -1225,6 +1454,9 @@ export function playLogFx(
   /* A new batch is a new sequence, and the minimum gap between sounds is about
      ordering THIS one — not about throttling the player across clicks. */
   resetSoundSchedule();
+  /* And a new sequence for the gauge: walks scheduled from here chain with each
+     other and supersede whatever the last batch left running. */
+  openHeatPass();
 
   const withRider = ridersIn(fresh);
 

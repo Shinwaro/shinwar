@@ -93,7 +93,7 @@ export const ENVIRONMENTS: readonly EnvironmentDef[] = [
   {
     id: RADIATION_BELT_ID,
     name: 'Radiation Belt',
-    text: 'Everyone gains 1 Irradiate each turn, and takes 1 damage per stack.',
+    text: 'Everyone gains 1 Irradiate each turn, and takes 1 damage per stack. Block stops it.',
     acts: [2, 3],
   },
 
@@ -159,14 +159,25 @@ export function registerEnvironmentHooks(): void {
         const combat = next.run?.combat;
         if (combat === undefined || combat === null) return next;
 
+        /* Through Block, not past it.
+         *
+         * It used to be direct, which made it a second Rust — and Rust's whole
+         * identity is being the one clock armour cannot answer. A belt that
+         * also walks past Block turned the act's defining hazard into a flat
+         * tax on the turn count, payable in nothing but health. GUARD holds it
+         * off now, which is a decision rather than an invoice. */
         const playerStacks = stacksOf(combat.statuses, IRRADIATE);
         if (playerStacks > 0) {
-          next = applyDirectDamage(next, PLAYER, playerStacks, RADIATION_BELT_ID, 'radiation');
+          next = applyDirectDamage(next, PLAYER, playerStacks, RADIATION_BELT_ID, 'radiation', {
+            blockable: true,
+          });
         }
         for (const enemy of livingEnemies(combat)) {
           const stacks = stacksOf(enemy.statuses, IRRADIATE);
           if (stacks > 0) {
-            next = applyDirectDamage(next, enemyTarget(enemy.uid), stacks, RADIATION_BELT_ID, 'radiation');
+            next = applyDirectDamage(next, enemyTarget(enemy.uid), stacks, RADIATION_BELT_ID, 'radiation', {
+              blockable: true,
+            });
           }
         }
         return next;

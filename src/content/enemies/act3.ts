@@ -17,6 +17,19 @@
  * map. The correct move is never "have a perfect deck", it is "route toward the
  * ones your build handles and pick up one answer for the ones it does not".
  * That is adaptation rather than execution.
+ *
+ * **They hit like Act 3 now.** The roster was written as a set of PUZZLES and
+ * tuned as if being a puzzle were the difficulty — three-hit moves of 5 and 6,
+ * on 70-80 hull, in the act where a finished deck does forty a turn. The
+ * counters were interesting and none of them was frightening, so the last act
+ * read as the easiest one: you solved each enemy once and then performed the
+ * solution.
+ *
+ * Two changes, applied across the roster. Hull is up about a quarter, so a
+ * counter has time to actually bite. And the small multi-hit moves are gone —
+ * every one of them is now either a real swing or a swing that leaves something
+ * on you. Act 3 is where the status row under your health should be busy; it
+ * was emptier there than in Act 2.
  */
 
 import type { EnemyDef } from '../../engine/types.ts';
@@ -38,7 +51,7 @@ export const ACT3_ENEMIES: readonly EnemyDef[] = [
   {
     id: CHIRALITY_WARDEN,
     name: 'Chirality Warden',
-    maxHp: 82,
+    maxHp: 104,
     act: 3,
     tier: 'normal',
     // Declared rather than hooked: this is a rule about the number the pipeline
@@ -49,19 +62,29 @@ export const ACT3_ENEMIES: readonly EnemyDef[] = [
         id: 'invert',
         label: 'Invert',
         intent: [
-          { kind: 'attack', amount: 24, times: 1, label: 'Invert' },
-          { kind: 'debuff', amount: 1, times: 1, label: 'Weak 1' },
+          { kind: 'attack', amount: 26, times: 1, label: 'Invert' },
+          { kind: 'debuff', amount: 2, times: 1, label: 'Weak 2' },
         ],
         effects: [
-          { op: 'damage', amount: 24, target: 'enemy' },
-          { op: 'applyStatus', status: WEAK, stacks: 1, target: 'enemy' },
+          { op: 'damage', amount: 26, target: 'enemy' },
+          // Two, so at least one attacking turn lands under it — a single stack
+          // sheds at the end of your turn and was regularly spent on nothing.
+          { op: 'applyStatus', status: WEAK, stacks: 2, target: 'enemy' },
         ],
       },
       {
         id: 'handedness',
         label: 'Handedness',
-        intent: [{ kind: 'attack', amount: 6, times: 3, label: 'Handedness' }],
-        effects: [{ op: 'damage', amount: 6, target: 'enemy', times: 3 }],
+        /* 11 x 3, up from 6 x 3.
+         *
+         * This move is the whole reason the Warden works: it takes 60% off
+         * anything over 20, so the answer is a deck with a second, smaller
+         * gear — and the enemy that demands you find one has to be able to
+         * punish you for not having it. At 18 a turn it could not, so the
+         * correct play against it was to shrug and eat the fight. 33 is a turn
+         * you have to answer. */
+        intent: [{ kind: 'attack', amount: 11, times: 3, label: 'Handedness' }],
+        effects: [{ op: 'damage', amount: 11, target: 'enemy', times: 3 }],
       },
     ],
     script: {
@@ -78,26 +101,28 @@ export const ACT3_ENEMIES: readonly EnemyDef[] = [
   {
     id: HEAT_SIPHON,
     name: 'Heat Siphon',
-    maxHp: 70,
+    maxHp: 92,
     act: 3,
     tier: 'normal',
     moves: [
       {
         id: 'tap',
         label: 'Tap',
-        intent: [{ kind: 'attack', amount: 10, times: 1, label: 'Tap' }],
-        effects: [{ op: 'damage', amount: 10, target: 'enemy' }],
+        intent: [{ kind: 'attack', amount: 17, times: 1, label: 'Tap' }],
+        effects: [{ op: 'damage', amount: 17, target: 'enemy' }],
       },
       {
         id: 'stoke',
         label: 'Stoke',
         intent: [
-          { kind: 'attack', amount: 6, times: 1, label: 'Stoke' },
-          { kind: 'debuff', amount: 3, times: 1, label: 'Heat +3' },
+          { kind: 'attack', amount: 10, times: 1, label: 'Stoke' },
+          { kind: 'debuff', amount: 4, times: 1, label: 'Heat +4' },
         ],
         effects: [
-          { op: 'damage', amount: 6, target: 'enemy' },
-          { op: 'gainHeat', amount: 3 },
+          { op: 'damage', amount: 10, target: 'enemy' },
+          // Four. Three was survivable by ignoring it; four is half the gauge
+          // in two turns, which is the clock this enemy is supposed to be.
+          { op: 'gainHeat', amount: 4 },
         ],
       },
     ],
@@ -108,7 +133,7 @@ export const ACT3_ENEMIES: readonly EnemyDef[] = [
   {
     id: NULL_PRISM,
     name: 'Null Prism',
-    maxHp: 76,
+    maxHp: 98,
     act: 3,
     tier: 'normal',
     moves: [
@@ -116,23 +141,23 @@ export const ACT3_ENEMIES: readonly EnemyDef[] = [
         id: 'refract',
         label: 'Refract',
         intent: [
-          { kind: 'attack', amount: 14, times: 1, label: 'Refract' },
-          { kind: 'block', amount: 8, times: 1, label: 'Plate 8' },
+          { kind: 'attack', amount: 19, times: 1, label: 'Refract' },
+          { kind: 'block', amount: 12, times: 1, label: 'Plate 12' },
         ],
         effects: [
-          { op: 'damage', amount: 14, target: 'enemy' },
-          { op: 'block', amount: 8 },
+          { op: 'damage', amount: 19, target: 'enemy' },
+          { op: 'block', amount: 12 },
         ],
       },
       {
         id: 'null',
         label: 'Null',
         intent: [
-          { kind: 'attack', amount: 8, times: 2, label: 'Null' },
+          { kind: 'attack', amount: 11, times: 2, label: 'Null' },
           { kind: 'debuff', amount: 2, times: 1, label: 'Vulnerable 2' },
         ],
         effects: [
-          { op: 'damage', amount: 8, target: 'enemy', times: 2 },
+          { op: 'damage', amount: 11, target: 'enemy', times: 2 },
           /* 2, not 1. Vulnerable sheds a stack at the end of the target's
              turn, and the move that follows this one in the script does not
              attack — so a single stack was always spent on a turn that could
@@ -148,17 +173,42 @@ export const ACT3_ENEMIES: readonly EnemyDef[] = [
   },
 
   {
+    /* Thin, and it should stay thin — the hull is the counterplay. What it was
+       missing was a reason to fear it before you get through that hull.
+     *
+     * Three of them share a board, so every number here is multiplied by three
+     * before it reaches you: Facet is 36 a turn across the set, and Shear puts
+     * three separate stacks of Weak on you in one round. That is the shape the
+     * enemy was always meant to have — burst it down or be ground flat by
+     * arithmetic — and at 6 damage a facet the second half simply never
+     * happened. Hull barely moved. What it does with its turns did. */
     id: TESSELLATE_SHARD,
     name: 'Tessellate Shard',
-    maxHp: 32,
+    maxHp: 36,
     act: 3,
     tier: 'normal',
     moves: [
       {
         id: 'facet',
         label: 'Facet',
-        intent: [{ kind: 'attack', amount: 6, times: 1, label: 'Facet' }],
-        effects: [{ op: 'damage', amount: 6, target: 'enemy' }],
+        intent: [{ kind: 'attack', amount: 12, times: 1, label: 'Facet' }],
+        effects: [{ op: 'damage', amount: 12, target: 'enemy' }],
+      },
+      {
+        /* The debuff turn, and the reason the set is frightening rather than
+           merely numerous. One stack each is three stacks of Weak, which is at
+           the cap and then some — the answer is to have killed one of them by
+           now, which is exactly the decision the enemy exists to pose. */
+        id: 'shear',
+        label: 'Shear',
+        intent: [
+          { kind: 'attack', amount: 7, times: 1, label: 'Shear' },
+          { kind: 'debuff', amount: 1, times: 1, label: 'Weak 1' },
+        ],
+        effects: [
+          { op: 'damage', amount: 7, target: 'enemy' },
+          { op: 'applyStatus', status: WEAK, stacks: 1, target: 'enemy' },
+        ],
       },
       {
         id: 'tile',
@@ -167,7 +217,7 @@ export const ACT3_ENEMIES: readonly EnemyDef[] = [
         effects: [{ op: 'block', amount: 9 }],
       },
     ],
-    script: { kind: 'sequence', moves: ['tile', 'facet', 'facet'] },
+    script: { kind: 'sequence', moves: ['tile', 'facet', 'shear'] },
     flavor: 'One of it is nothing. It is never one of it.',
   },
 
@@ -180,7 +230,7 @@ export const ACT3_ENEMIES: readonly EnemyDef[] = [
        an overheat instead. Kill it first or lose to it late. */
     id: RIMEWAKE,
     name: 'Rimewake',
-    maxHp: 78,
+    maxHp: 96,
     act: 3,
     tier: 'normal',
     moves: [
@@ -199,14 +249,14 @@ export const ACT3_ENEMIES: readonly EnemyDef[] = [
       {
         id: 'rake',
         label: 'Rake',
-        intent: [{ kind: 'attack', amount: 5, times: 3, label: 'Rake' }],
-        effects: [{ op: 'damage', amount: 5, target: 'enemy', times: 3 }],
+        intent: [{ kind: 'attack', amount: 8, times: 3, label: 'Rake' }],
+        effects: [{ op: 'damage', amount: 8, target: 'enemy', times: 3 }],
       },
       {
         id: 'crest',
         label: 'Crest',
-        intent: [{ kind: 'attack', amount: 16, times: 1, label: 'Crest' }],
-        effects: [{ op: 'damage', amount: 16, target: 'enemy' }],
+        intent: [{ kind: 'attack', amount: 22, times: 1, label: 'Crest' }],
+        effects: [{ op: 'damage', amount: 22, target: 'enemy' }],
       },
     ],
     script: { kind: 'sequence', moves: ['gather', 'rake', 'crest'] },
@@ -216,7 +266,7 @@ export const ACT3_ENEMIES: readonly EnemyDef[] = [
   {
     id: MIRROR_RONIN,
     name: 'Mirror Ronin',
-    maxHp: 165,
+    maxHp: 204,
     act: 3,
     tier: 'elite',
     damageRules: { overAmount: 26, multiplier: 0.5, label: 'Mirror' },
@@ -259,7 +309,7 @@ export const ACT3_ENEMIES: readonly EnemyDef[] = [
   {
     id: COLLAPSE_CHOIR,
     name: 'Collapse Choir',
-    maxHp: 130,
+    maxHp: 168,
     act: 3,
     tier: 'elite',
     moves: [
@@ -323,7 +373,22 @@ export const ACT3_ENEMIES: readonly EnemyDef[] = [
        the fight. */
     id: EVENT_HORIZON,
     name: 'The Event Horizon',
-    maxHp: 248,
+    /* 384. Just under four hundred, and the hull is the least of it.
+     *
+     * At 248 the last fight of an hour-long run was smaller than two Act 3
+     * elites back to back, and a finished deck removed it before the five-move
+     * script reached its second phase — a boss you can out-damage before it has
+     * shown you what it does never asks the question the run was building an
+     * answer to. What the extra hull buys is TIME for the escalation: two
+     * separate Strength sources and the Vulnerable off Crossing all compound.
+     *
+     * It fights in the Radiation Belt — the only boss that fights in an
+     * environment at all, see `mapgen.ts` — so everything on the board gains
+     * Irradiate every turn and takes it back as damage. That is the time
+     * pressure the fight was missing: the boss's own escalation says "you
+     * cannot afford to grind" and the Belt makes it literally true, on a clock
+     * that runs whether or not either side does anything. */
+    maxHp: 384,
     act: 3,
     tier: 'boss',
     damageRules: { overAmount: 30, multiplier: 0.6, label: 'Horizon' },
@@ -380,11 +445,11 @@ export const ACT3_ENEMIES: readonly EnemyDef[] = [
         id: 'silence',
         label: 'Silence',
         intent: [
-          { kind: 'attack', amount: 9, times: 2, label: 'Silence' },
+          { kind: 'attack', amount: 11, times: 2, label: 'Silence' },
           { kind: 'debuff', amount: 3, times: 1, label: 'Weak 3' },
         ],
         effects: [
-          { op: 'damage', amount: 9, target: 'enemy', times: 2 },
+          { op: 'damage', amount: 11, target: 'enemy', times: 2 },
           { op: 'applyStatus', status: WEAK, stacks: 3, target: 'enemy' },
         ],
       },
@@ -418,13 +483,17 @@ export const ACT3_ENEMIES: readonly EnemyDef[] = [
        and a build has to answer both. */
     id: NULLWRIGHT,
     name: 'Nullwright',
-    maxHp: 58,
+    maxHp: 74,
     act: 3,
     tier: 'normal',
     moves: [
       {
         id: 'anneal',
         label: 'Anneal',
+        /* Tempered no longer decays and is a flat point a stack — see
+           `statuses.ts` — so this is now what its name always claimed: a
+           counter that compounds every other turn until the damage you can put
+           through it reaches zero. It was a one-turn 25% shrug before. */
         intent: [{ kind: 'buff', amount: 2, times: 1, label: 'Tempered 2' }],
         effects: [{ op: 'applyStatus', status: TEMPERED, stacks: 2, target: 'self' }],
       },
@@ -432,12 +501,12 @@ export const ACT3_ENEMIES: readonly EnemyDef[] = [
         id: 'unwrite',
         label: 'Unwrite',
         intent: [
-          { kind: 'attack', amount: 13, times: 1, label: 'Unwrite' },
-          { kind: 'debuff', amount: 1, times: 1, label: 'Weak 1' },
+          { kind: 'attack', amount: 18, times: 1, label: 'Unwrite' },
+          { kind: 'debuff', amount: 2, times: 1, label: 'Weak 2' },
         ],
         effects: [
-          { op: 'damage', amount: 13, target: 'enemy' },
-          { op: 'applyStatus', status: WEAK, stacks: 1, target: 'enemy' },
+          { op: 'damage', amount: 18, target: 'enemy' },
+          { op: 'applyStatus', status: WEAK, stacks: 2, target: 'enemy' },
         ],
       },
     ],
@@ -453,7 +522,7 @@ export const ACT3_ENEMIES: readonly EnemyDef[] = [
        is entirely the choice to keep riding the line. */
     id: CANTOR_OF_ASH,
     name: 'Cantor of Ash',
-    maxHp: 160,
+    maxHp: 196,
     act: 3,
     tier: 'elite',
     moves: [
@@ -472,18 +541,18 @@ export const ACT3_ENEMIES: readonly EnemyDef[] = [
       {
         id: 'antiphon',
         label: 'Antiphon',
-        intent: [{ kind: 'attack', amount: 9, times: 3, label: 'Antiphon' }],
-        effects: [{ op: 'damage', amount: 9, target: 'enemy', times: 3 }],
+        intent: [{ kind: 'attack', amount: 13, times: 3, label: 'Antiphon' }],
+        effects: [{ op: 'damage', amount: 13, target: 'enemy', times: 3 }],
       },
       {
         id: 'benediction',
         label: 'Benediction',
         intent: [
-          { kind: 'attack', amount: 24, times: 1, label: 'Benediction' },
+          { kind: 'attack', amount: 30, times: 1, label: 'Benediction' },
           { kind: 'buff', amount: 3, times: 1, label: 'Strength +3' },
         ],
         effects: [
-          { op: 'damage', amount: 24, target: 'enemy' },
+          { op: 'damage', amount: 30, target: 'enemy' },
           { op: 'applyStatus', status: STRENGTH, stacks: 3, target: 'self' },
         ],
       },

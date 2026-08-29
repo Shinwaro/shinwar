@@ -94,6 +94,8 @@ export interface PilotRules {
   readonly ventPerTurn: number;
   readonly healPerTurn: number;
   readonly damageFlat: number;
+  /** The same, but on every swing rather than the card's first. */
+  readonly damageEveryHit: number;
   readonly damageTakenFlat: number;
   readonly overheatThreshold: number;
   readonly focusPerStackBonus: number;
@@ -108,6 +110,7 @@ const NO_PILOT_RULES: PilotRules = {
   ventPerTurn: 0,
   healPerTurn: 0,
   damageFlat: 0,
+  damageEveryHit: 0,
   damageTakenFlat: 0,
   overheatThreshold: 0,
   focusPerStackBonus: 0,
@@ -174,6 +177,7 @@ export function pilotRules(state: GameState): PilotRules {
       ventPerTurn: rules.ventPerTurn + (passive.ventPerTurn ?? 0),
       healPerTurn: rules.healPerTurn + (passive.healPerTurn ?? 0),
       damageFlat: rules.damageFlat + (passive.damageFlat ?? 0),
+      damageEveryHit: rules.damageEveryHit + (passive.damageEveryHit ?? 0),
       damageTakenFlat: rules.damageTakenFlat + (passive.damageTakenFlat ?? 0),
       overheatThreshold: rules.overheatThreshold + (passive.overheatThreshold ?? 0),
       focusPerStackBonus: rules.focusPerStackBonus + (passive.focusPerStackBonus ?? 0),

@@ -164,7 +164,7 @@ export function renderCard(
   }
 
   /* The fine print, in hand as well as on the reward screens. Mid-fight is
-     exactly when "what does Exhaust mean" gets asked, and a glossary you have to
+     exactly when "what does Burn mean" gets asked, and a glossary you have to
      leave the fight to read is not answering it. */
   const glossary = glossaryFor(def, state);
   if (glossary.length > 0) {

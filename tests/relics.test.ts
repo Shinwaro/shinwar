@@ -294,8 +294,36 @@ describe('the relic pool', () => {
     // that granted one would flatten the entire ladder above it.
     for (const def of relicTable.all()) {
       if ((def.passive?.energyPerTurn ?? 0) <= 0) continue;
-      expect(['legendary', 'artifact'], `${def.id} is too cheap for +Energy`).toContain(def.rarity);
+      expect(['mythic', 'artifact'], `${def.id} is too cheap for +Energy`).toContain(def.rarity);
     }
+  });
+});
+
+describe('what you are carrying says so', () => {
+  it('logs the Block and Focus a relic grants at the start of a turn', () => {
+    /* They were granted inside the expression that rebuilds the turn — right,
+       because they are part of what a turn IS — and therefore in complete
+       silence. Four Block from Harbour Plate appeared in the shield readout
+       between one frame and the next: no number, no beat, and no line saying
+       where it came from. A player who has just bought a relic got no
+       confirmation it was working, and one carrying three could not tell which
+       did what.
+
+       Asserted on the LOG rather than on the animation, because the log is what
+       the animation layer reads — `detail.to` is how a floating figure finds
+       the thing it happened to. */
+    const base = makeFight({ stance: 'iai', block: 0 });
+    if (base.run === null) throw new Error('test: no run');
+    const armed: GameState = {
+      ...base,
+      run: { ...base.run, pilot: { ...base.run.pilot, relics: ['harbour_plate'] } },
+    };
+
+    const opened = startPlayerTurn(armed);
+    const line = opened.log.find((entry) => entry.source === 'relics' && entry.kind === 'block');
+    expect(line, 'nothing said the Block arrived').toBeDefined();
+    expect(line?.detail).toMatchObject({ amount: 4, to: 'player' });
+    expect(combatOf(opened).block).toBe(4);
   });
 });
 
@@ -313,14 +341,40 @@ describe('passives reach the number they modify', () => {
       consumesFocus: false,
     } as const;
 
-    // Read from the definition rather than hard-coding 2. These assertions are
-    // about the passive reaching the pipeline, not about what it is tuned to,
-    // and a retune should not fail a test that is checking the plumbing.
-    const edge = relicTable.get('whetted_edge').passive?.damageFlat ?? 0;
+    // Read from the definition rather than hard-coding the number. These
+    // assertions are about the passive reaching the pipeline, not about what it
+    // is tuned to, and a retune should not fail a test checking the plumbing.
+    const edge = relicTable.get('whetted_edge').passive?.damageEveryHit ?? 0;
     expect(computeDamage(armed, shape).beforeBlock).toBe(
       computeDamage(base, shape).beforeBlock + edge,
     );
     expect(previewDamage(armed, shape)).toEqual(computeDamage(armed, shape));
+  });
+
+  it('tells the two flat sources apart on a later swing', () => {
+    /* The whole reason there are two. `damageFlat` lands on a card's first
+       swing only; `damageEveryHit` lands on all of them. A test that only ever
+       measured the first swing could not tell them apart, which is how one of
+       them would quietly become the other. */
+    const enemy = firstEnemy(makeFight());
+    const later = {
+      amount: 10,
+      attacker: PLAYER,
+      target: enemyTarget(enemy.uid),
+      isAttack: true,
+      attackOrdinal: 1,
+      consumesFocus: false,
+      // Not the card's first swing — the second hit of a multi-hit.
+      firstSwingOfCard: false,
+    } as const;
+
+    const base = makeFight({ stance: 'guard' });
+    const everyHit = holding(base, 'whetted_edge');
+    const firstOnly = holding(base, 'ceramic_underplate');
+
+    const plain = computeDamage(base, later).beforeBlock;
+    expect(computeDamage(everyHit, later).beforeBlock, 'every hit still adds').toBeGreaterThan(plain);
+    expect(computeDamage(firstOnly, later).beforeBlock, 'first-hit-only does not').toBe(plain);
   });
 
   it('soaks incoming damage, and never below zero', () => {
@@ -510,20 +564,37 @@ describe('what a boss hands you', () => {
 
   const run = createRunState('BOSS', 0);
 
-  it('offers three epic cards, three epic relics and three epic implants', () => {
+  it('offers cards and relics at the finale tier', () => {
     const { offer } = rollReward(createRng('BOSS-A'), run, 1, 50, 0, 'boss');
     expect(offer.cardIds).toHaveLength(REWARDS.cardChoices);
     expect(offer.relicIds).toHaveLength(REWARDS.relicChoices);
-    expect(offer.implantIds).toHaveLength(REWARDS.implantChoices);
     for (const id of offer.cardIds) {
       expect(cardTable.get(id).rarity, id).toBe(REWARDS.bossOfferRarity);
     }
     for (const id of offer.relicIds) {
       expect(relicTable.get(id).rarity, id).toBe(REWARDS.bossOfferRarity);
     }
-    for (const id of offer.implantIds) {
-      expect(implantTable.get(id).rarity, id).toBe(REWARDS.bossOfferRarity);
+  });
+
+  it('offers implants at ONE tier, and lets that tier be any of them', () => {
+    /* The implant row is the one that rolls. Fixed, three bosses handed you
+       three versions of the same screen — and, because the top of the shelf is
+       thin, often literally the same three implants.
+
+       Both halves are asserted because both halves are the design: the roll is
+       what makes a finale able to surprise you, and all-three-on-one-tier is
+       what stops the roll turning into a non-choice. A screen offering one
+       mythic and two commons is not a decision, it is a formality. */
+    const tiers = new Set<string>();
+    for (let seed = 0; seed < 40; seed++) {
+      const { offer } = rollReward(createRng(`BOSS-IMPLANT-${seed}`), run, 1, 50, 0, 'boss');
+      expect(offer.implantIds.length, 'a boss always offers some').toBeGreaterThan(0);
+      const rarities = new Set(offer.implantIds.map((id) => implantTable.get(id).rarity));
+      expect(rarities.size, `seed ${seed} mixed tiers: ${[...rarities].join(', ')}`).toBe(1);
+      const only = [...rarities][0];
+      if (only !== undefined) tiers.add(only);
     }
+    expect(tiers.size, 'the tier never varies').toBeGreaterThan(1);
   });
 
   it('offers no two of the same thing', () => {

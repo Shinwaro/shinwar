@@ -10,7 +10,7 @@
  */
 
 import type { EnemyDef } from '../../engine/types.ts';
-import { STRENGTH, VULNERABLE, WEAK } from '../statuses.ts';
+import { SCALD, STRENGTH, VULNERABLE, WEAK } from '../statuses.ts';
 
 export const KILN_ALPHA = 'kiln_alpha';
 export const MAG_LATHE = 'mag_lathe';
@@ -108,17 +108,34 @@ export const ACT1_ELITES: readonly EnemyDef[] = [
   },
 
   {
-    /* Act 1's closing argument, in two halves.
-
-       The first is the fight it always was: bank, rake, tap out, on a loop you
-       can read from turn one. Under 40% it stops plating itself and just
-       swings — which shortens the fight rather than lengthening it, and that is
-       the point. A boss made harder by adding hull is a boss made longer, and a
-       first act that outstays its welcome is worse than one that is slightly
-       too easy. */
+    /* Act 1's closing argument: can you regulate the reactor?
+     *
+     * Each boss asks about one system, and this one asks about the gauge. Two
+     * of its four moves put Heat on you and a third leaves Scald behind, so a
+     * player who has been treating Heat as a number that goes up and comes back
+     * down on its own finds out here that it does not.
+     *
+     * **The escalation is Scald, not Strength.** It used to stack Strength,
+     * which made a long fight hit harder in a way you could only answer with
+     * more Block — a fine idea and the wrong one for this fight. Scald never
+     * decays and sheds only to a vent of 2 or more in a single action, so the
+     * longer this runs the more Heat arrives at every turn start, and the
+     * counter is specific rather than general: you need a real vent, not more
+     * armour. A player who has one wins comfortably. A player who has ignored
+     * the whole system spends the back half of the fight overheating.
+     *
+     * Under 40% it stops plating and alternates its two hardest moves, which
+     * shortens the fight rather than lengthening it. A boss made harder by
+     * adding hull is a boss made longer, and a first act that outstays its
+     * welcome is worse than one that is slightly too easy.
+     */
     id: KILN_SOVEREIGN,
     name: 'Kiln Sovereign',
-    maxHp: 118,
+    /* 136, up from 118 — a slight buff, and deliberately only slight. Act 1's
+       boss is the one fight a first run is entitled to survive on an unfinished
+       deck, so the lesson is "your twelve cards are not enough yet" rather than
+       "you have already lost". */
+    maxHp: 136,
     act: 1,
     tier: 'boss',
     moves: [
@@ -126,38 +143,55 @@ export const ACT1_ELITES: readonly EnemyDef[] = [
         id: 'bank_fire',
         label: 'Bank the Fire',
         intent: [
-          { kind: 'block', amount: 18, times: 1, label: 'Plate 18' },
+          { kind: 'block', amount: 16, times: 1, label: 'Plate 16' },
           { kind: 'debuff', amount: 3, times: 1, label: 'Heat +3' },
         ],
         effects: [
-          { op: 'block', amount: 18 },
+          { op: 'block', amount: 16 },
           { op: 'gainHeat', amount: 3 },
+        ],
+      },
+      {
+        /* The Scald turn, and the whole fight in one move: a small hit and a
+           stack that will not leave on its own. */
+        id: 'flare',
+        label: 'Flare',
+        intent: [
+          { kind: 'attack', amount: 10, times: 1, label: 'Flare' },
+          { kind: 'debuff', amount: 1, times: 1, label: 'Scald 1' },
+        ],
+        effects: [
+          { op: 'damage', amount: 10, target: 'enemy' },
+          { op: 'applyStatus', status: SCALD, stacks: 1, target: 'enemy' },
         ],
       },
       {
         id: 'rake',
         label: 'Rake',
-        intent: [{ kind: 'attack', amount: 7, times: 2, label: 'Rake' }],
-        effects: [{ op: 'damage', amount: 7, target: 'enemy', times: 2 }],
+        intent: [{ kind: 'attack', amount: 9, times: 2, label: 'Rake' }],
+        effects: [{ op: 'damage', amount: 9, target: 'enemy', times: 2 }],
       },
       {
+        /* The spike, and it is a Heat spike as much as a damage one — four is
+           half the distance to the line from a cold gauge, and rather less than
+           that from the gauge this fight has been building. */
         id: 'tap_out',
         label: 'Tap Out',
         intent: [
-          { kind: 'attack', amount: 19, times: 1, label: 'Tap Out' },
-          { kind: 'buff', amount: 2, times: 1, label: 'Strength +2' },
+          { kind: 'attack', amount: 20, times: 1, label: 'Tap Out' },
+          { kind: 'debuff', amount: 4, times: 1, label: 'Heat +4' },
         ],
         effects: [
-          { op: 'damage', amount: 19, target: 'enemy' },
-          { op: 'applyStatus', status: STRENGTH, stacks: 2, target: 'self' },
+          { op: 'damage', amount: 20, target: 'enemy' },
+          { op: 'gainHeat', amount: 4 },
         ],
       },
     ],
     script: {
       kind: 'phased',
       threshold: 40,
-      opening: ['bank_fire', 'rake', 'tap_out'],
-      closing: ['tap_out', 'rake'],
+      opening: ['bank_fire', 'flare', 'rake'],
+      closing: ['tap_out', 'flare'],
     },
     flavor: 'It has been holding this system at working temperature since the sect died.',
   },

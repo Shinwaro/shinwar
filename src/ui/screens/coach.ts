@@ -23,11 +23,16 @@ import type { GameState } from '../../engine/types.ts';
 import type { Store } from '../store.ts';
 import {
   TUTORIAL_BLOCK_CARD,
+  TUTORIAL_BURN_CARD,
   TUTORIAL_FOCUS_CARD,
   TUTORIAL_SPEND_CARD,
   TUTORIAL_HEAT_CARD,
+  TUTORIAL_STANCE_CARD,
 } from '../../content/tutorial.ts';
 import { cards as cardTable } from '../../content/registry.ts';
+import { HEAT, PLAYER, STANCES } from '../../content/balance.ts';
+import { VULNERABLE, WEAK } from '../../content/statuses.ts';
+import { stacksOf } from '../../engine/combat/keywords.ts';
 import { button, el } from '../dom.ts';
 
 interface Step {
@@ -93,21 +98,31 @@ function played(state: GameState, cardId: string): boolean {
   return [...combat.discard, ...combat.exhaust].some((card) => card.defId === cardId);
 }
 
-/** The card in hand, and the hauler. What a "play this" step lights up. */
-function aim(cardId: string): readonly string[] {
-  return [`.hand .card[data-card="${cardId}"]`, '.enemy'];
+/** Just the card. For a play that never asks you to pick anything. */
+function hold(cardId: string): string {
+  return `.hand .card[data-card="${cardId}"]`;
 }
 
-/* The phone breakpoint, in pixels, matching the `56rem` block in `game.css`.
-   The two have to agree: the stylesheet makes the card full-width at this size
-   and this decides where to put it. */
-const NARROW = 56 * 16;
+/**
+ * The card in hand, and the enemy. What an AIMED "play this" step lights up.
+ *
+ * Only the aimed ones. Vector Step changes your own stance and Settle banks
+ * your own Focus — neither ever asks for a target, and `needsTarget` in the
+ * engine says so — but both were ringing the enemy anyway, which is the game
+ * pointing at something you are not supposed to click. It also cut the top of
+ * the screen out of the region the words could sit in, which is how the stance
+ * step ended up squeezed into an 88px scrolling box between the strip and the
+ * hand.
+ */
+function aim(cardId: string): readonly string[] {
+  return [hold(cardId), '.enemy'];
+}
 
-/* A gap narrower than this is not a place to put words at all — one line of a
-   title and nothing else. Below it the step is centred instead, because at that
-   point there is genuinely nowhere clear and a legible box over the board beats
-   an illegible one wedged into a crack. */
-const MIN_COACH_GAP = 88;
+/* There is no phone breakpoint here any more, and that is the point.
+   The card used to be placed by one rule above 56rem and a different one below
+   it, and the two disagreed about the only thing that matters — where the hand
+   is. `placeCard` is one rule at every width: above the cards, clear of the
+   rings, as near the middle as those two allow. */
 
 const STEPS: readonly Step[] = [
   {
@@ -124,8 +139,20 @@ const STEPS: readonly Step[] = [
     done: null,
   },
   {
+    /* Before the Block lesson, not after it.
+     *
+     * The step that asks you to play Solar Shield leans on the enemy swinging
+     * for six — a fact the player had no way to have read yet. The whole game
+     * is planning against the telegraph, so the telegraph is taught before the
+     * first decision that depends on it. */
+    title: 'Intent',
+    body: 'That mark under the enemy is its intent: exactly what it will do at the end of this turn. It swings for 6. The numbers update if you change something, so what is shown is always what will land.',
+    targets: ['.enemy .intent'],
+    done: null,
+  },
+  {
     title: 'Take some cover',
-    body: 'Play Solar Shield — click the card, then click the hauler. Watch the shield number beside your health.',
+    body: 'Play Solar Shield — click the card, then click the enemy. Watch the shield number beside your health.',
     targets: [...aim(TUTORIAL_BLOCK_CARD), '.stat--hull'],
     done: (state) => played(state, TUTORIAL_BLOCK_CARD),
   },
@@ -140,15 +167,30 @@ const STEPS: readonly Step[] = [
      * Solar Shield's GUARD rider puts Weak on what it is aimed at, so the card
      * the lesson opens with is also the player's first status — and it went by
      * unnamed while the step talked about Block. A pip appearing on the enemy
-     * with no explanation is how a player learns to ignore pips. */
-    body: 'Six Block, sitting above your health — the hauler swings for six at the end of this turn, and that is the whole of it absorbed. The mark on the hauler is Weak: while it is there, everything it swings for hits softer. Most statuses fall off on their own.',
-    targets: ['.shield', '.enemy .pip'],
+     * with no explanation is how a player learns to ignore pips.
+     *
+     * The intent is ringed with it, because Weak is a change to a number the
+     * player has already been shown: the telegraph is lower than it was a
+     * moment ago, and that is the whole of what Weak means. */
+    body: 'Six Block, sitting above your health. The mark on the enemy is Weak: while it is there, everything it swings for hits softer — its intent has already dropped. Most statuses fall off on their own.',
+    targets: ['.shield', '.enemy .pip', '.enemy .intent'],
     done: null,
   },
   {
     title: 'Energy',
-    body: 'You get 3 Energy a turn, and it does not carry over to the next turn. Every card costs some.',
+    body: `You get ${PLAYER.energyPerTurn} Energy a turn, and it does not carry over to the next turn. You use Energy to play cards.`,
     targets: ['.resources'],
+    done: null,
+  },
+  {
+    /* Where the cards come from. Taught before the first turn ends, because the
+       end of the turn is when the answer stops being obvious: five cards
+       arrive, five cards leave, and nothing on screen says where from or to
+       unless somebody says it. */
+    title: 'Your deck',
+    body: () =>
+      `Your whole deck is shuffled at the start of a fight and sits in the draw pile. You take ${PLAYER.drawPerTurn} off the top each turn. When it runs out, the discard pile is shuffled and becomes the new draw pile.`,
+    targets: ['.piles'],
     done: null,
   },
   {
@@ -158,22 +200,70 @@ const STEPS: readonly Step[] = [
     done: (state) => played(state, TUTORIAL_HEAT_CARD),
   },
   {
+    /* One step, not two. The line and the ceiling were a step each, and between
+       them they spent four sentences on a rule the gauge itself states in the
+       readout underneath it. */
     title: 'Heat',
-    body: 'Strong cards build Heat. End a turn at 8 or more and you overheat: you take damage, you get 0 Energy next turn, and a card burns. Reach 10 and the turn ends immediately.',
+    body: () =>
+      `Heat does not fall off on its own — you vent it. End a turn at ${HEAT.overheatAt} or more and you overheat: you lose ${Math.round(HEAT.overheatDamagePctOfMax * 100)}% of your maximum health, you get 0 Energy next turn, and a card burns. Hit ${HEAT.criticalAt} and the turn ends and you overheat immediately.`,
     targets: ['.heat'],
     done: null,
   },
   {
+    /* What ending a turn COSTS, said before they end one.
+     *
+     * "You draw a fresh hand" was true and left out the half that matters: the
+     * hand you are holding does not wait for you. A player told they get five
+     * new cards and not told they lose the four they kept learns that rule the
+     * expensive way — by hoarding a finisher through three turns that quietly
+     * threw it away each time. */
+    title: 'End the turn',
+    body: 'When you have no more moves worth making, end the turn. Everything you played goes to the discard pile — and so does everything still in your hand. You never hold cards over. Then the enemy takes its move, and you draw a fresh hand.',
+    targets: ['.tray-actions'],
+    done: (state) => (state.run?.combat?.turn ?? 0) > 1,
+  },
+  {
+    /* After the turn, not before it. Stance is the one thing here that changes
+       what a card in your hand is worth, so it belongs next to a hand you are
+       about to spend rather than one you have already committed. */
     title: 'Stance',
-    body: 'You are always in one of two stances, and it changes what your cards do. GUARD vents 1 Heat and retains 3 Block at the end of your turn. IAI turns Focus into damage; GUARD turns Focus into Block.',
+    body: 'You are always in one of two stances, and it changes what your cards do. GUARD vents 1 Heat and retains 3 Block at the end of your turn.',
     targets: ['.stance-strip'],
     done: null,
   },
   {
-    title: 'End the turn',
-    body: 'When you have no more moves worth making, end the turn. The hauler takes its move, and you draw a fresh hand.',
-    targets: ['.tray-actions'],
-    done: (state) => (state.run?.combat?.turn ?? 0) > 1,
+    /* Told, then done. The stance was described and then never changed, so the
+       strip at the top of the board was a label rather than a control — and the
+       IAI half of every card in the deck was a paragraph the player had read
+       and never seen happen. */
+    title: 'Change it',
+    body: () =>
+      `Play ${cardTable.get(TUTORIAL_STANCE_CARD).name}. Watch the strip: you are in IAI now, and every card with an IAI line on it is worth more than it was a moment ago.`,
+    targets: [hold(TUTORIAL_STANCE_CARD), '.stance-strip'],
+    done: (state) => played(state, TUTORIAL_STANCE_CARD),
+  },
+  {
+    /* Told once you are standing in it.
+     *
+     * The stance step before this one says what a stance IS; this one says what
+     * THIS stance does, with the strip in front of you already saying it. Split
+     * because they are two different questions and the answer to the second is
+     * three separate rules — a paragraph nobody reads while they are also being
+     * asked to play a card. */
+    title: 'IAI',
+    body: () =>
+      `The hot stance. Once the gauge is at ${STANCES.iai.hotDamageAtHeat} or more every attack deals ${STANCES.iai.hotDamage} more. What it charges: ${STANCES.iai.heatAtTurnEnd} Heat at the end of every turn, and no Block retained.`,
+    targets: ['.stance-strip', '.heat'],
+    done: null,
+  },
+  {
+    /* The one-way door, taught by using it. The Burned pile had a name and an
+       explanation and nothing in the deck that ever put a card in it. */
+    title: 'Burn',
+    body: () =>
+      `${cardTable.get(TUTORIAL_BURN_CARD).name} says Burn. Play it and watch where it goes: not to the discard, so no shuffle brings it back this fight.`,
+    targets: [...aim(TUTORIAL_BURN_CARD), '.pile[data-pile="exhaust"]'],
+    done: (state) => played(state, TUTORIAL_BURN_CARD),
   },
   {
     title: 'Focus',
@@ -181,24 +271,66 @@ const STEPS: readonly Step[] = [
        to say "Play Measured Draw", and when that card was cut from the pool the
        tutorial went on confidently naming a card that no longer existed. */
     body: () =>
-      `Play ${cardTable.get(TUTORIAL_FOCUS_CARD).name}. It gains you a Focus — and the stance decides what that Focus becomes: damage in IAI, Block in GUARD.`,
-    targets: aim(TUTORIAL_FOCUS_CARD),
+      `Play ${cardTable.get(TUTORIAL_FOCUS_CARD).name}. It banks a Focus — and the stance decides what that Focus becomes: damage in IAI, Block in GUARD.`,
+    targets: [hold(TUTORIAL_FOCUS_CARD), '.resource--focus'],
     done: (state) => played(state, TUTORIAL_FOCUS_CARD),
   },
   {
     /* Gaining a Focus and spending one are two ideas, and they were taught as
-       one: the step above says what the stack WOULD become and then moved on.
-       The only resource whose whole point is being banked for later was never
-       seen to pay out. */
+     * one: the step above says what the stack WOULD become and then moved on.
+     * The only resource whose whole point is being banked for later was never
+     * seen to pay out. */
     title: 'Spend it',
     body: () =>
-      `One Focus, banked. Play ${cardTable.get(TUTORIAL_SPEND_CARD).name} — the stack goes into it, and the row empties as it does. That is what Focus is: something you put away on a quiet turn and cash on a loud one.`,
+      `One Focus, banked. Play ${cardTable.get(TUTORIAL_SPEND_CARD).name} — the stack goes into it and is consumed by the card. Watch the row empty as it does.`,
     targets: [...aim(TUTORIAL_SPEND_CARD), '.resource--focus'],
     done: (state) => played(state, TUTORIAL_SPEND_CARD),
   },
   {
+    /* Both directions of the same mechanic, on one screen, at the one moment
+       both are visible: the Vulnerable the player just applied and the Weak the
+       enemy is about to apply back. Taught together because a player who has
+       only ever put statuses ON things reads the enemy's pips as decoration. */
+    title: 'It goes both ways',
+    body: () =>
+      `${cardTable.get(TUTORIAL_SPEND_CARD).name} left a mark: Vulnerable, because you cut it in IAI. While it is there the enemy takes more damage from everything. Now read its intent — it is about to put Weak on YOU. Statuses go both ways, and the row under your health is where yours sit. End the turn and take it.`,
+    targets: [
+      `.enemy .pip[data-status="${VULNERABLE}"]`,
+      '.enemy .intent',
+      '.tray-actions',
+    ],
+    done: (state) => stacksOf(state.run?.combat?.statuses ?? [], WEAK) > 0,
+  },
+  {
+    /* Where the card face stops helping, stated exactly.
+     *
+     * `damageFigures` folds the stance's hot bonus and one stack of Focus INTO
+     * the printed number — that is why an IAI Slash reads 8 at five Heat — and
+     * folds in nothing else. Statuses and carried items are applied at the
+     * moment of the hit and never appear on the card, and there are no damage
+     * predictions on the enemies either (see the comment in `combat.ts`: the
+     * sum is the game, not a chore to automate).
+     *
+     * So the line has to name the split rather than wave at it. An earlier
+     * version said the number "does not know about your Weak, your Focus, or
+     * your stance", which was wrong on two of the three and would have taught a
+     * player to distrust the one part of the face that is already doing the
+     * work for them. */
+    title: 'And now it is on you',
+    body:
+      "Weak, on you: everything you swing for hits 25% softer per stack while it is there. A card's number already takes account of your stance and your Focus. It does not take account of status effects or what you are carrying (relics and implants), so your Weak, the target's Vulnerable and every relic bonus are sums you do yourself.",
+    targets: [`.pips--player .pip[data-status="${WEAK}"]`, '.hand'],
+    done: null,
+  },
+  {
+    /* The last word, and it stays the last word.
+     *
+     * It was moved earlier once because the finisher used to kill the enemy and
+     * take the screen with it. The right fix was the other one: the enemy
+     * outlasts the lesson now, so the closing step can sit where a closing step
+     * belongs and end on something for the player to go and do. */
     title: 'The rest is for you to explore.',
-    body: 'Show log opens a record of every number and where it came from, newest first. Info explains anything you are confused about. Now finish the hauler.',
+    body: 'Show log opens a record of every number and where it came from, newest first. Info explains anything you are confused about — every keyword, every colour, every star on the chart. Now finish the enemy.',
     targets: ['.combat-corner'],
     done: null,
     next: 'I understand',
@@ -216,6 +348,14 @@ export function renderCoach(store: Store, onDone: () => void): HTMLElement {
 
   const advance = (): void => {
     index += 1;
+    /* Skip anything already true.
+     *
+     * The `done` conditions are only re-checked when the store notifies, so a
+     * step whose job was finished BEFORE it came up — a card played early, a
+     * turn ended while reading — would sit on "Your move." with nothing left to
+     * do, until some unrelated action happened to wake it. Checking on the way
+     * in costs one call and removes the whole class of it. */
+    while (index < STEPS.length && STEPS[index]?.done?.(store.getState()) === true) index += 1;
     if (index >= STEPS.length) {
       finish();
       return;
@@ -223,20 +363,57 @@ export function renderCoach(store: Store, onDone: () => void): HTMLElement {
     draw();
   };
 
-  function draw(): void {
-    const step = STEPS[index];
-    if (step === undefined) {
-      finish();
-      return;
-    }
+  /**
+   * The geometry the last paint was made from.
+   *
+   * The rings are `position: fixed` boxes drawn from measurements, so they are
+   * correct exactly until something under them moves — and plenty does without
+   * a state change to announce it: a hand finishing its deal, an enemy row
+   * losing a line when a status falls off, a gauge readout re-wrapping. The
+   * stance step was the one that showed it, ringing the Heat bar 23px below the
+   * strip it was supposed to be pointing at, because the board had settled
+   * upwards after the last redraw and nothing asked again.
+   *
+   * So the geometry is watched rather than assumed. Cheap: a handful of rect
+   * reads a frame, and only while the introduction is on screen.
+   */
+  let painted = '';
 
-    /* Rings are drawn from each target's LAYOUT box, read fresh every time.
-       The screen underneath is rebuilt between renders, so a remembered rect
-       belongs to a node that no longer exists. */
-    const boxes = step.targets
+  /** What the current step's targets are, right now. Null entries are dropped. */
+  function measure(step: Step): readonly DOMRect[] {
+    return step.targets
       .map((selector) => document.querySelector(selector))
       .map((node) => (node === null ? null : layoutRect(node)))
       .filter((box): box is DOMRect => box !== null && box.width > 0);
+  }
+
+  /** Everything a paint depends on, in one comparable string. */
+  function geometry(boxes: readonly DOMRect[]): string {
+    const hand = document.querySelector('.hand');
+    const handTop = hand === null ? -1 : Math.round(hand.getBoundingClientRect().top);
+    const shape = boxes
+      .map((box) => `${Math.round(box.left)},${Math.round(box.top)},${Math.round(box.width)},${Math.round(box.height)}`)
+      .join(';');
+    return `${window.innerWidth}x${window.innerHeight}|${handTop}|${shape}`;
+  }
+
+  /* The three pieces of a step, kept so the geometry can be updated without
+     rebuilding the words — which would take the focus off the button and reset
+     any scroll inside the card, sixty times a second, while a hand deals. */
+  let drawn: { rings: readonly HTMLElement[]; dim: HTMLElement; card: HTMLElement } | null = null;
+
+  const PAD = 6;
+
+  function reposition(): void {
+    const step = STEPS[index];
+    if (step === undefined || drawn === null) return;
+    const boxes = measure(step);
+    /* A target that has appeared or gone — the Weak pip arriving, a card
+       leaving the hand — is a different set of rings, not a move. */
+    if (boxes.length !== drawn.rings.length) {
+      draw();
+      return;
+    }
 
     /* One dimming layer with a hole cut for every target, rather than a ring
        per target carrying its own enormous spread shadow.
@@ -250,55 +427,57 @@ export function renderCoach(store: Store, onDone: () => void): HTMLElement {
 
        `path(evenodd, …)` is one subpath around the viewport followed by one per
        hole; the even-odd rule turns the inner ones into holes. */
-    const pad = 6;
-    const holes = boxes
-      .map((box) => {
-        const x = Math.round(box.left - pad);
-        const y = Math.round(box.top - pad);
-        const right = Math.round(box.right + pad);
-        const bottom = Math.round(box.bottom + pad);
-        return `M${x} ${y} H${right} V${bottom} H${x} Z`;
-      })
-      .join(' ');
+    if (boxes.length === 0) {
+      drawn.dim.removeAttribute('style');
+    } else {
+      const holes = boxes
+        .map((box) => {
+          const x = Math.round(box.left - PAD);
+          const y = Math.round(box.top - PAD);
+          const right = Math.round(box.right + PAD);
+          const bottom = Math.round(box.bottom + PAD);
+          return `M${x} ${y} H${right} V${bottom} H${x} Z`;
+        })
+        .join(' ');
+      drawn.dim.setAttribute(
+        'style',
+        `clip-path: path(evenodd, "M0 0 H${Math.round(window.innerWidth)} V${Math.round(window.innerHeight)} H0 Z ${holes}")`,
+      );
+    }
 
-    const dim =
-      boxes.length === 0
-        ? el('div', { class: 'coach-dim' })
-        : el('div', {
-            class: 'coach-dim',
-            style: `clip-path: path(evenodd, "M0 0 H${Math.round(window.innerWidth)} V${Math.round(window.innerHeight)} H0 Z ${holes}")`,
-          });
+    boxes.forEach((box, at) => {
+      const ring = drawn?.rings[at];
+      if (ring === undefined) return;
+      ring.style.left = `${box.left - PAD}px`;
+      ring.style.top = `${box.top - PAD}px`;
+      ring.style.width = `${box.width + PAD * 2}px`;
+      ring.style.height = `${box.height + PAD * 2}px`;
+    });
 
-    const rings = boxes.map((box) =>
-      el('div', {
-        class: 'coach-ring',
-        style: `left:${box.left - pad}px;top:${box.top - pad}px;width:${box.width + pad * 2}px;height:${box.height + pad * 2}px`,
-      }),
-    );
+    placeCard(drawn.card, boxes);
+    painted = geometry(boxes);
+  }
 
-    /* The card is placed clear of everything it is pointing at, measured
-       against the whole set rather than the first one — a "play this card" step
-       rings the hand and the hauler, which sit at opposite ends of the screen,
-       and following only the first would put the words on top of the other. */
-    const top = boxes.length === 0 ? null : Math.min(...boxes.map((box) => box.top));
-    const bottom = boxes.length === 0 ? null : Math.max(...boxes.map((box) => box.bottom));
-    const roomAbove = top ?? 0;
-    const roomBelow = window.innerHeight - (bottom ?? window.innerHeight);
+  function draw(): void {
+    const step = STEPS[index];
+    if (step === undefined) {
+      finish();
+      return;
+    }
 
-    const wide =
-      boxes.length === 0
-        ? null
-        : roomBelow >= roomAbove
-          ? `top:${Math.min(window.innerHeight - 190, (bottom ?? 0) + 16)}px`
-          : `bottom:${Math.min(window.innerHeight - 40, window.innerHeight - (top ?? 0) + 16)}px`;
+    const boxes = measure(step);
 
-    const placement = window.innerWidth <= NARROW ? narrowPlacement(boxes) : wide;
+    const dim = el('div', { class: 'coach-dim' });
+    const rings = boxes.map(() => el('div', { class: 'coach-ring' }));
 
     const card = el(
       'div',
       {
-        class: `coach-card${placement === null ? ' coach-card--centre' : ''}`,
-        style: placement,
+        class: 'coach-card',
+        // Placed after it is in the document, because placing it needs its own
+        // height and nothing detached has one. Hidden until then rather than
+        // flashing in the wrong place first.
+        style: 'visibility:hidden',
         role: 'dialog',
         'aria-label': step.title,
       },
@@ -306,88 +485,154 @@ export function renderCoach(store: Store, onDone: () => void): HTMLElement {
         el('p', { class: 'coach-step' }, [`${index + 1} of ${STEPS.length}`]),
         el('h2', { class: 'coach-title' }, [step.title]),
         el('p', { class: 'coach-body' }, [typeof step.body === 'function' ? step.body() : step.body]),
+        /* One control, and only on the steps that have one.
+         *
+         * A "Skip the introduction" button sat beside it on every step, and it
+         * was the wrong offer to keep making: the lesson is one short fight,
+         * and the way past it is to play the fight — which is also the thing
+         * being taught. An escape hatch on every step reads as an apology for
+         * the screen it is on. Pause still abandons the run, which is the
+         * honest version of leaving. */
         el('div', { class: 'coach-actions' }, [
           step.done === null
             ? button(step.next ?? 'Next', { class: 'btn btn-primary btn-coach' }, advance)
             : el('span', { class: 'coach-wait' }, ['Your move.']),
-          button('Skip the introduction', { class: 'btn btn-quiet btn-coach' }, finish),
         ]),
       ],
     );
 
     host.replaceChildren(dim, ...rings, card);
+    drawn = { dim, rings, card };
+    reposition();
   }
 
-  /* Re-measure and re-check on every state change: that is precisely when the
-     screen underneath was rebuilt and when a "play this card" step might have
-     been satisfied. */
+  /* A step is finished by the game, not by a repaint. Everything else that
+     changes — and on a live board that is most frames — only moves the rings. */
   const unsubscribe = store.subscribe((state) => {
     const step = STEPS[index];
     if (step?.done?.(state) === true) {
       advance();
       return;
     }
-    draw();
+    // `drawn` is null only if the first paint has not happened, which on a
+    // hidden tab can be a long time. A state change is as good a moment.
+    if (drawn === null) draw();
+    else reposition();
   });
 
-  /* Rings are `position: fixed` and drawn from viewport coordinates, so they
-     are correct exactly until the page moves under them. On a desktop the board
-     fits and nothing ever moves; on a phone it scrolls, and every ring stayed
-     where the screen used to be — pointing at whatever had scrolled into that
-     spot. The card placement reads the same rectangles, so it drifted onto the
-     hand at the same time.
+  /*
+   * The watcher.
    *
-   * Passive listeners, and a redraw rather than a transform: the step underneath
-   * may have been satisfied while the finger was moving, and `draw` is the one
-   * path that re-measures everything from the live DOM. Orientation change comes
-   * through `resize`, which is the other way this used to end up stale. */
-  const remeasure = (): void => draw();
-  window.addEventListener('scroll', remeasure, { passive: true, capture: true });
-  window.addEventListener('resize', remeasure, { passive: true });
+   * Scroll and resize used to be the whole of this, on the theory that nothing
+   * else moves the board. Plenty does: a hand dealing, an enemy row losing a
+   * line, a readout re-wrapping — none of which is a state change, a scroll or
+   * a resize, and all of which leave a ring pointing at empty space. Comparing
+   * the measured geometry each frame catches every one of them and costs a few
+   * rect reads while the introduction is on screen and nothing at all after.
+   */
+  let watching = true;
+  const watch = (): void => {
+    if (!watching) return;
+    const step = STEPS[index];
+    if (step !== undefined && drawn !== null && geometry(measure(step)) !== painted) reposition();
+    requestAnimationFrame(watch);
+  };
 
   host.addEventListener('shinwar:unmount', () => {
+    watching = false;
     unsubscribe();
-    window.removeEventListener('scroll', remeasure, { capture: true } as EventListenerOptions);
-    window.removeEventListener('resize', remeasure);
   });
 
   /* First paint is deferred, and ONLY deferred.
      The coach is built before it is appended, so a synchronous draw here would
      measure rectangles of zeros. */
-  requestAnimationFrame(draw);
+  /* Drawn NOW, and positioned on the next frame.
+   *
+   * It used to be `requestAnimationFrame(draw)` and nothing else, on the
+   * grounds that the coach is built detached and a synchronous measure reads
+   * rectangles of zeros. The measuring half is true. Making the whole lesson
+   * depend on a frame ever being served is not: a tab that opens the
+   * introduction and is then hidden gets no frames at all, and the coach never
+   * appeared — no words, no rings, nothing to press.
+   *
+   * So the words are built immediately and `placeCard` keeps the card hidden
+   * until it has a height to be placed by, which is the next frame at the
+   * latest. Nothing flashes in the wrong place and nothing depends on a frame
+   * arriving. */
+  draw();
+  requestAnimationFrame(() => {
+    reposition();
+    watch();
+  });
 
   return host;
 }
 
 /**
- * Where the words go on a phone.
+ * Where the words go.
  *
- * "Above or below whatever it is pointing at" is the right rule on a wide
- * screen and cannot work on a narrow one. A step that asks you to play a card
- * rings the top bar, an enemy AND the hand, and on a 375x812 screen those three
- * span the whole viewport — there is no above and no below left. The desktop
- * rule then clamped to `innerHeight - 190`, a guess at the card's own height
- * that is 20-40px short once the body text wraps at phone width, and landed the
- * instructions on top of the hand they were telling you to tap with the buttons
- * off the bottom edge.
+ * Three rules, in priority order:
  *
- * So on a phone it looks for the largest GAP between the things it is ringing
- * and sits in that, capped to the gap's own height so it can never grow back
- * over them. On the "play a card" step the gap between the enemy and the hand
- * is about 265px, which is where a person would have put it.
+ *   1. **Never over the hand.** The cards are what every step is asking you to
+ *      reach for, and a panel of instructions lying across them is the one
+ *      placement that makes the lesson impossible to follow. The hand is a hard
+ *      floor: if the words will not fit above it they scroll inside what room
+ *      there is, rather than borrowing a pixel of it.
+ *   2. **As little over the rings as possible.** A preference, not a rule —
+ *      nine pixels of overlap with a small chip beats a box with a scrollbar in
+ *      it, and on a board cut in half by a full-width strip there is often no
+ *      clear band tall enough for a paragraph.
+ *   3. **As near the middle as 1 and 2 allow**, pulled toward the rings. The
+ *      aim is the midpoint between the centre of the screen and the centre of
+ *      what is ringed, so the words sit between the reader's eye and the thing
+ *      they are about.
  *
- * Returns the inline style, or null to fall back to the centred placement.
+ * A one-pixel scan rather than a search through the clear bands, because the
+ * band version could only answer "does it fit" — and when the answer was no it
+ * crammed the card into whatever was widest and turned it into a scroller. The
+ * scan scores every position it is allowed to take, so a clear one always wins
+ * when it exists and the least-bad one wins when it does not.
+ *
+ * This replaced two rules that disagreed: a desktop one that put the card above
+ * or below the ringed band, and a phone one that hunted for the largest gap.
+ * The desktop rule guessed the card's height at 190px, was wrong by 20-40px the
+ * moment the body text wrapped, and on a board whose hand starts at 439 of 910
+ * it put the words squarely across the cards. The card is measured now rather
+ * than guessed, and one rule covers both widths.
  */
-function narrowPlacement(boxes: readonly DOMRect[]): string | null {
-  if (boxes.length === 0) return null;
-
+function placeCard(card: HTMLElement, boxes: readonly DOMRect[]): void {
   const pad = 12;
-  const height = window.innerHeight;
+  const viewH = window.innerHeight;
 
-  /* Merge the ringed bands, then read the gaps between them. Merging matters:
-     two rings that touch are one obstacle, and treating them as two invents a
-     gap of zero between them that the search would happily "win". */
-  const bands = boxes
+  /* Cleared before measuring: this runs again on the same element every time
+     the board moves, and a max-height left over from a cramped position would
+     survive into a roomy one and keep the scrollbar for the rest of the step. */
+  card.style.maxHeight = '';
+  card.style.overflowY = '';
+  const height = card.offsetHeight;
+  /* Nothing to place yet — the screen is built detached and appended after, so
+     the first call measures zero. Left hidden rather than placed at a guess:
+     the next frame calls back with a real height. */
+  if (height === 0) return;
+
+  const hand = document.querySelector('.hand');
+  const handTop = hand === null ? viewH : hand.getBoundingClientRect().top;
+
+  const top = pad;
+  /* The floor. A hand pinned to the top of the screen is not a thing that
+     happens, but a floor above the ceiling would place the card off-screen, so
+     the guard is here rather than in a comment. */
+  const bottom = handTop - pad - top >= 120 ? handTop - pad : viewH - pad;
+
+  const centre = viewH / 2;
+  const aim =
+    boxes.length === 0
+      ? centre
+      : (centre + boxes.reduce((sum, box) => sum + box.top + box.height / 2, 0) / boxes.length) / 2;
+
+  /* Merged, because two rings that touch are one obstacle and treating them as
+     two invents a clear gap of zero between them. */
+  const blocked = boxes
     .map((box) => ({ top: box.top - pad, bottom: box.bottom + pad }))
     .sort((a, b) => a.top - b.top)
     .reduce<{ top: number; bottom: number }[]>((merged, band) => {
@@ -399,27 +644,31 @@ function narrowPlacement(boxes: readonly DOMRect[]): string | null {
       return [...merged, { ...band }];
     }, []);
 
-  const gaps: { top: number; size: number }[] = [];
-  let cursor = 0;
-  for (const band of bands) {
-    if (band.top - cursor > 0) gaps.push({ top: cursor, size: band.top - cursor });
-    cursor = Math.max(cursor, band.bottom);
+  const highest = Math.max(top, bottom - height);
+  let best = top;
+  let bestScore = Infinity;
+  for (let at = top; at <= highest; at += 1) {
+    /* Overlap dominates the score outright — a thousand to one — so distance
+       from the aim only ever breaks a tie between equally clear positions. */
+    const over = blocked.reduce(
+      (sum, band) => sum + Math.max(0, Math.min(at + height, band.bottom) - Math.max(at, band.top)),
+      0,
+    );
+    const score = over * 1000 + Math.abs(at + height / 2 - aim);
+    if (score < bestScore) {
+      bestScore = score;
+      best = at;
+    }
   }
-  if (height - cursor > 0) gaps.push({ top: cursor, size: height - cursor });
 
-  const best = gaps.reduce<{ top: number; size: number } | null>(
-    (winner, gap) => (winner === null || gap.size > winner.size ? gap : winner),
-    null,
-  );
-  /* The BIGGEST gap, whatever its size, rather than only a gap that fits
-     comfortably. The first version demanded 150px and centred when it could not
-     find one — which on the "play a card" step means centring on top of the
-     hand, swallowing every tap meant for a card. A cramped box that scrolls is
-     a worse read and a working game; a roomy box over the hand is neither. */
-  if (best === null || best.size < MIN_COACH_GAP) return null;
-
-  /* `max-height` is what keeps the promise. Without it a long step in a short
-     gap simply grows back over the ring, and the gap search would have bought
-     nothing on exactly the steps that need it most. */
-  return `top:${Math.round(best.top + 4)}px;max-height:${Math.round(best.size - 8)}px;overflow-y:auto`;
+  card.style.top = `${Math.round(best)}px`;
+  // Only when the room itself is shorter than the words.
+  if (bottom - top < height) {
+    card.style.maxHeight = `${Math.round(bottom - top)}px`;
+    card.style.overflowY = 'auto';
+  }
+  /* The one place the card becomes visible. It is built hidden because placing
+     it needs its own height, which nothing detached has — so it is appended,
+     measured, placed, and only then shown. */
+  card.style.visibility = '';
 }

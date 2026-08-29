@@ -364,9 +364,9 @@ const RARITY_VALUE: Readonly<Record<string, number>> = {
   basic: 0,
   common: 2,
   uncommon: 4,
-  rare: 7,
-  epic: 10,
-  legendary: 14,
+  epic: 7,
+  legendary: 10,
+  mythic: 14,
   artifact: 18,
 };
 
@@ -428,7 +428,7 @@ function station(state: GameState): GameState {
     if (stock.sold) continue;
     const def = cardTable.find(stock.cardId);
     if (def === undefined) continue;
-    const wants = def.archetype === lean || def.rarity === 'rare' || def.rarity === 'epic';
+    const wants = def.archetype === lean || def.rarity === 'epic' || def.rarity === 'legendary';
     if (!wants) continue;
     const before = next;
     next = applyAction(next, { kind: 'buyShopCard', cardId: stock.cardId });

@@ -198,6 +198,27 @@ describe('environments that act at a moment', () => {
     expect(firstEnemy(state).hp).toBeLessThan(enemyTable.get('scrap_hound').maxHp);
   });
 
+  it('lets Block stop the radiation', () => {
+    /* Irradiate used to be direct damage, which made it a second Rust — and
+       Rust's whole identity is being the one clock armour cannot answer. A belt
+       that also walks past Block turns the act's defining hazard into a flat
+       tax on the turn count, payable only in health. GUARD holds it off now.
+
+       Measured against a control run rather than as a raw hull difference: the
+       turn the belt fires is a whole turn, and plenty else in it moves health. */
+    const bare = inEnvironment(RADIATION_BELT_ID, { enemyIds: ['scrap_hound'] });
+    if (bare.run === null || bare.run.combat === null) throw new Error('test: no fight');
+    const plated: GameState = {
+      ...bare,
+      run: { ...bare.run, combat: { ...bare.run.combat, block: 20 } },
+    };
+
+    const cooked = startPlayerTurn(bare);
+    const shielded = startPlayerTurn(plated);
+    expect(hullOf(cooked), 'the belt did nothing to an unarmoured hull').toBeLessThan(70);
+    expect(hullOf(shielded), 'Block did not stop it').toBe(70);
+  });
+
   it('Debris Field marks a target a turn before the rock lands', () => {
     const state = startPlayerTurn(inEnvironment(DEBRIS_FIELD_ID, { enemyIds: ['scrap_hound'] }));
     const marked = combatOf(state).envMemory['debrisTarget'];

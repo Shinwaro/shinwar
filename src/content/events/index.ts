@@ -1099,9 +1099,14 @@ export const EVENTS: readonly EventDef[] = [
         id: 'work',
         label: 'Hold instruments for a shift',
         detail: 'You learn where things are inside a person. It is applicable.',
+        /* Five, down from ten. The bed above costs 90 Alloy for eleven health,
+           so a free ten made the paid option strictly worse than the free one —
+           and an Anomaly whose options are ranked is not an Anomaly, it is a
+           button. Five is a shift's worth: less than the surgeon's, and it
+           comes with the card. */
         effects: [
           { op: 'card', cardId: 'hairline' },
-          { op: 'health', amount: 10 },
+          { op: 'health', amount: 5 },
         ],
         risk: 'None',
         payoff: 'Immediate, specific',

@@ -14,7 +14,7 @@ export const EVENT_CARDS: readonly CardDef[] = [
     id: 'vareth_chitin_edge',
     name: 'Vareth Chitin Edge',
     type: 'attack',
-    rarity: 'rare',
+    rarity: 'epic',
     archetype: 'guard',
     cost: 1,
     exclusive: true,
@@ -39,7 +39,7 @@ export const EVENT_CARDS: readonly CardDef[] = [
     // Epic for the same reason as Starfall. It is a Thread payoff, so it was
     // never in the reward pool — but a run could hold it AND a Reliquary card,
     // and that is exactly the thing the gate exists to prevent.
-    rarity: 'epic',
+    rarity: 'legendary',
     archetype: 'neutral',
     cost: 0,
     exclusive: true,
@@ -101,6 +101,11 @@ export const EVENT_CARDS: readonly CardDef[] = [
     archetype: 'iai',
     cost: 1,
     exclusive: true,
+    /* Burns. The setup card that is never the wrong opening is not a decision,
+       and this was exactly that: one Energy, damage, and the best debuff in the
+       game, drawn again next shuffle. Once a fight it is a play you spend
+       rather than a habit you form. */
+    exhaust: true,
     /* Vulnerable caps at 2 stacks. This handed you the whole cap for 1 Energy
        AND dealt damage doing it, so the correct opening was always "Mark, then
        everything else at double" — one card that decided the turn before the

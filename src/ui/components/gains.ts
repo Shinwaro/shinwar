@@ -40,10 +40,13 @@ export function renderGains(state: GameState): HTMLElement | null {
     gains.push(note === undefined ? { value, label } : { value, label, note });
   };
 
-  /* Damage first: it is the number being added up mid-turn, and the note is
-     load-bearing now that flat sources land once per card rather than once per
-     swing — without it a three-hit card looks like it should get three times
-     this, which is exactly the arithmetic that used to trivialise Act 3. */
+  /* Damage first: it is the number being added up mid-turn, and the notes are
+     load-bearing — there are two flat sources and they are not the same sum.
+     One lands on the card's first swing only, the other on all of them, so on a
+     three-hit card the first is worth what it says and the second is worth
+     three times it. Two rows, each saying which it is, because a player adding
+     them in their head cannot be asked to remember which was which. */
+  add(rules.damageEveryHit, `+${rules.damageEveryHit}`, 'damage', 'every hit of a card');
   add(rules.damageFlat, `+${rules.damageFlat}`, 'damage', 'first hit of a card');
   add(rules.energyPerTurn, `+${rules.energyPerTurn}`, 'Energy a turn');
   add(rules.drawPerTurn, `+${rules.drawPerTurn}`, rules.drawPerTurn === 1 ? 'card a turn' : 'cards a turn');

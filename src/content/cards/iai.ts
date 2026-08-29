@@ -54,7 +54,7 @@ export const IAI_CARDS: readonly CardDef[] = [
     id: 'crossing_arc',
     name: 'Crossing Arc',
     type: 'attack',
-    rarity: 'rare',
+    rarity: 'epic',
     archetype: 'iai',
     cost: 1,
     // Hairline is a 0-cost common for 4. A 1-cost rare printing 6 before its
@@ -95,7 +95,7 @@ export const IAI_CARDS: readonly CardDef[] = [
     id: 'unsheathed_mind',
     name: 'Unsheathed Mind',
     type: 'attack',
-    rarity: 'epic',
+    rarity: 'legendary',
     archetype: 'iai',
     cost: 1,
     exhaust: true,
@@ -219,7 +219,7 @@ export const IAI_CARDS: readonly CardDef[] = [
     id: 'wavefront_cut',
     name: 'Wavefront Cut',
     type: 'attack',
-    rarity: 'rare',
+    rarity: 'epic',
     archetype: 'iai',
     /* 6 and 4, down from 9 and 6. It carried the Vulnerable cap AND 15 damage
        in IAI off one card, which made the rare that decides a boss turn a card

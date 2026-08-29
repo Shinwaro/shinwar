@@ -42,11 +42,20 @@ export const STATUSES: readonly StatusDef[] = [
   {
     id: VULNERABLE,
     name: 'Vulnerable',
-    text: 'Takes 50% more damage per stack, to a maximum of 100% more. One stack falls off at the end of its turn.',
+    text: 'Takes 25% more damage per stack, to a maximum of 50% more. One stack falls off at the end of its turn.',
     kind: 'debuff',
     decay: 'turn',
-    damageTakenMult: 1.5,
-    multFloor: 2,
+    /* 25% a stack, capped at half again — down from 50% and double.
+     *
+     * At 1.5 it was the strongest line in the game and it was not close: two
+     * stacks doubled a turn, so any deck that could reach the cap stopped
+     * caring what its cards did and only cared about the order it played them
+     * in. Mirroring Weak's numbers puts the two debuffs on the same scale, and
+     * the symmetry is worth having on its own — one is what you do to them, one
+     * is what they do to you, and a player who has learned one now knows the
+     * other. */
+    damageTakenMult: 1.25,
+    multFloor: 1.5,
   },
   /* Capped at half. Stacks compound, so an uncapped 0.75 hits 0.32 at four
      stacks — at which point Weak stops being a tempo play and becomes the
@@ -70,12 +79,18 @@ export const STATUSES: readonly StatusDef[] = [
     damageDealtFlat: 1,
   },
   /* Irradiate feeds no pipeline field — it is a counter the Radiation Belt
-     reads and turns into unblockable damage. Kept as a status rather than a
-     bespoke number so it shows up wherever statuses already show up. */
+     reads and turns into damage. Kept as a status rather than a bespoke number
+     so it shows up wherever statuses already show up.
+
+     Block stops it, unlike Rust. Two unblockable clocks was one too many: Rust
+     is the one that walks past armour, which is the whole of what makes it
+     frightening, and a second source doing the same thing made Block feel
+     optional in exactly the act where the numbers get big. Irradiate is a fee
+     for taking your time, and armour is a fair answer to it. */
   {
     id: IRRADIATE,
     name: 'Irradiate',
-    text: 'Takes 1 damage per stack at the start of each turn.',
+    text: 'Takes 1 damage per stack at the start of each turn. Block stops it.',
     kind: 'debuff',
     decay: 'never',
   },
@@ -109,11 +124,22 @@ export const STATUSES: readonly StatusDef[] = [
   {
     id: TEMPERED,
     name: 'Tempered',
-    text: 'Takes 25% less damage per stack, to a maximum of 50% less. One stack falls off at the end of your turn.',
+    text: 'Every attack against you deals 1 less per stack.',
     kind: 'buff',
-    decay: 'turn',
-    damageTakenMult: 0.75,
-    multFloor: 0.5,
+    /* It stays, and it is flat.
+     *
+     * As a decaying multiplier it was a worse Block: it lasted one turn, it
+     * scaled with what was already hitting you, and the card that granted it
+     * was competing with cards that granted Block on the same turn for the same
+     * Energy. Nothing was ever built around it because there was nothing to
+     * build — the stacks were gone before a second card could add to them.
+     *
+     * Permanent and flat makes it the other half of the defensive game from
+     * Block: Block is a wall you rebuild every turn and Tempered is armour you
+     * accumulate, worth most against the many-small-hits packs that Block
+     * handles worst and least against the one big swing Block handles best. */
+    decay: 'never',
+    damageTakenFlat: 1,
   },
   /* The expensive one. Stacks are turns, not Energy — see `energyWhileHeld`.
      The only status in the game that changes how many cards a turn you get to

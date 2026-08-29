@@ -45,7 +45,15 @@ function build(store: Store, state: GameState): HTMLElement | null {
     renderRunBar(store, state),
     el('h1', { class: 'screen-title' }, [def.name]),
     el('p', { class: 'anomaly-body' }, [def.body]),
-    renderManifest(state),
+
+    /* The Manifest, only AFTER the choice is made.
+     *
+     * While you are choosing it is a list of Threads sitting directly above a
+     * list of options, and several options name a Thread of their own in their
+     * effect line — so the two read as one list and the panel competes with the
+     * decision it is supposed to inform. Afterwards it is exactly right: it is
+     * where whatever you just picked up shows up. */
+    chosen === null ? null : renderManifest(state),
 
     chosen === null
       ? el(

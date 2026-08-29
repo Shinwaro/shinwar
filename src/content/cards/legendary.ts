@@ -26,7 +26,7 @@ export const LEGENDARY_CARDS: readonly CardDef[] = [
     id: 'the_whole_sword',
     name: 'The Whole Sword',
     type: 'attack',
-    rarity: 'legendary',
+    rarity: 'mythic',
     archetype: 'iai',
     cost: 3,
     exhaust: true,
@@ -54,7 +54,7 @@ export const LEGENDARY_CARDS: readonly CardDef[] = [
     id: 'absolute_zero',
     name: 'Absolute Zero',
     type: 'skill',
-    rarity: 'legendary',
+    rarity: 'mythic',
     archetype: 'guard',
     cost: 3,
     exhaust: true,
@@ -85,7 +85,7 @@ export const LEGENDARY_CARDS: readonly CardDef[] = [
     id: 'cut_the_line',
     name: 'Cut the Line',
     type: 'attack',
-    rarity: 'legendary',
+    rarity: 'mythic',
     archetype: 'neutral',
     cost: 3,
     exhaust: true,
@@ -108,7 +108,10 @@ export const LEGENDARY_CARDS: readonly CardDef[] = [
         op: 'conditional',
         when: { kind: 'killedThisPlay' },
         then: [
-          { op: 'gainEnergy', amount: 3 },
+          /* Two of the three back, not all three. A kill that refunded the
+             whole card made the execution free whenever it worked, and a card
+             that is free when it works is a card you never have to time. */
+          { op: 'gainEnergy', amount: 2 },
           { op: 'draw', amount: 2 },
         ],
       },
@@ -121,7 +124,7 @@ export const LEGENDARY_CARDS: readonly CardDef[] = [
           op: 'conditional',
           when: { kind: 'killedThisPlay' },
           then: [
-            { op: 'gainEnergy', amount: 3 },
+            { op: 'gainEnergy', amount: 2 },
             { op: 'draw', amount: 3 },
           ],
         },

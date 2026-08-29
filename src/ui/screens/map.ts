@@ -147,8 +147,16 @@ export function renderMap(store: Store): HTMLElement {
    * where the player had scrolled to is remembered here and restored — without
    * it, glancing at the boss and then hovering anything snaps you back to the
    * top of the chart.
+   *
+   * `settling` is the other half of that, and it exists because of a lie the
+   * browser tells: a freshly inserted scroll box accepts `scrollTop`, reads it
+   * back correctly, and then resets itself to zero when its own first layout
+   * lands — announcing the reset as an ordinary scroll event. Recording that
+   * event as "where the player is looking" is what threw the placement away a
+   * frame after making it. While a placement is settling, the chart is moving
+   * under its own instructions and nothing it emits is the player's opinion.
    */
-  const scroll = { top: 0 };
+  const scroll = { top: 0, settling: false };
 
   /* Whether the deck list is open. UI state — it changes nothing about the
      world, so it never goes near the reducer. */
@@ -162,38 +170,89 @@ export function renderMap(store: Store): HTMLElement {
   };
 
   /*
-   * Re-centring on the node you just cleared.
+   * Opening the chart on where you are standing.
    *
-   * Only this: opening on the starting row is CSS. Four scripted attempts at
-   * that failed for one reason, worth recording — the screen is rebuilt and the
-   * element that was scrolled is detached a moment later, so every timing fix
-   * was racing a re-render it could not see. Re-centring survives because it
-   * runs on `shinwar:mount`, which fires for the screen that is actually in the
-   * document, and again on each render for moves that do not remount.
+   * The rule is one rule now: centre the ANCHOR — the node you are on, or the
+   * act's entry before you have moved. It used to be two, and the seam between
+   * them was the bug: re-centring after a fight was script, and opening on the
+   * starting row was a `column-reverse` trick in the stylesheet. So a chart
+   * that opened in the middle of an act still opened at the bottom, because the
+   * only thing that put you anywhere was CSS whose whole idea was "the bottom".
+   *
+   * Four earlier scripted attempts failed for one reason and it is worth
+   * recording: every screen in this app is BUILT DETACHED and appended
+   * afterwards, and a detached box reports `scrollHeight === clientHeight`, so
+   * a single `requestAnimationFrame` measures a chart with no height and
+   * carefully scrolls it to zero. The answer is not a longer delay, it is a
+   * CONDITION — connected, and taller than itself — polled for a few frames and
+   * then given up on. Same shape as the info panel's focus retry, same reason.
+   *
+   * A generation counter, because a re-render schedules another one and two
+   * polls racing to write `scrollTop` is exactly the flicker this is here to
+   * remove.
    */
+  let placement = 0;
+
   const place = (): void => {
-    const viewport = host?.querySelector('.map-viewport');
-    if (!(viewport instanceof HTMLElement)) return;
-    if (viewport.scrollHeight <= viewport.clientHeight) return;
+    placement += 1;
+    const mine = placement;
+    let tries = 0;
+    scroll.settling = view.recentre;
 
-    const here = viewport.querySelector('.star.is-here');
+    const attempt = (): void => {
+      if (mine !== placement) return;
+      const viewport = host?.querySelector('.map-viewport');
+      const ready =
+        viewport instanceof HTMLElement &&
+        viewport.isConnected &&
+        viewport.scrollHeight > viewport.clientHeight;
+      if (!ready) {
+        tries += 1;
+        if (tries < 40) requestAnimationFrame(attempt);
+        return;
+      }
 
-    /* Before the first move nothing is `is-here`. The chart opening on the
-       starting row is handled by CSS — see `.map-viewport`, which is a reversed
-       flex column so its scroll origin is the bottom — because a scripted
-       scroll cannot survive the screen being rebuilt underneath it. */
-    if (here === null) return;
+      const anchor = view.recentre ? viewport.querySelector('.star.is-anchor') : null;
+      if (anchor instanceof HTMLElement) {
+        /* Measured off the rects rather than `offsetTop`, so it does not depend
+           on which ancestor happens to be the offset parent — and off the
+           element's CENTRE, because a star is drawn translated by half itself.
+           Arithmetic rather than `scrollIntoView`, which also scrolls the page
+           the chart is sitting on. */
+        const box = anchor.getBoundingClientRect();
+        const frame = viewport.getBoundingClientRect();
+        const middle = box.top + box.height / 2 - frame.top + viewport.scrollTop;
+        const want = Math.max(0, middle - viewport.clientHeight / 2);
+        if (Math.abs(viewport.scrollTop - want) > 1) viewport.scrollTop = want;
+        scroll.top = viewport.scrollTop;
 
-    // After a fight the map should be looking at the node you just cleared,
-    // not wherever you had scrolled to before walking into it.
-    if (view.recentre && here instanceof HTMLElement) {
-      // Arithmetic rather than `scrollIntoView`, which also scrolls the page.
-      viewport.scrollTop = Math.max(0, here.offsetTop - viewport.clientHeight / 2);
-      scroll.top = viewport.scrollTop;
-      return;
-    }
+        /* Re-asserted for a few frames, and this is the whole trick.
+         *
+         * Setting `scrollTop` on a box that has only just been inserted is a
+         * request, not a fact: it reads back as the number you wrote and then
+         * the browser's own first layout of the scroller puts it back to zero.
+         * One write, however carefully timed, loses that race every time —
+         * which is why four previous attempts at this ended up as a stylesheet
+         * trick. Holding the position for a handful of frames wins it, and
+         * costs nothing when there was no race to win. */
+        tries += 1;
+        if (tries < 8) {
+          requestAnimationFrame(attempt);
+          return;
+        }
+        /* Once. A re-render that changes nothing about where you are should
+           restore what the player was looking at, not haul them back to their
+           own feet. */
+        view.recentre = false;
+        scroll.settling = false;
+        return;
+      }
 
-    viewport.scrollTop = scroll.top;
+      viewport.scrollTop = scroll.top;
+      scroll.settling = false;
+    };
+
+    attempt();
   };
 
   host = liveScreen(store, 'map screen', (state) => {
@@ -201,7 +260,7 @@ export function renderMap(store: Store): HTMLElement {
     const anchor = state.run.position ?? state.run.map?.startId ?? null;
     const moved = anchor !== lastAnchor;
     lastAnchor = anchor;
-    view.recentre = moved;
+    if (moved) view.recentre = true;
     const built = buildMap(store, state, scroll, view, rerender);
     // A re-render of an already-mounted screen fires no mount event, so the
     // chart re-places itself on the next frame — that is the path that puts you
@@ -223,7 +282,7 @@ export function renderMap(store: Store): HTMLElement {
 function buildMap(
   store: Store,
   state: GameState,
-  scroll: { top: number },
+  scroll: { top: number; settling: boolean },
   view: { showDeck: boolean; showInfo: boolean },
   rerender: () => void,
 ): HTMLElement {
@@ -235,6 +294,11 @@ function buildMap(
   const reachable = new Set(availableMoves(run).map((node) => node.id));
   const here = currentNode(run);
   const visited = new Set(run.visited);
+
+  /* What the chart opens looking at: where you are standing, or the way in
+     before you have taken a step. One anchor, so there is one rule — see
+     `place` in `renderMap` for why that matters. */
+  const anchorId = run.position ?? map.startId;
 
   /* -- the readout, driven by hover and focus -- */
   const readout = el('p', { class: 'map-readout', role: 'status', 'aria-live': 'polite' }, [
@@ -287,6 +351,7 @@ function buildMap(
     // one several nodes out, not when you arrive at it.
     if (isReachable) classes.push('is-reachable');
     if (isHere) classes.push('is-here');
+    if (node.id === anchorId) classes.push('is-anchor');
     if (visited.has(node.id)) classes.push('is-visited');
 
     const star = button(
@@ -363,10 +428,17 @@ function buildMap(
 
   const field = el('div', { class: 'map-field' }, [chart, stars]);
 
+  /* Built here rather than inline below, because whether it EXISTS decides the
+     shape of the row it sits in — the chart stays centred on the screen either
+     way, and with no Threads to list there is nothing to centre it against. */
+  const manifest = renderManifest(state, 'Manifest');
+
   const viewport = el('div', { class: 'map-viewport', role: 'group', 'aria-label': actLabel(map) }, [
     field,
   ]);
   viewport.addEventListener('scroll', () => {
+    // Not while the chart is placing itself — see `scroll.settling` above.
+    if (scroll.settling) return;
     scroll.top = viewport.scrollTop;
   });
 
@@ -407,8 +479,20 @@ function buildMap(
       }),
     ]),
     readout,
-    renderManifest(state, 'Carrying'),
-    viewport,
+    /* The chart and the Manifest, side by side.
+     *
+     * It used to sit ABOVE the chart, full width, which pushed the sky down by
+     * however many Threads you were carrying — so the same act read differently
+     * depending on your luck, and a third Thread could cost you a row of stars.
+     * A column beside it is the same shape as the relic rail in a fight: a
+     * standing list you glance at, next to the thing you are deciding about,
+     * that never moves the thing you are deciding about.
+     *
+     * The column collapses to nothing when you carry no Threads — `auto` on an
+     * empty track is zero — so Act 1 gets the full width back. */
+    manifest === null
+      ? el('div', { class: 'map-body' }, [viewport])
+      : el('div', { class: 'map-body has-manifest' }, [viewport, manifest]),
     view.showInfo
       ? renderInfoPanel('Reading the chart', mapInfo(map.act), () => {
           view.showInfo = false;

@@ -45,16 +45,23 @@ export const HEAT = {
   /** At or above this at the end of your turn. */
   overheatAt: 8,
   /**
-   * Overheating costs a percentage of MAX health, not a flat number.
+   * Overheating costs a flat 12% of MAX health. One number, at every point on
+   * the gauge above the line.
    *
-   * A flat 3 stops mattering the moment the deck is doing 40 a turn, which is
-   * exactly why Heat never became a thing anyone thought about. A fraction of
-   * max scales with the run for free and keeps the threshold as frightening in
-   * Act 3 as it was in Act 1.
+   * A percentage rather than a flat figure because a flat 3 stops mattering the
+   * moment the deck is doing 40 a turn, which is exactly why Heat never became
+   * a thing anyone thought about. A fraction of max scales with the run for
+   * free and keeps the threshold as frightening in Act 3 as it was in Act 1.
+   *
+   * FLAT rather than a ladder, and that is the deliberate part. It used to rise
+   * 3% for every point above the line, which made the price of a turn a small
+   * sum the player had to do before every decision — and the answer was always
+   * "a bit more than last time". One number is a rule you can hold in your head
+   * while you are looking at your hand, which is the only place a Heat decision
+   * is ever made. The ceiling at 10 is what makes the top of the gauge
+   * different, and it is a wall rather than a steeper slope.
    */
   overheatDamagePctOfMax: 0.12,
-  /** Per point above the threshold, on top of the base fraction. */
-  overheatDamagePctPerPoint: 0.03,
   /**
    * And you lose the turn — but you still take it.
    *
@@ -259,9 +266,9 @@ export const SHOP = {
   cardPrice: {
     common: 50,
     uncommon: 80,
-    rare: 130,
-    epic: 190,
-    legendary: 260,
+    epic: 130,
+    legendary: 190,
+    mythic: 260,
     artifact: 340,
   },
 } as const;
@@ -359,6 +366,21 @@ export const MAP = {
   /** The row before the boss is always a Safe Planet. StS's rest-before-boss. */
   restBeforeBoss: true,
   /**
+   * And in Act 3, a full row of Stations two before it.
+   *
+   * The finale is the one fight a run cannot walk into underprepared and
+   * survive, and it is also the fight furthest from anywhere to spend. Act 3 is
+   * short, the Station band closes three rows from the end, and a chart could
+   * quite legitimately put the last shop eight nodes before the boss — so the
+   * run's final decision about its own deck happened long before the fight that
+   * tests it. The row is Act 3 only: Acts 1 and 2 end on a boss you are meant
+   * to meet with whatever the act gave you.
+   *
+   * Station, then the rest, then the boss. Two beats, and they are different
+   * ones: one is what you spend, one is what you recover.
+   */
+  stationBeforeAct3Boss: true,
+  /**
    * The band of rows Stations live in, as node numbers into the act.
    *
    * The guarantee used to be a whole row of Stations, the way the rest before
@@ -427,6 +449,39 @@ export const NODE_WEIGHTS = {
   safe: 6,
 } as const;
 
+/**
+ * How much the two "route for it" nodes are worth per act.
+ *
+ * Multipliers on `NODE_WEIGHTS`, applied when the chart is rolled.
+ *
+ * A run gets wider as it goes: the deck can use a shop for more, and an Elite
+ * stops being a wall and starts being a relic you can price. Holding the
+ * weights flat meant Act 3 had the same texture as Act 1 while being three
+ * times the fight — the same handful of Elites nobody could afford to take
+ * early, and the same scarce Stations at the point where Alloy is finally
+ * worth something. It also meant the act with the most to spend on had the
+ * fewest places to spend.
+ *
+ * Everything else keeps its weight; these two rise, so combat's share falls out
+ * of the normalisation on its own rather than being tuned twice.
+ */
+export const NODE_ACT_SCALE: {
+  readonly [act in 1 | 2 | 3]: { readonly elite: number; readonly station: number };
+} = {
+  1: { elite: 1, station: 1 },
+  2: { elite: 1.6, station: 1.35 },
+  3: { elite: 2.9, station: 1.7 },
+};
+
+/* Act 3's elite multiplier is larger than the ladder suggests it should be, and
+   the reason is arithmetic rather than intent: Act 3 is the SHORTEST act, and
+   three of its rows are already spoken for — the planted Station row, the rest
+   before the boss, and the boss. At 2.1 the measured density came out level
+   with Act 2 rather than above it. 2.9 is what puts it clearly ahead.
+
+   Measured across 400 charts an act, as a share of the nodes on the chart:
+   Act 1 12.8%, Act 2 18.2%, Act 3 21.6%. */
+
 /** What a `?` turns into, rolled on the `events` stream when entered. */
 export const UNKNOWN_WEIGHTS = {
   event: 34,
@@ -459,9 +514,9 @@ export const TREASURE_ALLOY = { min: 25, max: 45 } as const;
 export const RARITY_WEIGHTS: {
   readonly [act in 1 | 2 | 3]: { readonly [r in Exclude<Rarity, 'basic'>]: number };
 } = {
-  1: { common: 62, uncommon: 26, rare: 9, epic: 2.4, legendary: 0, artifact: 0 },
-  2: { common: 48, uncommon: 31, rare: 14, epic: 5, legendary: 0, artifact: 0 },
-  3: { common: 36, uncommon: 33, rare: 19, epic: 8.5, legendary: 0, artifact: 0 },
+  1: { common: 62, uncommon: 26, epic: 9, legendary: 2.4, mythic: 0, artifact: 0 },
+  2: { common: 48, uncommon: 31, epic: 14, legendary: 5, mythic: 0, artifact: 0 },
+  3: { common: 36, uncommon: 33, epic: 19, legendary: 8.5, mythic: 0, artifact: 0 },
 };
 
 /**
@@ -485,7 +540,7 @@ export const RARITY_WEIGHTS: {
 export const RELIC_RARITY_WEIGHTS: {
   readonly [act in 1 | 2 | 3]: { readonly [r in Exclude<Rarity, 'basic'>]: number };
 } = {
-  1: { common: 55, uncommon: 30, rare: 12, epic: 2.5, legendary: 0.4, artifact: 0.1 },
+  1: { common: 55, uncommon: 30, epic: 12, legendary: 2.5, mythic: 0.4, artifact: 0.1 },
   /* Legendary doubled in Acts 2 and 3. Measured: relics only roll a tier on an
      Elite, a route can walk into about two an act, and bosses stopped rolling
      when their offer was pinned to epic — which quietly removed three offers a
@@ -496,8 +551,8 @@ export const RELIC_RARITY_WEIGHTS: {
      Artifact deliberately unchanged, and now moot: the one artifact is
      `exclusive` and comes from finishing The Rites three times, so the tier is
      never offered. The row stays as the rule for the day a second one exists. */
-  2: { common: 34, uncommon: 34, rare: 21, epic: 8, legendary: 4.4, artifact: 0.8 },
-  3: { common: 18, uncommon: 30, rare: 28, epic: 16, legendary: 12, artifact: 2 },
+  2: { common: 34, uncommon: 34, epic: 21, legendary: 8, mythic: 4.4, artifact: 0.8 },
+  3: { common: 18, uncommon: 30, epic: 28, legendary: 16, mythic: 12, artifact: 2 },
 };
 
 /** Display order and label for a tier. Colour lives in the stylesheet. */
@@ -505,9 +560,9 @@ export const RARITY_LABEL: { readonly [r in Rarity]: string } = {
   basic: 'Basic',
   common: 'Common',
   uncommon: 'Uncommon',
-  rare: 'Rare',
   epic: 'Epic',
   legendary: 'Legendary',
+  mythic: 'Mythic',
   artifact: 'Artifact',
 };
 
@@ -547,7 +602,7 @@ export const REWARDS = {
    * boss telling you the last hour did not matter, and a rolled tier means the
    * three fights that end the three acts are not comparable to each other.
    */
-  bossOfferRarity: 'epic',
+  bossOfferRarity: 'legendary',
   /** Skip is always offered. A reward you must take is not a decision. */
   allowSkip: true,
   /** Reward screens with no archetype match before the soft up-weight kicks in. */

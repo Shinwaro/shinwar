@@ -24,7 +24,13 @@ import { roundOwed } from '../src/engine/combat/combat.ts';
 import { chooseMove } from '../src/engine/combat/ai.ts';
 import { createRng } from '../src/engine/rng.ts';
 import { nextStance, setStance } from '../src/engine/combat/stance.ts';
-import { gainHeat, overheatDamageAt, ventHeat } from '../src/engine/combat/heat.ts';
+import {
+  collectBurn,
+  gainHeat,
+  overheatDamageAt,
+  resolveOverheat,
+  ventHeat,
+} from '../src/engine/combat/heat.ts';
 import { addStacks, clearFresh, decayStatuses, stacksOf } from '../src/engine/combat/keywords.ts';
 import { applyEffects, createContext } from '../src/engine/combat/effects.ts';
 import { PLAYER as PLAYER_SIDE, applyDamage, enemyTarget } from '../src/engine/combat/damage.ts';
@@ -91,8 +97,8 @@ describe('intents', () => {
   });
 
   it('shows the number that will actually land, not the raw one', () => {
-    // The Lathe Drone's Strike is 5. Vulnerable on the player makes it 7 (5 x
-    // 1.5, rounded down), and the telegraph must say 7 — freezing the number
+    // The Lathe Drone's Strike is 5. Vulnerable on the player makes it 6 (5 x
+    // 1.25, rounded down), and the telegraph must say 6 — freezing the number
     // instead of the choice is exactly how "it said 5" happens.
     const clean = telegraphAll(makeFight({ enemyIds: ['lathe_drone'] }));
     const vulnerable = telegraphAll(
@@ -100,7 +106,7 @@ describe('intents', () => {
     );
 
     expect(intentOf(clean, firstEnemy(clean))[0]?.amount).toBe(5);
-    expect(intentOf(vulnerable, firstEnemy(vulnerable))[0]?.amount).toBe(7);
+    expect(intentOf(vulnerable, firstEnemy(vulnerable))[0]?.amount).toBe(6);
   });
 
   it('telegraphs multi-hit as times x amount', () => {
@@ -317,7 +323,18 @@ describe('overheat', () => {
     expect(overheatDamageAt(HEAT.overheatAt, 140)).toBeGreaterThan(
       overheatDamageAt(HEAT.overheatAt, 70),
     );
-    expect(overheatDamageAt(HEAT.max, 70)).toBeGreaterThan(overheatDamageAt(HEAT.overheatAt, 70));
+  });
+
+  it('charges the same fraction at every point above the line', () => {
+    /* It used to climb 3% a point, which meant "should I end the turn here" was
+       a small sum before every decision and the answer was always "a bit more
+       than last time". One number is a rule you can hold while you are looking
+       at your hand, which is the only place a Heat decision is made. The wall
+       at the ceiling is what makes the top of the gauge different. */
+    const atLine = overheatDamageAt(HEAT.overheatAt, 70);
+    for (let heat = HEAT.overheatAt; heat <= HEAT.max; heat++) {
+      expect(overheatDamageAt(heat, 70), `at ${heat} Heat`).toBe(atLine);
+    }
   });
 
   it('burns a card and takes health at the threshold', () => {
@@ -729,6 +746,97 @@ describe('a card in play is in no pile', () => {
   });
 });
 
+describe('the overheat', () => {
+  it('empties the gauge in the same beat it bites', () => {
+    /* The log entry always SAID the gauge emptied — `total: 0, vented: 8` — and
+       the state went on holding the Heat until the next turn started. For a
+       whole enemy phase the animation and the state disagreed about the biggest
+       thing the gauge ever does, and the visible result was a gauge that walked
+       honestly to zero and then snapped back to full on the next render.
+
+       A log entry is a description of a state change. One that describes a
+       change happening a turn later is a promise, and nothing downstream can
+       tell the two apart. */
+    const hot = makeFight({ heat: 8 });
+    const after = resolveOverheat(hot);
+    expect(combatOf(after).heat).toBe(0);
+
+    const said = after.log.find((entry) => entry.text.startsWith('Overheat at'));
+    expect(said?.detail).toMatchObject({ total: 0, vented: 8 });
+  });
+
+  it('still costs the turn, and owes a card rather than taking one', () => {
+    /* The burn is DEFERRED now, and that is the whole of the fix: taken here it
+       came out of a hand already on its way to the discard, in the same frame,
+       with nothing to look at. `collectBurn` takes it a beat after the next hand
+       lands — same cost, because a vent turn hands you 0 Energy either way. */
+    const hot = makeFight({ heat: 8, hand: ['iai_slash', 'bulwark'] });
+    const before = hullOf(hot);
+    const after = resolveOverheat(hot);
+    expect(combatOf(after).skipNextTurn, 'the reactor takes the next turn').toBe(true);
+    expect(hullOf(after), 'it bit').toBeLessThan(before);
+    expect(combatOf(after).exhaust.length, 'nothing burned yet').toBe(0);
+    expect(combatOf(after).burnOwed, 'a card is owed').toBe(1);
+
+    const collected = collectBurn(after);
+    expect(combatOf(collected).exhaust.length, 'and then it burns').toBe(1);
+    expect(combatOf(collected).burnOwed, 'the debt clears').toBe(0);
+  });
+
+  /** A fight that already owes the reactor a card. */
+  function owing(hand: readonly string[]): GameState {
+    const state = makeFight({ heat: 0, hand });
+    if (state.run === null || state.run.combat === null) throw new Error('test: no fight');
+    return {
+      ...state,
+      run: { ...state.run, combat: { ...state.run.combat, burnOwed: 1 } },
+    };
+  }
+
+  it('takes the card out of the hand in front of the player', () => {
+    /* The point of deferring it. The hand at the moment of the overheat is
+       discarded on the way out of that turn; the hand the burn comes out of is
+       the one dealt for the vent turn, which is on screen. */
+    const after = collectBurn(owing(['bulwark', 'settle']));
+    expect(combatOf(after).hand).toHaveLength(1);
+    expect(['bulwark', 'settle']).toContain(combatOf(after).exhaust[0]?.defId);
+    expect(combatOf(after).burnOwed).toBe(0);
+  });
+
+  it('clears the debt when there is no hand to take it from', () => {
+    // Otherwise it is an IOU that follows you into a turn you can actually use.
+    const after = collectBurn(owing([]));
+    expect(combatOf(after).burnOwed).toBe(0);
+    expect(combatOf(after).exhaust).toHaveLength(0);
+  });
+});
+
+describe('a turn the reactor took', () => {
+  function venting(relicId: string): GameState {
+    const base = makeFight({ stance: 'iai', heat: 0, drawPile: ['hairline', 'hairline', 'hairline', 'hairline', 'hairline', 'hairline'] });
+    if (base.run === null || base.run.combat === null) throw new Error('test: no fight');
+    return startPlayerTurn({
+      ...base,
+      run: {
+        ...base.run,
+        pilot: { ...base.run.pilot, relics: [relicId] },
+        combat: { ...base.run.combat, skipNextTurn: true },
+      },
+    });
+  }
+
+  it('takes the Energy and nothing else', () => {
+    /* Every relic passive used to be denied on this turn as well — no Block, no
+       Focus, no vent, no mend. Two punishments dressed as one, and the second
+       invisible: Harbour Plate simply stopped working on the turn a player most
+       wanted the plating, with nothing on screen to say why. It also punished
+       precisely the build that was trying to survive its own gauge. */
+    const after = venting('harbour_plate');
+    expect(combatOf(after).energy, 'the Energy is the price').toBe(0);
+    expect(combatOf(after).block, 'the plating is not').toBe(4);
+  });
+});
+
 describe('Scald, and the way out of it', () => {
   /* Scald never decays — that is the point of it, and it was also the whole
      problem. In a long fight it stacked into a second overheat clock the player
@@ -757,11 +865,22 @@ describe('Scald, and the way out of it', () => {
     expect(stacksOf(combatOf(after).statuses, SCALD)).toBe(3);
   });
 
-  it('measures what was actually vented, not what was asked for', () => {
-    /* Venting 4 against a gauge holding 1 is a vent of 1. Without this the
-       counterplay would be "hold a big vent and fire it at zero Heat", which
-       costs nothing and unwinds the status for free. */
-    const after = ventHeat(scalded(3, 1), 4, 'test');
+  it("measures the vent's own size, not how much the gauge had to give", () => {
+    /* This was the other way round and it read as the game ignoring its own
+       counterplay: an enemy applies Scald, your turn opens with the 1 Heat the
+       Scald itself just handed you, and Stillwater Guard's "Vent 2" vents 1 and
+       sheds nothing. The card says 2, the status says "venting 2 or more sheds
+       a stack", both are true, and the stack stays. */
+    const after = ventHeat(scalded(3, 1), 2, 'test');
+    expect(combatOf(after).heat).toBe(0);
+    expect(stacksOf(combatOf(after).statuses, SCALD)).toBe(2);
+  });
+
+  it('sheds nothing when there was no Heat to vent', () => {
+    /* The exploit the old rule was guarding against, still shut — one line
+       earlier, in `ventHeat` itself. A vent against an empty gauge is not a
+       vent, so "hold a big vent and fire it at zero Heat" still buys nothing. */
+    const after = ventHeat(scalded(3, 0), 4, 'test');
     expect(combatOf(after).heat).toBe(0);
     expect(stacksOf(combatOf(after).statuses, SCALD)).toBe(3);
   });

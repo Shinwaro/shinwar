@@ -39,7 +39,7 @@ export const RELICS: readonly RelicDef[] = [
   {
     id: 'ballast_weave',
     name: 'Ballast Weave',
-    text: 'Start each turn with 3 Block.',
+    text: 'Gain 3 Block at the start of your turn.',
     rarity: 'uncommon',
     passive: { blockPerTurn: 3 },
     flavor: 'Sect underlayer. Wears through in a season and saves you twice a fight.',
@@ -47,9 +47,13 @@ export const RELICS: readonly RelicDef[] = [
   {
     id: 'whetted_edge',
     name: 'Whetted Edge',
-    text: 'Every attack deals 1 more.',
-    rarity: 'rare',
-    passive: { damageFlat: 1 },
+    /* Every hit, not the first. One point is small on a single swing and that
+       is the point: this is the relic a deck of small repeated hits wants, and
+       the one a deck of a single heavy swing should be a little disappointed
+       by. See `damageEveryHit`. */
+    text: 'Every hit of a card deals 1 more damage.',
+    rarity: 'epic',
+    passive: { damageEveryHit: 1 },
     flavor: 'Nothing clever. A better edge, kept better.',
   },
   {
@@ -82,7 +86,7 @@ export const RELICS: readonly RelicDef[] = [
     id: 'wide_aperture',
     name: 'Wide Aperture',
     text: 'Draw 1 more card each turn.',
-    rarity: 'epic',
+    rarity: 'legendary',
     passive: { drawPerTurn: 1 },
     flavor: 'You were always seeing this much. Now you are looking at it.',
   },
@@ -98,15 +102,15 @@ export const RELICS: readonly RelicDef[] = [
     id: 'drawn_string',
     name: 'Drawn String',
     text: 'Each stack of Focus is worth 2 more when it is spent.',
-    rarity: 'rare',
+    rarity: 'epic',
     passive: { focusPerStackBonus: 2 },
     flavor: 'Wound tighter than it should be. That is the entire technique.',
   },
   {
     id: 'coldforge_lining',
     name: 'Coldforge Lining',
-    text: 'Every attack deals 2 more and every attack against you deals 1 less.',
-    rarity: 'epic',
+    text: 'The first hit of every card deals 2 more damage, and every attack against you deals 1 less.',
+    rarity: 'legendary',
     passive: { damageFlat: 2, damageTakenFlat: 1 },
     flavor: 'Forged in a shadow. The sect argued about whether that mattered.',
   },
@@ -118,7 +122,7 @@ export const RELICS: readonly RelicDef[] = [
     id: 'the_long_sight',
     name: 'The Long Sight',
     text: 'Gain 1 Energy and draw 1 more card each turn, but every attack against you deals 2 more.',
-    rarity: 'legendary',
+    rarity: 'mythic',
     passive: { energyPerTurn: 1, drawPerTurn: 1, damageTakenFlat: -2 },
     flavor: 'You see all of it coming. Seeing is not the same as moving.',
   },
@@ -126,7 +130,7 @@ export const RELICS: readonly RelicDef[] = [
     id: 'the_unmoved_centre',
     name: 'The Unmoved Centre',
     text: 'Start each fight with 4 Focus, gain 1 Focus a turn, and each stack is worth 1 more.',
-    rarity: 'legendary',
+    rarity: 'mythic',
     passive: { startingFocus: 4, focusPerTurn: 1, focusPerStackBonus: 1 },
     flavor: 'The last thing the sect agreed on, and the only one that survived them.',
   },
@@ -147,7 +151,7 @@ export const RELICS: readonly RelicDef[] = [
     id: 'sublimation_coil',
     name: 'Sublimation Coil',
     text: 'Gain 1 Focus whenever you vent Heat.',
-    rarity: 'rare',
+    rarity: 'epic',
     flavor: 'What leaves the reactor does not have to leave the ship.',
   },
   {
@@ -161,21 +165,21 @@ export const RELICS: readonly RelicDef[] = [
     id: 'kindling_ledger',
     name: 'Kindling Ledger',
     text: 'Draw a card whenever you vent Heat.',
-    rarity: 'rare',
+    rarity: 'epic',
     flavor: 'Every degree it sheds, it writes down.',
   },
   {
     id: 'momentum_core',
     name: 'Momentum Core',
     text: 'Gain 1 Energy whenever an enemy dies.',
-    rarity: 'epic',
+    rarity: 'legendary',
     flavor: 'It does not celebrate. It reallocates.',
   },
   {
     id: 'long_form_ledger',
     name: 'Long Form',
     text: 'Every third card you play in a turn, gain 1 Focus.',
-    rarity: 'rare',
+    rarity: 'epic',
     flavor: 'Counting is the discipline. The rest is only swordsmanship.',
   },
   {
@@ -205,7 +209,7 @@ export const RELICS: readonly RelicDef[] = [
        is not what the name says and not what the rarity is priced for. Now it
        is one exchange: no Heat, no Focus. */
     text: 'At the start of each turn, convert 1 Heat into 1 Focus.',
-    rarity: 'rare',
+    rarity: 'epic',
     flavor: 'What comes off the reactor has to go somewhere. It may as well go into your hands.',
   },
   {
@@ -217,7 +221,7 @@ export const RELICS: readonly RelicDef[] = [
        now the condition rather than the problem: the threshold buys you the
        room, and standing in that room pays an Energy. */
     text: `The overheat threshold rises by 1. Gain 1 Energy at the start of a turn you begin at ${THIRD_LUNG_HEAT} or more Heat.`,
-    rarity: 'epic',
+    rarity: 'legendary',
     passive: { overheatThreshold: 1 },
     flavor: 'Grafted in by somebody who had clearly done it before, on somebody else.',
   },
@@ -238,8 +242,8 @@ export const RELICS: readonly RelicDef[] = [
   {
     id: 'scavengers_rig',
     name: 'Scavenger’s Rig',
-    text: 'Draw 1 card whenever an enemy dies.',
-    rarity: 'rare',
+    text: 'Draw 2 cards whenever an enemy dies.',
+    rarity: 'epic',
     flavor: 'It goes through the wreckage while you are still busy making it.',
   },
   {
@@ -253,14 +257,14 @@ export const RELICS: readonly RelicDef[] = [
     id: 'duelists_mark',
     name: 'Duelist’s Mark',
     text: 'Apply 1 Vulnerable to all enemies at the start of each fight.',
-    rarity: 'rare',
+    rarity: 'epic',
     flavor: 'You are announced before you arrive, and it has stopped being a courtesy.',
   },
   {
     id: 'splitfire_core',
     name: 'Splitfire Core',
     text: 'Every third card you play in a turn, deal 5 damage to all enemies.',
-    rarity: 'epic',
+    rarity: 'legendary',
     flavor: 'It discharges on a count of three whether or not you were counting.',
   },
   {
@@ -293,8 +297,8 @@ export const RELICS: readonly RelicDef[] = [
   {
     id: 'deadmans_edge',
     name: "Dead Man's Edge",
-    text: 'Every attack deals 10 more while your health is below 25%.',
-    rarity: 'epic',
+    text: 'The first hit of every card deals 10 more damage while your health is below 25%.',
+    rarity: 'legendary',
     passive: { whenHullBelowPct: 25, damageFlat: 10 },
     flavor: 'It was sharpened by somebody who did not expect to need it twice.',
   },
@@ -318,21 +322,26 @@ export const RELICS: readonly RelicDef[] = [
     id: 'harbour_plate',
     name: 'Harbour Plate',
     text: 'Gain 4 Block at the start of each turn.',
-    rarity: 'rare',
+    rarity: 'epic',
     passive: { blockPerTurn: 4 },
     flavor: 'Yard plate, meant for a hull that never has to move fast.',
   },
 
   {
-    id: 'the_long_watch',
-    name: 'The Long Watch',
-    /* The legendary the defensive side did not have. Three small numbers rather
-       than one large one, because a defensive legendary that is only a big
-       Block number is a card you play around once; this changes what a whole
-       turn costs the enemy and keeps paying while the fight runs long. */
-    text: 'Gain 6 Block at the start of each turn, every attack that reaches your health deals 2 less, and heal 2 each turn.',
-    rarity: 'legendary',
-    passive: { blockPerTurn: 6, damageTakenFlat: 2, healPerTurn: 2 },
+    id: 'spirited_bulwark',
+    name: 'Spirited Bulwark',
+    /* The mythic the defensive side did not have. Two numbers rather than one
+       large one, because a defensive mythic that is only a big Block figure is
+       a relic you play around once; this changes what a whole turn costs the
+       enemy and keeps paying while the fight runs long.
+
+       The mend came off. It was the third clause on a relic that already did
+       two things, and it was the last timed heal in the game — see the note
+       where Suture Weave used to be. The Block went 6 to 8 to pay for it, in
+       the currency the relic is actually about. */
+    text: 'Gain 8 Block at the start of your turn, and every attack against you deals 2 less.',
+    rarity: 'mythic',
+    passive: { blockPerTurn: 8, damageTakenFlat: 2 },
     flavor: 'Somebody stood this watch for eleven years and was relieved by nobody.',
   },
 ];
@@ -533,7 +542,7 @@ export function registerRelicHooks(): void {
       handle: (state) => {
         const combat = state.run?.combat;
         if (combat === undefined || combat === null || combat.outcome !== 'ongoing') return state;
-        return grantDraw(state, 1, 'scavengers_rig', 'Scavenger’s Rig.');
+        return grantDraw(state, 2, 'scavengers_rig', 'Scavenger’s Rig.');
       },
     }),
   ]);

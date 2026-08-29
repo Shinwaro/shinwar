@@ -94,6 +94,7 @@ export function advanceAct(state: GameState): GameState {
     combat: null,
     pendingReward: null,
     forcedTier: null,
+    ambushOwes: null,
     pilot: {
       ...current.pilot,
       maxHealth,
@@ -267,13 +268,19 @@ export function leaveLanding(state: GameState): GameState {
     return withRun(cleared, (current) => ({ ...current, screen: 'map' }));
   }
 
-  // A Thread's reprisal still takes the node, and it is announced on the way in
-  // rather than discovered on arrival at a fight you did not choose. The fight
-  // is rolled from the FORCED tier, not taken from whatever the node held.
+  /* A Thread's reprisal INTERRUPTS the node rather than replacing it.
+   *
+   * It is announced on the way in rather than discovered on arrival at a fight
+   * you did not choose, and the fight is rolled from the FORCED tier rather
+   * than taken from whatever the node held. What is new is the last part: the
+   * node itself is remembered in `ambushOwes` and opens after the fight, so a
+   * reprisal that lands on the Station you spent two rows routing for costs you
+   * the fight and not the Station. */
   const forced = requireRun(cleared).forcedTier;
   if (forced !== null && forced !== 'boss') {
     const ambush = forcedEncounter(cleared, forced);
-    return openCombat(ambush.state, {
+    const owing = withRun(ambush.state, (current) => ({ ...current, ambushOwes: node.id }));
+    return openCombat(owing, {
       ...node,
       type: 'combat',
       encounterId: ambush.encounterId,
@@ -435,6 +442,10 @@ export function leaveEvent(state: GameState): GameState {
   if (node === undefined) return withRun(cleared, (current) => ({ ...current, forcedTier: null }));
 
   const ambush = forcedEncounter(cleared, after.forcedTier);
+  /* The Anomaly has already resolved, so there is nothing owed behind this one
+     — the node's content WAS the Anomaly. `ambushOwes` stays null here, which
+     is the difference between a reprisal that interrupts a place you were going
+     and one that follows something that has already happened. */
   return openCombat(ambush.state, { ...node, type: 'combat', encounterId: ambush.encounterId });
 }
 
@@ -463,7 +474,16 @@ export function concludeNode(state: GameState): GameState {
     forcedTier: null,
   }));
 
-  const rolled = rollReward(requireRun(next).rng, requireRun(next), run.act, alloy.value, run.rewardDrought, tier);
+  const rolled = rollReward(
+    requireRun(next).rng,
+    requireRun(next),
+    run.act,
+    alloy.value,
+    run.rewardDrought,
+    tier,
+    // A reprisal pays cards and Alloy and no relic — see `rollReward`.
+    run.forcedTier !== null,
+  );
   next = withRun(next, (current) => ({
     ...current,
     rng: rolled.rng,
@@ -524,6 +544,35 @@ export function claimRewardAlloy(state: GameState): GameState {
 }
 
 /** Commit the choice. Skip is always available and always real. */
+/**
+ * Where a reward screen sends you.
+ *
+ * Normally the map. But if an ambush interrupted a node — see
+ * `RunState.ambushOwes` — the node it interrupted is still owed, and it opens
+ * from here as though you had just arrived at it. Consumed on the way through,
+ * so a node can never be owed twice.
+ */
+function afterReward(state: GameState): GameState {
+  const run = requireRun(state);
+  const owed = run.ambushOwes;
+  const cleared = withRun(state, (current) => ({ ...current, ambushOwes: null }));
+  if (owed === null) return cleared;
+
+  const map = requireRun(cleared).map;
+  const node = map === null ? undefined : nodeById(map, owed);
+  if (node === undefined) return withRun(cleared, (current) => ({ ...current, screen: 'map' }));
+
+  return resolveNode(
+    appendLog(cleared, {
+      source: 'thread',
+      kind: 'run',
+      text: `${node.name}, as planned.`,
+      detail: { node: node.id },
+    }),
+    node,
+  );
+}
+
 export function leaveReward(state: GameState): GameState {
   const run = requireRun(state);
   const offer = run.pendingReward;
@@ -533,15 +582,17 @@ export function leaveReward(state: GameState): GameState {
   const def = chosen === undefined ? undefined : cardTable.find(chosen);
 
   if (chosen === undefined || def === undefined) {
-    return grantImplant(
-      grantRelic(
-        appendLog(
-          withRun(state, (current) => ({ ...current, pendingReward: null, screen: 'map' })),
-          { source: 'reward', kind: 'reward', text: 'Took nothing.', detail: null },
+    return afterReward(
+      grantImplant(
+        grantRelic(
+          appendLog(
+            withRun(state, (current) => ({ ...current, pendingReward: null, screen: 'map' })),
+            { source: 'reward', kind: 'reward', text: 'Took nothing.', detail: null },
+          ),
+          offer.takenRelic,
         ),
-        offer.takenRelic,
+        offer.takenImplant,
       ),
-      offer.takenImplant,
     );
   }
 
@@ -554,17 +605,19 @@ export function leaveReward(state: GameState): GameState {
     screen: 'map',
   }));
 
-  return grantImplant(
-    grantRelic(
-      appendLog(next, {
-        source: 'reward',
-        kind: 'reward',
-        text: `Took ${def.name}.`,
-        detail: { card: chosen },
-      }),
-      offer.takenRelic,
+  return afterReward(
+    grantImplant(
+      grantRelic(
+        appendLog(next, {
+          source: 'reward',
+          kind: 'reward',
+          text: `Took ${def.name}.`,
+          detail: { card: chosen },
+        }),
+        offer.takenRelic,
+      ),
+      offer.takenImplant,
     ),
-    offer.takenImplant,
   );
 }
 
@@ -729,7 +782,17 @@ export function repairOffer(run: RunState): {
 } {
   const shop = run.shop;
   const rate = shop?.repairRate ?? ECONOMY.repairPerHealth[run.act];
-  const healed = shop === null || shop.serviceUsed !== null ? 0 : run.pilot.maxHealth - run.pilot.health;
+  /* Half your maximum, at most.
+   *
+   * A repair used to fill the bar: walk into a Station on 8 health with enough
+   * Alloy and you walked out on 70, which made health a currency rather than a
+   * resource — the run's whole arc flattened into "can I afford the next
+   * Station". Capping it at half means a bad act still costs you something you
+   * cannot simply buy back, and it puts a real decision on the screen, because
+   * the cap is often less than the gap. */
+  const missing = run.pilot.maxHealth - run.pilot.health;
+  const ceiling = Math.floor(run.pilot.maxHealth / 2);
+  const healed = shop === null || shop.serviceUsed !== null ? 0 : Math.min(missing, ceiling);
   const price = healed * rate;
   return { rate, healed, price, affordable: price > 0 && run.alloy >= price };
 }

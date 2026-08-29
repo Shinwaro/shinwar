@@ -163,9 +163,87 @@ describe('generated rules text', () => {
     expect(text).toBe('For every 2 Heat, deal 3 damage. (3x now)');
   });
 
-  it('appends Exhaust and Innate', () => {
-    expect(describeCard({ ...def(SEVER), exhaust: true })).toContain('Exhaust.');
+  it('appends Burn and Innate', () => {
+    // The field is still `exhaust` — the WORD on the card is "Burn", which is
+    // what the pile, the reactor and the keyword glossary all call it.
+    expect(describeCard({ ...def(SEVER), exhaust: true })).toContain('Burn.');
     expect(describeCard({ ...def(SEVER), innate: true })).toContain('Innate.');
+  });
+});
+
+describe('cards that read the enemy health bar', () => {
+  /* The family added with `targetHullBelowPct`, `targetHullAbovePct` and the
+     `targetHullMissingPct` scale source. Measured through the real resolver
+     rather than by reading the ops, because the whole point of the family is
+     that the SAME card does different things depending on the bar in front of
+     it — and the bar moves while the card is resolving. */
+  function play(cardId: string, hp: number, maxHp: number): { dealt: number; block: number } {
+    const state = makeFight({ hand: [cardId], energy: 5, enemyHp: maxHp });
+    if (state.run === null || state.run.combat === null) throw new Error('test: no fight');
+    const enemy = state.run.combat.enemies[0];
+    const card = state.run.combat.hand[0];
+    if (enemy === undefined || card === undefined) throw new Error('test: nothing to play');
+
+    const staged: GameState = {
+      ...state,
+      run: {
+        ...state.run,
+        combat: { ...state.run.combat, enemies: [{ ...enemy, hp, maxHp }] },
+      },
+    };
+    const after = playCard(staged, card.uid, enemy.uid);
+    const left = after.run?.combat?.enemies[0]?.hp ?? 0;
+    return { dealt: hp - left, block: after.run?.combat?.block ?? 0 };
+  }
+
+  it('pays a threshold card only under its line', () => {
+    expect(play('finishing_line', 100, 100).dealt, 'whole').toBe(6);
+    expect(play('finishing_line', 60, 100).dealt, 'above the line').toBe(6);
+    expect(play('finishing_line', 30, 100).dealt, 'under it').toBe(12);
+  });
+
+  it('reads the line from the other side too', () => {
+    /* The reason the family is not just executions. Against a pack this says
+       "hit the one nobody has touched", which is the opposite instruction to
+       everything else here. */
+    expect(play('first_blood', 100, 100).dealt, 'whole').toBe(12);
+    expect(play('first_blood', 50, 100).dealt, 'half').toBe(5);
+  });
+
+  it('slopes with how much the target has lost', () => {
+    const whole = play('widening_gyre', 100, 100).dealt;
+    const half = play('widening_gyre', 50, 100).dealt;
+    expect(whole, 'nothing missing, nothing extra').toBe(5);
+    expect(half).toBeGreaterThan(whole);
+  });
+
+  it('measures the percentage, not the health', () => {
+    /* One card, two enemies, the same fraction. This is why the source is in
+       percentage points rather than raw health: "for every 10% missing" has to
+       mean the same thing against a 30-hull Shard and a 430-hull boss. */
+    const small = play('widening_gyre', 15, 30).dealt;
+    const large = play('widening_gyre', 215, 430).dealt;
+    expect(small).toBe(large);
+  });
+
+  it('pays the defensive half for meeting something whole', () => {
+    /* Read the OPENER's side, deliberately: a defensive card that pays out
+       against something already nearly dead pays out on the turn you least
+       need it. */
+    expect(play('meet_the_charge', 100, 100).block, 'whole').toBe(12);
+    expect(play('meet_the_charge', 50, 100).block, 'half gone').toBe(6);
+  });
+
+  it('makes Execute two different cards rather than one with a bonus', () => {
+    /* `then`/`else`, not a base hit with a rider. The two halves are
+       alternatives and not a sum, and the card face has to say so. */
+    expect(play('execute', 200, 200).dealt, 'above the line').toBe(5);
+    // 50 of 200 is 25% — under the line, and enough health left that the whole
+    // 16 lands rather than being clipped by the kill.
+    expect(play('execute', 50, 200).dealt, 'under it').toBe(16);
+    expect(describeCard(cardTable.get('execute'))).toBe(
+      'If the target is below 30% health, deal 16 damage. Otherwise deal 5 damage.',
+    );
   });
 });
 
@@ -236,22 +314,27 @@ describe('the rarity ladder', () => {
   });
 
   it('keeps the top two tiers out of the roll entirely', () => {
+    // Mythic and Artifact. The ladder was renamed a rung down the middle — what
+    // was Rare is Epic, what was Epic is Legendary, what was Legendary is
+    // Mythic — so the two the Reliquary owns are the top two by NAME as well as
+    // by position, and this reads the names.
     for (const act of [1, 2, 3] as const) {
-      expect(RARITY_WEIGHTS[act].legendary, `act ${act}`).toBe(0);
+      expect(RARITY_WEIGHTS[act].mythic, `act ${act}`).toBe(0);
       expect(RARITY_WEIGHTS[act].artifact, `act ${act}`).toBe(0);
     }
     for (const card of offerableCards()) {
-      expect(card.rarity, `${card.id} is offerable`).not.toBe('legendary');
+      expect(card.rarity, `${card.id} is offerable`).not.toBe('mythic');
       expect(card.rarity, `${card.id} is offerable`).not.toBe('artifact');
     }
   });
 
   it('tilts the ladder upward as the run goes on', () => {
     // Act 3 should feel different from Act 1, not just hit harder. Measured on
-    // epic, which is the ceiling of the roll now that the Reliquary owns the
-    // two tiers above it.
+    // both rungs that actually move: Epic is the bulk of the tilt and Legendary
+    // is the ceiling of the roll, now that the Reliquary owns the two above it.
     expect(RARITY_WEIGHTS[3].common).toBeLessThan(RARITY_WEIGHTS[1].common);
     expect(RARITY_WEIGHTS[3].epic).toBeGreaterThan(RARITY_WEIGHTS[1].epic);
+    expect(RARITY_WEIGHTS[3].legendary).toBeGreaterThan(RARITY_WEIGHTS[1].legendary);
   });
 
   it('keeps the top tiers rare enough to stay special', () => {
@@ -260,7 +343,7 @@ describe('the rarity ladder', () => {
     for (const act of [1, 2, 3] as const) {
       const weights = RARITY_WEIGHTS[act];
       const total = Object.values(weights).reduce((sum, weight) => sum + weight, 0);
-      const top = (weights.legendary + weights.artifact) / total;
+      const top = (weights.mythic + weights.artifact) / total;
       expect(top, `act ${act} top-tier share`).toBeLessThan(0.05);
     }
   });
@@ -444,7 +527,7 @@ describe('spending the hand', () => {
 
   it('says what it does, in generated words', () => {
     expect(describeCard(cardTable.get('empty_the_rack'))).toBe(
-      'Discard your hand. For every card discarded, deal 3 damage. Exhaust.',
+      'Discard your hand. For every card discarded, deal 3 damage. Burn.',
     );
     expect(describeCard(cardTable.get('sift'))).toBe('Discard 1 at random. Draw 3 cards.');
   });

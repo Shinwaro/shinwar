@@ -23,6 +23,7 @@ import {
   playCard,
   startCombat,
 } from './combat/combat.ts';
+import { collectBurn } from './combat/heat.ts';
 import {
   advanceAct,
   claimRewardAlloy,
@@ -197,6 +198,14 @@ export function applyAction(state: GameState, action: Action): GameState {
     case 'advanceEnemies': {
       if (state.run?.combat?.outcome !== 'ongoing') return state;
       return settleCombat(advanceEnemyTurn(state));
+    }
+
+    /* The reactor collecting what an overheat owed it. Paced by the UI so the
+       card burns a beat after the hand it comes out of has landed — see
+       `collectBurn`. */
+    case 'burnCard': {
+      if (state.run?.combat?.outcome !== 'ongoing') return state;
+      return settleCombat(collectBurn(state));
     }
 
     case 'closeRound': {

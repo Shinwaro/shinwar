@@ -26,6 +26,7 @@ import {
   needsTarget,
   roundOwed,
 } from '../../engine/combat/combat.ts';
+import { burnPending } from '../../engine/combat/heat.ts';
 import { intentOf, intentVisible } from '../../engine/combat/intents.ts';
 import { livingEnemies } from '../../engine/combat/damage.ts';
 import { describeStatus } from '../../engine/combat/keywords.ts';
@@ -33,6 +34,7 @@ import { currentSeed, healthFraction } from '../../engine/queries.ts';
 import { environments, statuses as statusTable } from '../../content/registry.ts';
 import { HEAT } from '../../content/balance.ts';
 import { button, el } from '../dom.ts';
+import { renderFullscreenButton } from '../fullscreen.ts';
 import { renderCard } from '../components/card.ts';
 import { renderEnemy } from '../components/enemy.ts';
 import {
@@ -47,6 +49,7 @@ import { bindCombatKeys } from '../input.ts';
 import {
   cardDealAfterPlay,
   cardExitDuration,
+  cardPlayHoldMs,
   cardStagger,
   clearEffects,
   dealCardIn,
@@ -63,7 +66,7 @@ import { combatInfo, renderInfoPanel } from '../components/info.ts';
 import { renderCarried } from '../components/carried.ts';
 import { renderGains } from '../components/gains.ts';
 import { getSettings, setSetting } from '../settings.ts';
-import { play, stopAll } from '../sound.ts';
+import { play, playAt, stopAll } from '../sound.ts';
 
 /* ---------- pacing ----------
  *
@@ -251,6 +254,36 @@ export function renderCombat(store: Store): HTMLElement {
     }, wait);
   };
 
+  /*
+   * The reactor collecting an overheat's card, a beat after the hand it comes
+   * out of has landed.
+   *
+   * This is why the burn is owed in state rather than taken when the overheat
+   * resolves: taken then, it came out of a hand already on its way to the
+   * discard, in the same frame, with nothing to look at. Held here, it happens
+   * to a card the player is looking at — see `collectBurn`.
+   *
+   * LAST, after the round and the enemies, and that ordering is the whole of it.
+   * Checked first it fired on the render right after the overheat — the player's
+   * turn had ended, the hand had already been discarded, and `collectBurn`
+   * cleared the debt against an empty hand. The burn is owed to the NEXT hand,
+   * so it waits until there is nothing else owed and that hand is on the table.
+   */
+  const scheduleBurn = (): void => {
+    if (enemyTimer !== 0) return;
+    const state = store.getState();
+    if (roundOwed(state) || enemiesPending(state) || !burnPending(state)) return;
+
+    // Whatever the deal is still doing, plus a beat. The card should burn out of
+    // a hand that has finished arriving.
+    const wait = fxRunning + SETTLE_MS;
+    fxRunning = 0;
+    enemyTimer = window.setTimeout(() => {
+      enemyTimer = 0;
+      store.dispatch({ kind: 'burnCard' });
+    }, wait);
+  };
+
   const rerender = (): void => {
     if (rendering) return;
     const state = store.getState();
@@ -404,6 +437,7 @@ export function renderCombat(store: Store): HTMLElement {
     if (log !== null) scrollLogToNewest(log);
 
     scheduleEnemy();
+    scheduleBurn();
   };
 
   const detachKeys = bindCombatKeys({
@@ -687,7 +721,11 @@ function build(
     el('div', { class: 'piles' }, [
       pile('Deck', combat.draw.length, 'draw'),
       pile('Discard', combat.discard.length, 'discard'),
-      pile('Exhaust', combat.exhaust.length, 'exhaust'),
+      /* "Burned", to match the keyword on the cards and the word the reactor
+         already uses when it takes one. `data-pile` stays `exhaust` — it is the
+         name of the pile in state and of the field on a card, and renaming
+         shipped data for a word buys nothing the player can see. */
+      pile('Burned', combat.exhaust.length, 'exhaust'),
     ]),
     el('div', { class: 'tray-actions' }, [
       button('End turn', { class: 'btn btn-primary', 'aria-keyshortcuts': 'E', 'data-sound': 'own' }, () => {
@@ -726,6 +764,10 @@ function build(
          person can have about that. Zero IS the mute, so there is one control
          rather than two that can disagree. */
       renderVolume(rerender),
+      /* The same control the run bar carries, because the fight is the one
+         screen with no run bar on it — and the fight is where the screen is
+         most crowded and most worth reclaiming. */
+      renderFullscreenButton('btn btn-quiet btn-corner'),
     ]),
     el('div', { class: 'combat-corner-buttons combat-corner-buttons--log' }, [
       button(
@@ -932,8 +974,6 @@ function animateHand(
    */
   drawn: readonly string[],
 ): number {
-  if (prefersReducedMotion()) return 0;
-
   const now = new Set<string>();
   const arrived: HTMLElement[] = [];
   for (const node of host.querySelectorAll<HTMLElement>('.hand .card[data-uid]')) {
@@ -941,6 +981,21 @@ function animateHand(
     if (uid === undefined) continue;
     now.add(uid);
     if (!before.has(uid) || drawn.includes(uid)) arrived.push(node);
+  }
+
+  /* Which of the cards that left burned, worked out before the motion guard.
+   *
+   * A burn is an event, not a flourish: somebody who has asked their system for
+   * less movement has not asked to stop being told that a card is gone for the
+   * rest of the fight. So the sound is scheduled either way and only the picture
+   * is skipped. */
+  const burned = [...before.keys()].filter(
+    (uid) => !now.has(uid) && pileFor(state, uid) === 'exhaust',
+  );
+
+  if (prefersReducedMotion()) {
+    if (burned.length > 0) play('burn');
+    return 0;
   }
 
   const pileRect = (key: string): DOMRect | null =>
@@ -975,6 +1030,10 @@ function animateHand(
     if (played) held = true;
     else index += 1;
 
+    /* On the beat the card ignites, which for one you played is after the beat
+       it holds for. `flyCardOut` knows the same offset — see `burnCard`. */
+    if (pile === 'exhaust') playAt('burn', delay + (played ? cardPlayHoldMs() : 0));
+
     flyCardOut(card.node, card.rect, target, { pile, played }, delay);
   }
 
@@ -1000,7 +1059,7 @@ function animateHand(
 
   const exits = index + (held ? 1 : 0);
   const dealing = arrived.length === 0 ? 0 : dealFrom + cardStagger(arrived.length - 1);
-  return Math.max(cardExitDuration(exits, held), dealing);
+  return Math.max(cardExitDuration(exits, held, burned.length > 0), dealing);
 }
 
 /** `data-pile` is how a card in flight finds where it is going. */

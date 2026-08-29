@@ -30,10 +30,18 @@ export const TEMPO_CARDS: readonly CardDef[] = [
     rarity: 'common',
     archetype: 'overheat',
     cost: 0,
+    /* The gate moved from 5 to 6, and the upgrade's from 4 to 5.
+
+       At 5 the card was free Energy for most of a heat deck's turn: the
+       archetype wants the gauge high anyway, so the condition was met by
+       playing the deck as intended rather than by taking a risk. At 6 it pays
+       two points from the line — you are choosing to sit inside the overheat
+       window to get it, which is the bargain the card is supposed to be
+       offering. */
     effects: [
       {
         op: 'conditional',
-        when: { kind: 'heatAtLeast', value: 5 },
+        when: { kind: 'heatAtLeast', value: 6 },
         then: [{ op: 'gainEnergy', amount: 1 }],
         else: [{ op: 'gainHeat', amount: 2 }],
       },
@@ -43,7 +51,7 @@ export const TEMPO_CARDS: readonly CardDef[] = [
       effects: [
         {
           op: 'conditional',
-          when: { kind: 'heatAtLeast', value: 4 },
+          when: { kind: 'heatAtLeast', value: 5 },
           then: [{ op: 'gainEnergy', amount: 2 }],
           else: [{ op: 'gainHeat', amount: 2 }],
         },
@@ -85,7 +93,7 @@ export const TEMPO_CARDS: readonly CardDef[] = [
     id: 'long_form',
     name: 'Long Form',
     type: 'attack',
-    rarity: 'rare',
+    rarity: 'epic',
     archetype: 'neutral',
     cost: 2,
     // The payoff card. On a three-card turn it is unremarkable; on a nine-card
@@ -118,7 +126,7 @@ export const TEMPO_CARDS: readonly CardDef[] = [
     id: 'held_line',
     name: 'Held Line',
     type: 'skill',
-    rarity: 'rare',
+    rarity: 'epic',
     archetype: 'guard',
     cost: 1,
     effects: [
@@ -149,7 +157,7 @@ export const TEMPO_CARDS: readonly CardDef[] = [
     id: 'flashpoint',
     name: 'Flashpoint',
     type: 'attack',
-    rarity: 'epic',
+    rarity: 'legendary',
     archetype: 'overheat',
     cost: 1,
     exhaust: true,
@@ -229,9 +237,17 @@ export const TEMPO_CARDS: readonly CardDef[] = [
     id: 'stoke_the_core',
     name: 'Stoke the Core',
     type: 'skill',
-    rarity: 'common',
+    /* Epic, and it burns.
+     *
+     * A free Energy for 3 Heat is the whole overheat archetype in one card, and
+     * as a repeatable common it was the archetype's floor rather than its
+     * ceiling — every hot deck opened with it, every turn it appeared. Once a
+     * fight, at a tier that means you had to be given it, it is the turn you
+     * decide to spend rather than the turn you always have. */
+    rarity: 'epic',
     archetype: 'overheat',
     cost: 0,
+    exhaust: true,
     effects: [
       { op: 'gainHeat', amount: 3 },
       { op: 'gainEnergy', amount: 1 },
@@ -414,7 +430,7 @@ export const TEMPO_CARDS: readonly CardDef[] = [
     id: 'rusting_wind',
     name: 'Rusting Wind',
     type: 'attack',
-    rarity: 'rare',
+    rarity: 'epic',
     archetype: 'neutral',
     cost: 2,
     /* Low damage, but the Rust runs on every one of them at once — the sweep
@@ -468,7 +484,7 @@ export const TEMPO_CARDS: readonly CardDef[] = [
     id: 'the_turning',
     name: 'The Turning',
     type: 'skill',
-    rarity: 'rare',
+    rarity: 'epic',
     archetype: 'neutral',
     cost: 1,
     effects: [

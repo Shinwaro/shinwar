@@ -28,7 +28,7 @@ export const IMPLANTS: readonly ImplantDef[] = [
   {
     id: 'reactor_tuning',
     name: 'Reactor Tuning',
-    rarity: 'legendary',
+    rarity: 'mythic',
     price: 400,
     maxStacks: 1,
     passive: { energyPerTurn: 1 },
@@ -37,7 +37,7 @@ export const IMPLANTS: readonly ImplantDef[] = [
   {
     id: 'wide_aperture_rig',
     name: 'Aperture Rig',
-    rarity: 'epic',
+    rarity: 'legendary',
     price: 260,
     maxStacks: 1,
     passive: { drawPerTurn: 1 },
@@ -51,34 +51,48 @@ export const IMPLANTS: readonly ImplantDef[] = [
   {
     id: 'pressure_bank',
     name: 'Pressure Bank',
-    rarity: 'epic',
+    rarity: 'legendary',
     price: 260,
     maxStacks: 1,
-    /* A vent and a mend, and no change to the line.
+    /* A vent and some plate, and no change to the line.
     
        It used to raise the overheat threshold as well, which made it a third
        thing on one implant and put it in competition with the two relics whose
        whole job is that line. Two Heat off the top and two health back is a
        different offer: it pays out over a long fight rather than buying room
        for a bigger turn. */
-    passive: { ventPerTurn: 2, healPerTurn: 2 },
+    /* The mend became Block.
+
+       Two health a turn is the most boring number an epic can pay: it is
+       invisible while it works, it does nothing on the turn you actually need
+       something, and it is worth nothing at all in a fight you win in four
+       turns. Two Block is the same size and lands where the decision is — it
+       stacks on top of what GUARD retains, and it is two damage you no longer
+       have to spend Energy answering. */
+    passive: { ventPerTurn: 2, blockPerTurn: 2 },
     flavor: 'It holds what the reactor cannot, and gives it back slower.',
   },
   {
     id: 'long_edge',
     name: 'The Long Edge',
-    rarity: 'epic',
+    rarity: 'legendary',
     price: 260,
     maxStacks: 1,
-    // Honed Edge's lever, at the tier above, and it does not stack — the reason
-    // to take it is that it is more than two Honed Edges could be by the boss.
-    passive: { damageFlat: 4 },
+    /* Honed Edge's lever, at the tier above, and it does not stack — the reason
+       to take it is that it is more than two Honed Edges could be by the boss.
+
+       Two on EVERY hit rather than four on the first. On a single-swing card
+       that is a downgrade and on anything that hits twice or more it is a
+       straight upgrade, which is the whole point: the top of the damage shelf
+       should ask what kind of deck you are building rather than simply being
+       the bigger number. */
+    passive: { damageEveryHit: 2 },
     flavor: 'Ground down over eleven years to exactly the length it wanted to be.',
   },
   {
     id: 'honed_edge',
     name: 'Honed Edge',
-    rarity: 'rare',
+    rarity: 'epic',
     price: 170,
     maxStacks: 3,
     passive: { damageFlat: 2 },
@@ -152,10 +166,14 @@ export const IMPLANTS: readonly ImplantDef[] = [
   {
     id: 'drawn_wire',
     name: 'Drawn Wire',
-    rarity: 'rare',
+    rarity: 'epic',
     price: 190,
     maxStacks: 2,
-    passive: { focusPerStackBonus: 1 },
+    /* Two, not one. A single point per stack was a rounding error next to what
+       an epic implant costs: Focus is spent one stack at a time, so +1 was one
+       extra damage on the card you happened to be holding. At 2 it doubles what
+       a stack is worth, which is a reason to build around banking them. */
+    passive: { focusPerStackBonus: 2 },
     flavor: 'Patience, made mechanically worth more.',
   },
   {
@@ -177,7 +195,7 @@ export const IMPLANTS: readonly ImplantDef[] = [
   {
     id: 'bulwark_lattice',
     name: 'Bulwark Lattice',
-    rarity: 'rare',
+    rarity: 'epic',
     price: 200,
     maxStacks: 2,
     passive: { whenHullBelowPct: 40, blockPerTurn: 6 },
@@ -191,21 +209,19 @@ export const IMPLANTS: readonly ImplantDef[] = [
        Priced as an epic because 3 off every attack is enormous — but it is the
        first thing to switch off when the act goes badly, which is exactly the
        turn you wanted it most. */
-    rarity: 'epic',
+    rarity: 'legendary',
     price: 250,
     maxStacks: 1,
     passive: { whenHullAbovePct: 50, damageTakenFlat: 3 },
     flavor: 'Reactive plate. It reads your vitals and it is not sentimental.',
   },
 
-  {
-    id: 'suture_weave',
-    name: 'Suture Weave',
-    rarity: 'common',
-    price: 115,
-    maxStacks: 3,
-    passive: { healPerTurn: 1 },
-    flavor: 'It closes things slowly and without being asked.',
-  },
+  /* Suture Weave was here: a common that healed 1 a turn, stacking to 3.
+     Removed, and with The Long Watch's mend gone with it there is now nothing
+     in the game that heals on a timer. That is the point — health is the
+     resource the whole run is about, and a trickle that repairs it for free
+     turns every fight into a question of whether you can outlast the tick
+     rather than whether you can win it. Healing comes from Anomalies, Safe
+     Planets and Stations now, where it is a decision with a price. */
 
 ];

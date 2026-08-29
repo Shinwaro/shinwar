@@ -77,10 +77,10 @@ describe('preview equals resolution', () => {
       consumesFocus: false,
     };
     const breakdown = previewDamage(state, input);
-    // 9 x1.5 Vulnerable = 13, minus 5 Block.
-    expect(breakdown.beforeBlock).toBe(13);
+    // 9 x1.25 Vulnerable = 11, minus 5 Block.
+    expect(breakdown.beforeBlock).toBe(11);
     expect(breakdown.blocked).toBe(5);
-    expect(breakdown.toHull).toBe(8);
+    expect(breakdown.toHull).toBe(6);
   });
 });
 
@@ -102,9 +102,9 @@ describe('the ordered steps', () => {
       consumesFocus: true,
     });
 
-    // 6 base, +2 for one stack of Focus, x1.5 Vulnerable = 12. One stack a
+    // 6 base, +2 for one stack of Focus, x1.25 Vulnerable = 10. One stack a
     // card: Focus is a stream now, not a lump sum.
-    expect(breakdown.toHull).toBe(12);
+    expect(breakdown.toHull).toBe(10);
     expect(breakdown.steps.map((step) => step.kind)).toEqual(['base', 'add', 'mult', 'floor']);
     expect(breakdown.focusConsumed).toBe(1);
   });
@@ -112,7 +112,7 @@ describe('the ordered steps', () => {
   it('rounds down rather than up', () => {
     const state = makeFight({ enemyStatuses: [{ status: VULNERABLE, stacks: 1, fresh: false }], enemyHp: 999 });
     const enemy = firstEnemy(state);
-    // 5 x 1.5 = 7.5 -> 7, never 8.
+    // 5 x 1.25 = 6.25 -> 6, never 7.
     expect(
       computeDamage(state, {
         amount: 5,
@@ -122,7 +122,7 @@ describe('the ordered steps', () => {
         attackOrdinal: 0,
         consumesFocus: false,
       }).toHull,
-    ).toBe(7);
+    ).toBe(6);
   });
 
   it('never goes below zero', () => {
@@ -172,11 +172,10 @@ describe('the ordered steps', () => {
   });
 
   it('compounds Vulnerable per stack, up to the cap', () => {
-    /* One stack is 1.5. Two would compound to 2.25 and are held at 2 — the cap
-       is the point of the status: uncapped, 1.5 reaches 5.06 at four stacks and
-       the correct play against anything with real health becomes "stack
-       Vulnerable, then hit it once". Same argument as Weak, other side of the
-       pipeline. */
+    /* One stack is 1.25. Two would compound to 1.5625 and are held at 1.5 — the
+       cap is the point of the status: uncapped it runs away, and the correct
+       play against anything with real health becomes "stack Vulnerable, then
+       hit it once". Mirrors Weak exactly now, other side of the pipeline. */
     const hit = (stacks: number): number => {
       const state = makeFight({
         enemyStatuses: [{ status: VULNERABLE, stacks, fresh: false }],
@@ -192,9 +191,9 @@ describe('the ordered steps', () => {
       }).toHull;
     };
 
-    expect(hit(1), 'one stack').toBe(12);
-    expect(hit(2), 'two stacks, at the cap').toBe(16);
-    expect(hit(4), 'four stacks, still at the cap').toBe(16);
+    expect(hit(1), 'one stack').toBe(10);
+    expect(hit(2), 'two stacks, at the cap').toBe(12);
+    expect(hit(4), 'four stacks, still at the cap').toBe(12);
   });
 
   it('never lets a card amplify itself with its own Vulnerable', () => {

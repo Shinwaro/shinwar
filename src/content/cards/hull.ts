@@ -61,7 +61,7 @@ export const HULL_CARDS: readonly CardDef[] = [
     id: 'nothing_left_to_lose',
     name: 'Nothing Left to Lose',
     type: 'attack',
-    rarity: 'rare',
+    rarity: 'epic',
     archetype: 'iai',
     cost: 2,
     /* The steep one. 30% is a quarter of a run's worth of bad luck away, and
@@ -162,7 +162,7 @@ export const HULL_CARDS: readonly CardDef[] = [
     id: 'unblooded',
     name: 'Unblooded',
     type: 'attack',
-    rarity: 'epic',
+    rarity: 'legendary',
     archetype: 'guard',
     cost: 2,
     /* The epic on the high side, and the one that makes staying clean an

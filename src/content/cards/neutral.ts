@@ -73,7 +73,7 @@ export const NEUTRAL_CARDS: readonly CardDef[] = [
     id: 'momentum',
     name: 'Momentum',
     type: 'attack',
-    rarity: 'rare',
+    rarity: 'epic',
     archetype: 'neutral',
     cost: 1,
     effects: [
@@ -102,10 +102,10 @@ export const NEUTRAL_CARDS: readonly CardDef[] = [
     id: 'starfall',
     name: 'Starfall',
     type: 'attack',
-    // Epic, not legendary: the top two tiers are the Reliquary's four and
+    // Epic, not mythic: the top two tiers are the Reliquary's four and
     // nothing else, or "one legendary a run" is not a rule. Starfall is an
     // exhausting 2-cost AoE, which is where epic already sits.
-    rarity: 'epic',
+    rarity: 'legendary',
     archetype: 'neutral',
     cost: 2,
     exhaust: true,
@@ -131,7 +131,11 @@ export const NEUTRAL_CARDS: readonly CardDef[] = [
     type: 'skill',
     rarity: 'artifact',
     archetype: 'neutral',
-    cost: 2,
+    /* One Energy. At 2 the artifact cost two thirds of the turn it was meant to
+       set up — you played it and then could not use the Strength it gave you
+       until the turn after, which is a long time to wait for a card you get
+       once a run and pay 25 max health for. */
+    cost: 1,
     exhaust: true,
     effects: [
       { op: 'applyStatus', status: STRENGTH, stacks: 2, target: 'self' },
@@ -246,7 +250,7 @@ export const NEUTRAL_CARDS: readonly CardDef[] = [
     id: 'desperate_line',
     name: 'Desperate Line',
     type: 'attack',
-    rarity: 'rare',
+    rarity: 'epic',
     archetype: 'neutral',
     cost: 1,
     effects: [

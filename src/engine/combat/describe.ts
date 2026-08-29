@@ -66,13 +66,20 @@ function describeCondition(
       return `your hand has ${when.value} or more cards`;
     case 'cardsPlayedThisTurnAtLeast':
       return `you have played ${when.value} cards this turn`;
+    case 'targetHullBelowPct':
+      return `the target is below ${when.value}% health`;
+    case 'targetHullAbovePct':
+      return `the target is above ${when.value}% health`;
     case 'hullBelowPct':
-      // "health", to match the bar and the heal op. The condition is still
-      // named hullBelowPct in the data because renaming a shipped condition
-      // kind would churn every card that uses it for a word.
-      return `health is below ${when.value}%${atPct(state, when.value)}`;
+      // "your health", to match the bar and the heal op — and YOURS, because
+      // a card that reads "If health is below 25%" beside an enemy with a
+      // health bar of its own is a genuine question the player should not have
+      // to ask. The condition is still named hullBelowPct in the data because
+      // renaming a shipped condition kind would churn every card that uses it
+      // for a word.
+      return `your health is below ${when.value}%${atPct(state, when.value)}`;
     case 'hullAbovePct':
-      return `health is above ${when.value}%${atPct(state, when.value)}`;
+      return `your health is above ${when.value}%${atPct(state, when.value)}`;
     case 'killedThisPlay':
       return 'this kills an enemy';
     default: {
@@ -105,6 +112,12 @@ function describeScaleSource(
       return many ? 'cards played this turn' : 'card played this turn';
     case 'discardedThisPlay':
       return many ? 'cards discarded' : 'card discarded';
+    case 'targetHullMissingPct':
+      /* Reads as "For every 10% of health the target is missing, ...". The `%`
+         has to live in the noun rather than in the count, because `per` is
+         printed bare and "For every 10 percent of health" is not how anybody
+         says it. */
+      return '% of health the target is missing';
     default: {
       const unreachable: never = source;
       return unreachable;
@@ -166,7 +179,7 @@ function describeOp(op: EffectOp, state: GameState | null, afterDamage = false):
     case 'gainEnergy':
       return `Gain ${op.amount} Energy.`;
     case 'exhaustSelf':
-      return 'Exhaust.';
+      return 'Burn.';
     case 'addCardToHand':
       return `Add ${cardTable.find(op.cardId)?.name ?? op.cardId}${op.upgraded === true ? '+' : ''} to your hand.`;
     case 'heal':
@@ -199,7 +212,10 @@ function describeOp(op: EffectOp, state: GameState | null, afterDamage = false):
       return `If ${describeCondition(op.when, state)}, ${body}${otherwise}`;
     }
     case 'scaleWith': {
-      const per = op.per === 1 ? '' : `${op.per} `;
+      /* No space before a source that opens with a symbol. "For every 10% of
+         health" rather than "For every 10 % of health". */
+      const tight = describeScaleSource(op.source, op.per).startsWith('%');
+      const per = op.per === 1 ? '' : `${op.per}${tight ? '' : ' '}`;
       const body = lowerFirst(describeOps(op.then, state));
       /* No live count for a per-play source. It is zero until the card is
          played and the whole of it happens inside that play, so "(0x now)" on
@@ -412,7 +428,7 @@ export function describeCardSegments(
   }
 
   const tail: string[] = [];
-  if (def.exhaust === true && !def.effects.some((op) => op.op === 'exhaustSelf')) tail.push('Exhaust.');
+  if (def.exhaust === true && !def.effects.some((op) => op.op === 'exhaustSelf')) tail.push('Burn.');
   if (def.innate === true) tail.push('Innate.');
   if (def.keepsFocus === true) tail.push('Does not consume Focus.');
   if (tail.length > 0) out.push({ kind: 'text', text: tail.join(' ') });
@@ -432,7 +448,7 @@ export function describeCard(def: CardDef, state: GameState | null = null): stri
   }
 
   const parts = [describeOps(def.effects, state)];
-  if (def.exhaust === true && !def.effects.some((op) => op.op === 'exhaustSelf')) parts.push('Exhaust.');
+  if (def.exhaust === true && !def.effects.some((op) => op.op === 'exhaustSelf')) parts.push('Burn.');
   if (def.innate === true) parts.push('Innate.');
   if (def.keepsFocus === true) parts.push('Does not consume Focus.');
   return parts.filter((part) => part.trim() !== '').join(' ');

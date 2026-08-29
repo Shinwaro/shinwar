@@ -28,7 +28,7 @@ import { STRENGTH } from '../../content/statuses.ts';
 import { ENCOUNTERS } from '../../content/encounters.ts';
 import { healPlayer, PLAYER, enemyTarget, livingEnemies } from './damage.ts';
 import { applyEffects, createContext } from './effects.ts';
-import { atCriticalHeat, gainHeat, resolveOverheat, ventHeat } from './heat.ts';
+import { atCriticalHeat, collectBurn, gainHeat, resolveOverheat, ventHeat } from './heat.ts';
 import { addStacks, clearFresh, decayStatuses, statusEnergy, tickStatuses } from './keywords.ts';
 import { environmentRules, liveStance, pilotRules, stanceRulesFor } from './rules.ts';
 import { mintEnemy } from './instances.ts';
@@ -66,7 +66,12 @@ export function startCombat(state: GameState, encounterId: string, environmentId
   let rng = run.rng;
   const enemies = encounter.enemyIds.map((enemyId) => {
     const def = enemyTable.get(enemyId);
-    const start = startingMoveIndex(def, rng);
+    /* The introduction opens on move zero, for the same reason it deals its
+       deck in written order: the lesson NAMES what the hauler is about to do —
+       "it swings for six, and six Block is the whole of it absorbed" — and a
+       rolled opening made that sentence wrong two fights in three. Everywhere
+       else the roll is the point. */
+    const start = run.tutorial ? { index: 0, rng } : startingMoveIndex(def, rng);
     rng = start.rng;
     const minted = mintEnemy(counter, def, start.index);
     counter = minted.uidCounter;
@@ -117,6 +122,7 @@ export function startCombat(state: GameState, encounterId: string, environmentId
       envMemory: {},
       energyPenaltyNextTurn: 0,
       skipNextTurn: false,
+      burnOwed: 0,
       pendingEnemies: [],
       actingUid: null,
       outcome: 'ongoing',
@@ -196,6 +202,19 @@ export function startPlayerTurn(state: GameState): GameState {
   // loss would quietly refund half the punishment for the worst overheat there
   // is.
   const relics = pilotRules(state);
+  /*
+   * The reactor took this turn — so it takes the ENERGY, and nothing else.
+   *
+   * Every relic passive used to be gated on this too: a turn after an overheat
+   * granted no Block, no Focus, no vent and no mend. That is two punishments
+   * dressed as one, and the second is invisible — Harbour Plate simply stopped
+   * working on the one turn a player most wanted the plating, with nothing on
+   * screen to say why. Worse, it punished the exact build that was trying to
+   * survive its own gauge.
+   *
+   * The Energy is the price of an overheat and it is a large one. What is
+   * bolted to the ship keeps working while the reactor sulks.
+   */
   const skipping = combat.skipNextTurn;
   /* Overclock is read here rather than in the status tick, because this is the
      expression that answers "how much Energy do you get this turn" — and the
@@ -216,10 +235,11 @@ export function startPlayerTurn(state: GameState): GameState {
     ...current,
     turn,
     round: current.round + 1,
-    // Relic Block is granted on top of whatever the stance retained, so a
-    // GUARD build and a Ballast Weave add up rather than one capping the other.
-    block: Math.min(current.block, stance.blockRetained) + (skipping ? 0 : relics.blockPerTurn),
-    focus: Math.min(FOCUS_MAX, current.focus + (skipping ? 0 : relics.focusPerTurn)),
+    /* Relic Block is granted on top of whatever the stance retained, so a
+       GUARD build and a Ballast Weave add up rather than one capping the other.
+       And it is granted on a REACTOR TURN too — see below. */
+    block: Math.min(current.block, stance.blockRetained) + relics.blockPerTurn,
+    focus: Math.min(FOCUS_MAX, current.focus + relics.focusPerTurn),
     energy,
     energyPenaltyNextTurn: skipping ? current.energyPenaltyNextTurn : 0,
     cardsPlayedThisTurn: 0,
@@ -238,14 +258,45 @@ export function startPlayerTurn(state: GameState): GameState {
     detail: { turn, stance: combat.stance },
   });
 
+  /* What you are CARRYING, said out loud.
+   *
+   * The Block and the Focus above are granted inside the same expression that
+   * rebuilds the turn, which is right — they are part of what a turn IS — but
+   * it meant they happened in complete silence. Four Block from Harbour Plate
+   * appeared in the shield readout between one frame and the next, with no
+   * number, no beat and no line in the log saying where it came from. A player
+   * who has just bought a relic gets no confirmation that it is working, and a
+   * player who has three of them cannot tell which one did what.
+   *
+   * Logged AFTER the turn line and separately from each other, so each one gets
+   * its own beat and its own floating figure in the animation layer. The vent
+   * and the mend below already had lines of their own; these are the two that
+   * did not. */
+  if (relics.blockPerTurn > 0) {
+    next = appendLog(next, {
+      source: 'relics',
+      kind: 'block',
+      text: `Block +${relics.blockPerTurn} (${requireCombat(next).block}).`,
+      detail: { amount: relics.blockPerTurn, to: 'player' },
+    });
+  }
+  if (relics.focusPerTurn > 0) {
+    next = appendLog(next, {
+      source: 'relics',
+      kind: 'combat',
+      text: `Focus +${relics.focusPerTurn} (${requireCombat(next).focus}).`,
+      detail: { focus: requireCombat(next).focus },
+    });
+  }
+
   // Intents commit here, before the player has any information to act on and
   // before they can act at all.
   next = telegraphAll(next);
 
-  if (!skipping && relics.ventPerTurn > 0) next = ventHeat(next, relics.ventPerTurn, 'relics');
+  if (relics.ventPerTurn > 0) next = ventHeat(next, relics.ventPerTurn, 'relics');
   // Mending, from what you are carrying. After the vent, so a relic that does
   // both reads in the order the rail lists it.
-  if (!skipping && relics.healPerTurn > 0) next = healPlayer(next, relics.healPerTurn, 'relics');
+  if (relics.healPerTurn > 0) next = healPlayer(next, relics.healPerTurn, 'relics');
 
   // Rust and Scald tick here: after the hand is dealt and the intents are
   // committed, so the player sees the damage and the Heat *before* deciding
@@ -580,7 +631,15 @@ export function endPlayerTurn(state: GameState): GameState {
   if (combat.outcome !== 'ongoing' || combat.pendingEnemies.length > 0) return state;
 
   const stance = liveStance(state);
-  let next = state;
+
+  /* Whatever the reactor is still owed, it takes before anything else.
+   *
+   * The UI normally collects it a beat after the hand is dealt, which is the
+   * whole point of deferring it — but nothing may depend on a screen being
+   * there. A headless run has no beats, and a player fast enough to end the
+   * turn inside the pause would otherwise carry the debt into a turn they can
+   * actually spend. A price the reactor sometimes forgets is not a price. */
+  let next = collectBurn(state);
 
   if (stance.heatAtTurnEnd > 0) next = gainHeat(next, stance.heatAtTurnEnd, stance.name);
   if (stance.ventAtTurnEnd > 0) next = ventHeat(next, stance.ventAtTurnEnd, stance.name);
@@ -740,7 +799,12 @@ export function endTurnImmediately(state: GameState): GameState {
   let guard = 0;
   while (guard++ < 64 && enemiesPending(next)) next = advanceEnemyTurn(next);
   // Nobody is watching, so the pause the UI takes here is not wanted.
-  return closeRoundNow(next);
+  next = closeRoundNow(next);
+  /* Including the beat the UI holds before the reactor takes its card. On a
+     screen that pause is the whole point — it is what makes the burn something
+     you see rather than a number that changed. Here it is just a turn that has
+     not finished happening. */
+  return collectBurn(next);
 }
 
 /* ---------- outcome ---------- */

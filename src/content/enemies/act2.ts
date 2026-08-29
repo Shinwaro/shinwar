@@ -180,7 +180,15 @@ export const ACT2_ENEMIES: readonly EnemyDef[] = [
        frightening thing in the act to leave alive. */
     id: BLOOM_WEEVIL,
     name: 'Bloom Weevil',
-    maxHp: 62,
+    /* 48, down from 62.
+
+       It was the largest normal-tier enemy in the act by six health — bigger
+       than two of the Act 2 elites' opening phases feel — while ALSO being the
+       one whose damage compounds if you leave it alive. Those two properties
+       fight: the Rust pile is the threat, and health is what stops you dealing
+       with the threat. In line with the Sable Drifter now, and the Rust is
+       still the reason you kill it first. */
+    maxHp: 48,
     act: 2,
     tier: 'normal',
     moves: [
@@ -309,14 +317,34 @@ export const ACT2_ENEMIES: readonly EnemyDef[] = [
      keep the gauge down when something else is filling it. */
 
   {
-    /* Under 40% it drops Compression and alternates its two biggest moves, so
-       the last third of the fight runs about 29 a turn against about 19 in the
-       first two thirds. The Strength it stacks on Arrival lands every other
-       turn instead of every third, which is where the pressure comes from; the
-       hull number moved much less than that. */
+    /* Act 2 asks one question: can your deck actually kill something?
+     *
+     * It is the damage check, and it is built so that arriving underprepared is
+     * a loss you have already taken rather than one you might play out of.
+     * Three mechanisms, and they are the same mechanism seen from three sides:
+     *
+     *   - **Rust, applied slowly.** Two on Compression, one on Shockfall, so
+     *     the pile sits at two or three stacks for the whole fight and takes 4
+     *     to 6 off you at the end of every turn. Rust IGNORES BLOCK, which is
+     *     the point: it is a clock measured in the health you walked in with,
+     *     and it cannot be answered by playing better. Come in at 30 and the
+     *     Rust alone gives you six turns.
+     *   - **Weak, on the turn it plates.** Compression is a 30-point wall that
+     *     also cuts your output, so a deck that cannot break it quickly gets
+     *     slower at exactly the moment it needed to be faster.
+     *   - **Strength, on Arrival.** Under 40% it drops Compression entirely and
+     *     alternates its two biggest moves, so the Strength lands every other
+     *     turn instead of every third and the last third of the fight runs far
+     *     hotter than the first two.
+     *
+     * A finished deck at full health kills it before the Rust matters. That is
+     * the fight working. */
     id: WAVEFRONT_HERALD,
     name: 'Herald of the Front',
-    maxHp: 182,
+    /* 236, up from 182. At 182 it was answerable by a merely adequate deck at
+       full health, which meant a player could cross the whole of Act 2 without
+       once finding out what their build could not do. */
+    maxHp: 236,
     act: 2,
     tier: 'boss',
     moves: [
@@ -324,36 +352,42 @@ export const ACT2_ENEMIES: readonly EnemyDef[] = [
         id: 'shockfall',
         label: 'Shockfall',
         intent: [
-          { kind: 'attack', amount: 10, times: 3, label: 'Shockfall' },
-          { kind: 'debuff', amount: 2, times: 1, label: 'Heat +2' },
+          { kind: 'attack', amount: 12, times: 3, label: 'Shockfall' },
+          { kind: 'debuff', amount: 1, times: 1, label: 'Rust 1' },
         ],
         effects: [
-          { op: 'damage', amount: 10, target: 'enemy', times: 3 },
-          { op: 'gainHeat', amount: 2 },
+          { op: 'damage', amount: 12, target: 'enemy', times: 3 },
+          /* The Heat that used to be here has gone to the Kiln Sovereign, whose
+             whole fight is about the gauge. This one is about the clock, and
+             Rust is the clock: it is on the move that survives into the second
+             phase, so the timer keeps running after the plating stops. */
+          { op: 'applyStatus', status: RUST, stacks: 1, target: 'enemy' },
         ],
       },
       {
         id: 'compression',
         label: 'Compression',
         intent: [
-          { kind: 'block', amount: 24, times: 1, label: 'Plate 24' },
+          { kind: 'block', amount: 30, times: 1, label: 'Plate 30' },
           { kind: 'debuff', amount: 2, times: 1, label: 'Weak 2' },
+          { kind: 'debuff', amount: 2, times: 1, label: 'Rust 2' },
         ],
         effects: [
-          { op: 'block', amount: 24 },
+          { op: 'block', amount: 30 },
           { op: 'applyStatus', status: WEAK, stacks: 2, target: 'enemy' },
+          { op: 'applyStatus', status: RUST, stacks: 2, target: 'enemy' },
         ],
       },
       {
         id: 'arrival',
         label: 'Arrival',
         intent: [
-          { kind: 'attack', amount: 28, times: 1, label: 'Arrival' },
-          { kind: 'buff', amount: 2, times: 1, label: 'Strength +2' },
+          { kind: 'attack', amount: 34, times: 1, label: 'Arrival' },
+          { kind: 'buff', amount: 3, times: 1, label: 'Strength +3' },
         ],
         effects: [
-          { op: 'damage', amount: 28, target: 'enemy' },
-          { op: 'applyStatus', status: STRENGTH, stacks: 2, target: 'self' },
+          { op: 'damage', amount: 34, target: 'enemy' },
+          { op: 'applyStatus', status: STRENGTH, stacks: 3, target: 'self' },
         ],
       },
     ],

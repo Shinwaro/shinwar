@@ -153,19 +153,19 @@ describe('draws', () => {
     const entries = [
       { value: 'common', weight: 70 },
       { value: 'uncommon', weight: 25 },
-      { value: 'rare', weight: 5 },
+      { value: 'epic', weight: 5 },
     ];
-    const counts: Record<string, number> = { common: 0, uncommon: 0, rare: 0 };
+    const counts: Record<string, number> = { common: 0, uncommon: 0, epic: 0 };
     for (let i = 0; i < 10000; i++) {
       const roll = weightedPick(rng, 'rewards', entries);
       counts[roll.value] = (counts[roll.value] ?? 0) + 1;
       rng = roll.rng;
     }
     expect(counts['common'] ?? 0).toBeGreaterThan(counts['uncommon'] ?? 0);
-    expect(counts['uncommon'] ?? 0).toBeGreaterThan(counts['rare'] ?? 0);
+    expect(counts['uncommon'] ?? 0).toBeGreaterThan(counts['epic'] ?? 0);
     // Roughly the declared shares, with room for the sample size.
-    expect((counts['rare'] ?? 0) / 10000).toBeGreaterThan(0.03);
-    expect((counts['rare'] ?? 0) / 10000).toBeLessThan(0.07);
+    expect((counts['epic'] ?? 0) / 10000).toBeGreaterThan(0.03);
+    expect((counts['epic'] ?? 0) / 10000).toBeLessThan(0.07);
   });
 
   it('ignores zero weights and refuses an all-zero table', () => {

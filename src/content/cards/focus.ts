@@ -56,7 +56,7 @@ export const FOCUS_CARDS: readonly CardDef[] = [
     id: 'the_long_draw',
     name: 'The Long Draw',
     type: 'attack',
-    rarity: 'rare',
+    rarity: 'epic',
     archetype: 'iai',
     cost: 1,
     /*

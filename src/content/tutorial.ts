@@ -11,10 +11,12 @@
  * legible the first time it is played, so the player learns what the *systems*
  * do rather than what a bad draw feels like.
  *
- * **The target is deliberately slow.** Sixty health and a three-move cycle
- * with one real spike in it: enough that blocking matters and the fight is not
- * over in two turns, telegraphed clearly enough that "block the big one, hit
- * on the quiet ones" is discoverable rather than told.
+ * **The target is deliberately slow, and deliberately outlasts the lesson.** A
+ * three-move cycle with one real spike in it: enough that blocking matters,
+ * telegraphed clearly enough that "block the big one, hit on the quiet ones" is
+ * discoverable rather than told. It is still standing when the last step is
+ * read, because the last step ends with "now finish it" and a lesson that kills
+ * its own subject halfway through never gets to say that.
  */
 
 import type { EnemyDef } from '../engine/types.ts';
@@ -27,16 +29,21 @@ export const TUTORIAL_ENEMIES: readonly EnemyDef[] = [
   {
     id: TRAINING_HULK,
     name: 'Derelict Hauler',
-    /* Short on purpose. The lesson is nine steps long and the fight has to fit
-       inside it, and turn two's hand has to be able to finish the job — there
-       is a test on exactly that budget.
+    /* Big enough to OUTLAST the lesson, which is the opposite of what it used
+       to be for.
 
-       Down from 26 when Measured Draw left the pool. The Focus lesson is Settle
-       now, which is the better teacher (it gains Focus and does nothing else,
-       so the step is one idea) and deals no damage where Measured Draw dealt 4.
-       A tutorial that outlasts its own explanation is a tutorial nobody
-       completes, so the hauler gives the 4 back. */
-    maxHp: 22,
+       At 22 the scripted plays killed it, and the last word of the tutorial —
+       the one that says where the log and the Info panel are — arrived after
+       the fight had already ended, or never arrived at all. A lesson whose
+       closing line is unreachable is a lesson with no closing line.
+
+       The number is measured, not guessed: the seven scripted plays deal 39
+       through the stance riders and the Focus spend, so anything at or below
+       that ends the fight early. 48 leaves 9 on the bar when the last step
+       appears — one more card, which is exactly the note to end on. There is a
+       test on both halves: that the script does not finish it, and that what is
+       left in the deck can. */
+    maxHp: 48,
     act: 1,
     tier: 'normal',
     /* A three-beat cycle you can learn inside one fight: a small hit, a
@@ -69,7 +76,17 @@ export const TUTORIAL_ENEMIES: readonly EnemyDef[] = [
         ],
       },
     ],
-    script: { kind: 'sequence', moves: ['drift', 'brace', 'slam'] },
+    /* Drift, then Slam, then Brace — and the ORDER is part of the lesson.
+     *
+     * Slam is the only move that puts something on the player, and the lesson
+     * needs it on turn two: that is where the coach points at the telegraph and
+     * says debuffs go both ways, and then at the Weak it leaves behind and says
+     * the number on your cards does not know about it. With Brace in the middle
+     * the player was shown a debuff aimed at them exactly once, on a turn
+     * nobody was talking about it.
+     *
+     * Drift stays first. Two steps quote the six it swings for. */
+    script: { kind: 'sequence', moves: ['drift', 'slam', 'brace'] },
     flavor: 'Nobody has flown it in a decade. It has not entirely noticed.',
   },
 ];
@@ -97,33 +114,53 @@ export const TUTORIAL_DECK: readonly string[] = [
   'thermal_lance',
   'iai_slash',
   'bulwark',
-  'vector_step',
+  'hairline',
 
-  /* Turn two. Settle is the Focus lesson; Meridian Cut finishes it.
-     Measured Draw held this slot and was cut from the pool. Settle is the
-     better teacher anyway: it gains Focus and does nothing else, so the lesson
-     is one idea rather than an attack that also happens to bank a stack. */
+  /* Turn two, and it holds four of the seven lessons — which is why the order
+     inside it matters as much as which cards are in it.
+
+     Vector Step first: the stance step is taught before the cards that read
+     differently because of it, so Meridian Cut's IAI bonus is something the
+     player just caused rather than a number that appeared. Then Culling Stroke,
+     which is the Burn lesson and the only card in the deck that says the word.
+     Then Settle and Meridian Cut, which are Focus banked and Focus spent.
+
+     Four cards, and exactly three Energy: 0 + 1 + 0 + 2. There is a test. */
+  'vector_step',
+  'culling_stroke',
   'settle',
   'meridian_cut',
-  'iai_slash',
-  'solar_parry',
   'bulwark',
 
-  // Slack, in case a fight runs long. Never reached by the script.
+  /* Slack. Reached now, unlike before: the lesson deliberately leaves the enemy
+     alive, so these are what the player finishes it with. */
   'sever',
   'solar_parry',
-  'kindled_edge',
+  'iai_slash',
   'half_draw',
   'settle',
   'recalibrate',
   'hairline',
   'bulwark',
   'vector_step',
+  'kindled_edge',
 ];
 
 /** The cards the lesson names. Exported so a test can pin them to the hand. */
 export const TUTORIAL_BLOCK_CARD = 'solar_parry';
 export const TUTORIAL_HEAT_CARD = 'thermal_lance';
+/** The stance lesson: play it and watch the strip change. */
+export const TUTORIAL_STANCE_CARD = 'vector_step';
+/**
+ * The Burn lesson.
+ *
+ * Told AND done, rather than pointed at. The pile had a name and an
+ * explanation and nothing in the deck that ever put a card in it, so the one
+ * mechanic in the game with a one-way door was the only one taught entirely in
+ * the abstract. Culling Stroke is an attack, so what it does is legible on the
+ * board, and it says the word on its own face.
+ */
+export const TUTORIAL_BURN_CARD = 'culling_stroke';
 export const TUTORIAL_FOCUS_CARD = 'settle';
 /**
  * The card the lesson spends its Focus on.

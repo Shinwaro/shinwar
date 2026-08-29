@@ -31,7 +31,7 @@
  * deck rather than a different one. The turn it buys you should cost you the
  * card that bought it.
  *
- * The partial ones — Sift, Blow the Ballast, First to Hand, Hard Turn — do not
+ * The partial ones — Sift, First to Hand, Hard Turn — do not
  * exhaust. They pay a card for what they do every single time they are played,
  * so they are already self-limiting in the way the whole-hand cards are not.
  * There is a test holding the line.
@@ -103,7 +103,7 @@ export const DISCARD_CARDS: readonly CardDef[] = [
     id: 'empty_the_rack',
     name: 'Empty the Rack',
     type: 'attack',
-    rarity: 'rare',
+    rarity: 'epic',
     archetype: 'neutral',
     cost: 1,
     exhaust: true,
@@ -139,7 +139,7 @@ export const DISCARD_CARDS: readonly CardDef[] = [
     id: 'shed_weight',
     name: 'Shed Weight',
     type: 'skill',
-    rarity: 'rare',
+    rarity: 'epic',
     archetype: 'guard',
     cost: 1,
     exhaust: true,
@@ -171,31 +171,6 @@ export const DISCARD_CARDS: readonly CardDef[] = [
      A common is the card you meet in Act 1 and keep for the whole run if the
      deck goes that way, so both of these pay in a currency the opening act
      already cares about: the gauge, and one big number. */
-
-  {
-    /* Heat management with a price attached. Venting 3 for nothing would be a
-       strictly better Coolant Burst; the card the reactor eats is what makes
-       it a decision, and at 0 Energy it is a decision you can afford on the
-       turn the gauge caught you out. */
-    id: 'blow_the_ballast',
-    name: 'Blow the Ballast',
-    type: 'skill',
-    rarity: 'common',
-    archetype: 'neutral',
-    cost: 0,
-    effects: [
-      { op: 'discard', amount: 1, random: true },
-      { op: 'ventHeat', amount: 3 },
-    ],
-    upgrade: {
-      name: 'Blow the Ballast+',
-      effects: [
-        { op: 'discard', amount: 1, random: true },
-        { op: 'ventHeat', amount: 4 },
-      ],
-    },
-    flavor: 'Something has to go, and it will not be the reactor.',
-  },
 
   {
     /* Nine for one Energy is well above the curve, and the random card is the
@@ -256,7 +231,7 @@ export const DISCARD_CARDS: readonly CardDef[] = [
     id: 'pare_down',
     name: 'Pare Down',
     type: 'skill',
-    rarity: 'rare',
+    rarity: 'epic',
     archetype: 'iai',
     cost: 1,
     exhaust: true,
@@ -283,7 +258,7 @@ export const DISCARD_CARDS: readonly CardDef[] = [
     id: 'purge_the_lines',
     name: 'Purge the Lines',
     type: 'skill',
-    rarity: 'epic',
+    rarity: 'legendary',
     archetype: 'neutral',
     cost: 2,
     exhaust: true,
@@ -309,7 +284,7 @@ export const DISCARD_CARDS: readonly CardDef[] = [
     id: 'broken_formation',
     name: 'Broken Formation',
     type: 'attack',
-    rarity: 'epic',
+    rarity: 'legendary',
     archetype: 'neutral',
     cost: 1,
     exhaust: true,

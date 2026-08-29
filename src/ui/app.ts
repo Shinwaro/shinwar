@@ -22,6 +22,8 @@ import { renderGameOver } from './screens/gameover.ts';
 import { renderPause } from './screens/pause.ts';
 import { renderCoach } from './screens/coach.ts';
 import { el } from './dom.ts';
+import { installDragScroll } from './drag-scroll.ts';
+import { toggleFullscreen } from './fullscreen.ts';
 import { play } from './sound.ts';
 import { floatHealthChange, forgetHeat, forgetPips, forgetResources } from './anim.ts';
 import { ENCOUNTERS } from '../content/encounters.ts';
@@ -368,8 +370,17 @@ export function mountApp(root: HTMLElement, store: Store): void {
     mounted = screen;
   }
 
-  /* P pauses, Esc closes. Bound at the window so it works on every run screen
-     rather than being re-bound by each of them. */
+  /* Grab-and-pull scrolling, on everything, installed once.
+   *
+   * The chart is 118rem tall in a 40rem window and the Info panel is a long
+   * column; both scrolled only by wheel or by a 12px scrollbar. One handler at
+   * the root rather than a call per screen, because screens rebuild their whole
+   * subtree on every render and anything bound per element is bound again a
+   * moment later. See `drag-scroll.ts` — mouse only, on purpose. */
+  installDragScroll(root);
+
+  /* P pauses, Esc closes, F is fullscreen. Bound at the window so they work on
+     every screen rather than being re-bound by each of them. */
   window.addEventListener('keydown', (event) => {
     const target = event.target;
     const typing =
@@ -377,6 +388,14 @@ export function mountApp(root: HTMLElement, store: Store): void {
       (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
     if (typing || event.metaKey || event.ctrlKey || event.altKey) return;
 
+    /* Fullscreen from anywhere, including the title screen — it is a property
+       of the sitting, not of the run. The browser only honours the request
+       from a gesture, and a keypress is one. */
+    if (event.key.toLowerCase() === 'f') {
+      event.preventDefault();
+      toggleFullscreen();
+      return;
+    }
     if (paused && event.key === 'Escape') {
       event.preventDefault();
       closePause();

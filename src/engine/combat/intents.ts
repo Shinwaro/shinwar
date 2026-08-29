@@ -86,17 +86,45 @@ export function intentVisible(state: GameState): boolean {
   return !intentsHidden(state);
 }
 
-/** `3 x 5`, or `14`, or `Strength +2`. Exactly what the mockup in the prompt shows. */
-export function describeIntent(hits: readonly IntentHit[]): string {
+/** One part of a telegraph: `3 x 5`, or `14`, or `Strength +2`. */
+export function describeIntentHit(hit: IntentHit): string {
+  if (hit.kind === 'attack') {
+    return hit.times > 1 ? `${hit.times} x ${hit.amount}` : String(hit.amount);
+  }
+  return hit.label;
+}
+
+/**
+ * What an intent MEANS, in a whole sentence.
+ *
+ * The board says it in colour and a mark — a bright red swings, a deep red is
+ * aimed at you too, blue plates, teal means it is about to make itself
+ * stronger. Colour is never the only channel, so this is what the mark carries
+ * as its title and what a screen reader is read.
+ */
+export function describeIntentKind(kind: IntentHit['kind']): string {
+  switch (kind) {
+    case 'attack':
+      return 'It attacks';
+    case 'block':
+      return 'It plates itself';
+    case 'buff':
+      return 'It strengthens itself';
+    case 'debuff':
+      return 'It affects you';
+    default: {
+      const unreachable: never = kind;
+      return unreachable;
+    }
+  }
+}
+
+/** The whole telegraph as one sentence, for the accessible name. */
+export function narrateIntent(hits: readonly IntentHit[]): string {
   if (hits.length === 0) return 'Waiting';
   return hits
-    .map((hit) => {
-      if (hit.kind === 'attack') {
-        return hit.times > 1 ? `${hit.times} x ${hit.amount}` : String(hit.amount);
-      }
-      return hit.label;
-    })
-    .join(' · ');
+    .map((hit) => `${describeIntentKind(hit.kind)}: ${describeIntentHit(hit)}`)
+    .join('. ');
 }
 
 /** Total damage inbound this turn, before Block. Drives the "you will take N" readout. */

@@ -7,7 +7,13 @@
  */
 
 import type { EnemyState, GameState } from '../../engine/types.ts';
-import { describeIntent, intentOf, intentVisible } from '../../engine/combat/intents.ts';
+import {
+  describeIntentHit,
+  describeIntentKind,
+  intentOf,
+  intentVisible,
+  narrateIntent,
+} from '../../engine/combat/intents.ts';
 import { describeStatus } from '../../engine/combat/keywords.ts';
 import { envGetString } from '../../engine/combat/rules.ts';
 import { requireCombat } from '../../engine/state.ts';
@@ -15,6 +21,20 @@ import { enemies as enemyTable, statuses as statusTable } from '../../content/re
 import { el } from '../dom.ts';
 import { setBarFill } from '../anim.ts';
 import { renderGlyph } from './glyph.ts';
+
+/**
+ * The glyph on each kind of telegraph.
+ *
+ * The second channel. A player reading the board at speed goes by the colour;
+ * a player who cannot separate violet from blue goes by the mark, and both are
+ * always present.
+ */
+const INTENT_MARK: Record<'attack' | 'block' | 'buff' | 'debuff', string> = {
+  attack: '⚔',
+  block: '⛨',
+  buff: '▲',
+  debuff: '▼',
+};
 
 export interface EnemyViewOptions {
   readonly targetable: boolean;
@@ -58,17 +78,57 @@ export function renderEnemy(
   // environment that takes information away rather than adding a rule, and the
   // answer to it is defensive play, not a button.
   const visible = intentVisible(state);
+  /* One mark per part of the telegraph, coloured by what that part DOES.
+   *
+   * It used to be a single line that went amber if anything in it was an
+   * attack and blue otherwise — so a move that swung for 8 and left you
+   * Vulnerable, and a move that swung for 8 and did nothing else, looked
+   * identical. The two things a player most needs to see coming are the debuff
+   * landing on them and the enemy making itself stronger, and both were the
+   * quietest thing on the board.
+   *
+   * Colour is never the only channel: each mark carries its own glyph and its
+   * own words in `title`, and the accessible name says the whole sentence. The
+   * two reds — the swing and the thing aimed at you — also differ by depth and
+   * by a dashed border, because they are close on purpose. */
   const intentNode = dead
     ? null
     : !visible
       ? el('div', { class: 'intent intent--hidden' }, [
-          el('span', { class: 'intent-icon', 'aria-hidden': 'true' }, ['?']),
-          el('span', { class: 'intent-text' }, ['Sensors fogged']),
+          el('span', { class: 'intent-hit', 'data-kind': 'hidden' }, [
+            el('span', { class: 'intent-icon', 'aria-hidden': 'true' }, ['?']),
+            el('span', { class: 'intent-text' }, ['Sensors fogged']),
+          ]),
         ])
-      : el('div', { class: `intent ${attacking ? 'intent--attack' : 'intent--other'}` }, [
-          el('span', { class: 'intent-icon', 'aria-hidden': 'true' }, [attacking ? '⚔' : '◆']),
-          el('span', { class: 'intent-text' }, [describeIntent(hits)]),
-        ]);
+      : el(
+          'div',
+          {
+            class: `intent ${attacking ? 'intent--attack' : 'intent--other'}`,
+            'aria-label': narrateIntent(hits),
+          },
+          hits.length === 0
+            ? [
+                el('span', { class: 'intent-hit', 'data-kind': 'wait' }, [
+                  el('span', { class: 'intent-text' }, ['Waiting']),
+                ]),
+              ]
+            : hits.map((hit) =>
+                el(
+                  'span',
+                  {
+                    class: 'intent-hit',
+                    'data-kind': hit.kind,
+                    title: `${describeIntentKind(hit.kind)} — ${describeIntentHit(hit)}`,
+                  },
+                  [
+                    el('span', { class: 'intent-icon', 'aria-hidden': 'true' }, [
+                      INTENT_MARK[hit.kind],
+                    ]),
+                    el('span', { class: 'intent-text' }, [describeIntentHit(hit)]),
+                  ],
+                ),
+              ),
+        );
 
   // The Debris Field marks its target a full turn ahead. The randomness is in
   // which rock comes, never in whether the player could have seen it.

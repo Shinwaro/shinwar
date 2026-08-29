@@ -12,7 +12,7 @@ import { computeDamage, PLAYER, enemyTarget } from '../src/engine/combat/damage.
 import { playCard, startPlayerTurn } from '../src/engine/combat/combat.ts';
 import { describeCard } from '../src/engine/combat/describe.ts';
 import { reloadContent } from '../src/content/index.ts';
-import { cards as cardTable } from '../src/content/registry.ts';
+import { cards as cardTable, statuses as statusTable } from '../src/content/registry.ts';
 import { OVERCLOCK, TEMPERED } from '../src/content/statuses.ts';
 import { PLAYER as PLAYER_BALANCE } from '../src/content/balance.ts';
 import { combatOf, firstEnemy, handCard, makeFight } from './helpers.ts';
@@ -22,7 +22,7 @@ beforeEach(() => {
 });
 
 describe('Tempered', () => {
-  it('takes a quarter off what reaches you, and compounds', () => {
+  it('takes a flat point off every attack, per stack', () => {
     const at = (stacks: number): number => {
       const state = makeFight(
         stacks === 0 ? {} : { playerStatuses: [{ status: TEMPERED, stacks, fresh: false }] },
@@ -39,25 +39,53 @@ describe('Tempered', () => {
     };
 
     expect(at(0)).toBe(20);
-    expect(at(1)).toBe(15);
-    expect(at(2)).toBe(11);
+    expect(at(1)).toBe(19);
+    expect(at(3)).toBe(17);
   });
 
-  it('is capped at half, the same way Weak is', () => {
-    // Same `multFloor` machinery, pointed the other way. A buff that can halve
-    // and then keep halving is a buff that ends the difficulty curve.
+  it('is worth most against many small hits and least against one big one', () => {
+    /* The whole reason it is flat rather than a multiplier, and the reason it
+       does not need a cap: a percentage is worth most exactly when you are
+       already losing, which is backwards. Armour is the other half of the
+       defensive game from Block — Block is a wall you rebuild every turn, this
+       is plating that accumulates. */
+    const soak = (amount: number): number => {
+      const state = makeFight({ playerStatuses: [{ status: TEMPERED, stacks: 3, fresh: false }] });
+      const enemy = firstEnemy(state);
+      const hit = computeDamage(state, {
+        amount,
+        attacker: enemyTarget(enemy.uid),
+        target: PLAYER,
+        isAttack: true,
+        attackOrdinal: 0,
+        consumesFocus: false,
+      }).toHull;
+      return (amount - hit) / amount;
+    };
+
+    expect(soak(4), 'against a small hit').toBeGreaterThan(soak(30));
+  });
+
+  it('never turns an attack into a heal', () => {
     const state = makeFight({ playerStatuses: [{ status: TEMPERED, stacks: 9, fresh: false }] });
     const enemy = firstEnemy(state);
     expect(
       computeDamage(state, {
-        amount: 20,
+        amount: 4,
         attacker: enemyTarget(enemy.uid),
         target: PLAYER,
         isAttack: true,
         attackOrdinal: 0,
         consumesFocus: false,
       }).toHull,
-    ).toBe(10);
+    ).toBe(0);
+  });
+
+  it('stays until the fight ends', () => {
+    // It used to fall off at the end of your turn, which made it a worse Block:
+    // gone before a second card could add to it, so nothing was ever built on
+    // it. Stacks that survive are what make it a plan.
+    expect(statusTable.get(TEMPERED).decay).toBe('never');
   });
 });
 
@@ -150,15 +178,15 @@ describe('the three-Energy cards', () => {
 
   it('ships exactly three, all legendary', () => {
     expect(threes()).toHaveLength(3);
-    for (const card of threes()) expect(card.rarity, card.id).toBe('legendary');
+    for (const card of threes()) expect(card.rarity, card.id).toBe('mythic');
   });
 
   it('keeps a multi-op kill rider in one clause', () => {
-    /* "gain 3 Energy. Draw 2 cards" reads as though the draw happens either
+    /* "gain 2 Energy. Draw 2 cards" reads as though the draw happens either
        way. Every conditional in the pool had one op until these arrived, so
        nothing had ever shown the bug. */
     const text = describeCard(cardTable.get('cut_the_line'));
-    expect(text).toContain('If this kills an enemy, gain 3 Energy and draw 2 cards.');
+    expect(text).toContain('If this kills an enemy, gain 2 Energy and draw 2 cards.');
   });
 
   it('lets The Whole Sword read the whole Focus bank without spending it', () => {
