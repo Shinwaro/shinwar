@@ -13,13 +13,14 @@ import { createInitialState } from '../src/engine/state.ts';
 import { endTurnVia } from './helpers.ts';
 import { reloadContent } from '../src/content/index.ts';
 import { cards as cardTable, enemies as enemyTable } from '../src/content/registry.ts';
-import { PLAYER } from '../src/content/balance.ts';
+import { PLAYER, STANCES } from '../src/content/balance.ts';
 import {
   TRAINING_HULK,
   TUTORIAL_BLOCK_CARD,
   TUTORIAL_BURN_CARD,
   TUTORIAL_DECK,
   TUTORIAL_FOCUS_CARD,
+  TUTORIAL_NUMBER_CARD,
   TUTORIAL_HEAT_CARD,
   TUTORIAL_SPEND_CARD,
   TUTORIAL_STANCE_CARD,
@@ -70,14 +71,37 @@ describe('the introduction', () => {
     expect(hand, 'the Heat lesson').toContain(TUTORIAL_HEAT_CARD);
   });
 
-  it('puts the four turn-two lessons in the second hand', () => {
+  it('puts the three turn-two lessons in the second hand', () => {
     const second = endTurnVia(opened());
     const hand = (second.run?.combat?.hand ?? []).map((card) => card.defId);
     expect(second.run?.combat?.turn).toBe(2);
     expect(hand, 'the stance lesson').toContain(TUTORIAL_STANCE_CARD);
-    expect(hand, 'the Burn lesson').toContain(TUTORIAL_BURN_CARD);
     expect(hand, 'the Focus lesson').toContain(TUTORIAL_FOCUS_CARD);
     expect(hand, 'the Focus spend').toContain(TUTORIAL_SPEND_CARD);
+  });
+
+  it('puts the last two lessons in the third hand, with what they need', () => {
+    /* The one that would have shipped broken.
+     *
+     * Turn two draws twice more than it deals — Vector Step draws, and Drawn
+     * Breath's IAI rider draws — so two deck positions are swallowed into a
+     * hand that discards them. Putting the Burn card at the top of turn three
+     * by counting five-card hands is off by exactly those two, and the lesson
+     * then asks for a card the player cannot see.
+     *
+     * The Heat and the Focus are asserted for the same reason. The number
+     * lesson only says anything if IAI's bonus is live and a stack survived
+     * Meridian Cut, and Heat lands on 5 — the threshold itself, with nothing
+     * spare. */
+    const third = walkTheScript();
+    const hand = (third.run?.combat?.hand ?? []).map((card) => card.defId);
+    expect(third.run?.combat?.turn, 'the script should end on turn three').toBe(3);
+    expect(hand, 'the Burn lesson').toContain(TUTORIAL_BURN_CARD);
+    expect(hand, 'the card the last lesson reads').toContain(TUTORIAL_NUMBER_CARD);
+    expect(third.run?.combat?.heat ?? 0, 'IAI pays nothing under 5').toBeGreaterThanOrEqual(
+      STANCES.iai.hotDamageAtHeat ?? 5,
+    );
+    expect(third.run?.combat?.focus ?? 0, 'a stack has to survive the spend').toBeGreaterThan(0);
   });
 
   /* The script, played the way the coach asks for it. Measured through the real
@@ -100,9 +124,9 @@ describe('the introduction', () => {
     play(TUTORIAL_HEAT_CARD);
     state = endTurnVia(state);
     play(TUTORIAL_STANCE_CARD);
-    play(TUTORIAL_BURN_CARD);
     play(TUTORIAL_FOCUS_CARD);
     play(TUTORIAL_SPEND_CARD);
+    state = endTurnVia(state);
     return state;
   }
 
@@ -146,14 +170,18 @@ describe('the introduction', () => {
     expect(cost(TUTORIAL_BLOCK_CARD) + cost(TUTORIAL_HEAT_CARD)).toBeLessThanOrEqual(
       PLAYER.energyPerTurn,
     );
-    /* Turn two carries four of the seven lessons and has the same three Energy
-       to do it in: 0 + 1 + 0 + 2. There is no slack at all in this line, which
-       is the point of having it. */
+    /* Turn two: stance, Focus banked, Focus spent, in three Energy — 0 + 1 + 2.
+       There is no slack at all in this line, which is the point of having it,
+       and it is why the Burn lesson lives on turn three: Drawn Breath costs the
+       Energy that Settle did not. */
     const turnTwo =
-      cost(TUTORIAL_STANCE_CARD) +
-      cost(TUTORIAL_BURN_CARD) +
-      cost(TUTORIAL_FOCUS_CARD) +
-      cost(TUTORIAL_SPEND_CARD);
+      cost(TUTORIAL_STANCE_CARD) + cost(TUTORIAL_FOCUS_CARD) + cost(TUTORIAL_SPEND_CARD);
     expect(turnTwo).toBeLessThanOrEqual(PLAYER.energyPerTurn);
+    /* Turn three: the Burn lesson and the card the last step reads. Only the
+       first is played — the number step points at the other rather than
+       spending it — but both have to be affordable, or a player who plays them
+       in the other order is stuck. */
+    const turnThree = cost(TUTORIAL_BURN_CARD) + cost(TUTORIAL_NUMBER_CARD);
+    expect(turnThree).toBeLessThanOrEqual(PLAYER.energyPerTurn);
   });
 });

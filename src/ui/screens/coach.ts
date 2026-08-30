@@ -25,6 +25,7 @@ import {
   TUTORIAL_BLOCK_CARD,
   TUTORIAL_BURN_CARD,
   TUTORIAL_FOCUS_CARD,
+  TUTORIAL_NUMBER_CARD,
   TUTORIAL_SPEND_CARD,
   TUTORIAL_HEAT_CARD,
   TUTORIAL_STANCE_CARD,
@@ -257,21 +258,12 @@ const STEPS: readonly Step[] = [
     done: null,
   },
   {
-    /* The one-way door, taught by using it. The Burned pile had a name and an
-       explanation and nothing in the deck that ever put a card in it. */
-    title: 'Burn',
-    body: () =>
-      `${cardTable.get(TUTORIAL_BURN_CARD).name} says Burn. Play it and watch where it goes: not to the discard, so no shuffle brings it back this fight.`,
-    targets: [...aim(TUTORIAL_BURN_CARD), '.pile[data-pile="exhaust"]'],
-    done: (state) => played(state, TUTORIAL_BURN_CARD),
-  },
-  {
     title: 'Focus',
     /* The card is NAMED from the registry rather than written in. The step used
        to say "Play Measured Draw", and when that card was cut from the pool the
        tutorial went on confidently naming a card that no longer existed. */
     body: () =>
-      `Play ${cardTable.get(TUTORIAL_FOCUS_CARD).name}. It banks a Focus — and the stance decides what that Focus becomes: damage in IAI, Block in GUARD.`,
+      `Play ${cardTable.get(TUTORIAL_FOCUS_CARD).name}. It banks two Focus — and the stance decides what a Focus becomes: damage in IAI, Block in GUARD.`,
     targets: [hold(TUTORIAL_FOCUS_CARD), '.resource--focus'],
     done: (state) => played(state, TUTORIAL_FOCUS_CARD),
   },
@@ -282,7 +274,7 @@ const STEPS: readonly Step[] = [
      * seen to pay out. */
     title: 'Spend it',
     body: () =>
-      `One Focus, banked. Play ${cardTable.get(TUTORIAL_SPEND_CARD).name} — the stack goes into it and is consumed by the card. Watch the row empty as it does.`,
+      `Two Focus, banked. Play ${cardTable.get(TUTORIAL_SPEND_CARD).name} — it takes ONE of them and adds it to its damage. Watch the row: one pip goes, one stays. A card spends a single stack, never the pile, so what you bank keeps working until something uses it.`,
     targets: [...aim(TUTORIAL_SPEND_CARD), '.resource--focus'],
     done: (state) => played(state, TUTORIAL_SPEND_CARD),
   },
@@ -290,10 +282,17 @@ const STEPS: readonly Step[] = [
     /* Both directions of the same mechanic, on one screen, at the one moment
        both are visible: the Vulnerable the player just applied and the Weak the
        enemy is about to apply back. Taught together because a player who has
-       only ever put statuses ON things reads the enemy's pips as decoration. */
+       only ever put statuses ON things reads the enemy's pips as decoration.
+
+       KEEP THIS SHORT. It is the worst-placed step in the tutorial: it rings
+       the enemy, which sits at the top of the screen, and `placeCard` may not
+       cross the hand — so the card's own height is the whole of what decides
+       whether it can sit clear of what it is pointing at. Two more lines of
+       prose here and it goes back to covering the intent it is telling you to
+       read. */
     title: 'It goes both ways',
     body: () =>
-      `${cardTable.get(TUTORIAL_SPEND_CARD).name} left a mark: Vulnerable, because you cut it in IAI. While it is there the enemy takes more damage from everything. Now read its intent — it is about to put Weak on YOU. Statuses go both ways, and the row under your health is where yours sit. End the turn and take it.`,
+      `${cardTable.get(TUTORIAL_SPEND_CARD).name} left Vulnerable on it — while that lasts it takes more damage from everything. Now read its intent: it is about to put Weak on YOU. Statuses go both ways. End the turn and take it.`,
     targets: [
       `.enemy .pip[data-status="${VULNERABLE}"]`,
       '.enemy .intent',
@@ -321,6 +320,49 @@ const STEPS: readonly Step[] = [
       "Weak, on you: everything you swing for hits 25% softer per stack while it is there. A card's number already takes account of your stance and your Focus. It does not take account of status effects or what you are carrying (relics and implants), so your Weak, the target's Vulnerable and every relic bonus are sums you do yourself.",
     targets: [`.pips--player .pip[data-status="${WEAK}"]`, '.hand'],
     done: null,
+  },
+  {
+    /* The one place the game does the arithmetic, pointed at.
+     *
+     * Every other step here teaches a rule and leaves the player to apply it.
+     * This one is the reverse: two rules the player already met — IAI pays +2
+     * above 5 Heat, a Focus stack is worth +2 in IAI — are ALREADY folded into
+     * the number on the card, and nothing had ever said so. A player who does
+     * not know that is a player adding the same two bonuses on top of a total
+     * that already contains them.
+     *
+     * FIRST on turn three, before the Burn lesson, and that ordering is the
+     * whole reason this step works. It points at a card sitting in the hand
+     * with nothing to do — so it has to run while the hand is still the one the
+     * turn dealt. Behind a step that asks for a card to be PLAYED, the player
+     * can have spent the IAI Slash already and the lesson rings nothing.
+     *
+     * Nothing else is arranged for it. By here the Lance and the Cut have put the
+     * gauge on 5 — exactly the line — and one Focus survived Meridian Cut two
+     * steps ago. The two bonuses print differently on purpose: the stance's is
+     * folded INTO the number and turns it amber, and the Focus rides beside it
+     * as its own term, because one is already counted and the other is about to
+     * be. `damageFigures` is where that split lives. */
+    title: 'Read the number',
+    body: () =>
+      `${cardTable.get(TUTORIAL_NUMBER_CARD).name} says 6 damage on its face. Look at it in your hand: the number is an 8 now, and amber — that is IAI paying +2 on every attack while Heat is 5 or more, and yours is exactly 5. The +2 sitting beside it is the Focus you did not spend, which goes into the next attack you play. The card counts your stance and your Focus for you. Nothing else.`,
+    targets: [hold(TUTORIAL_NUMBER_CARD), '.heat', '.resource--focus'],
+    done: null,
+  },
+  {
+    /* Burn, on turn three rather than turn two.
+     *
+     * It sat between the stance lesson and the Focus one until Drawn Breath
+     * replaced Settle, and Drawn Breath costs an Energy where Settle cost
+     * none. Turn two has exactly three and no slack, so something had to move,
+     * and this was the lesson that did not care when it happened — Culling
+     * Stroke is an attack, and turn three is the turn the player is finishing
+     * the enemy anyway. */
+    title: 'Burn',
+    body: () =>
+      `${cardTable.get(TUTORIAL_BURN_CARD).name} says Burn. Play it and watch where it goes: not to the discard, so no shuffle brings it back this fight.`,
+    targets: [...aim(TUTORIAL_BURN_CARD), '.pile[data-pile="exhaust"]'],
+    done: (state) => played(state, TUTORIAL_BURN_CARD),
   },
   {
     /* The last word, and it stays the last word.
@@ -578,10 +620,15 @@ export function renderCoach(store: Store, onDone: () => void): HTMLElement {
  *      placement that makes the lesson impossible to follow. The hand is a hard
  *      floor: if the words will not fit above it they scroll inside what room
  *      there is, rather than borrowing a pixel of it.
- *   2. **As little over the rings as possible.** A preference, not a rule —
- *      nine pixels of overlap with a small chip beats a box with a scrollbar in
- *      it, and on a board cut in half by a full-width strip there is often no
- *      clear band tall enough for a paragraph.
+ *   2. **As little over the rings as possible, and never over the first one.**
+ *      A preference, not a rule — nine pixels of overlap with a small chip
+ *      beats a box with a scrollbar in it, and on a board cut in half by a
+ *      full-width strip there is often no clear band tall enough for a
+ *      paragraph. When something must be covered, the rings are ranked: a
+ *      step's `targets` are written most-important-first, so the first is the
+ *      thing the step is ABOUT and the last is usually chrome being pointed at.
+ *      Covering the least important is the one choice that never hides the
+ *      lesson.
  *   3. **As near the middle as 1 and 2 allow**, pulled toward the rings. The
  *      aim is the midpoint between the centre of the screen and the centre of
  *      what is ringed, so the words sit between the reader's eye and the thing
@@ -631,14 +678,26 @@ function placeCard(card: HTMLElement, boxes: readonly DOMRect[]): void {
       : (centre + boxes.reduce((sum, box) => sum + box.top + box.height / 2, 0) / boxes.length) / 2;
 
   /* Merged, because two rings that touch are one obstacle and treating them as
-     two invents a clear gap of zero between them. */
+     two invents a clear gap of zero between them. A merged band keeps the
+     HIGHEST weight of what went into it: if the thing the step is about is
+     touching a piece of chrome, the pair has to be avoided as though it were
+     all the important one. */
   const blocked = boxes
-    .map((box) => ({ top: box.top - pad, bottom: box.bottom + pad }))
+    .map((box, at) => ({
+      top: box.top - pad,
+      bottom: box.bottom + pad,
+      /* First target, heaviest. This is what stops the card from covering the
+         enemy it is currently telling you to read, on a board where the only
+         other obstacle is the tray at the bottom — there is no clear band, so
+         something gets covered, and it should be the tray. */
+      weight: boxes.length - at,
+    }))
     .sort((a, b) => a.top - b.top)
-    .reduce<{ top: number; bottom: number }[]>((merged, band) => {
+    .reduce<{ top: number; bottom: number; weight: number }[]>((merged, band) => {
       const last = merged[merged.length - 1];
       if (last !== undefined && band.top <= last.bottom) {
         last.bottom = Math.max(last.bottom, band.bottom);
+        last.weight = Math.max(last.weight, band.weight);
         return merged;
       }
       return [...merged, { ...band }];
@@ -651,7 +710,9 @@ function placeCard(card: HTMLElement, boxes: readonly DOMRect[]): void {
     /* Overlap dominates the score outright — a thousand to one — so distance
        from the aim only ever breaks a tie between equally clear positions. */
     const over = blocked.reduce(
-      (sum, band) => sum + Math.max(0, Math.min(at + height, band.bottom) - Math.max(at, band.top)),
+      (sum, band) =>
+        sum +
+        Math.max(0, Math.min(at + height, band.bottom) - Math.max(at, band.top)) * band.weight,
       0,
     );
     const score = over * 1000 + Math.abs(at + height / 2 - aim);

@@ -116,31 +116,54 @@ export const TUTORIAL_DECK: readonly string[] = [
   'bulwark',
   'hairline',
 
-  /* Turn two, and it holds four of the seven lessons — which is why the order
-     inside it matters as much as which cards are in it.
+  /* Turn two: stance, then Focus banked, then Focus spent.
 
-     Vector Step first: the stance step is taught before the cards that read
-     differently because of it, so Meridian Cut's IAI bonus is something the
-     player just caused rather than a number that appeared. Then Culling Stroke,
-     which is the Burn lesson and the only card in the deck that says the word.
-     Then Settle and Meridian Cut, which are Focus banked and Focus spent.
+     Vector Step first, so the cards that read differently in IAI do so because
+     of something the player just did rather than because a number changed.
 
-     Four cards, and exactly three Energy: 0 + 1 + 0 + 2. There is a test. */
+     Then Drawn Breath, which banks TWO. That is the whole reason it is here
+     instead of Settle: Meridian Cut consumes exactly one stack, so a two-stack
+     bank is the only way the player ever sees Focus survive a card — and the
+     stack that survives is what turn three's lesson reads off the face of an
+     IAI Slash.
+
+     Three cards, exactly three Energy: 0 + 1 + 2. There is a test, and there is
+     no slack in the line at all, which is why the Burn lesson had to move to
+     turn three when Drawn Breath's one Energy arrived. Bulwark and Hairline
+     ride along unplayable, which is the "everything in your hand is discarded"
+     lesson happening rather than being asserted. */
   'vector_step',
-  'culling_stroke',
-  'settle',
+  'drawn_breath',
   'meridian_cut',
   'bulwark',
+  'hairline',
 
-  /* Slack. Reached now, unlike before: the lesson deliberately leaves the enemy
-     alive, so these are what the player finishes it with. */
+  /* Two cards turn two eats.
+     Vector Step draws one and Drawn Breath's IAI rider draws another, so the
+     eleventh and twelfth cards are pulled into turn two's hand and discarded
+     there unplayed. Nothing may live here that a later lesson names — this is
+     the position that made the Burn lesson vanish the first time. */
   'sever',
   'solar_parry',
+
+  /* Turn three: the Burn lesson, then the number.
+
+     Culling Stroke says the word Burn on its own face and is an attack, so
+     where it goes is legible. Then IAI Slash, which is the last lesson — by
+     now Heat is 5 (2 from the Lance, less 1 for ending turn one in GUARD, plus
+     2 from the Cut, plus 2 for ending turn two in IAI) and one Focus is banked, so a
+     card whose face says 6 shows an amber 8 with a +2 beside it. Nothing about
+     that step is arranged; it is what the script has already done. It is also
+     exactly ON the 5-Heat line with nothing spare, so a test pins the Heat
+     rather than trusting this comment. */
+  'culling_stroke',
   'iai_slash',
+
+  /* Slack. The lesson deliberately leaves the enemy alive, so these are what
+     the player finishes it with. */
   'half_draw',
   'settle',
   'recalibrate',
-  'hairline',
   'bulwark',
   'vector_step',
   'kindled_edge',
@@ -161,7 +184,25 @@ export const TUTORIAL_STANCE_CARD = 'vector_step';
  * board, and it says the word on its own face.
  */
 export const TUTORIAL_BURN_CARD = 'culling_stroke';
-export const TUTORIAL_FOCUS_CARD = 'settle';
+/**
+ * The Focus lesson. Two stacks, not one.
+ *
+ * It was Settle, which banks one — and one is the number that makes the
+ * mechanic invisible, because the very next card eats it and the row is empty
+ * again before the player has looked away. Drawn Breath banks two, an attack
+ * spends exactly one, and what is left over is a stack the player can watch
+ * doing something on a later turn.
+ */
+export const TUTORIAL_FOCUS_CARD = 'drawn_breath';
+/**
+ * The card the last lesson reads, rather than plays.
+ *
+ * By turn three it carries both bonuses at once — the stance's +2 for being at
+ * 5 Heat or more, and +2 for the Focus stack that survived Meridian Cut — so
+ * its face says 10 where the card says 6, in orange. That is the one place the
+ * game does arithmetic for the player, and it had never been pointed at.
+ */
+export const TUTORIAL_NUMBER_CARD = 'iai_slash';
 /**
  * The card the lesson spends its Focus on.
  *
