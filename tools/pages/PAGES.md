@@ -1,8 +1,17 @@
 # The reference pages
 
 Three generated pages that document the game's content. They are not part of
-the site — `shinwar.se` serves the game and nothing else — so they live as
-Artifacts instead.
+the site — `shinwar.se` serves the game and nothing else.
+
+**Read them locally.** `npm run pages` writes them to `tools/out/pages/` and
+prints a `file://` link to an index that ties them together. That copy is the
+working tree, so it is right the moment you rebuild it.
+
+The Artifact copies below are for SENDING TO SOMEONE — they are the version of
+these pages that has a URL. They only move when Claude republishes them, which
+makes them worse than the local ones for your own use and means they are
+routinely behind. **Do not republish them as a matter of course.** Publish when
+there is someone to send a link to, and not otherwise.
 
 | Page | What is on it | Link |
 |---|---|---|
@@ -10,10 +19,11 @@ Artifacts instead.
 | **Bestiary** | Every enemy and encounter by act, with hull and damage a turn | https://claude.ai/code/artifact/164b0a88-3e7b-4360-a7f7-b1ff7c9bec8e |
 | **Anomaly Ledger** | Every event, every option, and the alloy/health economy | https://claude.ai/code/artifact/2aaf1a36-986e-4509-95e4-5b89b84761fb |
 
-**These URLs are the point of this file.** Publishing to the same URL updates
-the page in place; publishing without it makes a fourth copy that nobody will
-remember to update. If you are Claude and about to publish one of these, pass
-the URL from this table as `url`.
+**These URLs are the point of this file.** When there IS a reason to publish,
+publishing to the same URL updates the page in place; publishing without it
+makes a fourth copy that nobody will remember to update. If you are Claude and
+about to publish one of these, pass the URL from this table as `url` — and
+first check that anyone actually wants the published copy moved.
 
 ## Reading them
 
