@@ -243,6 +243,9 @@ export const NEUTRAL_CARDS: readonly CardDef[] = [
     rarity: 'uncommon',
     archetype: 'neutral',
     cost: 1,
+    /* Burn, for the reason Take the Weight burns: Strength does not decay, so
+       a permanent stack on a re-drawable card is not a stack, it is a slope. */
+    exhaust: true,
     effects: [
       { op: 'damage', amount: 4, target: 'enemy' },
       { op: 'applyStatus', status: STRENGTH, stacks: 1, target: 'self' },

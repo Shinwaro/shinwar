@@ -113,32 +113,51 @@ export function floatText(request: FloatRequest): void {
 
   fxEndsAt = Math.max(fxEndsAt, performance.now() + request.delay + FLOAT_MS);
 
-  /* Numbers rise. Block expiring FALLS, and slides off to the side.
+  /* Three arcs, and the direction carries the meaning.
    *
-   * It is the one figure on the board that is not something happening to you —
-   * armour running out at the start of your turn is the absence of an event —
-   * and giving it the same upward arc as a hit meant a number leaving your
-   * shield read as a number being taken off you. Different direction, different
-   * colour, no confusion. */
-  const falling = request.kind === 'expire';
-  const frames: Keyframe[] = falling
-    ? [
-        { opacity: 0, transform: 'translate(-50%, -6px) scale(0.9)' },
-        { opacity: 0.9, transform: 'translate(-20%, 8px) scale(1)', offset: 0.28 },
-        { opacity: 0.7, transform: 'translate(0%, 20px) scale(0.96)', offset: 0.7 },
-        { opacity: 0, transform: 'translate(14%, 34px) scale(0.88)' },
-      ]
-    : [
-        { opacity: 0, transform: 'translate(-50%, 0) scale(0.8)' },
-        { opacity: 1, transform: 'translate(-50%, -16px) scale(1)', offset: 0.22 },
-        { opacity: 1, transform: 'translate(-50%, -34px) scale(1)', offset: 0.68 },
-        { opacity: 0, transform: 'translate(-50%, -52px) scale(0.95)' },
-      ];
+   * RISE is a number in the fight's own currency — damage, Block, heal, Heat.
+   * Those are the figures a player adds up.
+   *
+   * SINK is a status ARRIVING. It used to rise, and rising is what damage does,
+   * so "Vulnerable +2" over an enemy that took no damage read as a hit for 2 —
+   * the one reading that is exactly wrong, because the number is a count of
+   * stacks and not an amount of anything. Statuses now fall onto their holder,
+   * which is also what the word means.
+   *
+   * SHED is a status or Block LEAVING: falls, and slides off to the side. It is
+   * the one figure that is not an event at all — armour running out, a stack
+   * decaying — so it drifts out of the column rather than landing in it. The
+   * sideways drift is what separates it from a status arriving now that both
+   * go downward. */
+  const arc: 'rise' | 'sink' | 'shed' =
+    request.kind === 'expire' ? 'shed' : request.kind === 'status' ? 'sink' : 'rise';
+
+  const frames: Keyframe[] =
+    arc === 'shed'
+      ? [
+          { opacity: 0, transform: 'translate(-50%, -6px) scale(0.9)' },
+          { opacity: 0.9, transform: 'translate(-20%, 8px) scale(1)', offset: 0.28 },
+          { opacity: 0.7, transform: 'translate(0%, 20px) scale(0.96)', offset: 0.7 },
+          { opacity: 0, transform: 'translate(14%, 34px) scale(0.88)' },
+        ]
+      : arc === 'sink'
+        ? [
+            { opacity: 0, transform: 'translate(-50%, -10px) scale(0.86)' },
+            { opacity: 1, transform: 'translate(-50%, 8px) scale(1)', offset: 0.24 },
+            { opacity: 1, transform: 'translate(-50%, 26px) scale(1)', offset: 0.68 },
+            { opacity: 0, transform: 'translate(-50%, 44px) scale(0.95)' },
+          ]
+        : [
+            { opacity: 0, transform: 'translate(-50%, 0) scale(0.8)' },
+            { opacity: 1, transform: 'translate(-50%, -16px) scale(1)', offset: 0.22 },
+            { opacity: 1, transform: 'translate(-50%, -34px) scale(1)', offset: 0.68 },
+            { opacity: 0, transform: 'translate(-50%, -52px) scale(0.95)' },
+          ];
 
   const animation = node.animate(frames, {
-    duration: falling ? Math.round(FLOAT_MS * 0.72) : FLOAT_MS,
+    duration: arc === 'shed' ? Math.round(FLOAT_MS * 0.72) : FLOAT_MS,
     delay: request.delay,
-    easing: falling ? 'cubic-bezier(.4,0,.7,1)' : 'cubic-bezier(.2,.7,.3,1)',
+    easing: arc === 'rise' ? 'cubic-bezier(.2,.7,.3,1)' : 'cubic-bezier(.4,0,.7,1)',
     fill: 'both',
   });
 
@@ -638,9 +657,25 @@ export function forgetResources(): void {
 interface PipMemory {
   readonly text: string;
   readonly cls: string;
+  readonly stacks: number;
 }
 
 const lastPips = new Map<string, Map<string, PipMemory>>();
+
+/* Owner|status pairs the log already floated a number for, this render.
+ *
+ * A card that strips two Vulnerable writes a log entry, and `playLogFx` floats
+ * it. The pip count then drops, and the walk below would float the same fact a
+ * second time. `playLogFx` runs first in the render (see `combat.ts`), so it
+ * marks what it has said and this clears the marks when it is done — the walk
+ * ends up covering exactly the silent case, which is decay. `decayStatuses`
+ * writes no log line at all, deliberately: a round that shed four stacks across
+ * two enemies would otherwise be four lines of nothing happening. */
+const spokenFor = new Set<string>();
+
+function noteStatusFloat(owner: string, status: string): void {
+  spokenFor.add(`${owner}|${status}`);
+}
 
 /** How long a departing pip lingers. Matches the CSS below. */
 const PIP_FADE_MS = 480;
@@ -657,7 +692,11 @@ export function fadeExpiredPips(host: HTMLElement): void {
     for (const pip of box.querySelectorAll<HTMLElement>('.pip[data-status]')) {
       const id = pip.dataset['status'];
       if (id === undefined) continue;
-      now.set(id, { text: pip.textContent ?? '', cls: pip.className });
+      now.set(id, {
+        text: pip.textContent ?? '',
+        cls: pip.className,
+        stacks: Number(pip.dataset['stacks'] ?? '0'),
+      });
     }
 
     const before = lastPips.get(owner);
@@ -665,13 +704,36 @@ export function fadeExpiredPips(host: HTMLElement): void {
     if (before === undefined || prefersReducedMotion()) continue;
 
     for (const [id, was] of before) {
-      if (now.has(id)) continue;
-      const ghost = document.createElement('span');
-      ghost.className = `${was.cls} is-expiring`;
-      ghost.textContent = was.text;
-      ghost.setAttribute('aria-hidden', 'true');
-      box.append(ghost);
-      window.setTimeout(() => ghost.remove(), PIP_FADE_MS);
+      const still = now.get(id);
+
+      /* Gone entirely: leave a ghost where the pip was, so the row does not
+         simply have one fewer thing in it between two frames. */
+      if (still === undefined) {
+        const ghost = document.createElement('span');
+        ghost.className = `${was.cls} is-expiring`;
+        ghost.textContent = was.text;
+        ghost.setAttribute('aria-hidden', 'true');
+        box.append(ghost);
+        window.setTimeout(() => ghost.remove(), PIP_FADE_MS);
+      }
+
+      /* Still there but smaller, or gone from a count above one: float what
+         came off. This is the case that had nothing — a Vulnerable going 3 to 2
+         is the player's whole plan for the turn changing, and it happened
+         silently because decay writes no log line. */
+      const lost = was.stacks - (still?.stacks ?? 0);
+      if (lost <= 0 || spokenFor.has(`${owner}|${id}`)) continue;
+
+      const anchor = still === undefined ? box : box.querySelector(`.pip[data-status="${id}"]`);
+      const rect = (anchor ?? box).getBoundingClientRect();
+      if (rect.width === 0 && rect.height === 0) continue;
+      floatText({
+        text: `-${lost}`,
+        kind: 'expire',
+        x: rect.left + rect.width / 2,
+        y: rect.top + rect.height * 0.5,
+        delay: 0,
+      });
     }
   }
 
@@ -679,6 +741,10 @@ export function fadeExpiredPips(host: HTMLElement): void {
   for (const owner of [...lastPips.keys()]) {
     if (!seen.has(owner)) lastPips.delete(owner);
   }
+
+  /* Consumed. Anything the log spoke for has now been skipped once, and the
+     next render starts from silence again. */
+  spokenFor.clear();
 }
 
 /** A new fight knows nothing about the last one's statuses. */
@@ -1202,6 +1268,10 @@ const HEAT_RISE_MS = 380;
 
 interface Hit {
   readonly target: string;
+  /* Set only on status floats. It is what lets `fadeExpiredPips` tell the
+     stack it is about to report from the one the log has already reported —
+     see `spokenFor`. */
+  readonly status?: string;
   readonly text: string;
   readonly kind: FloatKind;
   /** How much hull this instance actually cost. Zero for a full absorb. */
@@ -1270,6 +1340,7 @@ function hitsFromEntry(entry: LogEntry): readonly Hit[] {
     return [
       {
         target,
+        status: id,
         text: `${name} ${stacks > 0 ? '+' : ''}${stacks}`,
         kind: stacks < 0 ? 'expire' : def?.kind === 'buff' ? 'boon' : 'status',
         toHull: 0,
@@ -1608,6 +1679,11 @@ export function playLogFx(
         steps.push({ delay, share: hit.toHull });
         drains.set(key, steps);
       }
+
+      /* Said out loud, so the pip walk after this render does not say it
+         again. Only statuses need it: everything else here is an event with no
+         pip to diff. */
+      if (hit.status !== undefined) noteStatusFloat(hit.target, hit.status);
 
       floatText({
         text: hit.text,

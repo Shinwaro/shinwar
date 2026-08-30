@@ -66,9 +66,11 @@ export function renderEnemy(
       {
         class: `pip pip--${statusTable.find(held.status)?.kind ?? 'debuff'}`,
         title: statusTable.find(held.status)?.text ?? held.status,
-        // Identity, so the animation layer can tell one that fell off from one
-        // that only changed its count. See `fadeExpiredPips`.
+        // Identity and count, so the animation layer can tell one that fell
+        // off from one that only changed its count, and can say by how much.
+        // See `fadeExpiredPips`.
         'data-status': held.status,
+        'data-stacks': String(held.stacks),
       },
       [describeStatus(held.status, held.stacks)],
     ),

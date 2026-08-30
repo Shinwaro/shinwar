@@ -61,6 +61,11 @@ export const GUARD_CARDS: readonly CardDef[] = [
     rarity: 'common',
     archetype: 'guard',
     cost: 1,
+    /* Burn. Tempered never falls off, so a card that grants it and stays in the
+       deck is a card that grants it again every shuffle — a common that ends
+       the run at 6 armour if the fight goes long enough. Once per copy is the
+       whole of what makes a permanent stack safe to print this low. */
+    exhaust: true,
     effects: [
       { op: 'block', amount: 4 },
       { op: 'applyStatus', status: TEMPERED, stacks: 1, target: 'self' },

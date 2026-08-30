@@ -552,6 +552,7 @@ function build(
                   tabindex: '0',
                   title: def?.text ?? held.status,
                   'data-status': held.status,
+                  'data-stacks': String(held.stacks),
                 },
                 [describeStatus(held.status, held.stacks)],
               );
