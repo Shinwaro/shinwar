@@ -13,13 +13,14 @@
  *   Absolute Zero      the defensive turnaround — the answer to a board you
  *                      have already lost the tempo of
  *   Cut the Line       the execution ceiling, and dead weight against a boss
+ *   The Long Corrosion the attrition ceiling, and far too slow to save you
  *
  * That last one matters: a legendary that is always correct is a legendary
  * that removes a decision. Each of these is a bad draw somewhere.
  */
 
 import type { CardDef } from '../../engine/types.ts';
-import { TEMPERED, WEAK } from '../statuses.ts';
+import { RUST, TEMPERED, WEAK } from '../statuses.ts';
 
 export const LEGENDARY_CARDS: readonly CardDef[] = [
   {
@@ -131,5 +132,40 @@ export const LEGENDARY_CARDS: readonly CardDef[] = [
       ],
     },
     flavor: 'Take the one at the front and the rest of it stops being a formation.',
+  },
+
+  {
+    /* The attrition ceiling, and the pillar the three-cost slot did not have.
+     *
+     * Five Rust on everything is 30 unblockable a head, paid out over five of
+     * their turns and stopped by nothing — no Block, no Tempered, no plating.
+     * Against a wide Act 3 board that is more total damage than anything else
+     * in the game.
+     *
+     * And it is the worst card here to draw at the wrong moment, which is what
+     * earns it the slot. It deals eight damage the turn you play it. If the
+     * fight ends in three turns you paid a whole turn for eight damage and a
+     * burnt card; the Rust you were counting on is still on the board when the
+     * board stops existing. It wins fights it was already going to win slowly
+     * and it loses the ones that were going fast. */
+    id: 'the_long_corrosion',
+    name: 'The Long Corrosion',
+    type: 'attack',
+    rarity: 'mythic',
+    archetype: 'neutral',
+    cost: 3,
+    exhaust: true,
+    effects: [
+      { op: 'damage', amount: 8, target: 'allEnemies' },
+      { op: 'applyStatus', status: RUST, stacks: 5, target: 'allEnemies' },
+    ],
+    upgrade: {
+      name: 'The Long Corrosion+',
+      effects: [
+        { op: 'damage', amount: 10, target: 'allEnemies' },
+        { op: 'applyStatus', status: RUST, stacks: 6, target: 'allEnemies' },
+      ],
+    },
+    flavor: 'It does not need you after this. It only needed the air and an opening.',
   },
 ];

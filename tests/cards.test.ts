@@ -197,9 +197,12 @@ describe('cards that read the enemy health bar', () => {
   }
 
   it('pays a threshold card only under its line', () => {
-    expect(play('finishing_line', 100, 100).dealt, 'whole').toBe(6);
-    expect(play('finishing_line', 60, 100).dealt, 'above the line').toBe(6);
-    expect(play('finishing_line', 30, 100).dealt, 'under it').toBe(12);
+    /* Execute, since Finishing Line came out. Same shape, harder cliff: this
+       one is nearly worthless above the line and enormous below it, which is
+       the whole reason the family survived down to one of these. */
+    expect(play('execute', 100, 100).dealt, 'whole').toBe(5);
+    expect(play('execute', 60, 100).dealt, 'above the line').toBe(5);
+    expect(play('execute', 20, 100).dealt, 'under it').toBe(16);
   });
 
   it('reads the line from the other side too', () => {
@@ -211,9 +214,12 @@ describe('cards that read the enemy health bar', () => {
   });
 
   it('slopes with how much the target has lost', () => {
+    /* Two against something untouched, which is the point of the card and not
+       a typo: the floor is deliberately below anything else at the cost, so
+       the slope is the whole reason to hold it. */
     const whole = play('widening_gyre', 100, 100).dealt;
     const half = play('widening_gyre', 50, 100).dealt;
-    expect(whole, 'nothing missing, nothing extra').toBe(5);
+    expect(whole, 'nothing missing, nothing extra').toBe(2);
     expect(half).toBeGreaterThan(whole);
   });
 

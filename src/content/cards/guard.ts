@@ -5,18 +5,22 @@
  */
 
 import type { CardDef } from '../../engine/types.ts';
-import { WEAK } from '../statuses.ts';
+import { TEMPERED, WEAK } from '../statuses.ts';
 
 export const GUARD_CARDS: readonly CardDef[] = [
   {
     id: 'bulwark',
     name: 'Bulwark',
     type: 'skill',
-    rarity: 'common',
+    /* Uncommon at 10, where it was a common at 8.
+       Ten Block for one Energy is more than a common should be allowed to do
+       flat — it answers a whole Act 1 turn by itself. The tier is the price of
+       the number, not a judgement about the card. */
+    rarity: 'uncommon',
     archetype: 'guard',
     cost: 1,
-    effects: [{ op: 'block', amount: 8 }],
-    upgrade: { name: 'Bulwark+', effects: [{ op: 'block', amount: 11 }] },
+    effects: [{ op: 'block', amount: 10 }],
+    upgrade: { name: 'Bulwark+', effects: [{ op: 'block', amount: 13 }] },
     flavor: 'Plate salvaged off something that did not survive needing it.',
   },
 
@@ -27,17 +31,48 @@ export const GUARD_CARDS: readonly CardDef[] = [
     rarity: 'uncommon',
     archetype: 'guard',
     cost: 1,
-    /* 8, matching Bulwark's common yardstick, with the GUARD rider as the
-       whole of the tier difference. It was 11 to escape being a strictly worse
-       common; the rider does that job on its own, and 11 made this the only
-       defensive card worth drawing. */
-    effects: [{ op: 'block', amount: 8 }],
+    /* 6, and the rider is the card.
+       Bulwark now prints 10 at the same cost and the same tier, so there is no
+       version of this that competes on the Block figure — which is the point.
+       You take this one because a stack of Weak across the whole board is worth
+       more than four Block, and on the turns it is not, you take the other. */
+    effects: [{ op: 'block', amount: 6 }],
     stanceRider: {
       stance: 'guard',
       effects: [{ op: 'applyStatus', status: WEAK, stacks: 1, target: 'allEnemies' }],
     },
-    upgrade: { name: 'Deflection Field+', effects: [{ op: 'block', amount: 11 }] },
+    upgrade: { name: 'Deflection Field+', effects: [{ op: 'block', amount: 9 }] },
     flavor: 'Not a wall. A suggestion, made forcefully, about where things should go.',
+  },
+
+  {
+    /* Tempered's entry point, and it had none — the status started at uncommon
+       and climbed, so a deck either found Settle the Stance or never met the
+       mechanic at all. A common has to teach it: four Block is plainly worse
+       than Bulwark's ten and the stack is why you would take it anyway, which
+       is the whole lesson about armour you keep against armour you rebuild.
+
+       One stack. Tempered never falls off now, so a common that printed two
+       would be a common that ends Act 1 fights on its own if you saw it
+       twice. */
+    id: 'take_the_weight',
+    name: 'Take the Weight',
+    type: 'skill',
+    rarity: 'common',
+    archetype: 'guard',
+    cost: 1,
+    effects: [
+      { op: 'block', amount: 4 },
+      { op: 'applyStatus', status: TEMPERED, stacks: 1, target: 'self' },
+    ],
+    upgrade: {
+      name: 'Take the Weight+',
+      effects: [
+        { op: 'block', amount: 6 },
+        { op: 'applyStatus', status: TEMPERED, stacks: 1, target: 'self' },
+      ],
+    },
+    flavor: 'Not caught. Accepted, and then carried.',
   },
 
   {

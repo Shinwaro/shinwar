@@ -176,8 +176,8 @@ describe('the power cards', () => {
 describe('the three-Energy cards', () => {
   const threes = () => cardTable.all().filter((card) => card.cost === 3);
 
-  it('ships exactly three, all legendary', () => {
-    expect(threes()).toHaveLength(3);
+  it('ships exactly four, all mythic', () => {
+    expect(threes()).toHaveLength(4);
     for (const card of threes()) expect(card.rarity, card.id).toBe('mythic');
   });
 

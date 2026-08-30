@@ -34,10 +34,11 @@ export const THREAD_DEFS: readonly ThreadDef[] = [
     tone: 'mixed',
     omen: 'It is warm, and it is counting down to something.',
     trigger: { kind: 'nodes', count: 5 },
-    payoff: [
-      { op: 'card', cardId: 'vareth_hatchling' },
-      { op: 'health', amount: 15 },
-    ],
+    /* The card is the whole payoff. The 15 health was here from when the
+       Hatchling was a smaller thing than it turned out to be, and a Thread that
+       hands you a permanent innate card AND repairs a third of your hull is not
+       a choice with a cost, it is the correct button. */
+    payoff: [{ op: 'card', cardId: 'vareth_hatchling' }],
   },
   {
     id: 'coolant_leak',

@@ -107,7 +107,7 @@ export const HULL_CARDS: readonly CardDef[] = [
       {
         op: 'conditional',
         when: { kind: 'hullAbovePct', value: 70 },
-        then: [{ op: 'block', amount: 11 }],
+        then: [{ op: 'block', amount: 12 }],
         else: [{ op: 'block', amount: 6 }],
       },
     ],
@@ -129,7 +129,11 @@ export const HULL_CARDS: readonly CardDef[] = [
     id: 'full_tanks',
     name: 'Full Tanks',
     type: 'skill',
-    rarity: 'uncommon',
+    /* Epic. Draw 2 is a fair uncommon on its own and the Energy back on top of
+       it is the strongest line a 1-cost has; the gate does not make that
+       cheaper, it only makes it conditional, and a conditional epic is still an
+       epic on the turns it fires. */
+    rarity: 'epic',
     archetype: 'neutral',
     cost: 1,
     /* An Energy back is the strongest thing a 1-cost can offer, so it is gated

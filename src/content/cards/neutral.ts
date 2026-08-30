@@ -198,6 +198,66 @@ export const NEUTRAL_CARDS: readonly CardDef[] = [
   },
 
   {
+    /* The Rust ladder's top single-target rung. Corrosive Edge teaches it,
+       Rust Bloom spreads it, Rusting Wind does both at once — and this one
+       simply commits, which is the thing none of the others can afford.
+
+       Five stacks is 30 unblockable, paid out 10, 8, 6, 4, 2 over five of the
+       target's turns. That is more than any legendary deals in one card and it
+       arrives too slowly to save you from anything, which is the entire trade:
+       against a boss it is the best card in the deck and against the last
+       enemy of a pack it is six damage and a burnt card. */
+    id: 'salt_the_wound',
+    name: 'Salt the Wound',
+    type: 'attack',
+    rarity: 'legendary',
+    archetype: 'neutral',
+    cost: 1,
+    exhaust: true,
+    effects: [
+      { op: 'damage', amount: 6, target: 'enemy' },
+      { op: 'applyStatus', status: RUST, stacks: 5, target: 'enemy' },
+    ],
+    upgrade: {
+      name: 'Salt the Wound+',
+      effects: [
+        { op: 'damage', amount: 8, target: 'enemy' },
+        { op: 'applyStatus', status: RUST, stacks: 6, target: 'enemy' },
+      ],
+    },
+    flavor: 'You do not have to be there when it finishes.',
+  },
+
+  {
+    /* Strength had nothing under epic, which meant the only way into the
+       archetype was finding one specific card. This is the way in: a fair
+       1-cost attack that happens to leave you permanently a little better at
+       attacking, so a deck can commit to Strength gradually instead of all at
+       once or not at all.
+
+       Four damage is deliberately under the curve for the cost. The stack is
+       what you are paying for, and it pays from the next card onward. */
+    id: 'set_the_shoulder',
+    name: 'Set the Shoulder',
+    type: 'attack',
+    rarity: 'uncommon',
+    archetype: 'neutral',
+    cost: 1,
+    effects: [
+      { op: 'damage', amount: 4, target: 'enemy' },
+      { op: 'applyStatus', status: STRENGTH, stacks: 1, target: 'self' },
+    ],
+    upgrade: {
+      name: 'Set the Shoulder+',
+      effects: [
+        { op: 'damage', amount: 6, target: 'enemy' },
+        { op: 'applyStatus', status: STRENGTH, stacks: 1, target: 'self' },
+      ],
+    },
+    flavor: 'The weight goes through you or it goes into you. Those are the options.',
+  },
+
+  {
     id: 'field_repair',
     name: 'Field Repair',
     type: 'skill',

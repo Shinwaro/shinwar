@@ -46,17 +46,20 @@ export const EVENT_CARDS: readonly CardDef[] = [
     // Innate: it is there at the start of every fight, the way a companion is.
     // The closest the deck can get to an ally without an ally system.
     innate: true,
-    // A legendary you are handed once, for free, every fight. At 5/3 it was a
-    // common with a story attached.
+    /* 6 and 3, for free, in your opening hand of every fight for the rest of
+       the run. The figure looks small written down and it is not: it is a whole
+       extra card a turn that never costs Energy and never misses, and at 9/6 it
+       was quietly the best card in the game from the moment the Thread paid
+       out. What it is for is the companion, not the numbers. */
     effects: [
-      { op: 'damage', amount: 9, target: 'enemy' },
-      { op: 'block', amount: 6 },
+      { op: 'damage', amount: 6, target: 'enemy' },
+      { op: 'block', amount: 3 },
     ],
     upgrade: {
       name: 'Vareth Hatchling+',
       effects: [
-        { op: 'damage', amount: 13, target: 'enemy' },
-        { op: 'block', amount: 9 },
+        { op: 'damage', amount: 9, target: 'enemy' },
+        { op: 'block', amount: 5 },
       ],
     },
     flavor: 'It has decided you are the shape a parent is.',

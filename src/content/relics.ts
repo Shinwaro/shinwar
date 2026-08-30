@@ -102,7 +102,10 @@ export const RELICS: readonly RelicDef[] = [
     id: 'drawn_string',
     name: 'Drawn String',
     text: 'Each stack of Focus is worth 2 more when it is spent.',
-    rarity: 'epic',
+    /* Uncommon. It only pays in a deck already built to bank Focus, and a relic
+       that does nothing until you have made a plan is the definition of the
+       tier — the epics are the ones that are good the turn you find them. */
+    rarity: 'uncommon',
     passive: { focusPerStackBonus: 2 },
     flavor: 'Wound tighter than it should be. That is the entire technique.',
   },
@@ -179,7 +182,10 @@ export const RELICS: readonly RelicDef[] = [
     id: 'long_form_ledger',
     name: 'Long Form',
     text: 'Every third card you play in a turn, gain 1 Focus.',
-    rarity: 'epic',
+    /* Uncommon, alongside Drawn String, for the same reason: three cards in one
+       turn is a deck that was built for it, and this pays nothing at all to a
+       deck that was not. */
+    rarity: 'uncommon',
     flavor: 'Counting is the discipline. The rest is only swordsmanship.',
   },
   {

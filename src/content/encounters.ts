@@ -62,6 +62,16 @@ export interface EncounterDef {
    */
   readonly minRow?: number;
   /**
+   * Every enemy opens on the first move in its rotation that actually attacks,
+   * instead of rolling a starting move.
+   *
+   * The roll is right almost everywhere — it is what stops a second meeting
+   * from being the first one replayed. It is wrong on a board that is mostly
+   * one repeated enemy, where the roll decides how much the encounter does on
+   * turn one before the player has seen a card. Set it there and nowhere else.
+   */
+  readonly openOnAttack?: boolean;
+  /**
    * Never placed on a chart. The introduction's fight only.
    *
    * Same shape as `EventDef.pinnedOnly`: content that is reachable by name and
@@ -297,15 +307,25 @@ export const ENCOUNTERS: readonly EncounterDef[] = [
      difficulty spike and calling it variety. */
 
   {
-    /* Act 1's only three-wide, and deliberately the softest three in the game:
-       two Wisps and a Hound is less total health than the Pack, so it teaches
-       the shape of a wide board before anything punishes reading it slowly. */
+    /* Act 1's only three-wide, and the lesson is the WIDTH, not the fight.
+     *
+     * Three Wisps, 54 hull, which puts it inside the two-wide band (46-60)
+     * rather than above all of it. The Hound it replaced carried 28 on its own
+     * and made the widest board in the act also the toughest, which taught the
+     * opposite of the intended thing. Wide and thin is the shape: what it asks
+     * is whether you can pick a target, and that is the only skill a
+     * three-wide has to teach.
+     *
+     * It opens on attacks because a Wisp that opens on Stoke is a Wisp that
+     * does nothing on turn one. With three of them, a rolled opening decided
+     * how hard the encounter was before the player had seen a card. */
     id: 'wisp_swarm',
     name: 'Swarm',
     act: 1,
     tier: 'normal',
     minRow: 5,
-    enemyIds: [CINDER_WISP, CINDER_WISP, SCRAP_HOUND],
+    openOnAttack: true,
+    enemyIds: [CINDER_WISP, CINDER_WISP, CINDER_WISP],
   },
   {
     /* The Adept scales and the Drone does not, in front of a Tick that is

@@ -273,9 +273,13 @@ export const EVENTS: readonly EventDef[] = [
         id: 'hold',
         label: 'Strip the hold',
         detail: 'Whatever they were running, they were running a lot of it.',
+        /* The hold is the Alloy option and the log is the health one. They both
+           paid health before, which made the log strictly worse — same repair,
+           no Alloy, and a card gone. Splitting them is what makes the choice
+           one. */
         effects: [
           { op: 'alloy', amount: 40 },
-          { op: 'health', amount: 8 },
+          { op: 'health', amount: 4 },
         ],
         risk: 'None',
         payoff: 'Immediate, moderate',
@@ -285,7 +289,7 @@ export const EVENTS: readonly EventDef[] = [
         label: 'Read the flight log',
         detail: 'You find out what they were carrying, and why they stopped.',
         effects: [
-          { op: 'health', amount: 4 },
+          { op: 'health', amount: 8 },
           { op: 'removeRandomCard' },
         ],
         risk: 'The deck',
@@ -511,12 +515,16 @@ export const EVENTS: readonly EventDef[] = [
         id: 'memory',
         label: 'Sell a form of the sect',
         detail: 'They record you doing it. You will not do it the same way again.',
+        /* 55, halved. A card out of the deck is a BENEFIT most of the time —
+           thinning is how a deck gets good — so paying a large purse on top of
+           it made this the free option with a sad sentence attached rather than
+           a sale of something you needed. */
         effects: [
           { op: 'removeRandomCard' },
-          { op: 'alloy', amount: 110 },
+          { op: 'alloy', amount: 55 },
         ],
         risk: 'The deck',
-        payoff: 'Immediate, large',
+        payoff: 'Immediate, moderate',
       },
       {
         id: 'leave',
@@ -743,12 +751,15 @@ export const EVENTS: readonly EventDef[] = [
         id: 'strip',
         label: 'Strip the shop',
         detail: 'Tools, stock, and the good steel he never got to.',
+        /* 145. It hands you a Thread that comes back for you, and a deferred
+           cost has to be outbid by the immediate one or nobody takes the deal
+           — 115 was inside the range you could get without owing anybody. */
         effects: [
-          { op: 'alloy', amount: 115 },
+          { op: 'alloy', amount: 145 },
           { op: 'setThread', threadId: 'yard_debt' },
         ],
         risk: 'Deferred',
-        payoff: 'Immediate, moderate',
+        payoff: 'Immediate, large',
       },
       {
         id: 'pass',
@@ -942,10 +953,10 @@ export const EVENTS: readonly EventDef[] = [
         id: 'rites',
         label: 'Say the forms over them',
         detail: 'The sect had words for this. You are the only one left who knows them.',
-        effects: [
-          { op: 'health', amount: 7 },
-          { op: 'setThread', threadId: 'sect_rites' },
-        ],
+        /* The Thread is the whole of it. Health on top made the rite pay twice
+           and made the option that costs you nothing also the option that heals
+           you, which is not a choice. */
+        effects: [{ op: 'setThread', threadId: 'sect_rites' }],
         risk: 'Unknown',
         payoff: 'Unknown',
       },
@@ -1099,15 +1110,12 @@ export const EVENTS: readonly EventDef[] = [
         id: 'work',
         label: 'Hold instruments for a shift',
         detail: 'You learn where things are inside a person. It is applicable.',
-        /* Five, down from ten. The bed above costs 90 Alloy for eleven health,
-           so a free ten made the paid option strictly worse than the free one —
-           and an Anomaly whose options are ranked is not an Anomaly, it is a
-           button. Five is a shift's worth: less than the surgeon's, and it
-           comes with the card. */
-        effects: [
-          { op: 'card', cardId: 'hairline' },
-          { op: 'health', amount: 5 },
-        ],
+        /* The card, and nothing else. It went ten, then five, then off: the bed
+           above costs 90 Alloy for eleven health, and any free repair here makes
+           the paid option worse than the free one. An Anomaly whose options are
+           ranked is not an Anomaly, it is a button. The card is payment for a
+           shift's work; the rest of the event is where you buy health. */
+        effects: [{ op: 'card', cardId: 'hairline' }],
         risk: 'None',
         payoff: 'Immediate, specific',
       },

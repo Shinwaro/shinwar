@@ -15,8 +15,8 @@
  * strongest thing the game can hand them is not a better sword, it is the part
  * of their own training they were never taught — and the price of it is
  * deciding, once, which kind of ronin they are going to be. Every option here
- * is a form the order kept back, and taking one means the other three stay in
- * the box.
+ * is a form the order kept back, and taking one means the rest stay in the
+ * box.
  *
  * The Thread on the last option is not decoration: the validator requires an
  * Anomaly to defer at least one consequence, and taking the whole vault
@@ -36,7 +36,7 @@ export const RELIQUARY_EVENT: EventDef = {
   acts: [2],
   body:
     'A sect vault, keyed to a hand shape you have not made since you were nineteen, tumbled into ' +
-    'a rock nobody has any reason to visit. Inside are four sealed forms — the ones the order ' +
+    'a rock nobody has any reason to visit. Inside are five sealed forms — the ones the order ' +
     'taught to nobody, on the reasoning that a technique everyone knows is a technique everyone ' +
     'can answer. The seals are single-use. You are the last person alive who can open any of them, ' +
     'and you can open one.',
@@ -68,6 +68,16 @@ export const RELIQUARY_EVENT: EventDef = {
         'How to take the one at the front so cleanly that the rest of it stops being a formation. ' +
         'The order used it once, on their own.',
       effects: [{ op: 'card', cardId: 'cut_the_line' }],
+      risk: 'None',
+      payoff: 'Permanent, specific',
+    },
+    {
+      id: 'the_corrosion',
+      label: 'The corrosion',
+      detail:
+        'The form for an enemy you cannot beat today. You do not beat it today. The order kept ' +
+        'this one back out of embarrassment rather than danger.',
+      effects: [{ op: 'card', cardId: 'the_long_corrosion' }],
       risk: 'None',
       payoff: 'Permanent, specific',
     },

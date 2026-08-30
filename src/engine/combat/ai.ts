@@ -45,15 +45,45 @@ function advance(ai: EnemyAiState, chosen: EnemyMove, moveIndex: number): EnemyA
  */
 export function startingMoveIndex(def: EnemyDef, rng: RngState): { index: number; rng: RngState } {
   const script = def.script;
-  const length =
-    script.kind === 'sequence'
-      ? script.moves.length
-      : script.kind === 'phased'
-        ? script.opening.length
-        : 0;
+  const length = rotationLength(script);
   if (length <= 1) return { index: 0, rng };
   const rolled = nextInt(rng, 'combat', 0, length);
   return { index: rolled.value, rng: rolled.rng };
+}
+
+function rotationLength(script: EnemyDef['script']): number {
+  return script.kind === 'sequence'
+    ? script.moves.length
+    : script.kind === 'phased'
+      ? script.opening.length
+      : 0;
+}
+
+/**
+ * The first place in the rotation where this enemy actually swings.
+ *
+ * For `openOnAttack` encounters. Takes no RNG and returns no RNG, which is the
+ * point — an encounter that pins its opening must not consume a roll, or every
+ * downstream draw in the fight would shift depending on a flag in the
+ * encounter table.
+ *
+ * Falls back to zero when nothing in the rotation attacks. A board of pure
+ * support enemies opening "on an attack" is a content mistake rather than a
+ * runtime one, and index zero is the honest answer to an impossible question.
+ */
+export function firstAttackingMoveIndex(def: EnemyDef): number {
+  const script = def.script;
+  const ids =
+    script.kind === 'sequence'
+      ? script.moves
+      : script.kind === 'phased'
+        ? script.opening
+        : [];
+  for (let index = 0; index < ids.length; index += 1) {
+    const move = def.moves.find((entry) => entry.id === ids[index]);
+    if (move?.intent.some((hit) => hit.kind === 'attack') === true) return index;
+  }
+  return 0;
 }
 
 /** How much a move's printed weight is worth, given how recently it ran. */

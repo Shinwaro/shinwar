@@ -206,13 +206,18 @@ export const IMPLANTS: readonly ImplantDef[] = [
     id: 'vigil_plating',
     name: 'Vigil Plating',
     /* The high-side one, and the only implant that asks you to stay clean.
-       Priced as an epic because 3 off every attack is enormous — but it is the
-       first thing to switch off when the act goes badly, which is exactly the
-       turn you wanted it most. */
-    rarity: 'legendary',
-    price: 250,
+       Three off every attack is enormous — but it is the first thing to switch
+       off when the act goes badly, which is exactly the turn you wanted it
+       most, and that is the whole of what you are buying.
+
+       The line went to 60%. At 50% it was still on through most of a bad act,
+       which made "stay clean" a thing you drifted into rather than a thing you
+       played for; 60% is a bar you have to actually hold. The tier came down
+       with it — a legendary should not switch itself off. */
+    rarity: 'epic',
+    price: 200,
     maxStacks: 1,
-    passive: { whenHullAbovePct: 50, damageTakenFlat: 3 },
+    passive: { whenHullAbovePct: 60, damageTakenFlat: 3 },
     flavor: 'Reactive plate. It reads your vitals and it is not sentimental.',
   },
 

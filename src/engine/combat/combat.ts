@@ -32,7 +32,7 @@ import { atCriticalHeat, collectBurn, gainHeat, resolveOverheat, ventHeat } from
 import { addStacks, clearFresh, decayStatuses, statusEnergy, tickStatuses } from './keywords.ts';
 import { environmentRules, liveStance, pilotRules, stanceRulesFor } from './rules.ts';
 import { mintEnemy } from './instances.ts';
-import { startingMoveIndex } from './ai.ts';
+import { firstAttackingMoveIndex, startingMoveIndex } from './ai.ts';
 import { discardHand, draw, findInHand, narrateDraw, removeFromHand } from './piles.ts';
 import { telegraphAll } from './intents.ts';
 
@@ -71,7 +71,16 @@ export function startCombat(state: GameState, encounterId: string, environmentId
        "it swings for six, and six Block is the whole of it absorbed" — and a
        rolled opening made that sentence wrong two fights in three. Everywhere
        else the roll is the point. */
-    const start = run.tutorial ? { index: 0, rng } : startingMoveIndex(def, rng);
+    /* Three ways in, and only the last one rolls. The tutorial pins to zero
+       because its script names what the enemy is about to do; an
+       `openOnAttack` encounter pins to the first swing so a wide board of one
+       repeated enemy cannot open by doing nothing. Neither consumes a roll, so
+       the stream is where the rolling branch left it either way. */
+    const start = run.tutorial
+      ? { index: 0, rng }
+      : encounter.openOnAttack === true
+        ? { index: firstAttackingMoveIndex(def), rng }
+        : startingMoveIndex(def, rng);
     rng = start.rng;
     const minted = mintEnemy(counter, def, start.index);
     counter = minted.uidCounter;

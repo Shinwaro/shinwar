@@ -253,41 +253,11 @@ export const EXECUTION_CARDS: readonly CardDef[] = [
   },
   /* ---- reading the bar ---- */
 
-  {
-    /* The common one, and the one that teaches the family. Six is a fair 1-cost
-       hit on its own, so the card is never dead — it simply doubles when you
-       aim it at something that is nearly finished, which is the whole lesson in
-       one number. */
-    id: 'finishing_line',
-    name: 'Finishing Line',
-    type: 'attack',
-    rarity: 'common',
-    archetype: 'iai',
-    cost: 1,
-    effects: [
-      { op: 'damage', amount: 6, target: 'enemy' },
-      {
-        op: 'conditional',
-        when: { kind: 'targetHullBelowPct', value: 40 },
-        then: [{ op: 'damage', amount: 6, target: 'enemy' }],
-      },
-    ],
-    upgrade: {
-      name: 'Finishing Line+',
-      effects: [
-        { op: 'damage', amount: 8, target: 'enemy' },
-        {
-          op: 'conditional',
-          // The upgrade widens the window rather than raising the number. A
-          // finisher that fires more often is worth more than one that hits
-          // harder in the same narrow band.
-          when: { kind: 'targetHullBelowPct', value: 55 },
-          then: [{ op: 'damage', amount: 8, target: 'enemy' }],
-        },
-      ],
-    },
-    flavor: 'Everything before this was arithmetic.',
-  },
+  /* Finishing Line was here: a common, 6 damage doubling under 40%.
+     Removed. Execute does the same job one tier up and does it with a real
+     edge — 16 or 5, where this was 12 or 6 — and two threshold attacks that
+     differ only in how gentle the cliff is teach the same lesson twice. The
+     family reads better with one cliff, one slope, and one mirror. */
 
   {
     /* The mirror, and the reason the family is not just executions. Against a
@@ -433,7 +403,7 @@ export const EXECUTION_CARDS: readonly CardDef[] = [
      * meant nobody held it, they cut it. */
     cost: 1,
     effects: [
-      { op: 'damage', amount: 5, target: 'enemy' },
+      { op: 'damage', amount: 2, target: 'enemy' },
       {
         op: 'scaleWith',
         source: 'targetHullMissingPct',
@@ -444,7 +414,7 @@ export const EXECUTION_CARDS: readonly CardDef[] = [
     upgrade: {
       name: 'Widening Gyre+',
       effects: [
-        { op: 'damage', amount: 7, target: 'enemy' },
+        { op: 'damage', amount: 4, target: 'enemy' },
         {
           op: 'scaleWith',
           source: 'targetHullMissingPct',
@@ -457,10 +427,15 @@ export const EXECUTION_CARDS: readonly CardDef[] = [
   },
 
   {
-    /* The payoff card. Not more damage — tempo, which is what an execution is
-       actually worth in a pack: the Energy and the card come back and the turn
-       keeps going, so finishing one thing is what pays for finishing the next.
-       Priced at the tier where a turn that does not end is worth a slot. */
+    /* The payoff card. Cards, not Energy.
+     *
+     * It refunded 2 Energy and drew 1, which meant a finished execution paid
+     * for the next two cards outright — at legendary that is not a payoff, it
+     * is a turn that does not end, and its ceiling was set by how many
+     * finishable things were on the board rather than by anything in the deck.
+     * Two cards is the same promise without the loop: the turn keeps going as
+     * far as your hand can carry it, and your hand is finite. The damage went
+     * to 16 to pay for the Energy coming off. */
     id: 'terminal_velocity',
     name: 'Terminal Velocity',
     type: 'attack',
@@ -468,29 +443,23 @@ export const EXECUTION_CARDS: readonly CardDef[] = [
     archetype: 'overheat',
     cost: 2,
     effects: [
-      { op: 'damage', amount: 14, target: 'enemy' },
+      { op: 'damage', amount: 16, target: 'enemy' },
       { op: 'gainHeat', amount: 2 },
       {
         op: 'conditional',
         when: { kind: 'targetHullBelowPct', value: 40 },
-        then: [
-          { op: 'gainEnergy', amount: 2 },
-          { op: 'draw', amount: 1 },
-        ],
+        then: [{ op: 'draw', amount: 2 }],
       },
     ],
     upgrade: {
       name: 'Terminal Velocity+',
       effects: [
-        { op: 'damage', amount: 18, target: 'enemy' },
+        { op: 'damage', amount: 20, target: 'enemy' },
         { op: 'gainHeat', amount: 2 },
         {
           op: 'conditional',
           when: { kind: 'targetHullBelowPct', value: 50 },
-          then: [
-            { op: 'gainEnergy', amount: 2 },
-            { op: 'draw', amount: 1 },
-          ],
+          then: [{ op: 'draw', amount: 2 }],
         },
       ],
     },
