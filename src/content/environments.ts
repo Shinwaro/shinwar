@@ -27,7 +27,7 @@
 
 import type { EnvironmentDef, GameState } from '../engine/types.ts';
 import { defineHook, registerHooks } from '../engine/hooks.ts';
-import { withCombat, withRun } from '../engine/state.ts';
+import { appendLog, withCombat, withRun } from '../engine/state.ts';
 import { PLAYER, applyDirectDamage, enemyTarget, livingEnemies } from '../engine/combat/damage.ts';
 import { addStacks, stacksOf } from '../engine/combat/keywords.ts';
 import { envGetString, envSet } from '../engine/combat/rules.ts';
@@ -215,6 +215,45 @@ export function registerEnvironmentHooks(): void {
         const rolled = pick(run.rng, 'combat', ordered);
         const spun = withRun(state, (current) => ({ ...current, rng: rolled.rng }));
         return envSet(spun, 'debrisTarget', rolled.value.uid);
+      },
+    }),
+    /* A marked enemy that dies hands the rock to somebody else.
+     *
+     * Killing the marked one used to void the rock entirely — the resolution
+     * checked that the target was still alive and, finding it dead, did nothing.
+     * So the Debris Field's whole hazard could be answered for free by aiming at
+     * whatever it had already picked, which is the opposite of a hazard.
+     *
+     * Re-picked HERE, on the death, rather than at the end of the round: the
+     * promise this environment makes is that you are told a full turn ahead, and
+     * a rock that reassigns itself at resolution time is a rock nobody saw
+     * coming. On the death, the mark visibly moves while you are still holding
+     * cards. */
+    defineHook({
+      hook: 'onEnemyKilled',
+      priority: HOOK_PRIORITY.environment,
+      handle: (state, payload) => {
+        const combat = state.run?.combat;
+        if (combat === undefined || combat === null) return state;
+        if (envGetString(combat, 'debrisTarget') !== payload.enemyUid) return state;
+
+        /* Everyone still standing, the player included. Same uniform draw and
+           the same uid sort as the opening pick, so the replacement is as
+           reproducible as the original. */
+        const left = combatants(state).filter((who) => who.uid !== payload.enemyUid);
+        if (left.length === 0) return envSet(state, 'debrisTarget', null);
+
+        const run = state.run;
+        if (run === null) return state;
+        const ordered = [...left].sort((a, b) => (a.uid < b.uid ? -1 : 1));
+        const rolled = pick(run.rng, 'combat', ordered);
+        const spun = withRun(state, (current) => ({ ...current, rng: rolled.rng }));
+        return appendLog(envSet(spun, 'debrisTarget', rolled.value.uid), {
+          source: DEBRIS_FIELD_ID,
+          kind: 'combat',
+          text: 'The rock has nothing to hit there any more. It picks again.',
+          detail: null,
+        });
       },
     }),
     defineHook({

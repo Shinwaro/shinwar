@@ -20,6 +20,7 @@ import type { Combatant } from './damage.ts';
 import {
   PLAYER,
   applyDamage,
+  applyDirectDamage,
   combatantName,
   enemyTarget,
   healPlayer,
@@ -635,7 +636,17 @@ function applyOp(state: GameState, op: EffectOp, context: EffectContext): Effect
     }
 
     case 'heal':
-      return keep(healPlayer(state, op.amount, context.source));
+      /* Negative is a cost, and it goes straight to the hull. Not `applyDamage`:
+         a price printed on a card must not be absorbed by your own Block or
+         inflated by a Vulnerable somebody put on you, or the cost of the card
+         would depend on the board. */
+      return keep(
+        op.amount < 0
+          ? applyDirectDamage(state, PLAYER, -op.amount, context.source, 'the cost', {
+              blockable: false,
+            })
+          : healPlayer(state, op.amount, context.source),
+      );
 
     case 'gainAlloy': {
       if (op.amount === 0) return keep(state);

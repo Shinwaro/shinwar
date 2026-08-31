@@ -186,7 +186,7 @@ function describeOp(op: EffectOp, state: GameState | null, afterDamage = false):
       /* "Health", never "hull". The bar on the combat screen says HEALTH and
          the Station calls it a repair, and a card that used a third word for
          the same number made the player check whether it was a third thing. */
-      return `Regain ${op.amount} health.`;
+      return op.amount < 0 ? `Lose ${-op.amount} health.` : `Regain ${op.amount} health.`;
     case 'conditional': {
       const then = joinClause(describeOps(op.then, state));
       const otherwise =
@@ -235,7 +235,12 @@ function describeOp(op: EffectOp, state: GameState | null, afterDamage = false):
       return `For every ${per}${describeScaleSource(op.source, op.per)}, ${additive}${live}`;
     }
     case 'gainAlloy':
-      return `${op.amount > 0 ? 'Gain' : 'Lose'} ${Math.abs(op.amount)} Alloy`;
+      /* The full stop matters. Every branch here returns a finished sentence
+         and `describeOps` joins them with a bare space, so the one that did
+         not ran straight into whatever came after it: Bounty Cut read "gain 40
+         Alloy Burn." `joinClause` strips and re-adds terminators, so nothing
+         downstream doubles it up. */
+      return `${op.amount > 0 ? 'Gain' : 'Lose'} ${Math.abs(op.amount)} Alloy.`;
 
     default: {
       const unreachable: never = op;

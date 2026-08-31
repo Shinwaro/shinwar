@@ -197,9 +197,33 @@ function applyWavefrontHazard(state: GameState): GameState {
 /* ---------- the player's turn ---------- */
 
 export function startPlayerTurn(state: GameState): GameState {
-  const combat = requireCombat(state);
-  if (combat.outcome !== 'ongoing') return state;
+  const opening = requireCombat(state);
+  if (opening.outcome !== 'ongoing') return state;
 
+  /* The ceiling is charged BEFORE anything else about the turn happens.
+   *
+   * An enemy can push the gauge to the top during its own phase — a Scald
+   * tick, a Kiln move, an environment — and until now nothing collected on it
+   * until after the turn had been built. That put the collection AFTER the
+   * turn-start relic vent, so a Bleed Valve took the gauge from 10 to 9 and the
+   * overheat that was already owed simply never happened. One relic that vents
+   * a single point made the top of the gauge unreachable from the enemy phase.
+   *
+   * Charged here, the order is the one the rules describe: you are at the
+   * ceiling, so you overheat — damage, the gauge emptied, a card owed — and
+   * because resolveOverheat sets skipNextTurn before the Energy for this
+   * turn is worked out a few lines below, THIS is the turn that opens with
+   * nothing. That is the answer to "0 Energy since I overheated last round".
+   *
+   * The soft line at 8 is deliberately NOT checked here. That one is
+   * a price for how you finished a turn, and a turn-start vent saving you from
+   * it is the whole reason to carry the vent. Only the ceiling is a wall. */
+  if (atCriticalHeat(state)) {
+    state = resolveOverheat(state);
+    if (requireCombat(state).outcome !== 'ongoing') return state;
+  }
+
+  const combat = requireCombat(state);
   const stance = liveStance(state);
   const turn = combat.turn + 1;
 
