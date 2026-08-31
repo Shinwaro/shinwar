@@ -30,10 +30,11 @@ import {
   TUTORIAL_HEAT_CARD,
   TUTORIAL_STANCE_CARD,
 } from '../../content/tutorial.ts';
-import { cards as cardTable } from '../../content/registry.ts';
+import { cards as cardTable, statuses as statusTable } from '../../content/registry.ts';
 import { HEAT, PLAYER, STANCES } from '../../content/balance.ts';
 import { VULNERABLE, WEAK } from '../../content/statuses.ts';
 import { stacksOf } from '../../engine/combat/keywords.ts';
+import type { Child } from '../dom.ts';
 import { button, el } from '../dom.ts';
 
 interface Step {
@@ -173,7 +174,7 @@ const STEPS: readonly Step[] = [
      * The intent is ringed with it, because Weak is a change to a number the
      * player has already been shown: the telegraph is lower than it was a
      * moment ago, and that is the whole of what Weak means. */
-    body: 'Six Block, sitting above your health. The mark on the enemy is Weak: while it is there, everything it swings for hits softer — its intent has already dropped. Most statuses fall off on their own.',
+    body: 'Six Block, sitting above your health. The mark on the enemy is Weak: while it is there, everything it swings for hits softer — its intent has dropped to 4 for this round. Most statuses fall off on their own after each round.',
     targets: ['.shield', '.enemy .pip', '.enemy .intent'],
     done: null,
   },
@@ -196,7 +197,7 @@ const STEPS: readonly Step[] = [
   },
   {
     title: 'Now something that costs',
-    body: 'Play Thermal Lance. Two Energy, twelve damage — and it puts two Heat on the reactor and leaves it there.',
+    body: 'Play Thermal Lance. Two Energy, twelve damage.',
     targets: aim(TUTORIAL_HEAT_CARD),
     done: (state) => played(state, TUTORIAL_HEAT_CARD),
   },
@@ -253,7 +254,7 @@ const STEPS: readonly Step[] = [
      * asked to play a card. */
     title: 'IAI',
     body: () =>
-      `The hot stance. Once the gauge is at ${STANCES.iai.hotDamageAtHeat} or more every attack deals ${STANCES.iai.hotDamage} more. What it charges: ${STANCES.iai.heatAtTurnEnd} Heat at the end of every turn, and no Block retained.`,
+      `The attack stance. Once Heat is at ${STANCES.iai.hotDamageAtHeat} or more every attack deals ${STANCES.iai.hotDamage} extra damage, but you get ${STANCES.iai.heatAtTurnEnd} Heat at the end of every turn, and no Block is retained.`,
     targets: ['.stance-strip', '.heat'],
     done: null,
   },
@@ -274,7 +275,7 @@ const STEPS: readonly Step[] = [
      * seen to pay out. */
     title: 'Spend it',
     body: () =>
-      `Two Focus, banked. Play ${cardTable.get(TUTORIAL_SPEND_CARD).name} — it takes ONE of them and adds it to its damage. Watch the row: one pip goes, one stays. A card spends a single stack, never the pile, so what you bank keeps working until something uses it.`,
+      `Play ${cardTable.get(TUTORIAL_SPEND_CARD).name} — it takes ONE of them and adds it to its damage. A card spends a single stack.`,
     targets: [...aim(TUTORIAL_SPEND_CARD), '.resource--focus'],
     done: (state) => played(state, TUTORIAL_SPEND_CARD),
   },
@@ -292,7 +293,7 @@ const STEPS: readonly Step[] = [
        read. */
     title: 'It goes both ways',
     body: () =>
-      `${cardTable.get(TUTORIAL_SPEND_CARD).name} left Vulnerable on it — while that lasts it takes more damage from everything. Now read its intent: it is about to put Weak on YOU. Statuses go both ways. End the turn and take it.`,
+      `${cardTable.get(TUTORIAL_SPEND_CARD).name} left Vulnerable on it — while that lasts it takes more damage from everything. Now read its intent: it is about to put Weak on YOU. Statuses go both ways. End the turn.`,
     targets: [
       `.enemy .pip[data-status="${VULNERABLE}"]`,
       '.enemy .intent',
@@ -315,9 +316,9 @@ const STEPS: readonly Step[] = [
      * your stance", which was wrong on two of the three and would have taught a
      * player to distrust the one part of the face that is already doing the
      * work for them. */
-    title: 'And now it is on you',
+    title: 'Keep track of statuses',
     body:
-      "Weak, on you: everything you swing for hits 25% softer per stack while it is there. A card's number already takes account of your stance and your Focus. It does not take account of status effects or what you are carrying (relics and implants), so your Weak, the target's Vulnerable and every relic bonus are sums you do yourself.",
+      "Weak, on you: everything you swing for hits 25% softer per stack while it is there. A card's damage number already takes account of your stance and your Focus. It does not take account of status effects or what you are carrying (relics and implants).",
     targets: [`.pips--player .pip[data-status="${WEAK}"]`, '.hand'],
     done: null,
   },
@@ -345,7 +346,7 @@ const STEPS: readonly Step[] = [
      * be. `damageFigures` is where that split lives. */
     title: 'Read the number',
     body: () =>
-      `${cardTable.get(TUTORIAL_NUMBER_CARD).name} says 6 damage on its face. Look at it in your hand: the number is an 8 now, and amber — that is IAI paying +2 on every attack while Heat is 5 or more, and yours is exactly 5. The +2 sitting beside it is the Focus you did not spend, which goes into the next attack you play. The card counts your stance and your Focus for you. Nothing else.`,
+      `${cardTable.get(TUTORIAL_NUMBER_CARD).name} has 6 base damage. The number is an 8 now — that is IAI +2 on every attack while Heat is ${STANCES.iai.hotDamageAtHeat} or more. The +2 sitting beside it is the Focus you did not spend, which goes into the next attack you play.`,
     targets: [hold(TUTORIAL_NUMBER_CARD), '.heat', '.resource--focus'],
     done: null,
   },
@@ -378,6 +379,90 @@ const STEPS: readonly Step[] = [
     next: 'I understand',
   },
 ];
+
+/* ---------- the words that are game terms ----------
+
+   The introduction is the one screen made entirely of prose, and prose is where
+   a game term stops looking like one. "End a turn at 8 or more and you overheat"
+   has three nouns in it that mean something specific and nothing to say so.
+
+   The statuses come from the REGISTRY rather than a list here, so a status added
+   tomorrow is coloured without anybody remembering — and it is coloured by its
+   own `kind`, so a new buff is green and a new debuff is red for the same
+   reason the pips are. Only the handful of words that are not statuses are
+   named below. */
+
+type TermKind =
+  | 'heat'
+  | 'vent'
+  | 'focus'
+  | 'block'
+  | 'energy'
+  | 'burn'
+  | 'health'
+  | 'debuff'
+  | 'buff'
+  /* One per stance rather than one for all three. The stances already own three
+     colours everywhere else in the game — the strip, the card riders, the
+     tokens — and a paragraph that says GUARD in the accent colour is the one
+     place the word does not match the thing. */
+  | 'iai'
+  | 'guard'
+  | 'flow';
+
+const FIXED_TERMS: readonly (readonly [string, TermKind])[] = [
+  ['overheat', 'heat'],
+  ['overheats', 'heat'],
+  ['heat', 'heat'],
+  ['vent', 'vent'],
+  ['vents', 'vent'],
+  ['vented', 'vent'],
+  ['venting', 'vent'],
+  ['focus', 'focus'],
+  ['block', 'block'],
+  ['energy', 'energy'],
+  ['burn', 'burn'],
+  ['burns', 'burn'],
+  ['health', 'health'],
+  ['iai', 'iai'],
+  ['guard', 'guard'],
+  ['flow', 'flow'],
+];
+
+function termTable(): Map<string, TermKind> {
+  const table = new Map<string, TermKind>(FIXED_TERMS);
+  for (const status of statusTable.all()) {
+    table.set(status.name.toLowerCase(), status.kind === 'buff' ? 'buff' : 'debuff');
+  }
+  return table;
+}
+
+/**
+ * The body text, with its game terms marked up.
+ *
+ * Longest first, so "Overheat" is not eaten by "Heat" — a shorter alternative
+ * earlier in the pattern wins at the same position, and that is the whole of
+ * why the sort is here rather than being incidental.
+ */
+function highlight(text: string): Child[] {
+  const table = termTable();
+  const words = [...table.keys()].sort((a, b) => b.length - a.length);
+  const pattern = new RegExp(`\\b(${words.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\export function renderCoach(store: Store, onDone: () => void): HTMLElement {')).join('|')})\\b`, 'gi');
+
+  const out: Child[] = [];
+  let at = 0;
+  for (const match of text.matchAll(pattern)) {
+    const start = match.index;
+    const word = match[0];
+    const kind = table.get(word.toLowerCase());
+    if (kind === undefined) continue;
+    if (start > at) out.push(text.slice(at, start));
+    out.push(el('strong', { class: `kw kw--${kind}` }, [word]));
+    at = start + word.length;
+  }
+  if (at < text.length) out.push(text.slice(at));
+  return out;
+}
 
 export function renderCoach(store: Store, onDone: () => void): HTMLElement {
   const host = el('div', { class: 'coach', 'aria-live': 'polite' });
@@ -524,9 +609,12 @@ export function renderCoach(store: Store, onDone: () => void): HTMLElement {
         'aria-label': step.title,
       },
       [
-        el('p', { class: 'coach-step' }, [`${index + 1} of ${STEPS.length}`]),
         el('h2', { class: 'coach-title' }, [step.title]),
-        el('p', { class: 'coach-body' }, [typeof step.body === 'function' ? step.body() : step.body]),
+        el(
+          'p',
+          { class: 'coach-body' },
+          highlight(typeof step.body === 'function' ? step.body() : step.body),
+        ),
         /* One control, and only on the steps that have one.
          *
          * A "Skip the introduction" button sat beside it on every step, and it
@@ -543,7 +631,27 @@ export function renderCoach(store: Store, onDone: () => void): HTMLElement {
       ],
     );
 
-    host.replaceChildren(dim, ...rings, card);
+    /* The way out, in the corner rather than in the panel.
+     *
+     * There was none. "Skip the introduction" used to sit inside the card on
+     * every step and was removed for being an apology for the screen it was on
+     * — but removing the button removed the exit with it, and a player who
+     * opened the introduction by accident had to finish a fight to leave. In a
+     * corner it is available without being an offer: it is not beside the
+     * words, so it is not competing with them.
+     *
+     * Straight to the title, not to the run-over screen. Nothing here is a run
+     * that can be abandoned — it is a lesson, and leaving a lesson is not a
+     * defeat to be reported. */
+    const exit = button(
+      'Exit tutorial',
+      { class: 'coach-exit' },
+      () => {
+        store.dispatch({ kind: 'returnToTitle' });
+      },
+    );
+
+    host.replaceChildren(dim, ...rings, card, exit);
     drawn = { dim, rings, card };
     reposition();
   }

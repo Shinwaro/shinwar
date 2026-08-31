@@ -21,7 +21,7 @@ import { canMoveTo, nodeById } from '../map/route.ts';
 import { startCombat } from '../combat/combat.ts';
 import { mintCard } from '../combat/instances.ts';
 import { gainAlloy, removalCost, rollAlloy, spendAlloy } from './economy.ts';
-import { offerMatchesLean, rollReward } from './rewards.ts';
+import { rollReward } from './rewards.ts';
 import { applyRunEffects } from './effects.ts';
 import { clearEvent, openEvent } from './events.ts';
 import { advanceThreads, dueThreads, resolveThread, threadState } from './threads.ts';
@@ -196,15 +196,33 @@ function settleThreads(
      *
      * Read AFTER `resolveThread`, because that is what increments the count —
      * and `=== after` rather than `>=`, so a Thread that keeps being taken on
-     * pays its mastery exactly once. */
+     * pays its mastery exactly once.
+     *
+     * Applied as TWO calls rather than one concatenated list. The lines have to
+     * stay separable: the arrival screen tells the ordinary payoff as a payout
+     * and the mastery as its own moment, and it cannot do that from one merged
+     * array. The state threads through both, so the order is unchanged. */
     const times = threadState(requireRun(next), def.id)?.completed ?? 0;
-    const effects =
-      def.mastery !== undefined && times === def.mastery.after
-        ? [...def.payoff, ...def.mastery.effects]
-        : def.payoff;
 
-    const paid = applyRunEffects(next, effects, def.id);
+    const paid = applyRunEffects(next, def.payoff, def.id);
     next = paid.state;
+
+    let mastered: ResolvedThread['mastered'];
+    if (def.mastery !== undefined && times === def.mastery.after) {
+      const bonus = applyRunEffects(next, def.mastery.effects, def.id);
+      next = bonus.state;
+      const said = def.mastery.revelation;
+      mastered = {
+        times,
+        lines: bonus.lines,
+        relicIds: def.mastery.effects.flatMap((effect) =>
+          effect.op === 'relic' ? [effect.relicId] : [],
+        ),
+        head: said?.head ?? 'A rite completed',
+        body: said?.body ?? [],
+        because: said?.because ?? `You completed ${def.name} ${times} times in one run.`,
+      };
+    }
     /*
      * The promise travels with the payout.
      *
@@ -219,6 +237,7 @@ function settleThreads(
       promise: def.description,
       lines: paid.lines,
       tone: def.tone,
+      ...(mastered === undefined ? {} : { mastered }),
     });
   }
 
@@ -479,7 +498,6 @@ export function concludeNode(state: GameState): GameState {
     requireRun(next),
     run.act,
     alloy.value,
-    run.rewardDrought,
     tier,
     // A reprisal pays cards and Alloy and no relic — see `rollReward`.
     run.forcedTier !== null,
@@ -493,14 +511,6 @@ export function concludeNode(state: GameState): GameState {
     screen: 'reward',
   }));
   next = gainAlloy(next, rolled.offer.alloy, 'reward');
-
-  // Drought tracking for the soft archetype nudge. Reset when a screen finally
-  // offers something the deck wants; otherwise it climbs.
-  const matched = offerMatchesLean(rolled.offer, requireRun(next));
-  next = withRun(next, (current) => ({
-    ...current,
-    rewardDrought: matched ? 0 : current.rewardDrought + 1,
-  }));
 
   return fireHook(next, 'onRewardOffered', { cardIds: rolled.offer.cardIds });
 }

@@ -92,6 +92,26 @@ export const THREAD_DEFS: readonly ThreadDef[] = [
     mastery: {
       after: 3,
       effects: [{ op: 'relic', relicId: 'sect_reliquary' }],
+      /* Vague, and deliberately not a rules explanation — the artifact's own
+         generated text sits directly under this and does that job. What the
+         words are for is making the third shrine feel like the thing it cost:
+         most of a run spent on a detour nobody asked you to take. */
+      revelation: {
+        head: 'The third rite',
+        body: [
+          'Three shrines. The same words at each of them, in the same order, ' +
+            'in a language the order stopped teaching before you were born. ' +
+            'The first two changed nothing you could point at.',
+          'The order kept one box. Not a weapon — a box, the size of a fist, ' +
+            'and everything eleven hundred years had decided was worth keeping ' +
+            'went into it. Nobody outside the inner rites was ever told what ' +
+            'that turned out to be, and there is nobody left to ask.',
+          'It is open. You will learn what is in it the way they did: standing ' +
+            'in the opening with the reactor already hot, when there is no time ' +
+            'left to look down.',
+        ],
+        because: 'You completed The Rites three times in one run. Nothing else in the game is paid for this way.',
+      },
     },
   },
 

@@ -15,6 +15,8 @@ import { requireRun } from '../../engine/state.ts';
 import { button, el } from '../dom.ts';
 import { liveScreen } from '../screen.ts';
 import { prefersReducedMotion } from '../anim.ts';
+import type { GameState, ResolvedThread } from '../../engine/types.ts';
+import { relics as relicTable } from '../../content/registry.ts';
 import { renderOutcomeLine } from '../components/peek.ts';
 
 /**
@@ -86,7 +88,7 @@ export function renderLanding(store: Store): HTMLElement {
 
         /* The causal link, spelled out: the Thread by name, what you took on,
            and what it just did. Vague when you agreed to it, explicit now. */
-        ...landing.resolved.map((thread) =>
+        ...landing.resolved.flatMap((thread) => [
           el('section', { class: `landing-thread landing-thread--${thread.tone}` }, [
             el('p', { class: 'landing-thread-head' }, ['A thread comes due']),
             el('h2', { class: 'landing-thread-name' }, [thread.name]),
@@ -101,7 +103,10 @@ export function renderLanding(store: Store): HTMLElement {
                   ),
                 ),
           ]),
-        ),
+          /* The once-a-run payoff, told as its own moment rather than as one
+             more bullet in the list above it. See `renderRevelation`. */
+          thread.mastered === undefined ? null : renderRevelation(thread.mastered, state),
+        ]),
 
         button(held ? 'Understood' : 'Continue', { class: `btn landing-go ${held ? 'btn-primary' : 'btn-quiet'}` }, leave),
       ],
@@ -127,4 +132,58 @@ export function renderLanding(store: Store): HTMLElement {
   });
 
   return host;
+}
+
+/**
+ * The once-a-run moment, told as one.
+ *
+ * The mastery payoff used to arrive as one more bullet in the Thread's payout
+ * list — "The Sect Reliquary", set in the same type as "Regain 10 health", with
+ * nothing saying what it does or that three rites had bought it. The largest
+ * thing that can happen to a run read as a footnote to a heal.
+ *
+ * Three parts, in the order a player asks for them: WHAT arrived and what it
+ * does, WHY it arrived, then the lore. The rules line comes out of the relic
+ * registry rather than being written here, for the same reason card text is
+ * generated — a hand-copied description of an artifact is wrong the first time
+ * anybody retunes it.
+ */
+function renderRevelation(
+  mastered: NonNullable<ResolvedThread['mastered']>,
+  state: GameState,
+): HTMLElement {
+  /* Whatever the mastery granted, named and explained. Ids come down from the
+     engine and the words come from the registry the inventory reads, so this
+     cannot drift from the relic. */
+  const granted = mastered.relicIds.flatMap((id) => {
+    const def = relicTable.find(id);
+    return def === undefined ? [] : [def];
+  });
+
+  return el('section', { class: 'landing-revelation', role: 'status' }, [
+    el('p', { class: 'revelation-head' }, [mastered.head]),
+
+    ...granted.map((def) =>
+      el('div', { class: 'revelation-prize' }, [
+        el('h2', { class: 'revelation-name' }, [def.name]),
+        el('p', { class: 'revelation-rule' }, [def.text]),
+      ]),
+    ),
+
+    /* A mastery that granted something with no relic to name — a card, Alloy —
+       still says what it was. Never nothing. */
+    granted.length > 0
+      ? null
+      : el(
+          'ul',
+          { class: 'landing-thread-lines' },
+          mastered.lines.map((line) =>
+            el('li', { class: 'landing-thread-line' }, renderOutcomeLine(line, state)),
+          ),
+        ),
+
+    el('p', { class: 'revelation-because' }, [mastered.because]),
+
+    ...mastered.body.map((paragraph) => el('p', { class: 'revelation-lore' }, [paragraph])),
+  ]);
 }

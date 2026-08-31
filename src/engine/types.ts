@@ -152,6 +152,15 @@ export type EffectOp =
   | { readonly op: 'gainEnergy'; readonly amount: number }
   | { readonly op: 'exhaustSelf' }
   | { readonly op: 'addCardToHand'; readonly cardId: CardId; readonly upgraded?: boolean }
+  /**
+   * A health delta. Positive regains it; NEGATIVE pays it.
+   *
+   * Extended rather than joined by a second op, because "lose 2 health" is the
+   * same fact as "regain 2 health" with the sign flipped, and the effect-op
+   * vocabulary is meant to stay small. A negative amount is charged straight to
+   * the hull: unblockable, unaffected by Vulnerable, and not a hit — a cost you
+   * chose to pay is not something that happened to you.
+   */
   | { readonly op: 'heal'; readonly amount: number }
   /**
    * Alloy, from inside a fight.
@@ -596,6 +605,23 @@ export interface ThreadDef {
   readonly mastery?: {
     readonly after: number;
     readonly effects: readonly RunEffect[];
+    /**
+     * What the arrival screen says when it lands.
+     *
+     * The mastery payoff is the largest single thing that can happen to a run,
+     * and it used to arrive as one more line in the Thread's payout list — "The
+     * Sect Reliquary", in the same type as "Regain 10 health", with nothing
+     * anywhere saying it was the third rite that did it or what the thing does.
+     * A moment that took most of a run to earn has to be told as a moment.
+     */
+    readonly revelation?: {
+      /** The eyebrow. Names the ACHIEVEMENT, not the reward. */
+      readonly head: string;
+      /** Lore. Vague on purpose — the rules text below it is the precise half. */
+      readonly body: readonly string[];
+      /** The causal line: what you did, in as many words as it takes. */
+      readonly because: string;
+    };
   };
 }
 
@@ -1105,6 +1131,29 @@ export interface LandingState {
 export interface ResolvedThread {
   readonly threadId: ThreadId;
   readonly name: string;
+  /**
+   * Set only when this completion also paid the Thread's mastery.
+   *
+   * Kept separate from `lines` rather than appended to them: the ordinary
+   * payoff and the once-a-run payoff are different sizes of event, and merging
+   * them is what made the artifact read as a footnote to a heal.
+   */
+  readonly mastered?: {
+    readonly times: number;
+    readonly lines: readonly OutcomeLine[];
+    /**
+     * What it granted, by id, read off the mastery's own effects.
+     *
+     * Carried rather than left for the screen to find: an `OutcomeLine` names a
+     * relic only inside its prose, and a UI that recovers "which artifact was
+     * that" by reading a sentence is a UI that breaks when the sentence is
+     * reworded.
+     */
+    readonly relicIds: readonly RelicId[];
+    readonly head: string;
+    readonly body: readonly string[];
+    readonly because: string;
+  };
   /** What you took on, in the words the Manifest has been showing all along. */
   readonly promise: string;
   /**
@@ -1289,7 +1338,6 @@ export interface RunState {
   /** Monotonic source of instance uids. See `combat/instances.ts`. */
   readonly uidCounter: number;
   /** Consecutive reward screens with nothing matching the deck's lean. */
-  readonly rewardDrought: number;
   /** Card removals bought so far. The price rises with each one. */
   readonly removalsPurchased: number;
   /**
