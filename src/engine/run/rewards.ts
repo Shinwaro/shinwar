@@ -9,7 +9,6 @@
  */
 
 import type {
-  Archetype,
   CardDef,
   CardId,
   ImplantId,
@@ -21,12 +20,14 @@ import type {
   RunState,
 } from '../types.ts';
 import { RARITY_ORDER } from '../types.ts';
-import { nextFloat, nextInt, pick, sample, weightedPick } from '../rng.ts';
-import { STARTING_DECK } from '../../content/cards/basic.ts';
+import { chance, nextFloat, pick, sample, weightedPick } from '../rng.ts';
 import {
   ACTIVE_STANCES,
+  BOSS_IMPLANT_WEIGHTS,
   MASTERY,
   RARITY_WEIGHTS,
+  RELIC_COMBAT_CHANCE,
+  RELIC_COMBAT_WEIGHTS,
   RELIC_RARITY_WEIGHTS,
   REWARDS,
 } from '../../content/balance.ts';
@@ -42,52 +43,15 @@ export interface RolledReward {
   readonly rng: RngState;
 }
 
-/**
- * Which way the deck leans, counting only what the player chose.
- *
- * The starting deck is the same for everyone, so counting it would say every
- * deck leans the same way — and the soft archetype nudge would then be pushing
- * every run toward whatever the opening twelve happen to be made of.
- *
- * This used to exclude `rarity === 'basic'`, which was a proxy for "came with
- * the deck" and worked exactly as long as every starting card was a basic. It
- * stopped the day Stillwater Guard joined the deck: an uncommon GUARD card in
- * everyone's opening hand made every run in the game lean GUARD from the first
- * reward screen. A test caught it, which is the only reason it is not still
- * true.
- *
- * So the exclusion is now what it always meant: one copy of each card the run
- * was dealt. A SECOND Stillwater Guard is a choice and counts, which is the
- * distinction the rarity check could not make.
- */
-export function archetypeLean(run: RunState): Archetype {
-  const dealt = new Map<string, number>();
-  for (const id of STARTING_DECK) dealt.set(id, (dealt.get(id) ?? 0) + 1);
+/* `archetypeLean` was here: it worked out which archetype the player's CHOSEN
+   cards leaned toward, and the drought nudge used it to up-weight that
+   archetype on later reward screens.
 
-  const counts = new Map<Archetype, number>();
-  for (const instance of run.pilot.deck) {
-    const def = cardTable.find(instance.defId);
-    if (def === undefined) continue;
-
-    const remaining = dealt.get(instance.defId) ?? 0;
-    if (remaining > 0) {
-      dealt.set(instance.defId, remaining - 1);
-      continue;
-    }
-    counts.set(def.archetype, (counts.get(def.archetype) ?? 0) + 1);
-  }
-
-  let best: Archetype = 'neutral';
-  let bestCount = 0;
-  // Sorted so a tie resolves the same way every time rather than by Map order.
-  for (const [archetype, count] of [...counts.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1))) {
-    if (count > bestCount) {
-      best = archetype;
-      bestCount = count;
-    }
-  }
-  return best;
-}
+   Gone with the nudge. It is deliberately deleted rather than left unused: a
+   function in this module that answers "what is this player building" is a
+   loaded gun in a file whose whole job is now to not know. The reward roll
+   reads the act and the rarity table and nothing else.
+*/
 
 /**
  * The pool a reward or a shop may draw from. `all()` is sorted by id, so the
@@ -117,15 +81,18 @@ export function offerableCards(): readonly CardDef[] {
 }
 
 /**
- * Roll the card choices. Never the same card twice on one screen, and the
- * drought nudge up-weights the deck's lean once the player has gone
- * `archetypeDroughtBeforeNudge` screens without a match.
+ * Roll the card choices. Never the same card twice on one screen, and never
+ * weighted by anything about the deck.
+ *
+ * There used to be a drought nudge here that up-weighted the deck's own
+ * archetype after three unhelpful screens. It is gone on purpose: an offer that
+ * reads what you have already taken is an offer you cannot trust, because you
+ * can no longer tell a helping hand from a pattern you invented. Rarity and the
+ * act are the only inputs.
  */
 export function rollCardChoices(
   rng: RngState,
-  run: RunState,
   act: 1 | 2 | 3,
-  drought: number,
   tier: 'combat' | 'elite' | 'boss' = 'combat',
 ): { readonly cardIds: readonly CardId[]; readonly rng: RngState } {
   const pool = offerableCards();
@@ -137,7 +104,7 @@ export function rollCardChoices(
      the three have to be comparable to each other or the screen is one right
      answer with two decorations beside it. The archetype nudge is dropped here
      too — the nudge exists to rescue a run that keeps being offered nothing it
-     wants, and a full tier of cards is not a drought.
+     wants, and a full tier of cards is not one of those.
 
      The IMPLANT row is the one exception and it rolls its tier; see
      `rollBossImplants` for why the two differ. */
@@ -149,8 +116,6 @@ export function rollCardChoices(
     }
   }
 
-  const lean = archetypeLean(run);
-  const nudging = drought >= REWARDS.archetypeDroughtBeforeNudge;
   const rarityWeights = RARITY_WEIGHTS[act];
 
   const chosen: CardId[] = [];
@@ -160,11 +125,10 @@ export function rollCardChoices(
     const candidates = pool.filter((card) => !chosen.includes(card.id));
     if (candidates.length === 0) break;
 
-    const entries = candidates.map((card) => {
-      const base = card.rarity === 'basic' ? 0 : rarityWeights[card.rarity];
-      const boost = nudging && card.archetype === lean ? REWARDS.archetypeNudgeMultiplier : 1;
-      return { value: card.id, weight: base * boost };
-    });
+    const entries = candidates.map((card) => ({
+      value: card.id,
+      weight: card.rarity === 'basic' ? 0 : rarityWeights[card.rarity],
+    }));
 
     const rolled = weightedPick(current, 'rewards', entries);
     current = rolled.rng;
@@ -179,7 +143,6 @@ export function rollReward(
   run: RunState,
   act: 1 | 2 | 3,
   alloy: number,
-  drought: number,
   tier: 'combat' | 'elite' | 'boss' = 'combat',
   /**
    * A Thread's reprisal. Pays cards and Alloy; pays no relic.
@@ -193,7 +156,7 @@ export function rollReward(
    */
   reprisal = false,
 ): RolledReward {
-  const cards = rollCardChoices(rng, run, act, drought, tier);
+  const cards = rollCardChoices(rng, act, tier);
   const withRelics = reprisal
     ? { relicIds: [] as readonly string[], rng: cards.rng }
     : rollRelics(cards.rng, run, tier);
@@ -253,11 +216,23 @@ export function rollBossImplants(
      by the ladder rather than by encounter order — `RARITY_ORDER` — because the
      roll has to be reproducible from the seed and a Set's iteration order is
      the order things happened to be written in. */
-  const tiers = RARITY_ORDER.filter((rank) => all.some((def) => def.rarity === rank));
+  const tiers = RARITY_ORDER.filter(
+    (rank) => rank in BOSS_IMPLANT_WEIGHTS && all.some((def) => def.rarity === rank),
+  );
   if (tiers.length === 0) return { implantIds: [], rng };
 
-  const rolled = nextInt(rng, 'rewards', 0, tiers.length);
-  const chosen = tiers[rolled.value];
+  /* Weighted, not uniform — see `BOSS_IMPLANT_WEIGHTS`. The pool is still read
+     first, so a tier nobody has written an implant for cannot be rolled into an
+     empty screen however heavily it is weighted. */
+  const rolled = weightedPick(
+    rng,
+    'rewards',
+    tiers.map((rank) => ({
+      value: rank,
+      weight: BOSS_IMPLANT_WEIGHTS[rank as keyof typeof BOSS_IMPLANT_WEIGHTS],
+    })),
+  );
+  const chosen = rolled.value;
   const pool = all.filter((def) => def.rarity === chosen);
   if (pool.length === 0) return { implantIds: [], rng: rolled.rng };
 
@@ -291,10 +266,23 @@ export function rollRelics(
   run: RunState,
   tier: 'combat' | 'elite' | 'boss',
 ): { readonly relicIds: readonly RelicId[]; readonly rng: RngState } {
-  if (tier === 'combat') return { relicIds: [], rng };
+  /* An ordinary fight can drop one early in the run and never late. See
+     `RELIC_COMBAT_CHANCE` for why the curve runs that way round.
+
+     Rolled BEFORE the tier roll and on the same stream, so a combat that fails
+     the check still costs exactly one draw — an item rate that changed how many
+     rolls a fight consumed would make every downstream reward in the act depend
+     on whether this one happened to fire. */
+  if (tier === 'combat') {
+    const gate = chance(rng, 'rewards', RELIC_COMBAT_CHANCE[run.act]);
+    if (!gate.value) return { relicIds: [], rng: gate.rng };
+    rng = gate.rng;
+  }
 
   // Relics have their own ladder. See RELIC_RARITY_WEIGHTS for why.
-  const rarityWeights = RELIC_RARITY_WEIGHTS[run.act];
+  /* Which ladder this offer climbs. An ordinary fight has its own and it stops
+     at epic — see `RELIC_COMBAT_WEIGHTS`. */
+  const rarityWeights = tier === 'combat' ? RELIC_COMBAT_WEIGHTS : RELIC_RARITY_WEIGHTS[run.act];
   /* `exclusive` never enters an offer. It is granted by name — see the `relic`
      run effect — so a relic that is meant to be earned cannot also be found. */
   const pool = relicTable
@@ -402,9 +390,8 @@ export function rollMastery(
   return { masteryId: picked.value.id, rng: picked.rng };
 }
 
-/** Did this screen offer anything matching the deck's lean? Feeds the drought counter. */
-export function offerMatchesLean(offer: RewardOffer, run: RunState): boolean {
-  const lean = archetypeLean(run);
-  if (lean === 'neutral') return true;
-  return offer.cardIds.some((id) => cardTable.find(id)?.archetype === lean);
-}
+/* `offerMatchesLean` was here, and `archetypeLean` above it. Both existed only
+   to feed the drought counter that biased the next offer toward the deck. With
+   the nudge gone there is nothing left to measure — and leaving a function that
+   computes "what is this player building" in a module that must not care is an
+   invitation to start caring again. */

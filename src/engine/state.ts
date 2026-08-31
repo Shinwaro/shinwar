@@ -76,7 +76,6 @@ export function createRunState(seed: string, depth: number): RunState {
     combat: null,
     outcome: null,
     uidCounter: built.uidCounter,
-    rewardDrought: 0,
     removalsPurchased: 0,
     tutorial: false,
   };

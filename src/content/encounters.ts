@@ -238,6 +238,7 @@ export const ENCOUNTERS: readonly EncounterDef[] = [
     name: 'Chirality',
     act: 3,
     tier: 'normal',
+    minRow: 5,
     enemyIds: [CHIRALITY_WARDEN, HEAT_SIPHON],
   },
   {
@@ -245,6 +246,7 @@ export const ENCOUNTERS: readonly EncounterDef[] = [
     name: 'Refraction',
     act: 3,
     tier: 'normal',
+    minRow: 7,
     enemyIds: [NULL_PRISM, CHIRALITY_WARDEN],
   },
   {
@@ -259,6 +261,7 @@ export const ENCOUNTERS: readonly EncounterDef[] = [
     name: 'The Draw',
     act: 3,
     tier: 'normal',
+    minRow: 5,
     enemyIds: [HEAT_SIPHON, NULL_PRISM],
   },
   {
@@ -342,29 +345,43 @@ export const ENCOUNTERS: readonly EncounterDef[] = [
     name: 'Escort',
     act: 2,
     tier: 'normal',
+    minRow: 11,
     enemyIds: [SABLE_DRIFTER, ARC_WELDER, BLOOM_WEEVIL],
   },
   {
-    /* Three questions at once: the Choir wants you slow, the Siphon wants you
-       rich, and the Ronin wants you in the wrong stance.
+    /* Three questions at once: the Choir wants you slow, the Keeper wants you
+       poor, and the Ronin wants you in the wrong stance.
 
-       Renamed off `the_procession`, which the elite above already owned.
-       `startCombat` resolves an encounter with `ENCOUNTERS.find(id)` and the
-       elite is listed first, so a normal node that rolled THIS pack opened the
-       Iron Procession instead — an elite enemy, alone, on a normal node, paying
-       normal rewards. Nothing threw and nothing looked wrong except the fight.
-       There is a test for duplicate ids now. */
+       The middle question used to be the Siphon Engine, and that was the bug.
+       The Siphon is an ELITE — 98 hull, the same enemy that headlines The Siphon
+       one tier up — which made this the only normal encounter in the game
+       carrying an elite, at 188 hull against an Act 2 normal median of 94 and an
+       Act 2 elite of 136. A normal node twice the size of a normal fight and
+       half again the size of an elite, paying normal rewards, placeable on the
+       first row of the act.
+
+       The Tally Keeper asks the same question for 44 instead of 98: its Levy
+       takes 35 Alloy off you, which is the "wants you rich" angle the pack was
+       built around, and 134 total puts it beside Braced Line at 138 where a
+       three-wide normal belongs.
+
+       This encounter has caused this class of bug before — it was renamed off
+       `the_procession` because the id collided with the elite's and a normal
+       node opened the elite outright. There is a test for duplicate ids, and now
+       one for elites inside normal packs. */
     id: 'the_long_column',
     name: 'The Long Column',
     act: 2,
     tier: 'normal',
-    enemyIds: [ASH_CHOIR, SIPHON_ENGINE, VOID_RONIN],
+    minRow: 8,
+    enemyIds: [ASH_CHOIR, TALLY_KEEPER, VOID_RONIN],
   },
   {
     id: 'welder_pair',
     name: 'Cutting Crew',
     act: 2,
     tier: 'normal',
+    minRow: 5,
     enemyIds: [ARC_WELDER, ARC_WELDER],
   },
   {
@@ -385,6 +402,7 @@ export const ENCOUNTERS: readonly EncounterDef[] = [
     name: 'Prism Field',
     act: 3,
     tier: 'normal',
+    minRow: 9,
     enemyIds: [NULL_PRISM, TESSELLATE_SHARD, HEAT_SIPHON],
   },
   {
@@ -392,6 +410,7 @@ export const ENCOUNTERS: readonly EncounterDef[] = [
     name: 'The Cold Wake',
     act: 3,
     tier: 'normal',
+    minRow: 7,
     enemyIds: [RIMEWAKE, CHIRALITY_WARDEN],
   },
 
@@ -432,6 +451,7 @@ export const ENCOUNTERS: readonly EncounterDef[] = [
     name: 'Braced Line',
     act: 2,
     tier: 'normal',
+    minRow: 8,
     enemyIds: [SPLINT_CHORUS, ARC_WELDER, VOID_RONIN],
   },
   {
@@ -446,6 +466,7 @@ export const ENCOUNTERS: readonly EncounterDef[] = [
     name: 'Unwritten',
     act: 3,
     tier: 'normal',
+    minRow: 3,
     enemyIds: [NULLWRIGHT, NULL_PRISM],
   },
   {

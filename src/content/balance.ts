@@ -254,13 +254,19 @@ export const ECONOMY = {
 export const SHOP = {
   cardSlots: 4,
   /**
-   * Implants on the shelf. Two, so the choice is a choice and not a catalogue.
+   * Implants on the shelf. Three.
    *
    * This is the shelf that turns Alloy into power. Before it, money bought a
    * card, one forge, one removal and a Mastery nobody could afford, so it piled
    * up while the pilot never got faster or hit harder.
+   *
+   * Two for a long time, on the argument that a short shelf is a choice and a
+   * long one is a catalogue. Three is still a choice — it is what the card
+   * shelf and both boss rows already offer — and two was quietly the tightest
+   * row in the game on the one screen where Alloy is supposed to become
+   * something.
    */
-  implantSlots: 2,
+  implantSlots: 3,
   /** A card upgrade. Cheaper than a card — it makes what you have better. */
   forgePrice: 75,
   cardPrice: {
@@ -469,9 +475,25 @@ export const NODE_ACT_SCALE: {
   readonly [act in 1 | 2 | 3]: { readonly elite: number; readonly station: number };
 } = {
   1: { elite: 1, station: 1 },
-  2: { elite: 1.6, station: 1.35 },
-  3: { elite: 2.9, station: 1.7 },
+  2: { elite: 1.35, station: 1.2 },
+  3: { elite: 1.6, station: 1.05 },
 };
+
+/* The climb is much shallower than it was, and that is a correction rather than
+   a retune.
+ *
+ * It used to be 1 / 1.6 / 2.9 on Elites and 1 / 1.35 / 1.7 on Stations, on the
+ * reasoning that the act with the most Alloy to spend should have the most
+ * places to spend it. Measured, that produced Elite densities of 12.8%, 18.2%
+ * and 21.6% — and since relics drop ONLY at an Elite or a boss, it also
+ * produced the item curve backwards: fewest sources in Act 1 when you have
+ * nothing, most in Act 3 when you are already finished. Both halves of the
+ * complaint that Act 3 is trivial and the opening is slow come out of this one
+ * table.
+ *
+ * Still rising, because the original argument was not wrong — Act 3 does have
+ * more Alloy and it should have somewhere to spend it. It just cannot be the
+ * act that also hands out the most permanent power. */
 
 /* Act 3's elite multiplier is larger than the ladder suggests it should be, and
    the reason is arithmetic rather than intent: Act 3 is the SHORTEST act, and
@@ -514,9 +536,26 @@ export const TREASURE_ALLOY = { min: 25, max: 45 } as const;
 export const RARITY_WEIGHTS: {
   readonly [act in 1 | 2 | 3]: { readonly [r in Exclude<Rarity, 'basic'>]: number };
 } = {
-  1: { common: 62, uncommon: 26, epic: 9, legendary: 2.4, mythic: 0, artifact: 0 },
-  2: { common: 48, uncommon: 31, epic: 14, legendary: 5, mythic: 0, artifact: 0 },
-  3: { common: 36, uncommon: 33, epic: 19, legendary: 8.5, mythic: 0, artifact: 0 },
+  /* Act 1 sat at 62 on common, which put nearly two thirds of every roll onto
+     the twenty offerable commons — twelve reward screens showed only about
+     twenty-six distinct cards, and the same handful kept coming back. Fourteen
+     points moved out of common and into the two tiers a first act can actually
+     build around. The total is unchanged, so this redistributes rather than
+     inflates. */
+  1: { common: 48, uncommon: 33, epic: 16, legendary: 2.4, mythic: 0, artifact: 0 },
+  /* Act 2 came out of the Act 1 change looking WORSE than Act 1 — 49.0% common
+     against 48.3% — because fourteen points moved out of Act 1 and nothing
+     moved here. Eight points out of common, into the two tiers that are still
+     scarce at this point in a run. Uncommon is left alone: it is already a
+     third of the roll and Act 2 is where the deck stops needing filler and
+     starts needing a plan. */
+  2: { common: 40, uncommon: 31, epic: 19, legendary: 8, mythic: 0, artifact: 0 },
+  /* Act 3 leans into the top. Eight points out of common and five out of
+     uncommon, into epic and legendary — by the last act the deck is a build and
+     what it needs is the card that finishes it, not another filler option. The
+     total is unchanged again, so all three acts still redistribute rather than
+     inflate. */
+  3: { common: 28, uncommon: 28, epic: 27, legendary: 13.5, mythic: 0, artifact: 0 },
 };
 
 /**
@@ -555,6 +594,32 @@ export const RELIC_RARITY_WEIGHTS: {
   3: { common: 18, uncommon: 30, epic: 28, legendary: 16, mythic: 12, artifact: 2 },
 };
 
+/**
+ * Relic tiers off an ORDINARY fight, as opposed to an Elite or a boss.
+ *
+ * A separate table because the two are different rewards wearing the same
+ * screen. An Elite is a fight you routed toward and paid hull for, and its table
+ * runs all the way to artifact. An ordinary combat is a fight you were going to
+ * have anyway — a relic falling out of it is a bonus, and a bonus that can roll
+ * mythic makes the Elite pointless.
+ *
+ * Epic is the ceiling, and a thin one: about one ordinary-fight relic in
+ * fourteen. The rest is the bottom of the ladder, which is the right shape for
+ * something the run did not have to work for.
+ *
+ * Not per-act, unlike the Elite table. `RELIC_COMBAT_CHANCE` already tapers
+ * these to nothing by Act 3 — an act-scaled table on top of an act-scaled rate
+ * would be two dials doing one job, and the second one would be invisible.
+ */
+export const RELIC_COMBAT_WEIGHTS: { readonly [r in Exclude<Rarity, 'basic'>]: number } = {
+  common: 60,
+  uncommon: 33,
+  epic: 7,
+  legendary: 0,
+  mythic: 0,
+  artifact: 0,
+};
+
 /** Display order and label for a tier. Colour lives in the stylesheet. */
 export const RARITY_LABEL: { readonly [r in Rarity]: string } = {
   basic: 'Basic',
@@ -589,6 +654,52 @@ export const BOSS_MAX_HEALTH = 8;
  */
 export const ACT_CLEAR_HEAL_PCT = 0.25;
 
+/**
+ * Chance an ORDINARY fight also offers relics, by act.
+ *
+ * Relics used to come from Elites and bosses only, which put every permanent
+ * upgrade behind the node type a new deck cannot afford to take. The first hour
+ * of a run is the hour with the fewest items in it and the greatest need of
+ * them, and by Act 3 the same player is drowning.
+ *
+ * So the ordinary fights carry it early and stop carrying it late: a third of
+ * Act 1's combats, an eighth of Act 2's, none at all in Act 3. Front-loading
+ * the ITEMS rather than the Elites is deliberate — more Elites early would
+ * front-load the difficulty too, which is the opposite of the problem.
+ *
+ * Act 3 at zero is the other half of the same lever. By then the deck is the
+ * build; another relic is not a decision, it is a rounding error on a run that
+ * has already been decided.
+ */
+/**
+ * The tier a boss's implant row rolls, weighted.
+ *
+ * It was uniform across every tier that had an implant in it, which gave a
+ * one-in-five chance that an act finale offered three commons — the boss
+ * telling you the last hour did not matter. The cards and relics on that screen
+ * are pinned to one tier for exactly this reason; the implants roll because a
+ * rolled tier is what makes the row read as a drop rather than a menu, so the
+ * fix is to weight the roll rather than remove it.
+ *
+ * Epic is the centre of mass, legendary is a real hope, mythic is the story you
+ * tell afterwards, and common is the tail that keeps it a roll at all.
+ */
+export const BOSS_IMPLANT_WEIGHTS: {
+  readonly [r in Exclude<Rarity, 'basic' | 'artifact'>]: number;
+} = {
+  common: 10,
+  uncommon: 25,
+  epic: 35,
+  legendary: 25,
+  mythic: 5,
+};
+
+export const RELIC_COMBAT_CHANCE: { readonly [act in 1 | 2 | 3]: number } = {
+  1: 0.33,
+  2: 0.12,
+  3: 0,
+};
+
 export const REWARDS = {
   cardChoices: 3,
   /** Relics offered at an act finale. You take one. */
@@ -605,10 +716,17 @@ export const REWARDS = {
   bossOfferRarity: 'legendary',
   /** Skip is always offered. A reward you must take is not a decision. */
   allowSkip: true,
-  /** Reward screens with no archetype match before the soft up-weight kicks in. */
-  archetypeDroughtBeforeNudge: 3,
-  /** Soft, not guaranteed: fewer dead runs, not handing the player their build. */
-  archetypeNudgeMultiplier: 1.6,
+  /* The archetype nudge was here: after three reward screens with nothing
+     matching the deck's lean, cards of that archetype were weighted 1.6x. It
+     existed to rescue a run that kept being offered nothing it wanted.
+
+     Removed. It made the offer depend on what you had already picked, which is
+     the one thing a reward screen must not do — a player who takes two GUARD
+     cards and then sees GUARD cards cannot tell whether the game is helping
+     them or they are reading a pattern into noise, and either way the screen
+     stopped being an honest roll. The rarity weights now carry the whole job;
+     if a run is starved of what it wants, that is variance the seed is allowed
+     to have. */
 } as const;
 
 export const ARCHETYPES: readonly Archetype[] = ['iai', 'guard', 'flow', 'overheat', 'neutral'];

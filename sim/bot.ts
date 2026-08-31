@@ -15,7 +15,15 @@
  * same numbers and a diff in the report is a diff in the game.
  */
 
-import type { CardInstance, EventDef, GameState, MapNode, RunState } from '../src/engine/types.ts';
+import type {
+  Archetype,
+  CardInstance,
+  EventDef,
+  GameState,
+  MapNode,
+  RunState,
+} from '../src/engine/types.ts';
+import { STARTING_DECK } from '../src/content/cards/basic.ts';
 import { repairOffer } from '../src/engine/run/run.ts';
 import { applyAction } from '../src/engine/reducer.ts';
 import { createInitialState } from '../src/engine/state.ts';
@@ -27,7 +35,6 @@ import { overheatThreshold } from '../src/engine/combat/heat.ts';
 import { liveStance } from '../src/engine/combat/rules.ts';
 import { availableMoves, nodeById } from '../src/engine/map/route.ts';
 import { optionsFor, canTakeOption } from '../src/engine/run/events.ts';
-import { archetypeLean } from '../src/engine/run/rewards.ts';
 import {
   cards as cardTable,
   events as eventTable,
@@ -642,4 +649,47 @@ export function playRun(seed: string, depth: number): RunReport {
 /** A title-phase state to start from. */
 function blank(): GameState {
   return createInitialState('SIM');
+}
+
+/**
+ * Which way the bot's deck leans, counting only what it CHOSE.
+ *
+ * This used to live in `src/engine/run/rewards.ts`, where the reward roll read
+ * it to up-weight the player's own archetype. That bias is gone from the game —
+ * an offer that reads what you already took is an offer you cannot trust — but
+ * the BOT still needs an opinion, because picking cards at random is not
+ * playing. So it lives here now, on the side that is allowed to have a plan.
+ *
+ * The starting deck is excluded by dealing it back out one copy at a time
+ * rather than by filtering on rarity: every run opens with the same twelve
+ * cards, so counting them would say every deck leans the same way. Rarity was
+ * the old proxy for "came with the deck" and it broke the day an uncommon
+ * joined the opening hand.
+ */
+function archetypeLean(run: RunState): Archetype {
+  const dealt = new Map<string, number>();
+  for (const id of STARTING_DECK) dealt.set(id, (dealt.get(id) ?? 0) + 1);
+
+  const counts = new Map<Archetype, number>();
+  for (const instance of run.pilot.deck) {
+    const def = cardTable.find(instance.defId);
+    if (def === undefined) continue;
+    const remaining = dealt.get(instance.defId) ?? 0;
+    if (remaining > 0) {
+      dealt.set(instance.defId, remaining - 1);
+      continue;
+    }
+    counts.set(def.archetype, (counts.get(def.archetype) ?? 0) + 1);
+  }
+
+  let best: Archetype = 'neutral';
+  let bestCount = 0;
+  // Sorted, so a tie resolves the same way every run rather than by Map order.
+  for (const [archetype, count] of [...counts.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1))) {
+    if (count > bestCount) {
+      best = archetype;
+      bestCount = count;
+    }
+  }
+  return best;
 }
