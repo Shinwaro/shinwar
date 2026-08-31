@@ -20,6 +20,7 @@ import {
   masteries as masteryTable,
 } from '../../content/registry.ts';
 import { el } from '../dom.ts';
+import { environmentIsNew, environmentMark } from '../env-mark.ts';
 import { stageHeat } from '../anim.ts';
 import { renderSigil } from './sigil.ts';
 
@@ -54,16 +55,43 @@ export function renderStanceStrip(state: GameState): HTMLElement {
   ]);
 }
 
-/** The badge for the fight's environment. Always on screen, never on hover. */
+/**
+ * The badge for the fight's environment. Always on screen, never on hover.
+ *
+ * At the very TOP of the board, above your own health. It sat under the health
+ * bar in the same small type as everything else, which put the one fact that
+ * changes how the entire fight works below the numbers it changes — and made it
+ * the easiest thing on the board to start a fight without having read.
+ *
+ * `is-entering` is added only on the render where the environment changed. See
+ * `environmentIsNew`: the combat screen rebuilds itself on every state change,
+ * so an entry animation attached to the element itself would replay forever.
+ */
 export function renderEnvironmentBadge(state: GameState): HTMLElement | null {
   const combat = requireCombat(state);
   const def = environmentTable.find(combat.environmentId);
   if (def === undefined || def.id === CLEAR_SPACE_ID) return null;
 
-  return el('div', { class: 'env-badge', 'data-environment': def.id }, [
-    el('span', { class: 'env-name' }, [def.name]),
-    el('span', { class: 'env-text' }, [def.text]),
-  ]);
+  const mark = environmentMark(def.id);
+  const arriving = environmentIsNew(def.id);
+
+  return el(
+    'div',
+    {
+      class: `env-badge${arriving ? ' is-entering' : ''}`,
+      'data-environment': def.id,
+      role: 'status',
+    },
+    [
+      mark === null
+        ? null
+        : el('span', { class: 'env-mark', 'aria-hidden': 'true' }, [mark]),
+      el('div', { class: 'env-words' }, [
+        el('span', { class: 'env-name' }, [def.name]),
+        el('span', { class: 'env-text' }, [def.text]),
+      ]),
+    ],
+  );
 }
 
 export function renderHeatGauge(state: GameState): HTMLElement {

@@ -26,6 +26,7 @@ import { installDragScroll } from './drag-scroll.ts';
 import { toggleFullscreen } from './fullscreen.ts';
 import { play } from './sound.ts';
 import { floatHealthChange, forgetHeat, forgetPips, forgetResources } from './anim.ts';
+import { forgetEnvironment } from './env-mark.ts';
 import { ENCOUNTERS } from '../content/encounters.ts';
 import { SECT_RITES } from '../content/threads.ts';
 
@@ -156,6 +157,9 @@ function arrivalSound(state: GameState): void {
     forgetHeat();
     forgetPips();
     forgetResources();
+    /* So every fight announces its environment, even two in a row that share
+       one. Without this, the second Debris Field in a row arrived silently. */
+    forgetEnvironment();
   }
   if (screen === null) return;
 

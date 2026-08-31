@@ -36,7 +36,8 @@ import { HEAT } from '../../content/balance.ts';
 import { button, el } from '../dom.ts';
 import { renderFullscreenButton } from '../fullscreen.ts';
 import { renderCard } from '../components/card.ts';
-import { renderEnemy } from '../components/enemy.ts';
+import type { DebrisAim } from '../components/enemy.ts';
+import { renderDebrisMark, renderEnemy } from '../components/enemy.ts';
 import {
   renderEnvironmentBadge,
   renderHeatGauge,
@@ -575,11 +576,38 @@ function build(
 
   /* ---- enemies ---- */
 
+  /* Read once for the whole row: a card cannot put something outside itself.
+   *
+   * The mark goes in ONE place — the middle of the row — whoever is marked, and
+   * the arrow does the identifying. Held still on purpose: a label that moves
+   * to whichever card is marked has to be found again every round, which is the
+   * opposite of what a telegraph is for.
+   *
+   * `markSlot` is where it is inserted, and it is the middle of however many
+   * enemies there are: after the only card when there is one, between the pair
+   * when there are two, after the second when there are three. That is also
+   * what makes the elite and boss boards work with no special case — a lone
+   * wide card still has a middle, it is just its own edge, and the arrow points
+   * back at it. */
+  const debrisTarget = envGetString(combat, 'debrisTarget');
+  const markedIndex = combat.enemies.findIndex(
+    (enemy) => enemy.uid === debrisTarget && enemy.hp > 0,
+  );
+  const playerMarked = debrisTarget === 'player';
+  const markSlot = Math.max(1, Math.ceil(combat.enemies.length / 2));
+  const debrisAim: DebrisAim | null = playerMarked
+    ? 'down'
+    : markedIndex === -1
+      ? null
+      : markedIndex < markSlot
+        ? 'left'
+        : 'right';
+
   const enemyRow = el(
     'section',
     { class: 'enemy-row', 'aria-label': 'Enemies' },
-    combat.enemies.map((enemy) => {
-      return renderEnemy(state, enemy, {
+    combat.enemies.flatMap((enemy, index) => {
+      const card = renderEnemy(state, enemy, {
         targetable: selection.cardUid !== null && enemy.hp > 0,
         focused: selection.keyboardTargeting && selection.focusUid === enemy.uid,
         acting: combat.actingUid === enemy.uid,
@@ -598,6 +626,11 @@ function build(
           store.dispatch({ kind: 'playCard', cardUid, targetUid: enemy.uid });
         },
       });
+      /* The slot, not the marked card: the mark goes after the card at
+         `markSlot - 1` wherever the rock is actually headed. */
+      return debrisAim !== null && index === markSlot - 1
+        ? [card, renderDebrisMark(debrisAim)]
+        : [card];
     }),
   );
 
@@ -627,21 +660,28 @@ function build(
 
   /* ---- the player's row ---- */
 
-  // The Debris Field marks the highest-HP combatant, which early in a fight is
-  // usually the player. A telegraph the player cannot see is not a telegraph.
-  const marked = envGetString(combat, 'debrisTarget') === 'player';
-
-  const playerPanel = el('section', { class: 'player-panel', 'aria-label': 'Your state' }, [
-    marked
-      ? el('div', { class: 'debris-mark', role: 'status' }, [
-          el('span', { 'aria-hidden': 'true' }, ['◎']),
-          'A rock is coming for you at the end of this round',
-        ])
-      : null,
+  /* The rock is coming for YOU: the panel lights up rather than captioning
+   * itself.
+   *
+   * It carried a sentence of its own, which said exactly what the mark in the
+   * enemy row now says — in different words, a screen apart, so the same fact
+   * arrived twice and neither copy was obviously the same fact. The mark points
+   * down, this goes red, and the two are one statement. The words stay in the
+   * label for screen readers, which have no outline to see. */
+  const playerPanel = el(
+    'section',
+    {
+      class: 'player-panel' + (playerMarked ? ' is-marked' : ''),
+      'aria-label': playerMarked
+        ? 'Your state — a rock is coming for you at the end of the round'
+        : 'Your state',
+    },
+    [
     renderStanceStrip(state),
     renderHeatGauge(state),
     renderResources(state),
-  ]);
+    ],
+  );
 
   /* ---- hand ---- */
 
@@ -804,8 +844,10 @@ function build(
   return el('div', { class: 'combat-inner' }, [
     corner,
     rail,
-    topBar,
+    /* The environment first, above your own health. It decides what the whole
+       fight is; the numbers under it are what it decides. */
     renderEnvironmentBadge(state),
+    topBar,
     enemyRow,
     threat,
     playerPanel,

@@ -11,6 +11,7 @@
 
 import type { CardDef, CardInstance, GameState } from '../../engine/types.ts';
 import { definitionOf } from '../../engine/combat/combat.ts';
+import { cardMark } from '../card-mark.ts';
 import {
   describeCard,
   describeCardSegments,
@@ -55,10 +56,19 @@ export function renderCardFace(def: CardDef, options: CardFaceOptions): HTMLElem
   const classes = ['card', 'card--face', `card--${def.type}`];
   if (options.extraClass !== null) classes.push(options.extraClass);
 
+  /* The same glyph the hand uses. A reward shelf is three cards side by side
+     and is exactly where "what KIND of card is this" gets asked fastest. */
+  const mark = cardMark(def);
+
   return el('div', { class: classes.join(' '), 'data-rarity': def.rarity }, [
     el('div', { class: 'card-head' }, [
       el('span', { class: `card-cost${costChanged ? ' is-changed' : ''}` }, [describeCost(def)]),
       el('span', { class: 'card-name' }, [def.name]),
+      el(
+        'span',
+        { class: `card-mark card-mark--${mark.family}`, title: mark.label, 'aria-hidden': 'true' },
+        [mark.glyph],
+      ),
       options.badge === null
         ? null
         : el('span', { class: `card-badge card-badge--${def.rarity}` }, [options.badge]),
@@ -143,10 +153,21 @@ export function renderCard(
   if (options.selected) classes.push('is-selected');
   if (!options.playable) classes.push('is-unplayable');
 
+  /* What kind of card this is, as one glyph. Ten cards in a hand are ten
+     paragraphs to read; the mark is there so the shape of the hand — three
+     attacks, a Block, a Power — is legible before any of them are. */
+  const mark = cardMark(def);
+
   const body: HTMLElement[] = [
     el('div', { class: 'card-head' }, [
       el('span', { class: 'card-cost', 'aria-label': `${describeCost(def)} Energy` }, [describeCost(def)]),
       el('span', { class: 'card-name' }, [def.name]),
+      el(
+        'span',
+        { class: `card-mark card-mark--${mark.family}`, title: mark.label, 'aria-hidden': 'true' },
+        [mark.glyph],
+      ),
+      el('span', { class: 'visually-hidden' }, [mark.label]),
     ]),
     el('p', { class: 'card-text' }, cardTextNodes(def, state)),
   ];
@@ -180,9 +201,13 @@ export function renderCard(
     );
   }
 
-  if (def.flavor !== undefined) {
-    body.push(el('p', { class: 'card-flavor' }, [def.flavor]));
-  }
+  /* No flavour on a card in hand.
+   *
+   * It is the game's voice and it stays on every screen where you are READING
+   * cards — the reward shelf, the Station, the deck list, the peek. In hand it
+   * is two lines of prose under the one paragraph that decides your turn, on
+   * the screen where you have the least room and the least patience, and the
+   * eye has to skip it every single time. Kept where there is time for it. */
 
   const node = el(
     'button',

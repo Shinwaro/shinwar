@@ -17,7 +17,7 @@ import type { Store } from '../store.ts';
 import { requireRun } from '../../engine/state.ts';
 import { availableMoves, currentNode, describeNode } from '../../engine/map/route.ts';
 import { environments } from '../../content/registry.ts';
-import { button, el, fill, onHoverOrFocus } from '../dom.ts';
+import { button, el, fill } from '../dom.ts';
 import { liveScreen } from '../screen.ts';
 import { renderRunBar } from '../components/runbar.ts';
 import { renderManifest } from '../components/manifest.ts';
@@ -91,9 +91,9 @@ function labelOf(node: MapNode): string {
  * and the environment sit under it in smaller type: needed to decide, but not
  * what you are scanning for.
  */
-function captionOf(node: MapNode): HTMLElement {
+function captionOf(node: MapNode, tone: 'now' | 'far' | 'past'): HTMLElement {
   const environment = environmentName(node);
-  return el('span', { class: 'star-label' }, [
+  return el('span', { class: `star-label${tone === 'now' ? '' : ` star-label--${tone}`}` }, [
     el('span', { class: 'star-name' }, [node.name]),
     el('span', { class: 'star-detail' }, [describeNode(node)]),
     // The environment, on its own line and in its own colour: it is the fact
@@ -300,16 +300,14 @@ function buildMap(
      `place` in `renderMap` for why that matters. */
   const anchorId = run.position ?? map.startId;
 
-  /* -- the readout, driven by hover and focus -- */
-  const readout = el('p', { class: 'map-readout', role: 'status', 'aria-live': 'polite' }, [
-    run.position === null
-      ? 'You arrive. One way in — the choices start after it.'
-      : 'Choose your next jump.',
-  ]);
-  const setReadout = (text: string | null): void => {
-    readout.textContent =
-      text ?? (run.position === null ? 'You arrive. One way in — the choices start after it.' : 'Choose your next jump.');
-  };
+  /* The readout was here: a line under the act heading that named whatever star
+     you were pointing at — "Kell Yard · Station · Clear Space".
+     Removed, because the chart says all three under every star now, on every
+     node rather than only the one under the cursor. A caption that repeats what
+     is already written a centimetre away is a second place to look for the same
+     fact. Nothing is lost for the keyboard either: each star carries the same
+     string as its `aria-label`, so focusing one announces it natively instead
+     of through a live region that had to be kept in step by hand. */
 
   /* -- lanes -- */
   const chart = svg('svg', {
@@ -387,28 +385,22 @@ function buildMap(
     fill(star, [
       el('span', { class: 'star-dot', 'aria-hidden': 'true' }),
       /*
-       * Every place is named, all the time.
+       * Every place is named AND typed, all the time.
        *
-       * The earlier version captioned only the lanes you could reach, on the
-       * theory that fifty labels is noise — but a chart where most of the sky
-       * is anonymous cannot be read ahead, and reading ahead is the entire
-       * point of showing three columns of it. So the NAME is always on; the
-       * type and environment ride under it only where you are actually choosing.
+       * First only the reachable lanes were captioned, on the theory that fifty
+       * labels is noise. Then the name went on everywhere, because a chart
+       * where most of the sky is anonymous cannot be read ahead. This is the
+       * rest of that argument: a name alone does not let you plan either. "Kell
+       * Yard, then the Station" is a route; "Kell Yard, then a word I cannot
+       * see the type of" is a guess, and routing several nodes out is the whole
+       * reason three columns are on screen at once.
+       *
+       * The hierarchy is carried by weight and colour rather than by absence —
+       * see `star-label--far`. Where you are choosing is loud; the rest is
+       * quiet and still readable.
        */
-      isReachable
-        ? captionOf(node)
-        : el(
-            'span',
-            {
-              class: `star-label star-label--${visited.has(node.id) ? 'past' : 'far'}`,
-            },
-            [el('span', { class: 'star-name' }, [node.name])],
-          ),
+      captionOf(node, isReachable ? 'now' : visited.has(node.id) ? 'past' : 'far'),
     ]);
-
-    const show = (): void => setReadout(label);
-    const hide = (): void => setReadout(null);
-    onHoverOrFocus(star, (on) => (on ? show() : hide()));
 
     /* The sound goes on POINTERDOWN, not on the click.
      *
@@ -478,7 +470,6 @@ function buildMap(
         rerender();
       }),
     ]),
-    readout,
     /* The chart and the Manifest, side by side.
      *
      * It used to sit ABOVE the chart, full width, which pushed the sky down by

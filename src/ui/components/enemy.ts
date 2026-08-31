@@ -136,6 +136,9 @@ export function renderEnemy(
   // which rock comes, never in whether the player could have seen it.
   const marked = !dead && envGetString(requireCombat(state), 'debrisTarget') === enemy.uid;
 
+  // Outlines the whole card, so "who is marked" is answerable without reading.
+  if (marked) classes.push('is-marked');
+
   const hpPct = enemy.maxHp === 0 ? 0 : Math.max(0, (enemy.hp / enemy.maxHp) * 100);
   const hpFill = el('span', { class: 'bar-fill' });
   const hpBar = el('div', { class: 'bar bar--hp' }, [hpFill]);
@@ -178,16 +181,57 @@ export function renderEnemy(
       // Always rendered, even empty: a pip that expires needs somewhere to fade
       // out, and a container that disappears with it takes the fade with it.
       el('div', { class: 'pips', 'data-owner': enemy.uid }, statusRow),
-      marked
-        ? el('div', { class: 'debris-mark', title: 'A rock is coming for this one at the end of the round.' }, [
-            el('span', { 'aria-hidden': 'true' }, ['◎']),
-            'Marked',
-          ])
-        : null,
       intentNode,
     ],
   );
 
   node.addEventListener('click', options.onPick);
   return node;
+}
+
+/** Which way the mark points. */
+export type DebrisAim = 'left' | 'right' | 'down';
+
+const AIM_GLYPH: Record<DebrisAim, string> = { left: '◁', right: '▷', down: '▽' };
+const AIM_WORDS: Record<DebrisAim, string> = {
+  left: 'A rock is coming for the enemy on the left at the end of the round.',
+  right: 'A rock is coming for the enemy on the right at the end of the round.',
+  down: 'A rock is coming for YOU at the end of the round.',
+};
+
+/**
+ * The Debris Field's mark. One place on the board, and the arrow says who.
+ *
+ * It used to live inside the marked card — a label about the box, printed in
+ * the box — and then beside whichever card was marked, which meant it MOVED
+ * from round to round and the eye had to find it again every time.
+ *
+ * Now it holds still, in the middle of the enemy row, and only the arrow
+ * changes: left or right for an enemy, down for the player. One place to look
+ * and a direction to follow beats a label that could be anywhere, and the red
+ * outline on the marked card — or on the player's own panel — is what removes
+ * the last ambiguity on a three-wide board.
+ *
+ * A flex sibling rather than an overlay: the row divides its width between the
+ * enemies by tier, so anything absolutely positioned over it would lie across
+ * whichever card happened to sit underneath.
+ */
+export function renderDebrisMark(aim: DebrisAim): HTMLElement {
+  const arrow = el('span', { class: 'debris-arrow', 'aria-hidden': 'true' }, [AIM_GLYPH[aim]]);
+  const word = el('span', { class: 'debris-word' }, ['Marked']);
+  const said = el('span', { class: 'visually-hidden' }, [' — ' + AIM_WORDS[aim]]);
+
+  /* The arrow goes on the side it points at.
+   *
+   * It was always first, so a right-pointing arrow sat on the LEFT of the word
+   * with the whole label between it and the thing it meant — an arrow with its
+   * own caption in the way. Pointing left it leads, pointing right it follows,
+   * and pointing down it goes underneath (see the CSS: the flex direction turns
+   * a column for that one). */
+  const parts = aim === 'left' ? [arrow, word, said] : [word, arrow, said];
+  return el(
+    'div',
+    { class: 'debris-mark debris-mark--' + aim, role: 'status', title: AIM_WORDS[aim] },
+    parts,
+  );
 }

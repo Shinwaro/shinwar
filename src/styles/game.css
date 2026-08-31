@@ -159,6 +159,31 @@
 .combat {
   position: relative;
   --stage-accent: var(--accent);
+
+  /* The board sits in the middle of the screen rather than hanging off the top.
+
+     It was pinned to the top by `.screen`'s padding, which put the health bar
+     against the very edge of the display and left a third of the screen empty
+     under the End turn button — so the thing you read most often was the
+     furthest from where you were looking.
+
+     Nothing about the board's own layout changes; this only decides where the
+     finished block sits. `safe center` is the important half: when the board is
+     taller than the viewport, plain `center` overflows in BOTH directions and
+     the top — the health bar, the enemy — becomes unreachable. `safe` falls
+     back to packing from the start in exactly that case. The unprefixed line
+     below it is the fallback for anything that does not understand `safe`. */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  justify-content: safe center;
+}
+
+/* Symmetric and small, so there is room to centre INTO. `.screen` gives every
+   other view a big asymmetric top padding, which is right for a page you read
+   from the top and wrong for a board you read from the middle. */
+.combat.screen {
+  padding-block: max(0.75rem, env(safe-area-inset-top)) max(0.75rem, env(safe-area-inset-bottom));
 }
 
 .combat[data-stance='iai'] { --stage-accent: var(--iai); }
@@ -233,6 +258,13 @@
 /* -- top bar -- */
 
 .combat-bar {
+  /* Room for the status line whether or not you have a status.
+     The player's pip row is rendered only when there IS one, so the bar grew
+     25px the first time anything landed on you and shrank again when it fell
+     off — and with the board centred, that moved the whole board by half of it
+     each way. The reserved line costs a strip of empty bar and buys a board
+     that does not move when a status arrives. */
+  min-height: 5.7rem;
   display: grid;
   grid-template-columns: minmax(11rem, 1.6fr) repeat(3, minmax(6rem, 1fr));
   gap: 0.75rem;
@@ -472,6 +504,11 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0.3rem;
+  /* An enemy's status row is always in the DOM and empty most of the time, so
+     it was 0px until something landed and 23px after — which grew the enemy
+     card, grew the row, and moved the centred board. Reserving the line keeps
+     the enemy the same size whether or not it is carrying anything. */
+  min-height: 1.45rem;
 }
 
 .pip {
@@ -649,6 +686,14 @@
   background: var(--surface-solid);
 }
 
+/* The rock is coming for you. Same red as the outline on a marked enemy, so the
+   two states are visibly the same fact about two different targets — and the
+   mark in the enemy row points down at this. */
+.player-panel.is-marked {
+  border-color: color-mix(in srgb, var(--danger) 65%, var(--line));
+  box-shadow: 0 0 18px color-mix(in srgb, var(--danger) 22%, transparent);
+}
+
 .stance-strip {
   display: flex;
   flex-wrap: wrap;
@@ -814,6 +859,20 @@
   justify-content: center;
   gap: 0.6rem;
   padding-bottom: 0.3rem;
+  /* The hand keeps its room while it is empty.
+   *
+   * Now that the board is centred, anything that changes the board's HEIGHT
+   * moves the whole board — and the hand collapsing from 181px to 5px between
+   * the discard and the deal moved it 88px down and back, twice a turn. That is
+   * the board "jumping" when you end a turn.
+   *
+   * A reserved minimum is the fix rather than pinning the hand, because the
+   * hand is still allowed to grow: a card with long rules text, or a sixth card
+   * wrapping to a second row, makes it taller and the board re-centres once.
+   * What it can no longer do is shrink to nothing for the half-second the deal
+   * is in flight. */
+  min-height: 11.5rem;
+  align-content: flex-start;
 }
 
 /* A five-card hand stays on one row, by squeezing rather than wrapping.
@@ -976,6 +1035,11 @@
 .hand-prompt {
   color: var(--muted);
   font-size: 0.8rem;
+  /* One line, always, whether or not there is a prompt in it. It appears the
+     moment a card is selected, and an appearing line is 20px of board that was
+     not there a frame ago — which shifted everything up by ten every time you
+     picked a card up and down again every time you put one down. */
+  min-height: 1.25rem;
 }
 
 /* -- tray -- */
@@ -1326,13 +1390,6 @@
   gap: 0.75rem;
 }
 
-.map-readout {
-  min-height: 1.4em;
-  color: var(--muted);
-  font-size: 0.85rem;
-  letter-spacing: 0.01em;
-}
-
 /* The chart and its Manifest, side by side — and the CHART stays centred.
 
    The Manifest used to sit above the chart at full width, so the sky moved down
@@ -1506,11 +1563,16 @@
 /* Unvisited, unreachable stars stay readable — reading the sky ahead is the
    whole point — they simply do not respond. */
 .star:disabled .star-dot {
-  opacity: 0.5;
+  /* 0.72, up from 0.5. The chart's whole job is being read several nodes out,
+     and a dot at half strength on a near-black ground is a dot you have to
+     hunt for. Still clearly quieter than a lane you can take. */
+  opacity: 0.72;
 }
 
 .star.is-visited .star-dot {
-  opacity: 0.22;
+  /* 0.42, up from 0.22. Where you have BEEN is the thing you orient by — at
+     0.22 the route behind you disappeared and the chart lost its anchor. */
+  opacity: 0.42;
 }
 
 .star.is-reachable {
@@ -1598,20 +1660,43 @@
   max-width: 10rem;
 }
 
-/* Named everywhere, but only loud where you are choosing. Places behind you and
-   places you cannot reach yet stay legible and stop competing for attention. */
+/* Captioned everywhere, but only loud where you are choosing.
+
+   Every node carries its name AND its type now, because a route is planned out
+   of types — "then the Station" — and a name on its own does not let you plan.
+   The hierarchy is weight and colour rather than absence: places behind you and
+   places you cannot reach yet stay fully legible and stop competing. */
 .star-label--past .star-name,
 .star-label--far .star-name {
-  font-size: 0.6rem;
-  font-weight: 400;
+  font-size: 0.64rem;
+  font-weight: 500;
+}
+
+.star-label--past .star-detail,
+.star-label--far .star-detail,
+.star-label--past .star-env,
+.star-label--far .star-env {
+  font-size: 0.54rem;
 }
 
 .star-label--past .star-name {
-  color: color-mix(in srgb, var(--muted) 65%, transparent);
+  color: color-mix(in srgb, var(--muted) 78%, transparent);
 }
 
 .star-label--far .star-name {
-  color: color-mix(in srgb, var(--muted) 85%, transparent);
+  color: var(--muted);
+}
+
+/* The second line is reference rather than the thing you scan for, so it sits
+   a step quieter than the name above it in both states. */
+.star-label--past .star-detail,
+.star-label--far .star-detail {
+  color: color-mix(in srgb, var(--muted) 62%, transparent);
+}
+
+.star-label--past .star-env,
+.star-label--far .star-env {
+  opacity: 0.78;
 }
 
 .star[data-edge='left'] .star-label {
@@ -1730,22 +1815,85 @@
    The badge is on screen for the whole fight, never on hover. It is half the
    route decision and the player committed to it several nodes ago. */
 
+/* The environment, at the top of the board and loud enough to be read before
+   the fight rather than during it. The `--env` custom property is set per
+   environment below; everything here reads it, so a new environment needs one
+   colour and gets the mark, the tint and the arrival flash for free. */
 .env-badge {
+  --env: var(--accent);
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.55rem 0.85rem;
+  border: 1px solid color-mix(in srgb, var(--env) 40%, var(--line));
+  border-left: 3px solid var(--env);
+  border-radius: var(--radius-sm);
+  /* A tint of the environment's own colour rather than plain surface, so the
+     board is visibly somewhere rather than carrying a label about it. */
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--env) 12%, var(--surface)),
+    var(--surface) 60%
+  );
+}
+
+.env-words {
   display: grid;
   gap: 0.15rem;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid var(--line);
-  border-left: 3px solid var(--accent);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
+  min-width: 0;
+}
+
+/* The silhouette you learn once. Sized to be recognised from across the board
+   — this is the one glyph on screen that says what kind of fight this is. */
+.env-mark {
+  flex: 0 0 auto;
+  font-size: 1.5rem;
+  line-height: 1;
+  color: var(--env);
+  text-shadow: 0 0 14px color-mix(in srgb, var(--env) 45%, transparent);
+}
+
+/* Arriving. One flash, on the render where the environment changed and never
+   again — see `environmentIsNew`. Honours reduced motion by simply not running,
+   which loses nothing: the badge is already the loudest thing at the top. */
+@media (prefers-reduced-motion: no-preference) {
+  .env-badge.is-entering {
+    animation: env-arrive 1100ms cubic-bezier(0.2, 0.7, 0.3, 1) 1;
+  }
+  .env-badge.is-entering .env-mark {
+    animation: env-mark-arrive 1100ms cubic-bezier(0.2, 0.7, 0.3, 1) 1;
+  }
+}
+
+@keyframes env-arrive {
+  0% {
+    transform: translateY(-6px);
+    opacity: 0;
+    border-color: var(--env);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--env) 60%, transparent);
+  }
+  22% {
+    transform: translateY(0);
+    opacity: 1;
+    box-shadow: 0 0 26px 2px color-mix(in srgb, var(--env) 45%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+@keyframes env-mark-arrive {
+  0% { transform: scale(0.6) rotate(-12deg); }
+  30% { transform: scale(1.35) rotate(0deg); }
+  100% { transform: scale(1) rotate(0deg); }
 }
 
 .env-name {
-  font-size: 0.72rem;
-  font-weight: 600;
+  font-size: 0.8rem;
+  font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--accent);
+  color: var(--env);
 }
 
 .env-text {
@@ -1754,12 +1902,13 @@
   text-wrap: pretty;
 }
 
-.env-badge[data-environment='stellar_corona'] { border-left-color: var(--heat-warm); }
-.env-badge[data-environment='deep_void'] { border-left-color: var(--heat-cool); }
-.env-badge[data-environment='gravity_well'] { border-left-color: #b79ae0; }
-.env-badge[data-environment='radiation_belt'] { border-left-color: var(--good); }
-.env-badge[data-environment='debris_field'] { border-left-color: var(--muted); }
-.env-badge[data-environment='sensor_fog'] { border-left-color: var(--guard); }
+.env-badge[data-environment='stellar_corona'] { --env: var(--heat-warm); }
+.env-badge[data-environment='deep_void'] { --env: var(--heat-cool); }
+.env-badge[data-environment='gravity_well'] { --env: #b79ae0; }
+.env-badge[data-environment='radiation_belt'] { --env: var(--good); }
+.env-badge[data-environment='debris_field'] { --env: #c9a227; }
+.env-badge[data-environment='sensor_fog'] { --env: var(--guard); }
+.env-badge[data-environment='chronal_shear'] { --env: #d47fb4; }
 .env-badge[data-environment='chronal_shear'] { border-left-color: var(--danger); }
 
 .intent--hidden .intent-hit {
@@ -1805,18 +1954,49 @@
   color: var(--guard);
 }
 
+/* Who the rock is coming for.
+   It was a 0.7rem pill in the same colour and weight as a status chip, which
+   made "which one is marked" a thing you had to hunt for one round before it
+   mattered. Loud, and the arrow points at the thing it is about. */
 .debris-mark {
   display: inline-flex;
-  gap: 0.3rem;
+  gap: 0.35rem;
   align-items: center;
-  align-self: start;
-  padding: 0.1rem 0.4rem;
-  border: 1px solid color-mix(in srgb, var(--danger) 55%, var(--line));
-  border-radius: 999px;
-  font-size: 0.7rem;
-  letter-spacing: 0.08em;
+  /* Beside the card it points at, in the row's own flow.
+     `flex: 0 0 auto` keeps it out of the tier grow distribution — the enemies
+     divide the width between them by tier, and a mark that took a share would
+     shrink the board it is annotating. Centred vertically against the card
+     rather than pinned to its top, so the arrow lines up with the thing. */
+  flex: 0 0 auto;
+  align-self: center;
+  /* It is a label, not a target. Clicks belong to the enemy. */
+  pointer-events: none;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--danger);
+  text-shadow: 0 0 12px color-mix(in srgb, var(--danger) 50%, transparent);
+}
+
+.debris-arrow {
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+/* Pointing down means at YOU, and the player's panel is below the enemy row —
+   so the arrow goes under the word rather than beside it. Turning the flex
+   direction is the whole of it; the word and the arrow are already in the right
+   order for a column (see `renderDebrisMark`). */
+.debris-mark--down {
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+/* And the card itself, so the answer is visible without reading any words. */
+.enemy.is-marked {
+  border-color: color-mix(in srgb, var(--danger) 65%, var(--line));
+  box-shadow: 0 0 18px color-mix(in srgb, var(--danger) 22%, transparent);
 }
 
 /* ---------- stance masteries ----------
@@ -3370,7 +3550,11 @@
 .rail {
   position: fixed;
   left: max(0.6rem, env(safe-area-inset-left));
-  top: max(0.6rem, env(safe-area-inset-top));
+  /* Centred down the side, with the board it qualifies, rather than pinned to
+     the top of the margin. `max-height` below still bounds it, so a long list
+     of relics grows into the space it has instead of off the screen. */
+  top: 50%;
+  transform: translateY(-50%);
   z-index: 20;
   display: flex;
   flex-direction: column;
@@ -3473,6 +3657,13 @@
     position: static;
     width: auto;
     max-height: none;
+    /* Both of these undo the centring above, and the transform is the one that
+       bites: a `translateY(-50%)` left on a STATIC element still moves it, so
+       the rail would ride half its own height up out of the board it has just
+       become part of. It measures clean while the rail is empty — half of zero
+       — and breaks the moment you pick up a relic. */
+    top: auto;
+    transform: none;
   }
 
   .carried {
@@ -3557,15 +3748,6 @@
    middle on its own. Two placements that disagreed about where the hand is was
    the whole of the bug. See `placeCard` in `coach.ts`. */
 
-.coach-step {
-  margin: 0 0 0.3rem;
-  font-family: var(--mono);
-  font-size: 0.64rem;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--accent);
-}
-
 .coach-title {
   margin: 0 0 0.4rem;
   font-size: 1.1rem;
@@ -3613,8 +3795,6 @@
   .coach-card {
     padding: 0.7rem 0.8rem 0.75rem;
   }
-
-  .coach-step { display: none; }
 
   .coach-title {
     font-size: 1rem;
@@ -3977,4 +4157,223 @@
   }
 
   .gains-head { grid-column: 1 / -1; }
+}
+
+/* ---------- the card mark ----------
+
+   One glyph in the corner of the head, saying what KIND of card this is —
+   attack, hits-the-room, leaves-something-behind, Block, Power, resource. Ten
+   cards in a hand are ten paragraphs, and the mark is there so the shape of
+   the hand reads before any of the words do.
+
+   Derived from the same classification as the card's sound (`card-mark.ts`),
+   so a card added tomorrow gets one without anybody remembering. Five colours
+   rather than one per glyph: a legend the player can hold is a short one, and
+   the glyph carries the detail inside its family. */
+.card-mark {
+  margin-left: auto;
+  flex: 0 0 auto;
+  /* Big enough to be read rather than noticed. At 0.78rem the difference
+     between a four-point star and a six-point one was a guess, which defeats
+     the point of having a mark at all. */
+  font-size: 1.05rem;
+  line-height: 1;
+  opacity: 0.92;
+  /* It sits beside the name and must never push it out of the row. */
+  pointer-events: none;
+}
+
+.card-mark--attack {
+  color: var(--iai);
+}
+.card-mark--debuff {
+  /* The same dark red the enemy telegraph uses for "it puts something on you".
+     A mark meaning the reverse direction still means the same NOUN. */
+  color: #b4342c;
+}
+.card-mark--block {
+  color: var(--guard);
+}
+.card-mark--power {
+  color: #b79ae0;
+}
+.card-mark--resource {
+  color: var(--ink);
+}
+.card-mark--skill {
+  color: var(--muted);
+}
+
+/* ---------- game terms inside the introduction's prose ----------
+
+   The one screen made entirely of sentences, and a sentence is where a game
+   term stops looking like one. Bold carries the "this is a noun the game
+   means", and the colour says which system it belongs to — the same colours
+   those systems already wear on the board, so the words and the thing they
+   name match. Statuses take their colour from their own `kind`, so nothing
+   here has to be updated when one is added. */
+.coach-body .kw {
+  font-weight: 700;
+}
+
+.coach-body .kw--heat {
+  color: var(--iai);
+}
+.coach-body .kw--vent {
+  /* Cooling, and deliberately not the GUARD blue: venting is a Heat action, and
+     giving it the defensive colour made "vent 2" read as a defensive card. */
+  color: #5fc8d8;
+}
+.coach-body .kw--focus {
+  color: var(--ink);
+}
+.coach-body .kw--block {
+  color: var(--guard);
+}
+.coach-body .kw--energy {
+  color: var(--accent);
+}
+.coach-body .kw--burn {
+  color: #d2603a;
+}
+.coach-body .kw--debuff {
+  color: #d4574f;
+}
+.coach-body .kw--buff {
+  color: var(--good);
+}
+/* A stance word wears its own stance's colour. Everywhere else in the game
+   these three already own them — the strip, the riders, the tokens — and the
+   prose was the one place GUARD was not blue. */
+.coach-body .kw--iai {
+  color: var(--iai);
+  letter-spacing: 0.04em;
+}
+.coach-body .kw--guard {
+  color: var(--guard);
+  letter-spacing: 0.04em;
+}
+.coach-body .kw--flow {
+  color: var(--flow);
+  letter-spacing: 0.04em;
+}
+
+/* Health is the resource the whole run is about, and it is green on the bar. */
+.coach-body .kw--health {
+  color: var(--good);
+}
+
+/* ---------- the way out of the introduction ----------
+
+   A corner, not the panel. Inside the card it was an offer competing with the
+   lesson; out here it is simply available. Above the dimming layer, or it is a
+   button you can see and cannot press. */
+.coach-exit {
+  position: fixed;
+  left: 1rem;
+  bottom: 1rem;
+  z-index: 60;
+  /* The host is `pointer-events: none` so the board stays usable through it,
+     and every child that is meant to be CLICKED has to opt back in. Without
+     this the button drew perfectly and could not be pressed — and a synthetic
+     `.click()` in a console does not catch it, because dispatching an event on
+     a node skips hit-testing entirely. Only a real click at a coordinate does. */
+  pointer-events: auto;
+  padding: 0.45rem 0.8rem;
+  font: inherit;
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: rgba(8, 8, 12, 0.82);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: color 120ms, border-color 120ms;
+}
+
+.coach-exit:hover,
+.coach-exit:focus-visible {
+  color: var(--ink);
+  border-color: var(--line-strong, rgba(255, 255, 255, 0.28));
+}
+
+/* ---------- the once-a-run moment ----------
+
+   The mastery payoff — today, the artifact for a third completed Rite. It used
+   to be one bullet in the Thread's payout list, in the same type as a heal, and
+   Robin's report was exactly right: the window said the name and explained
+   nothing. This is the fix, and the shape of it is the argument. Gold, because
+   the artifact tier is gold everywhere else; wider and quieter type than the
+   payout list above it, because it is the thing on the screen you are meant to
+   stop and read. */
+.landing-revelation {
+  display: grid;
+  gap: 0.55rem;
+  margin-top: 0.9rem;
+  padding: 1.15rem 1.25rem;
+  border: 1px solid color-mix(in srgb, var(--r-artifact, #f4e3b0) 45%, var(--line));
+  border-radius: var(--radius-sm);
+  background:
+    radial-gradient(
+      120% 100% at 50% 0%,
+      color-mix(in srgb, var(--r-artifact, #f4e3b0) 10%, transparent),
+      transparent 70%
+    ),
+    var(--surface);
+  box-shadow: inset 0 0 40px color-mix(in srgb, var(--r-artifact, #f4e3b0) 8%, transparent);
+  text-align: left;
+}
+
+.revelation-head {
+  margin: 0;
+  font-family: var(--cond, inherit);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--r-artifact, #f4e3b0) 80%, var(--ink));
+}
+
+.revelation-prize {
+  display: grid;
+  gap: 0.2rem;
+}
+
+/* The name gets the size, because the name is what the player will remember
+   and go looking for in the inventory afterwards. */
+.revelation-name {
+  margin: 0;
+  font-size: 1.5rem;
+  line-height: 1.15;
+  letter-spacing: 0.01em;
+  color: var(--r-artifact, #f4e3b0);
+  text-shadow: 0 0 24px color-mix(in srgb, var(--r-artifact, #f4e3b0) 30%, transparent);
+}
+
+/* What it DOES. The half that was missing entirely. Straight from the relic
+   registry, never retyped here. */
+.revelation-rule {
+  margin: 0;
+  font-size: 0.98rem;
+  line-height: 1.5;
+  color: var(--ink);
+}
+
+/* Why it happened. Small, but before the lore: a player who just got something
+   enormous asks "what is it" and then "why me", and the story comes third. */
+.revelation-because {
+  margin: 0.15rem 0 0;
+  padding-top: 0.55rem;
+  border-top: 1px solid color-mix(in srgb, var(--r-artifact, #f4e3b0) 22%, transparent);
+  font-size: 0.82rem;
+  color: color-mix(in srgb, var(--r-artifact, #f4e3b0) 70%, var(--muted));
+}
+
+.revelation-lore {
+  margin: 0;
+  max-width: 46ch;
+  font-size: 0.88rem;
+  line-height: 1.65;
+  color: var(--muted);
 }

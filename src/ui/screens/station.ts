@@ -233,7 +233,15 @@ function build(store: Store, state: GameState, local: Local, redraw: () => void)
         shop === null
           ? null
           : serviceOption(
-              shop.serviceUsed === 'repair' ? 'Patched up' : 'Patch up',
+              /* "Patch up" for "N Alloy a point" asked the player to do the
+                 multiplication before they could tell whether it was worth it,
+                 and the answer was already sitting in `repairOffer`. It says
+                 what you get and what it costs, in that order. */
+              shop.serviceUsed === 'repair'
+                ? 'Repaired'
+                : bodyMissing === 0
+                  ? 'Recover health'
+                  : `Recover ${repair.healed} health for ${repair.price} Alloy`,
               `${repair.rate} Alloy a point.`,
               shop.serviceUsed !== null
                 ? shop.serviceUsed === 'repair'
@@ -242,7 +250,10 @@ function build(store: Store, state: GameState, local: Local, redraw: () => void)
                 : bodyMissing === 0
                   ? 'Nothing to repair.'
                   : repair.affordable
-                    ? `All ${repair.healed} back, for ${repair.price}.`
+                    ? /* Nothing to add. The title above now says what you get
+                         and what it costs; repeating it here was the sentence
+                         that made the old version read as two separate offers. */
+                      ''
                     : `${repair.healed} back would cost ${repair.price}. You have ${run.alloy}.`,
               shop.serviceUsed !== null || !repair.affordable,
               () => store.dispatch({ kind: 'stationRepair' }),

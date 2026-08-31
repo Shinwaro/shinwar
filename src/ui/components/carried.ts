@@ -102,8 +102,29 @@ export function renderCarried(state: GameState): HTMLElement | null {
    *
    * Masteries keep a stance colour. They have no tier to show, and the stance
    * is the fact about them that matters. */
+  /* Best first, inside every category.
+   *
+   * The rail listed each group in whatever order the run happened to pick
+   * things up, so an artifact could sit under three commons — and this panel is
+   * read mid-fight, at a glance, to answer "what have I actually got". The
+   * thing most likely to change the turn belongs at the top.
+   *
+   * Ties keep pickup order: `RANK.indexOf` gives equal keys and the sort is
+   * stable, so two uncommons stay in the order the run found them rather than
+   * being reshuffled alphabetically for no reason. */
+  const RANK = ['artifact', 'mythic', 'legendary', 'epic', 'uncommon', 'common', 'basic'];
+  const tierOf = (entry: Carried): number => {
+    const at = entry.rarity === null ? -1 : RANK.indexOf(entry.rarity);
+    /* Unknown or absent tiers sort last rather than first: a Mastery has no
+       tier at all, and putting it above an artifact would be worse than putting
+       it below a common. */
+    return at === -1 ? RANK.length : at;
+  };
+
   const group = (heading: string, kind: Carried['kind']): readonly HTMLElement[] => {
-    const rows = carried.filter((entry) => entry.kind === kind);
+    const rows = carried
+      .filter((entry) => entry.kind === kind)
+      .sort((a, b) => tierOf(a) - tierOf(b));
     if (rows.length === 0) return [];
     return [
       el('h3', { class: 'carried-sub' }, [heading]),
