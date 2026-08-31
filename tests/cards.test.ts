@@ -358,7 +358,7 @@ describe('the rarity ladder', () => {
     const state = makeFight();
     const run = state.run;
     expect(run).not.toBeNull();
-    const rolled = rollCardChoices(run!.rng, run!, 1, 0);
+    const rolled = rollCardChoices(run!.rng, 1);
     for (const id of rolled.cardIds) {
       expect(cardTable.get(id).rarity, `${id} is basic and was offered`).not.toBe('basic');
     }
@@ -369,7 +369,7 @@ describe('the rarity ladder', () => {
     const run = state.run!;
     let rng = run.rng;
     for (let i = 0; i < 200; i++) {
-      const rolled = rollCardChoices(rng, run, 3, 0);
+      const rolled = rollCardChoices(rng, 3);
       expect(new Set(rolled.cardIds).size).toBe(rolled.cardIds.length);
       rng = rolled.rng;
     }
@@ -517,24 +517,24 @@ describe('spending the hand', () => {
 
   it('counts only what this card discarded', () => {
     /* `discardedThisPlay` is scoped to the play like `killsThisPlay`. If it
-       leaked across cards, a Sift earlier in the turn would silently make the
+       leaked across cards, an Overdraw earlier in the turn would silently make the
        next Empty the Rack hit harder. */
-    let state = withHand('sift', ['iai_slash', 'iai_slash', 'bulwark', 'empty_the_rack']);
+    let state = withHand('overdraw', ['iai_slash', 'iai_slash', 'bulwark', 'empty_the_rack']);
     state = play(state, false);
 
     const rack = combatOf(state).hand.find((card) => card.defId === 'empty_the_rack');
-    if (rack === undefined) throw new Error('test: Sift discarded the card under test');
+    if (rack === undefined) throw new Error('test: Overdraw discarded the card under test');
 
-    const handAfterSift = combatOf(state).hand.length;
+    const handAfterOverdraw = combatOf(state).hand.length;
     const before = firstEnemy(state).hp;
     const after = playCard(state, rack.uid, firstEnemy(state).uid);
-    expect(before - firstEnemy(after).hp).toBe((handAfterSift - 1) * 3);
+    expect(before - firstEnemy(after).hp).toBe((handAfterOverdraw - 1) * 3);
   });
 
   it('says what it does, in generated words', () => {
     expect(describeCard(cardTable.get('empty_the_rack'))).toBe(
       'Discard your hand. For every card discarded, deal 3 damage. Burn.',
     );
-    expect(describeCard(cardTable.get('sift'))).toBe('Discard 1 at random. Draw 3 cards.');
+    expect(describeCard(cardTable.get('overdraw'))).toBe('Draw 3 cards. Discard 1 at random.');
   });
 });

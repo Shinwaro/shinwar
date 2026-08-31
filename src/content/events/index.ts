@@ -41,7 +41,14 @@ export const EVENTS: readonly EventDef[] = [
         id: 'escort',
         label: 'Escort it',
         detail: 'Nothing now. It will ask for something later.',
-        effects: [{ op: 'setThread', threadId: 'the_clutch' }],
+        /* Marked as well as the Clutch. Selling the egg and breaking it both put
+           the Syndicate on you, and carrying it was somehow the one choice they
+           did not care about — which made the moral option also the safe one.
+           Everyone who wanted this egg still knows you have it. */
+        effects: [
+          { op: 'setThread', threadId: 'the_clutch' },
+          { op: 'setThread', threadId: 'marked' },
+        ],
         risk: 'Unknown',
         payoff: 'Unknown',
       },

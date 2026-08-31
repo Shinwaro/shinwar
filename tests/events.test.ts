@@ -401,6 +401,52 @@ function walkForward(state: GameState, steps: number): GameState {
 }
 
 describe('threads on the real path', () => {
+  it('tells the third Rite as its own moment, with what it granted', () => {
+    /* The artifact is the largest single thing that can happen to a run and it
+       used to arrive as one more bullet in a payout list — the name, in the same
+       type as "Regain 10 health", with nothing saying what it does or why it
+       came. This pins the three facts the arrival screen needs: that the extra
+       payoff is SEPARATE from the ordinary one, that it names what it granted by
+       id rather than only in prose, and that it fires on the third completion
+       and not before. */
+    const count = threadTable.get('sect_rites').trigger.count;
+    const after = threadTable.get('sect_rites').mastery?.after ?? 3;
+
+    let state = startedRun('RITES');
+    let sawMasteryOn: number[] = [];
+
+    for (let round = 1; round <= after; round += 1) {
+      state = setThread(state, 'sect_rites');
+      state = walkForward(state, count);
+
+      const landing = runOf(state).landing;
+      const rite = (landing?.resolved ?? []).find((entry) => entry.threadId === 'sect_rites');
+      expect(rite, `the Rites paid out on completion ${round}`).toBeDefined();
+
+      if (rite?.mastered !== undefined) {
+        sawMasteryOn.push(round);
+        expect(rite.mastered.times, 'the count it reports').toBe(after);
+        expect(rite.mastered.relicIds, 'names the artifact by id').toContain('sect_reliquary');
+        expect(rite.mastered.head.length, 'has an eyebrow').toBeGreaterThan(0);
+        expect(rite.mastered.body.length, 'has lore').toBeGreaterThan(0);
+        expect(rite.mastered.because).toContain('three times');
+        /* Separate from the ordinary payoff, which is the whole point: merged
+           into one array there is no way for the screen to tell a heal from an
+           artifact. */
+        expect(rite.lines, 'the two payoffs stay apart').not.toEqual(rite.mastered.lines);
+      }
+
+      state = applyAction(state, { kind: 'leaveLanding' });
+      state = { ...state, run: { ...runOf(state), screen: 'map', combat: null } };
+    }
+
+    expect(sawMasteryOn, 'fires on the third completion and only then').toEqual([after]);
+    expect(
+      runOf(state).pilot.relics,
+      'and the artifact is actually carried afterwards',
+    ).toContain('sect_reliquary');
+  });
+
   it('fires a payoff once the node count is walked', () => {
     const started = startedRun('WALKER');
     const carrying = setThread(started, 'navigators_favour');

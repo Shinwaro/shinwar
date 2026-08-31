@@ -203,17 +203,19 @@ export const OVERHEAT_CARDS: readonly CardDef[] = [
     archetype: 'overheat',
     cost: 0,
     exhaust: true,
-    // Three Energy for six Heat is most of a turn bought against most of the
-    // gauge. Exhausts, because a deck that can do this twice is not playing the
-    // gauge at all.
+    /* Two Energy for six Heat. Three was a whole extra turn for three quarters
+       of the gauge, which is a trade you take every time it is in your hand —
+       and a card you always play is not a decision. Two is most of a turn for
+       most of the gauge, which is. Exhausts, because a deck that can do this
+       twice is not playing the gauge at all. */
     effects: [
-      { op: 'gainEnergy', amount: 3 },
+      { op: 'gainEnergy', amount: 2 },
       { op: 'gainHeat', amount: 6 },
     ],
     upgrade: {
       name: 'Overpressure+',
       effects: [
-        { op: 'gainEnergy', amount: 3 },
+        { op: 'gainEnergy', amount: 2 },
         { op: 'gainHeat', amount: 4 },
       ],
     },

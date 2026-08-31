@@ -461,19 +461,31 @@ export const TEMPO_CARDS: readonly CardDef[] = [
     id: 'weight_shift',
     name: 'Weight Shift',
     type: 'skill',
-    rarity: 'common',
+    /* Epic. A free Energy is the strongest line a 0-cost can print, and the
+       stance change it is priced against is a cost only to a deck that cared
+       where it was standing — which, for the deck that wants this card, is
+       none of them. The Burn is what keeps it honest; the tier is what keeps
+       it out of every second reward screen. */
+    rarity: 'epic',
     archetype: 'neutral',
     cost: 0,
     exhaust: true,
+    /* The Heat is what it costs. A free Energy for a stance change was a cost
+       only to a deck that cared where it was standing — which, for the deck
+       that wants this card, is none of them. Two Heat is a quarter of the gauge
+       for a quarter of a turn, which is a trade you have to actually think
+       about at 6. */
     effects: [
       { op: 'cycleStance', direction: 1 },
       { op: 'gainEnergy', amount: 1 },
+      { op: 'gainHeat', amount: 2 },
     ],
     upgrade: {
       name: 'Weight Shift+',
       effects: [
         { op: 'cycleStance', direction: 1 },
         { op: 'gainEnergy', amount: 1 },
+        { op: 'gainHeat', amount: 2 },
         { op: 'draw', amount: 1 },
       ],
     },

@@ -52,7 +52,11 @@ export const NEUTRAL_CARDS: readonly CardDef[] = [
     id: 'overdraw',
     name: 'Overdraw',
     type: 'skill',
-    rarity: 'uncommon',
+    /* Common. Three cards for one Energy is a lot on paper and the random
+       discard is most of it back — it is a card that makes a turn bigger
+       without making it better, which is what the bottom of the ladder is
+       for. */
+    rarity: 'common',
     archetype: 'neutral',
     cost: 1,
     effects: [
@@ -212,7 +216,11 @@ export const NEUTRAL_CARDS: readonly CardDef[] = [
     type: 'attack',
     rarity: 'legendary',
     archetype: 'neutral',
-    cost: 1,
+    /* Two. Thirty unblockable for one Energy was the cheapest large number in
+       the game, and against anything that lives more than five turns it was
+       simply the correct opener. At two it competes with the turn it is spent
+       on. */
+    cost: 2,
     exhaust: true,
     effects: [
       { op: 'damage', amount: 6, target: 'enemy' },
@@ -235,11 +243,15 @@ export const NEUTRAL_CARDS: readonly CardDef[] = [
        attacking, so a deck can commit to Strength gradually instead of all at
        once or not at all.
 
-       Four damage is deliberately under the curve for the cost. The stack is
-       what you are paying for, and it pays from the next card onward. */
+       It pays in HEALTH, not in damage. As an attack it was a weak hit with a
+       buff stapled on, and the hit was doing nothing except making the card
+       look like an attack; the interesting version of "get permanently stronger"
+       is one that costs something the run cares about. Two health is cheap in
+       Act 1 and a real decision in Act 3, which is the right shape for a card
+       whose payoff lasts the whole fight. */
     id: 'set_the_shoulder',
     name: 'Set the Shoulder',
-    type: 'attack',
+    type: 'skill',
     rarity: 'uncommon',
     archetype: 'neutral',
     cost: 1,
@@ -247,14 +259,14 @@ export const NEUTRAL_CARDS: readonly CardDef[] = [
        a permanent stack on a re-drawable card is not a stack, it is a slope. */
     exhaust: true,
     effects: [
-      { op: 'damage', amount: 4, target: 'enemy' },
+      { op: 'heal', amount: -2 },
       { op: 'applyStatus', status: STRENGTH, stacks: 1, target: 'self' },
     ],
     upgrade: {
       name: 'Set the Shoulder+',
       effects: [
-        { op: 'damage', amount: 6, target: 'enemy' },
-        { op: 'applyStatus', status: STRENGTH, stacks: 1, target: 'self' },
+        { op: 'heal', amount: -2 },
+        { op: 'applyStatus', status: STRENGTH, stacks: 2, target: 'self' },
       ],
     },
     flavor: 'The weight goes through you or it goes into you. Those are the options.',

@@ -7,7 +7,7 @@
  *
  * Two shapes:
  *
- *   - **Trade a card for cards.** Sift throws one at random and draws three.
+ *   - **Trade a card for cards.** Overdraw draws three and throws one at random.
  *     You do not choose what goes, which is what keeps it from being a
  *     strictly-better draw spell — sometimes it eats the one good card you had.
  *   - **Spend the whole hand.** Jettison turns it over for a fresh one, and
@@ -31,7 +31,7 @@
  * deck rather than a different one. The turn it buys you should cost you the
  * card that bought it.
  *
- * The partial ones — Sift, First to Hand, Hard Turn — do not
+ * The partial ones — Overdraw, First to Hand, Hard Turn — do not
  * exhaust. They pay a card for what they do every single time they are played,
  * so they are already self-limiting in the way the whole-hand cards are not.
  * There is a test holding the line.
@@ -43,30 +43,10 @@ import type { CardDef } from '../../engine/types.ts';
 export const JETTISON = 'jettison';
 
 export const DISCARD_CARDS: readonly CardDef[] = [
-  {
-    /* Net two cards for one Energy, at the cost of not choosing which one goes.
-       The randomness is the price: a card that let you pick would be a strictly
-       better Measured Draw, and this is meant to be the card you reach for when
-       the hand is already bad, not the card you always run. */
-    id: 'sift',
-    name: 'Sift',
-    type: 'skill',
-    rarity: 'uncommon',
-    archetype: 'neutral',
-    cost: 1,
-    effects: [
-      { op: 'discard', amount: 1, random: true },
-      { op: 'draw', amount: 3 },
-    ],
-    upgrade: {
-      name: 'Sift+',
-      effects: [
-        { op: 'discard', amount: 1, random: true },
-        { op: 'draw', amount: 4 },
-      ],
-    },
-    flavor: 'Most of what the rack holds is not the answer to this.',
-  },
+  /* Sift was here: uncommon, "discard 1 at random, draw 3".
+     Removed. Overdraw is the same card one tier down — draw 3, discard 1 at
+     random — and two cards whose only difference is which end the discard
+     happens at is one card and a duplicate. */
 
   {
     /* A clean second hand. Card-neutral by design — it is not draw, it is a

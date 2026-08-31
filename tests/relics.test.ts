@@ -565,7 +565,7 @@ describe('what a boss hands you', () => {
   const run = createRunState('BOSS', 0);
 
   it('offers cards and relics at the finale tier', () => {
-    const { offer } = rollReward(createRng('BOSS-A'), run, 1, 50, 0, 'boss');
+    const { offer } = rollReward(createRng('BOSS-A'), run, 1, 50, 'boss');
     expect(offer.cardIds).toHaveLength(REWARDS.cardChoices);
     expect(offer.relicIds).toHaveLength(REWARDS.relicChoices);
     for (const id of offer.cardIds) {
@@ -587,7 +587,7 @@ describe('what a boss hands you', () => {
        mythic and two commons is not a decision, it is a formality. */
     const tiers = new Set<string>();
     for (let seed = 0; seed < 40; seed++) {
-      const { offer } = rollReward(createRng(`BOSS-IMPLANT-${seed}`), run, 1, 50, 0, 'boss');
+      const { offer } = rollReward(createRng(`BOSS-IMPLANT-${seed}`), run, 1, 50, 'boss');
       expect(offer.implantIds.length, 'a boss always offers some').toBeGreaterThan(0);
       const rarities = new Set(offer.implantIds.map((id) => implantTable.get(id).rarity));
       expect(rarities.size, `seed ${seed} mixed tiers: ${[...rarities].join(', ')}`).toBe(1);
@@ -599,7 +599,7 @@ describe('what a boss hands you', () => {
 
   it('offers no two of the same thing', () => {
     for (const seed of ['A', 'B', 'C', 'D', 'E']) {
-      const { offer } = rollReward(createRng(`BOSS-${seed}`), run, 2, 50, 0, 'boss');
+      const { offer } = rollReward(createRng(`BOSS-${seed}`), run, 2, 50, 'boss');
       expect(new Set(offer.cardIds).size).toBe(offer.cardIds.length);
       expect(new Set(offer.relicIds).size).toBe(offer.relicIds.length);
       expect(new Set(offer.implantIds).size).toBe(offer.implantIds.length);
@@ -610,7 +610,7 @@ describe('what a boss hands you', () => {
     /* Three offered, one taken, on all three rows. The offer arrays are what is
        on the table; the `taken` fields are what leaves with you. */
     let state = createInitialState('BOSS-PICK');
-    const { offer } = rollReward(createRng('BOSS-PICK'), run, 1, 50, 0, 'boss');
+    const { offer } = rollReward(createRng('BOSS-PICK'), run, 1, 50, 'boss');
     state = {
       ...state,
       run: { ...run, screen: 'reward' as const, pendingReward: { ...offer } },
@@ -638,7 +638,7 @@ describe('what a boss hands you', () => {
     // Everywhere else an implant is bought at a Station with Alloy you wanted
     // for something else, which is the right price for what it does.
     for (const tier of ['combat', 'elite'] as const) {
-      const { offer } = rollReward(createRng('NOT-BOSS'), run, 1, 50, 0, tier);
+      const { offer } = rollReward(createRng('NOT-BOSS'), run, 1, 50, tier);
       expect(offer.implantIds, tier).toEqual([]);
     }
   });

@@ -315,14 +315,13 @@ export const RELICS: readonly RelicDef[] = [
      common. A run that wanted to survive rather than out-damage the act had
      almost nothing to route toward. */
 
-  {
-    id: 'keel_brace',
-    name: 'Keel Brace',
-    text: 'Every attack that reaches your health deals 2 less.',
-    rarity: 'uncommon',
-    passive: { damageTakenFlat: 2 },
-    flavor: 'Two centimetres of the wrong alloy, in exactly the right place.',
-  },
+  /* Keel Brace was here: uncommon, "every attack that reaches your health deals
+     2 less". Removed as a duplicate.
+     It was Ceramic Underplate with different words — the same tier and the same
+     `damageTakenFlat: 2` — and the words were wrong on top of that. The soak is
+     step 5 of the pipeline and Block absorbs at step 6, so it came off the
+     attack whether or not the attack ever reached health. Two relics that do
+     the same thing is one relic and a wasted slot in the offer. */
 
   {
     id: 'harbour_plate',

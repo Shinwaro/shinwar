@@ -34,10 +34,20 @@ export const POWER_CARDS: readonly CardDef[] = [
     archetype: 'guard',
     cost: 1,
     exhaust: true,
-    effects: [{ op: 'applyStatus', status: TEMPERED, stacks: 2, target: 'self' }],
+    /* The Heat is the price. Permanent armour for one Energy and nothing else
+       was a card with no argument against it; four Heat means taking it early
+       costs you the top of the gauge for the rest of the fight, which is
+       exactly the decision an uncommon should be asking. */
+    effects: [
+      { op: 'applyStatus', status: TEMPERED, stacks: 2, target: 'self' },
+      { op: 'gainHeat', amount: 4 },
+    ],
     upgrade: {
       name: 'Settle the Stance+',
-      effects: [{ op: 'applyStatus', status: TEMPERED, stacks: 3, target: 'self' }],
+      effects: [
+        { op: 'applyStatus', status: TEMPERED, stacks: 3, target: 'self' },
+        { op: 'gainHeat', amount: 4 },
+      ],
     },
     flavor: 'Stop moving. Decide where you are. Everything after that is easier.',
   },
@@ -48,12 +58,22 @@ export const POWER_CARDS: readonly CardDef[] = [
     type: 'power',
     rarity: 'epic',
     archetype: 'neutral',
-    cost: 1,
+    /* Two Energy and a card back. A Power spends the turn it is played on, and
+       at one Energy this one spent a third of a turn and gave nothing back —
+       so it was strong on turn one and unplayable on every turn you actually
+       needed the Strength. The draw is what lets you cast it mid-fight. */
+    cost: 2,
     exhaust: true,
-    effects: [{ op: 'applyStatus', status: STRENGTH, stacks: 2, target: 'self' }],
+    effects: [
+      { op: 'applyStatus', status: STRENGTH, stacks: 2, target: 'self' },
+      { op: 'draw', amount: 1 },
+    ],
     upgrade: {
       name: 'Sect Discipline+',
-      effects: [{ op: 'applyStatus', status: STRENGTH, stacks: 3, target: 'self' }],
+      effects: [
+        { op: 'applyStatus', status: STRENGTH, stacks: 3, target: 'self' },
+        { op: 'draw', amount: 1 },
+      ],
     },
     flavor: 'Forty years of the same four movements, and the fifth one is free.',
   },
@@ -66,16 +86,31 @@ export const POWER_CARDS: readonly CardDef[] = [
     archetype: 'overheat',
     cost: 1,
     exhaust: true,
-    // Heat now, hardness later. The gauge is the price of the whole card.
+    /* Pays more the worse the fight is going, and costs no Heat at all.
+     *
+     * It was three Tempered flat for three Heat — the same armour whether you
+     * were whole or nearly dead, bought with the resource that kills you. Now
+     * the gauge is untouched and the number reads your hull: two stacks when
+     * you are under half, one when you are not. Settle the Stance is the
+     * version that pays Heat for a flat figure; this is the version that pays
+     * nothing and asks how the fight is going. */
     effects: [
-      { op: 'applyStatus', status: TEMPERED, stacks: 3, target: 'self' },
-      { op: 'gainHeat', amount: 3 },
+      {
+        op: 'conditional',
+        when: { kind: 'hullBelowPct', value: 50 },
+        then: [{ op: 'applyStatus', status: TEMPERED, stacks: 2, target: 'self' }],
+        else: [{ op: 'applyStatus', status: TEMPERED, stacks: 1, target: 'self' }],
+      },
     ],
     upgrade: {
       name: 'Annealing Run+',
       effects: [
-        { op: 'applyStatus', status: TEMPERED, stacks: 4, target: 'self' },
-        { op: 'gainHeat', amount: 2 },
+        {
+          op: 'conditional',
+          when: { kind: 'hullBelowPct', value: 50 },
+          then: [{ op: 'applyStatus', status: TEMPERED, stacks: 3, target: 'self' }],
+          else: [{ op: 'applyStatus', status: TEMPERED, stacks: 2, target: 'self' }],
+        },
       ],
     },
     flavor: 'Run it hot, cool it slow, and it comes out of the other side harder than it went in.',

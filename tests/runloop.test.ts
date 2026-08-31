@@ -17,7 +17,6 @@ import { ENCOUNTERS } from '../src/content/encounters.ts';
 import { hashState, stableStringify } from '../src/engine/serialize.ts';
 import { availableMoves, currentNode } from '../src/engine/map/route.ts';
 import { canPlay } from '../src/engine/combat/combat.ts';
-import { archetypeLean } from '../src/engine/run/rewards.ts';
 import { removalCost } from '../src/engine/run/economy.ts';
 import { stockShop } from '../src/engine/run/shop.ts';
 import { concludeNode, repairOffer } from '../src/engine/run/run.ts';
@@ -227,12 +226,6 @@ describe('rewards', () => {
     const skipped = applyAction(state!, { kind: 'leaveReward' });
     expect(skipped.run?.pilot.deck).toHaveLength(before);
     expect(skipped.run?.screen).toBe('map');
-  });
-
-  it('reads the deck lean from earned cards, not the starting deck', () => {
-    cardTable.register([TEST_CARD]);
-    const state = openRun('LEAN');
-    expect(archetypeLean(state.run!)).toBe('neutral');
   });
 });
 

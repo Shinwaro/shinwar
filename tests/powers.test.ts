@@ -8,6 +8,7 @@
  */
 
 import { beforeEach, describe, expect, it } from 'vitest';
+import type { EffectOp } from '../src/engine/types.ts';
 import { computeDamage, PLAYER, enemyTarget } from '../src/engine/combat/damage.ts';
 import { playCard, startPlayerTurn } from '../src/engine/combat/combat.ts';
 import { describeCard } from '../src/engine/combat/describe.ts';
@@ -157,11 +158,21 @@ describe('the power cards', () => {
   });
 
   it('all grant something lasting to the player', () => {
+    /* Walks INTO conditionals and scaling terms rather than only reading the
+       top level. Annealing Run's buff moved inside a `conditional` — two stacks
+       under half health, one above — and a flat `card.effects.filter` reported
+       a Power that grants nothing, which was a fact about the test rather than
+       about the card. Anything that nests a self-buff is still a self-buff. */
+    const selfBuffs = (ops: readonly EffectOp[]): number =>
+      ops.reduce((count, op) => {
+        if (op.op === 'applyStatus' && op.target === 'self') return count + 1;
+        if (op.op === 'conditional') return count + selfBuffs(op.then) + selfBuffs(op.else ?? []);
+        if (op.op === 'scaleWith') return count + selfBuffs(op.then);
+        return count;
+      }, 0);
+
     for (const card of cardTable.all().filter((c) => c.type === 'power')) {
-      const buffs = card.effects.filter(
-        (op) => op.op === 'applyStatus' && op.target === 'self',
-      );
-      expect(buffs.length, `${card.id} grants the player nothing`).toBeGreaterThan(0);
+      expect(selfBuffs(card.effects), `${card.id} grants the player nothing`).toBeGreaterThan(0);
     }
   });
 

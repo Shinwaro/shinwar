@@ -100,14 +100,14 @@ export const IAI_CARDS: readonly CardDef[] = [
     cost: 1,
     exhaust: true,
     effects: [
-      { op: 'damage', amount: 20, target: 'enemy' },
+      { op: 'damage', amount: 16, target: 'enemy' },
       { op: 'gainHeat', amount: 3 },
     ],
     stanceRider: { stance: 'iai', effects: [{ op: 'gainFocus', amount: 2 }] },
     upgrade: {
       name: 'Unsheathed Mind+',
       effects: [
-        { op: 'damage', amount: 26, target: 'enemy' },
+        { op: 'damage', amount: 22, target: 'enemy' },
         { op: 'gainHeat', amount: 3 },
       ],
     },

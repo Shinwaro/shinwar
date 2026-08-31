@@ -8,8 +8,8 @@
  */
 
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { EffectOp, GameState } from '../src/engine/types.ts';
-import { createInitialState, requireCombat } from '../src/engine/state.ts';
+import type { EffectOp, GameState, StanceId } from '../src/engine/types.ts';
+import { createInitialState, requireCombat, requireRun } from '../src/engine/state.ts';
 import { createRng } from '../src/engine/rng.ts';
 import { applyAction } from '../src/engine/reducer.ts';
 import { advanceAct } from '../src/engine/run/run.ts';
@@ -25,7 +25,12 @@ import { fireHook } from '../src/engine/hooks.ts';
 import { endTurnImmediately, startPlayerTurn } from '../src/engine/combat/combat.ts';
 import { setStance } from '../src/engine/combat/stance.ts';
 import { intentVisible } from '../src/engine/combat/intents.ts';
-import { environmentRules, liveStance, stanceChangeLimit } from '../src/engine/combat/rules.ts';
+import {
+  environmentRules,
+  liveStance,
+  stanceChangeLimit,
+  stanceRulesFor,
+} from '../src/engine/combat/rules.ts';
 import { gainHeat, ventHeat } from '../src/engine/combat/heat.ts';
 import { applyEffects, createContext } from '../src/engine/combat/effects.ts';
 import { PLAYER as PLAYER_SIDE } from '../src/engine/combat/damage.ts';
@@ -246,6 +251,48 @@ describe('environments that act at a moment', () => {
     expect(marks.size, 'the rock only ever marks one kind of target').toBeGreaterThan(1);
   });
 
+  it('hands the rock to somebody else when the marked enemy dies', () => {
+    /* Killing the marked one used to answer the whole hazard for free: the
+       resolution checked the target was alive, found it dead, and did nothing.
+       So the correct play under a Debris Field was "shoot whatever it picked",
+       which is the opposite of a hazard.
+
+       Re-picked on the DEATH rather than at the end of the round, because the
+       environment's promise is a full turn of warning — a rock that reassigns
+       itself at resolution time is a rock nobody saw coming. */
+    const base = startPlayerTurn(
+      inEnvironment(DEBRIS_FIELD_ID, { enemyIds: ['scrap_hound', 'cinder_wisp'] }),
+    );
+    const combat = combatOf(base);
+    const marked = combat.envMemory['debrisTarget'];
+    const victim = combat.enemies.find((enemy) => enemy.uid === marked);
+    /* Only meaningful when the rock picked an ENEMY; the player dying is a
+       different code path entirely. Re-seed until it does. */
+    if (victim === undefined) return;
+
+    const killed = fireHook(
+      {
+        ...base,
+        run: {
+          ...requireRun(base),
+          combat: {
+            ...combat,
+            enemies: combat.enemies.map((enemy) =>
+              enemy.uid === victim.uid ? { ...enemy, hp: 0 } : enemy,
+            ),
+          },
+        },
+      },
+      'onEnemyKilled',
+      { enemyUid: victim.uid, enemyId: victim.defId },
+    );
+
+    const after = combatOf(killed).envMemory['debrisTarget'];
+    expect(after, 'the rock stayed on a corpse').not.toBe(victim.uid);
+    const living = ['player', ...combatOf(killed).enemies.filter((e) => e.hp > 0).map((e) => e.uid)];
+    expect(living, 'and it picked somebody who is still standing').toContain(after);
+  });
+
   it('lets Block stop the rock', () => {
     /* The rock is announced a full turn ahead. A hit you are shown and cannot
        answer is a bill rather than a decision — the telegraph is only worth
@@ -348,6 +395,39 @@ describe('Sensor Fog', () => {
 });
 
 describe('stance masteries', () => {
+  it('only apply while you are standing in their own stance', () => {
+    /* The whole pool at once, rather than one example.
+     *
+     * `stanceRulesFor` gates every mastery on a single line — `def.stance !==
+     * stance` — so this cannot be got wrong for one mastery and right for the
+     * others. That is exactly why it is worth pinning: the guarantee is
+     * structural today, and a future mastery that wants to reach outside its
+     * stance would have to break this test to do it.
+     *
+     * Compared as whole rule objects, minus the `masteries` list itself: if a
+     * mastery leaks so much as one number into another stance, the deep equal
+     * fails and names the stance it leaked into. */
+    const stances: readonly StanceId[] = ['iai', 'guard', 'flow'];
+    const clean = makeFight({});
+    const baseline = new Map(stances.map((s) => [s, stanceRulesFor(clean, s)]));
+
+    for (const def of masteryTable.all()) {
+      const held = withMastery(clean, def.id);
+      for (const stance of stances) {
+        const rules = stanceRulesFor(held, stance);
+        if (stance === def.stance) {
+          expect(rules.masteries, `${def.id} in its own ${stance}`).toContain(def.id);
+          continue;
+        }
+        expect(rules.masteries, `${def.id} leaked into ${stance}`).not.toContain(def.id);
+        expect(
+          { ...rules, masteries: [] },
+          `${def.id} changed ${stance}, which is not its stance`,
+        ).toEqual({ ...(baseline.get(stance) as object), masteries: [] });
+      }
+    }
+  });
+
   it('reach the damage pipeline rather than sitting beside it', () => {
     // Unsheathed Mind doubles what a stack of Focus is worth. The pipeline has
     // to see that, or the preview and the result disagree.
@@ -635,6 +715,28 @@ describe('what an Elite costs you', () => {
       expect(median('elite'), `act ${act} elite vs normal`).toBeGreaterThan(median('normal'));
       expect(median('elite'), `act ${act} elite vs boss`).toBeLessThan(median('boss'));
     }
+  });
+
+  it('never puts an elite inside a normal pack', () => {
+    /* The Long Column did, and it was the worst kind of content bug: nothing
+       threw, nothing looked wrong, and the fight was simply an elite.
+       Ash Choir + Siphon Engine + Void Ronin came to 188 hull on a NORMAL Act 2
+       node — twice the act's normal median of 94, half again its elite of 136,
+       paying normal rewards, and placeable on the first row. The elite tier
+       exists to be the bigger fight; a normal pack that smuggles one in makes
+       the tier mean nothing.
+
+       Same shape as the boss guard below, and it belongs beside it: both are
+       "this enemy is stronger than the node it is standing on". */
+    const offenders: string[] = [];
+    for (const encounter of ENCOUNTERS) {
+      if (encounter.tier !== 'normal') continue;
+      for (const id of encounter.enemyIds) {
+        const tier = enemyTable.get(id).tier;
+        if (tier !== 'normal') offenders.push(`${encounter.id} carries ${id} (${tier})`);
+      }
+    }
+    expect(offenders).toEqual([]);
   });
 
   it('never puts a boss on a node that is not its own', () => {
