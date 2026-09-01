@@ -13,11 +13,27 @@ import { createInitialState, createRunState } from '../src/engine/state.ts';
 import { applyAction } from '../src/engine/reducer.ts';
 import { HOOK_NAMES, handlersFor } from '../src/engine/hooks.ts';
 import { createRng } from '../src/engine/rng.ts';
-import { rollRelics, rollMastery, rollReward } from '../src/engine/run/rewards.ts';
+import {
+  rollRelics,
+  rollMastery,
+  rollReward,
+  rollCardChoices,
+} from '../src/engine/run/rewards.ts';
 import { applyRunEffects } from '../src/engine/run/effects.ts';
 import { resolveThread, setThread } from '../src/engine/run/threads.ts';
-import { computeDamage, previewDamage, PLAYER, enemyTarget } from '../src/engine/combat/damage.ts';
-import { playCard, startPlayerTurn } from '../src/engine/combat/combat.ts';
+import {
+  computeDamage,
+  previewDamage,
+  applyDamage,
+  PLAYER,
+  enemyTarget,
+} from '../src/engine/combat/damage.ts';
+import {
+  playCard,
+  startPlayerTurn,
+  endPlayerTurn,
+  startCombat,
+} from '../src/engine/combat/combat.ts';
 import { overheatThreshold } from '../src/engine/combat/heat.ts';
 import { pilotRules, liveStance } from '../src/engine/combat/rules.ts';
 import { describeImplant, describePassive } from '../src/engine/run/describe.ts';
@@ -31,6 +47,7 @@ import {
   threads as threadTable,
 } from '../src/content/registry.ts';
 import { makeFight, combatOf, firstEnemy } from './helpers.ts';
+import { CLEAR_SPACE_ID } from '../src/content/environments.ts';
 import { VECTOR_STEP } from '../src/content/cards/basic.ts';
 
 function holding(state: GameState, ...ids: readonly string[]): GameState {
@@ -56,13 +73,23 @@ describe('the relic pool', () => {
 
        Rolled rather than reasoned about, because the failure was in the
        interaction between a weight table, a pool filter and a tier filter, and
-       reading any one of them alone looked fine. */
+       reading any one of them alone looked fine.
+
+       EVERY tier that can pay a relic, not just the Elite. It used to roll the
+       Elite alone, on the reasonable assumption that the Elite ladder was the
+       widest one — and that assumption expired the day Elites stopped offering
+       commons. Five common relics were then reachable only from an ordinary
+       fight and this test called them unshippable, which is the test asking a
+       narrower question than the one it is named after. "Can this relic be
+       offered" means by anything, anywhere. */
     const seen = new Set<string>();
     for (let i = 0; i < 3000; i++) {
       for (const act of [1, 2, 3] as const) {
         const run = createRunState(`RELIC-${i}`, 0);
-        const rolled = rollRelics(createRng(`RELIC-${i}-${act}`), { ...run, act }, 'elite');
-        for (const id of rolled.relicIds) seen.add(id);
+        for (const tier of ['combat', 'elite', 'boss'] as const) {
+          const rolled = rollRelics(createRng(`RELIC-${i}-${act}-${tier}`), { ...run, act }, tier);
+          for (const id of rolled.relicIds) seen.add(id);
+        }
       }
     }
 
@@ -70,6 +97,98 @@ describe('the relic pool', () => {
       .all()
       .filter((def) => def.exclusive !== true && !seen.has(def.id));
     expect(missing.map((def) => `${def.id} (${def.rarity})`)).toEqual([]);
+  });
+
+  it('never lets an Elite offer a common relic or a common card', () => {
+    /* The Elite's whole proposition is that the detour is worth the hull. A
+       common on that screen is the game saying it was not.
+
+       Both halves asserted together because they are one rule with two
+       implementations — a filtered pool for cards, a filtered tier ladder for
+       relics — and it would be easy to change one and leave the other. */
+    const relicTiers: string[] = [];
+    const cardTiers: string[] = [];
+    for (let i = 0; i < 1200; i++) {
+      for (const act of [1, 2, 3] as const) {
+        const run = createRunState(`FLOOR-${i}`, 0);
+        const relics = rollRelics(createRng(`FLOOR-${i}-${act}`), { ...run, act }, 'elite');
+        for (const id of relics.relicIds) {
+          const def = relicTable.find(id);
+          if (def?.rarity === 'common') relicTiers.push(id);
+        }
+        const cards = rollCardChoices(createRng(`FLOORC-${i}-${act}`), act, 'elite');
+        for (const id of cards.cardIds) {
+          const def = cardTable.find(id);
+          if (def?.rarity === 'common') cardTiers.push(id);
+        }
+      }
+    }
+    expect([...new Set(relicTiers)], 'an Elite offered a common relic').toEqual([]);
+    expect([...new Set(cardTiers)], 'an Elite offered a common card').toEqual([]);
+
+    /* And the offers are still FULL — the floor must raise what is on the
+       screen, not shorten it. A silently two-card Elite would pass the two
+       assertions above while being a worse reward than the fight before it. */
+    const sample = rollCardChoices(createRng('FLOOR-WIDTH'), 1, 'elite');
+    expect(sample.cardIds).toHaveLength(3);
+  });
+
+  it('pays the three new shelf items, and stacks the one that stacks', () => {
+    /* All three at once because all three were nearly silent failures.
+ 
+       Ready Rack is the reason this test exists. It began as an `onTurnStart`
+       hook drawing a card on turn 1 — the hook fired, the log said it fired,
+       and the hand was still five: `drawForTurn` runs afterwards and subtracts
+       whatever is already in hand so an innate occupies a slot rather than
+       adding one, which took the card straight back off. A relic that reports
+       working while doing nothing is exactly what an unfired hook looks like,
+       so assert the HAND SIZE rather than the log.
+ 
+       Reclaim Loop is the mirror: it must stack, because implants stack and a
+       hook would have fired once however many were fitted. */
+    const fight = (relics: readonly string[], implants: readonly string[]): GameState => {
+      const run = createRunState('SHELF', 0);
+      const seated: GameState = {
+        ...createInitialState('SHELF'),
+        run: { ...run, pilot: { ...run.pilot, health: 40, relics: [...relics], implants: [...implants] } },
+      };
+      return startCombat(seated, 'hound_pair', CLEAR_SPACE_ID);
+    };
+
+    const plain = fight([], []);
+    const rack = fight(['ready_rack'], []);
+    expect(
+      combatOf(rack).hand.length,
+      'Ready Rack drew a card and the turn-1 draw took it back',
+    ).toBe(combatOf(plain).hand.length + 1);
+
+    // ...and only on the first turn.
+    const later = startPlayerTurn(endPlayerTurn(rack));
+    expect(combatOf(later).hand.length, 'it kept paying after turn one').toBe(
+      combatOf(plain).hand.length,
+    );
+
+    const kill = (state: GameState): GameState =>
+      applyDamage(state, {
+        amount: 999,
+        attacker: PLAYER,
+        target: enemyTarget(combatOf(state).enemies[0]!.uid),
+        isAttack: false,
+        attackOrdinal: 0,
+        consumesFocus: false,
+      }, 'test');
+
+    const hook = fight(['salvage_hook'], []);
+    expect(combatOf(kill(hook)).hand.length, 'Salvage Hook paid nothing').toBe(
+      combatOf(hook).hand.length + 1,
+    );
+
+    for (const stacks of [1, 2] as const) {
+      const looped = fight([], Array.from({ length: stacks }, () => 'reclaim_loop'));
+      const before = looped.run?.pilot.health ?? 0;
+      const after = kill(looped).run?.pilot.health ?? 0;
+      expect(after - before, `Reclaim Loop x${stacks} did not pay per stack`).toBe(2 * stacks);
+    }
   });
 
   it('never offers an exclusive relic', () => {

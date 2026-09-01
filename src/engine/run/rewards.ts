@@ -24,10 +24,12 @@ import { chance, nextFloat, pick, sample, weightedPick } from '../rng.ts';
 import {
   ACTIVE_STANCES,
   BOSS_IMPLANT_WEIGHTS,
+  ELITE_CARD_WEIGHTS,
   MASTERY,
   RARITY_WEIGHTS,
   RELIC_COMBAT_CHANCE,
   RELIC_COMBAT_WEIGHTS,
+  RELIC_ELITE_WEIGHTS,
   RELIC_RARITY_WEIGHTS,
   REWARDS,
 } from '../../content/balance.ts';
@@ -116,13 +118,25 @@ export function rollCardChoices(
     }
   }
 
-  const rarityWeights = RARITY_WEIGHTS[act];
+  /* An Elite's screen has a floor: no commons on it. See `ELITE_CARD_WEIGHTS`
+     for the ladder and why the rare tail is untouched.
+
+     Enforced by FILTERING THE POOL rather than by weighting common to zero,
+     which matters more than it looks: `weightedPick` throws when every entry it
+     is handed weighs nothing, so a zero-weight common would be a live crash the
+     moment the last non-common candidate was already on the screen. Filtered,
+     the same case falls through the `candidates.length === 0` break below and
+     makes a short offer — which is what the relic roll does when a tier runs
+     thin, for the same reason. */
+  const rarityWeights = tier === 'elite' ? ELITE_CARD_WEIGHTS[act] : RARITY_WEIGHTS[act];
+  const offerable =
+    tier === 'elite' ? pool.filter((card) => card.rarity !== 'common') : pool;
 
   const chosen: CardId[] = [];
   let current = rng;
 
   for (let slot = 0; slot < REWARDS.cardChoices; slot++) {
-    const candidates = pool.filter((card) => !chosen.includes(card.id));
+    const candidates = offerable.filter((card) => !chosen.includes(card.id));
     if (candidates.length === 0) break;
 
     const entries = candidates.map((card) => ({
@@ -145,21 +159,31 @@ export function rollReward(
   alloy: number,
   tier: 'combat' | 'elite' | 'boss' = 'combat',
   /**
-   * A Thread's reprisal. Pays cards and Alloy; pays no relic.
+   * A Thread's reprisal. Kept as a parameter, and no longer changes the payout.
    *
-   * A reprisal is a bill, not an opportunity. Dropping a relic made being
-   * Marked something a player would deliberately arrange — take the Thread,
-   * collect the free Elite drop — which inverts the entire point of a Thread:
-   * it is supposed to be a consequence you accepted, not a shop with a
-   * fight in front of it. The cards stay, because a fight with no reward at
-   * all reads as the game punishing you twice for one choice.
+   * It used to withhold the relic. The argument was sound and the lever was
+   * wrong: dropping one made being Marked something a player would deliberately
+   * ARRANGE — take the Thread, collect a free Elite drop — which inverts what a
+   * Thread is, a consequence you accepted rather than a shop with a fight in
+   * front of it.
+   *
+   * The fix moved to the price instead of the receipt. A reprisal now opens a
+   * Vareth hunting party (see `ambushesFor` and `enemies/vareth.ts`) that is
+   * harder than the act's real Elites on both hull and damage, and that carries
+   * accumulating Strength so stalling it loses. Nobody arranges that for a
+   * relic. Withholding the reward on top of it would have been charging twice
+   * for one choice, which is the thing the cards were already left in place to
+   * avoid.
+   *
+   * The parameter stays because the call sites read better for saying which
+   * kind of fight they are paying out, and because a future Thread may well
+   * want a bill that genuinely pays nothing.
    */
   reprisal = false,
 ): RolledReward {
+  void reprisal;
   const cards = rollCardChoices(rng, act, tier);
-  const withRelics = reprisal
-    ? { relicIds: [] as readonly string[], rng: cards.rng }
-    : rollRelics(cards.rng, run, tier);
+  const withRelics = rollRelics(cards.rng, run, tier);
   const withImplants = rollBossImplants(withRelics.rng, tier);
 
   return {
@@ -280,9 +304,16 @@ export function rollRelics(
   }
 
   // Relics have their own ladder. See RELIC_RARITY_WEIGHTS for why.
-  /* Which ladder this offer climbs. An ordinary fight has its own and it stops
-     at epic — see `RELIC_COMBAT_WEIGHTS`. */
-  const rarityWeights = tier === 'combat' ? RELIC_COMBAT_WEIGHTS : RELIC_RARITY_WEIGHTS[run.act];
+  /* Which ladder this offer climbs — one per node type, because the three are
+     different rewards wearing the same word. An ordinary fight stops at epic
+     (`RELIC_COMBAT_WEIGHTS`); an Elite cannot go BELOW uncommon
+     (`RELIC_ELITE_WEIGHTS`); a boss does not roll at all, a few lines down. */
+  const rarityWeights =
+    tier === 'combat'
+      ? RELIC_COMBAT_WEIGHTS
+      : tier === 'elite'
+        ? RELIC_ELITE_WEIGHTS[run.act]
+        : RELIC_RARITY_WEIGHTS[run.act];
   /* `exclusive` never enters an offer. It is granted by name — see the `relic`
      run effect — so a relic that is meant to be earned cannot also be found. */
   const pool = relicTable
@@ -307,7 +338,15 @@ export function rollRelics(
    * it" is a perfectly good screen — and its weight is what keeps it rare, not
    * a filter that hides it.
    */
-  const usable = [...new Set(pool.map((def) => def.rarity))];
+  /* Tiers the pool can actually fill AND the ladder is willing to roll. The
+     second half is new and it is a guard as much as a rule: `weightedPick`
+     throws when handed nothing but zero weights, so an Elite whose pool had
+     run down to commons alone — every uncommon and epic already carried — used
+     to be a crash waiting on a long run rather than an empty offer. */
+  const usable = [...new Set(pool.map((def) => def.rarity))].filter(
+    (rarity) => (rarityWeights[rarity as Exclude<Rarity, 'basic'>] ?? 1) > 0,
+  );
+  if (usable.length === 0) return { relicIds: [], rng };
 
   /* A boss does not roll its tier. An act finale that hands you an uncommon is
      the boss telling you the last hour did not matter, and a rolled tier means

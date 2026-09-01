@@ -71,14 +71,12 @@ export const FOCUS_CARDS: readonly CardDef[] = [
      */
     keepsFocus: true,
     effects: [
-      { op: 'damage', amount: 6, target: 'enemy' },
-      { op: 'scaleWith', source: 'focus', per: 1, then: [{ op: 'damage', amount: 3, target: 'enemy' }] },
+      { op: 'damage', amount: 6, target: 'enemy', plusPer: { source: 'focus', per: 1, amount: 3 } },
     ],
     upgrade: {
       name: 'The Long Draw+',
       effects: [
-        { op: 'damage', amount: 9, target: 'enemy' },
-        { op: 'scaleWith', source: 'focus', per: 1, then: [{ op: 'damage', amount: 4, target: 'enemy' }] },
+        { op: 'damage', amount: 9, target: 'enemy', plusPer: { source: 'focus', per: 1, amount: 4 } },
       ],
     },
     flavor: 'The cut is short. Everything before it was not.',

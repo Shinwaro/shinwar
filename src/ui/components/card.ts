@@ -56,19 +56,18 @@ export function renderCardFace(def: CardDef, options: CardFaceOptions): HTMLElem
   const classes = ['card', 'card--face', `card--${def.type}`];
   if (options.extraClass !== null) classes.push(options.extraClass);
 
-  /* The same glyph the hand uses. A reward shelf is three cards side by side
-     and is exactly where "what KIND of card is this" gets asked fastest. */
-  const mark = cardMark(def);
-
+  /* No kind-mark on a FACE, only in hand.
+   *
+   * It went on both, and on the face it broke the head: a face is 13.5rem and
+   * its head already carries a cost, a name and a rarity badge, so a fourth
+   * item left the name sixty pixels to say "Meet the Charge" in and it wrapped
+   * to three lines — which made one card in a shelf of three seventy pixels
+   * taller than the others. The hand has no badge and the room to spare, and
+   * the reward screen already names the tier in words. */
   return el('div', { class: classes.join(' '), 'data-rarity': def.rarity }, [
     el('div', { class: 'card-head' }, [
       el('span', { class: `card-cost${costChanged ? ' is-changed' : ''}` }, [describeCost(def)]),
       el('span', { class: 'card-name' }, [def.name]),
-      el(
-        'span',
-        { class: `card-mark card-mark--${mark.family}`, title: mark.label, 'aria-hidden': 'true' },
-        [mark.glyph],
-      ),
       options.badge === null
         ? null
         : el('span', { class: `card-badge card-badge--${def.rarity}` }, [options.badge]),

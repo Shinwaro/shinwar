@@ -424,6 +424,29 @@ describe("a Thread's reprisal opens the fight it promised", () => {
     return after.run?.combat?.encounterId ?? null;
   }
 
+  it('opens a Vareth hunting party, never an ordinary chart Elite', () => {
+    /* The Thread says "The Vareth know your ship. They are slower than you and
+       they do not stop", and for a long time it rolled the act's normal Elite
+       pool — so being Marked meant a Kiln Alpha turned up. A fight, but not the
+       one the sentence describes, and a fight a player who never touched the
+       egg could also have walked into deliberately.
+ 
+       Asserted as "is an ambush encounter" rather than "is vareth_hunt_1", so
+       adding a second party per act does not break the test that protects the
+       rule. */
+    let checked = 0;
+    for (let i = 0; i < 40; i += 1) {
+      for (const type of ['unknown', 'event', 'combat', 'station'] as const) {
+        const encounterId = ambushOn(`HUNT-${i}`, type);
+        if (encounterId === null) continue;
+        checked += 1;
+        const def = ENCOUNTERS.find((entry) => entry.id === encounterId);
+        expect(def?.ambush, `${type} node, seed ${i}: opened ${encounterId}`).toBe(true);
+      }
+    }
+    expect(checked, 'no ambush was ever opened').toBeGreaterThan(30);
+  });
+
   it('rolls an ELITE encounter, whatever the node underneath was', () => {
     const tierOf = (id: string | null): string | null =>
       ENCOUNTERS.find((entry) => entry.id === id)?.tier ?? null;
@@ -508,7 +531,16 @@ describe("a Thread's reprisal opens the fight it promised", () => {
       },
     });
     expect(won.run?.screen, 'the reward comes first').toBe('reward');
-    expect(won.run?.pendingReward?.relicIds, 'a reprisal pays no relic').toEqual([]);
+    /* A reprisal pays a relic again. It did not for a long time, because a free
+       Elite drop made being Marked something a player would deliberately
+       arrange — but that is answered by making the fight a Vareth hunting party
+       harder than the act's real Elites, rather than by withholding the reward.
+       Nobody arranges that for a relic, and charging twice for one choice is
+       what leaving the cards in place was already avoiding. */
+    expect(
+      won.run?.pendingReward?.relicIds.length,
+      'a reprisal stopped paying its relic',
+    ).toBeGreaterThan(0);
 
     const left = applyAction(won, { kind: 'leaveReward' });
     expect(left.run?.screen, 'and then the Station opens').toBe('station');

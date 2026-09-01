@@ -457,11 +457,17 @@ function drawForTurn(state: GameState): GameState {
    */
   const seated = combat.turn === 1 ? combat.hand.length : 0;
 
+  /* The opening bonus is added INSIDE the count, on the far side of `seated`.
+     Anywhere else and the turn-1 subtraction above would take it straight back
+     off — see `RelicPassive.drawFirstTurn`. */
+  const opening = combat.turn === 1 ? pilotRules(state).drawFirstTurn : 0;
+
   const count = Math.max(
     0,
     PLAYER_BALANCE.drawPerTurn +
       liveStance(state).extraDraw +
-      pilotRules(state).drawPerTurn -
+      pilotRules(state).drawPerTurn +
+      opening -
       penalty -
       seated,
   );
@@ -562,7 +568,6 @@ export function playCard(state: GameState, cardUid: string, targetUid: string | 
   let next = withCombat(state, (current) => ({
     ...removeFromHand(current, cardUid),
     energy: current.energy - cost,
-    cardsPlayedThisTurn: current.cardsPlayedThisTurn + 1,
   }));
 
   next = appendLog(next, {
@@ -614,6 +619,31 @@ export function playCard(state: GameState, cardUid: string, targetUid: string | 
   if (exhausted) {
     next = fireHook(next, 'onCardExhausted', { cardUid: card.uid, cardId: def.id });
   }
+  /*
+   * The card counts once it is PLAYED, not while it is playing.
+   *
+   * `cardsPlayedThisTurn` used to be incremented up at the top, next to the
+   * Energy, which meant a card that scales on it counted ITSELF — and worse,
+   * counted itself only at resolution. The face in your hand read the counter
+   * before the increment and the resolver read it after, so Momentum showed
+   * one number and dealt another. That is the preview disagreeing with the
+   * result, which this codebase treats as the worst class of bug there is:
+   * a player who plans around the number on the card and gets a different one
+   * stops trusting every number on every card.
+   *
+   * Moved to here, which is the only position that satisfies both readers.
+   * Effects have finished, so `scaleWith` and `cardsPlayedThisTurnAtLeast` saw
+   * the same count the hand did — Momentum as your first card is now the 0 it
+   * always claimed to be. And it is still incremented BEFORE `onCardPlayed`,
+   * which is what Long Form Ledger and Splitfire Core read: both count every
+   * third card and both have a comment saying they trust this field rather
+   * than counting separately. They still can.
+   */
+  next = withCombat(next, (current) => ({
+    ...current,
+    cardsPlayedThisTurn: current.cardsPlayedThisTurn + 1,
+  }));
+
   next = fireHook(next, 'onCardPlayed', { cardUid: card.uid, cardId: def.id });
 
   next = checkOutcome(next);

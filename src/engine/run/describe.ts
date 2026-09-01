@@ -183,6 +183,13 @@ export function describePassive(passive: RelicPassive, state: GameState | null =
        nothing while doing something. */
     parts.push(`Heal ${passive.healPerTurn} at the start of each turn`);
   }
+  if (passive.drawFirstTurn !== undefined && passive.drawFirstTurn !== 0) {
+    const cards = passive.drawFirstTurn === 1 ? 'card' : 'cards';
+    parts.push(`Draw ${passive.drawFirstTurn} extra ${cards} on the first turn of a fight`);
+  }
+  if (passive.healPerKill !== undefined && passive.healPerKill !== 0) {
+    parts.push(`Heal ${passive.healPerKill} whenever an enemy dies`);
+  }
   if (passive.damageTakenFlat !== undefined && passive.damageTakenFlat !== 0) {
     /* "Every attack against you deals N less", matching Ceramic Underplate —
        which is the wording that describes what the number actually does. The

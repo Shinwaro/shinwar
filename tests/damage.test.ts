@@ -140,10 +140,15 @@ describe('the ordered steps', () => {
     ).toBe(0);
   });
 
-  it('caps Weak at half, however many stacks are held', () => {
-    /* Stacks compound, so an uncapped 0.75 reaches 0.32 at four stacks. A
-       debuff that can take two thirds of an enemy's output off the table stops
-       being a tempo play and becomes the whole answer to a fight. */
+  it('steps Weak 25% a stack and caps it at half', () => {
+    /* Flat steps, not compounding — 1 + (0.75 - 1) x stacks.
+ 
+       It used to be `0.75 ^ stacks`, which put two stacks at 0.5625. The status
+       text says "25% less damage per stack" and the damage breakdown printed
+       `x0.5625` underneath it; nobody reading the card expects to square
+       anything. Now two stacks is exactly half, which is both what the words
+       say and where the cap already was — the cap stopped being an arbitrary
+       clamp somewhere past the second stack and became the second stack. */
     const shape = {
       amount: 20,
       isAttack: true,
@@ -162,20 +167,19 @@ describe('the ordered steps', () => {
     };
 
     expect(at(1), 'one stack is the plain 25%').toBe(15);
-    // Two stacks still compound honestly: 0.75^2 = 0.5625, above the floor.
-    expect(at(2)).toBe(11);
-    // Three would be 0.42 and four 0.32. Both clamp to half, and stack five
+    expect(at(2), 'two stacks are exactly half, not 0.5625').toBe(10);
+    // Three would be 0.25 and four 0.0. Both clamp to half, and stack five
     // through nine buy nothing at all.
     expect(at(3)).toBe(10);
     expect(at(4)).toBe(10);
     expect(at(9)).toBe(10);
   });
 
-  it('compounds Vulnerable per stack, up to the cap', () => {
-    /* One stack is 1.25. Two would compound to 1.5625 and are held at 1.5 — the
-       cap is the point of the status: uncapped it runs away, and the correct
-       play against anything with real health becomes "stack Vulnerable, then
-       hit it once". Mirrors Weak exactly now, other side of the pipeline. */
+  it('steps Vulnerable per stack, up to the cap', () => {
+    /* One stack is 1.25, two is exactly 1.5 — flat steps, the mirror of Weak on
+       the other side of the pipeline. The cap still matters for three and up:
+       uncapped, the correct play against anything with real health becomes
+       "stack Vulnerable, then hit it once". */
     const hit = (stacks: number): number => {
       const state = makeFight({
         enemyStatuses: [{ status: VULNERABLE, stacks, fresh: false }],

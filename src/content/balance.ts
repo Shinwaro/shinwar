@@ -595,6 +595,49 @@ export const RELIC_RARITY_WEIGHTS: {
 };
 
 /**
+ * Relic tiers off an ELITE.
+ *
+ * An Elite cannot hand you a common. It is the hardest fight on the route, it
+ * is the one you go out of your way for, and "a harder fight that always drops
+ * a relic" is only worth routing into if the relic is worth the hull — a common
+ * off the back of an Elite is the game telling you the detour was a mistake.
+ *
+ * Common's weight goes into uncommon and epic, two to one, and THE RARE TAIL IS
+ * LEFT EXACTLY WHERE IT WAS. That rule is the whole design of this table.
+ * Renormalising the act's own ladder over the remaining tiers would have been
+ * one line, but it would also have more than doubled legendary in Act 1 — 2.5%
+ * to 5.6% — turning "no commons" into "and a legendary lottery" as a side
+ * effect nobody asked for. Removing a floor should raise the floor, not the
+ * ceiling.
+ *
+ * Note the tiers still have to EXIST in the pool to be rolled; see `rollRelics`,
+ * which reads the pool before the ladder for exactly that reason.
+ */
+export const RELIC_ELITE_WEIGHTS: {
+  readonly [act in 1 | 2 | 3]: { readonly [r in Exclude<Rarity, 'basic'>]: number };
+} = {
+  1: { common: 0, uncommon: 67, epic: 30, legendary: 2.5, mythic: 0.4, artifact: 0.1 },
+  2: { common: 0, uncommon: 57, epic: 32, legendary: 8, mythic: 4.4, artifact: 0.8 },
+  3: { common: 0, uncommon: 42, epic: 34, legendary: 16, mythic: 12, artifact: 2 },
+};
+
+/**
+ * Card tiers on an ELITE's reward screen. Same rule, same reason.
+ *
+ * Built off `RARITY_WEIGHTS` with common's share moved into uncommon and epic
+ * two to one, legendary untouched. The three slots roll independently, so this
+ * is what makes an Elite's screen three real options rather than three rolls
+ * that happen to have avoided common.
+ */
+export const ELITE_CARD_WEIGHTS: {
+  readonly [act in 1 | 2 | 3]: { readonly [r in Exclude<Rarity, 'basic'>]: number };
+} = {
+  1: { common: 0, uncommon: 65, epic: 32, legendary: 2.4, mythic: 0, artifact: 0 },
+  2: { common: 0, uncommon: 58, epic: 32, legendary: 8, mythic: 0, artifact: 0 },
+  3: { common: 0, uncommon: 47, epic: 36, legendary: 13.5, mythic: 0, artifact: 0 },
+};
+
+/**
  * Relic tiers off an ORDINARY fight, as opposed to an Elite or a boss.
  *
  * A separate table because the two are different rewards wearing the same

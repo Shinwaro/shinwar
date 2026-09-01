@@ -211,8 +211,14 @@ describe('the three-Energy cards', () => {
     const enemy = firstEnemy(state);
     const after = playCard(state, handCard(state, 0).uid, enemy.uid);
 
-    // 3 x 9 base, then 4 x 3 from the bank, and the bank is still there.
-    expect(enemy.hp - (combatOf(after).enemies[0]?.hp ?? 0)).toBe(27 + 12);
-    expect(combatOf(after).focus).toBe(4);
+    /* Three swings of (8 + 2 per Focus) = 3 x 16, and the bank is still there.
+ 
+       Written as `3 * (8 + 2 * 4)` rather than as a total, because the SHAPE is
+       what this card was changed for: the Focus term used to be four extra
+       three-damage instances on top of three base swings — seven hits, so every
+       per-hit bonus in the game was worth seven times its face on it. Folded
+       into the size of each swing, three is the most hits it can be. */
+    expect(enemy.hp - (combatOf(after).enemies[0]?.hp ?? 0)).toBe(3 * (8 + 2 * 4));
+    expect(combatOf(after).focus, 'it spent the bank it promised to keep').toBe(4);
   });
 });

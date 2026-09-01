@@ -10,7 +10,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import type { EventDef, GameState, RunSegment, RunState } from '../src/engine/types.ts';
 import { createInitialState, createRunState } from '../src/engine/state.ts';
 import { applyAction } from '../src/engine/reducer.ts';
-import { enterNode } from '../src/engine/run/run.ts';
+import { enterNode, leaveLanding } from '../src/engine/run/run.ts';
 import { applyRunEffects } from '../src/engine/run/effects.ts';
 import {
   describeRunEffectSegments,
@@ -493,24 +493,46 @@ describe('threads on the real path', () => {
     expect(runOf(state).forcedTier).toBe('elite');
   });
 
-  it('never lets a reprisal replace the boss', () => {
+  it('makes a reprisal INTERRUPT the boss rather than vanish or replace it', () => {
+    /* Three things at once, because the bug was in the space between them.
+ 
+       The reprisal used to be deleted outright on a boss node — three lines
+       clearing `forcedTier`, no comment — and this test asserted the deletion.
+       The guard was right when an ambush REPLACED its node: without it, Marked
+       landing on the finale fed you an elite INSTEAD of the boss. Then ambushes
+       became interrupts backed by `ambushOwes`, the replacement risk went away,
+       and the guard stayed behind quietly eating the Thread. Marked came due on
+       a finale, printed its line on the landing report, and cost nothing.
+ 
+       So: the Thread survives the landing, the fight that opens is the AMBUSH
+       and not the boss, and the boss node is still owed afterwards. The third
+       assertion is the one the old guard existed to protect, and it is the
+       reason the guard is safe to remove rather than merely inconvenient. */
     const started = startedRun('BOSSGUARD');
     const marked = setThread(started, 'marked');
     const map = runOf(marked).map;
     expect(map).not.toBeNull();
+    const bossId = map?.bossId ?? '';
 
     // Stand next to the boss with the thread already due.
     const due = {
       ...marked,
       run: {
         ...runOf(marked),
-        position: map?.nodes.find((node) => node.next.includes(map.bossId))?.id ?? null,
+        position: map?.nodes.find((node) => node.next.includes(bossId))?.id ?? null,
         threads: runOf(marked).threads.map((entry) => ({ ...entry, progress: 99 })),
       },
     };
 
-    const atBoss = enterNode(due, map?.bossId ?? '');
-    expect(runOf(atBoss).forcedTier).toBeNull();
+    const atBoss = enterNode(due, bossId);
+    expect(runOf(atBoss).forcedTier, 'the reprisal was thrown away on arrival').toBe('elite');
+
+    const opened = leaveLanding(atBoss);
+    const bossNode = map?.nodes.find((node) => node.id === bossId);
+    expect(runOf(opened).combat?.encounterId, 'the boss opened instead of the ambush').not.toBe(
+      bossNode?.encounterId,
+    );
+    expect(runOf(opened).ambushOwes, 'the boss was skipped rather than deferred').toBe(bossId);
   });
 });
 

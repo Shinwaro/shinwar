@@ -27,12 +27,31 @@ describe('a card is announced by its shape', () => {
     // The same target, repeatedly — including the ones that scale rather than
     // declaring `times`, because "for every card discarded, deal 2" is several
     // blows on the board whatever it is in the data.
+    /* Multi-hit, and every one of these really does swing more than once.
+ 
+       That is the only thing the bucket ever needed to mean, and for a while it
+       did not: the cards below landed several blows while their generated text
+       said "deal N extra", which reads as one bigger swing. The wording is
+       fixed rather than the hits removed — "For every 2 cards discarded, hit
+       for 6" — so the sound, the mark and the words now agree with the board.
+ 
+       The Whole Sword is the one that says it with `times` instead of a
+       `scaleWith`; both count as multi and both should. What must NOT land here
+       is a `plusPer` card — Widening Gyre, The Long Draw, Counterweight — since
+       those are genuinely one bigger hit, and this glyph is where a player
+       learns which cards multiply Strength and every-hit relics. */
     empty_the_rack: 'atkMultihit',
     momentum: 'atkMultihit',
+    flashpoint: 'atkMultihit',
+    the_whole_sword: 'atkMultihit',
+    // One bigger swing, deliberately NOT multi — the other half of the rule.
+    widening_gyre: 'atkBig',
+    counterweight: 'atkSmall',
     // The room.
     fanned_cut: 'atkAoeSmall',
     clean_sweep: 'atkAoeBig',
     broken_formation: 'atkAoeMultihit',
+    coolant_burst: 'atkAoeMultihit',
     // A hit that leaves something behind, and the same to the room. Rust Bloom
     // leaves something behind without hitting at all, which is still this.
     rust_bloom: 'atkDebuff',

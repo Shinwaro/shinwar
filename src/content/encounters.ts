@@ -11,6 +11,14 @@
  */
 
 import type { EncounterId, EnemyId } from '../engine/types.ts';
+import {
+  VARETH_CHITINGUARD,
+  VARETH_CLUTCHWARD,
+  VARETH_DRONE,
+  VARETH_HUNTRESS,
+  VARETH_MATRIARCH,
+  VARETH_OUTRIDER,
+} from './enemies/vareth.ts';
 import { TRAINING_HULK, TUTORIAL_ENCOUNTER_ID } from './tutorial.ts';
 import {
   CINDER_WISP,
@@ -79,6 +87,20 @@ export interface EncounterDef {
    * teeth would turn up in Act 1 as a free node.
    */
   readonly tutorial?: boolean;
+  /**
+   * Never placed on a chart. A Thread's reprisal only.
+   *
+   * Third member of the pinned-content family, alongside `tutorial` and
+   * `EventDef.pinnedOnly`, and it exists for a sharper reason than the others:
+   * the Vareth are not wildlife on a route, they are following you. A hunting
+   * party that could also turn up as an ordinary Elite would say the opposite
+   * of what the Thread says, and it would hand a player who never touched the
+   * egg a fight about the egg.
+   *
+   * `encountersFor` filters these out, so the map generator cannot see them.
+   * `forcedEncounter` asks for them by name.
+   */
+  readonly ambush?: boolean;
 }
 
 export const ENCOUNTERS: readonly EncounterDef[] = [
@@ -99,6 +121,17 @@ export const ENCOUNTERS: readonly EncounterDef[] = [
     name: 'Pack',
     act: 1,
     tier: 'normal',
+    minRow: 4,
+    /* Held to row 4, and not because it is big — at 56 hull it is mid-table.
+       It is the hardest-HITTING fight in the act by a distance: 16 a turn
+       against nine for the next one and five for the softest, at a point where
+       your best answer is a 6-Block common. Two Hounds on node one is the
+       opening deck losing to arithmetic it cannot change.
+
+       This is what the first `minRow` pass missed. It ordered the act by HULL,
+       which is a fair proxy in Act 3 where the two move together and a poor one
+       here: sorted by hull this pack looked average, and the fight nobody could
+       answer went out on row one while a soft three-wide sat behind row 5. */
     enemyIds: [SCRAP_HOUND, SCRAP_HOUND],
   },
   {
@@ -122,11 +155,18 @@ export const ENCOUNTERS: readonly EncounterDef[] = [
   },
   {
     /* The clock and the wall. Burrow makes the Tick slow to kill, and the
-       rust runs the whole time you are trying. */
+       rust runs the whole time you are trying.
+
+       Held back to row 4. Rust ignores Block, which is the one answer the
+       opening deck has — so meeting the Tick on node one or two is a fight the
+       starting twelve cannot argue with, and losing to it teaches nothing
+       except that it happened. Three nodes is enough to have drawn something.
+       Work Crew, the other pack carrying a Tick, is already behind row 5. */
     id: 'tick_nest',
     name: 'Nest',
     act: 1,
     tier: 'normal',
+    minRow: 4,
     enemyIds: [RUST_TICK, SCRAP_HOUND],
   },
   {
@@ -173,6 +213,9 @@ export const ENCOUNTERS: readonly EncounterDef[] = [
     name: 'Drifters',
     act: 2,
     tier: 'normal',
+    minRow: 5,
+    /* Twenty a turn, second only to the Levy, and gated with it for the same
+       reason: hull put both of them mid-table and damage puts them at the top. */
     enemyIds: [SABLE_DRIFTER, SABLE_DRIFTER],
   },
   {
@@ -263,6 +306,61 @@ export const ENCOUNTERS: readonly EncounterDef[] = [
     tier: 'normal',
     minRow: 5,
     enemyIds: [HEAT_SIPHON, NULL_PRISM],
+  },
+  /* ---- Act 3's opening shelf ----
+
+     `minRow` orders this act now — the big packs are gated behind rows 3, 5, 7
+     and 9 — and that left rows one and two drawing from exactly two encounters.
+     A ramp that repeats itself is not much better than no ramp, so these four
+     fill the bottom of the band: 96 to 148, against an act whose gated packs
+     run 172 to 226.
+
+     They are also four different SHAPES rather than four sizes: one target
+     alone, a pair that rebuilds itself, a heat clock with a chip in front of
+     it, and two of the same thing. Act 3's opening should ask what kind of
+     fight you are good at before it asks how much you can take. */
+  {
+    /* The Prism hits harder than anything else its size and the Shard is there
+       to make you choose which one you can afford to leave standing. The
+       lightest board in the act that still swings like Act 3.
+
+       It was a lone Rimewake first, which the content validator refused: a
+       normal fight needs at least two enemies. Correct rule — a single normal
+       enemy is an Elite board without the rewards. */
+    id: 'prism_and_shard',
+    name: 'First Refraction',
+    act: 3,
+    tier: 'normal',
+    enemyIds: [NULL_PRISM, TESSELLATE_SHARD],
+  },
+  {
+    /* The Nullwright anneals what you take off it and the Shard keeps chipping
+       while it does. Kill order is the fight: the wrong one first and you are
+       fighting the same hull twice. */
+    id: 'annealed_pair',
+    name: 'The Annealing',
+    act: 3,
+    tier: 'normal',
+    enemyIds: [NULLWRIGHT, TESSELLATE_SHARD],
+  },
+  {
+    /* A clock and a chip. The Siphon is the reason to hurry and the Shard is
+       the reason you cannot, which is the smallest version of the argument the
+       rest of the act keeps having with you. */
+    id: 'siphon_and_shard',
+    name: 'The Tap',
+    act: 3,
+    tier: 'normal',
+    enemyIds: [HEAT_SIPHON, TESSELLATE_SHARD],
+  },
+  {
+    /* Two of the same, so what it tests is whether you can do the same thing
+       twice before the second one has undone the first. */
+    id: 'nullwright_pair',
+    name: 'Second Draft',
+    act: 3,
+    tier: 'normal',
+    enemyIds: [NULLWRIGHT, NULLWRIGHT],
   },
   {
     /* Rimewake grows while the Shard blocks for it. Every turn spent on the
@@ -444,6 +542,10 @@ export const ENCOUNTERS: readonly EncounterDef[] = [
     name: 'The Levy',
     act: 2,
     tier: 'normal',
+    minRow: 5,
+    /* Twenty-two a turn is the most in the act, on ninety hull — a short fight
+       you lose quickly rather than a long one you lose slowly. Gated with
+       Cutting Crew, which it outranks on threat and which was already held. */
     enemyIds: [TALLY_KEEPER, SABLE_DRIFTER],
   },
   {
@@ -476,6 +578,52 @@ export const ENCOUNTERS: readonly EncounterDef[] = [
     tier: 'elite',
     enemyIds: [CANTOR_OF_ASH],
   },
+  /* ---------- the hunting parties ----------
+   *
+   * What being Marked actually means, one per act. Never placed on a chart —
+   * see `ambush` on `EncounterDef` — so the only way to meet these is to have
+   * done something the Vareth care about.
+   *
+   * Tier `elite`, and harder than the act's real Elites on purpose. The
+   * reprisal pays a relic again, which it did not for a long time: dropping one
+   * made being Marked something a player would deliberately ARRANGE, take the
+   * Thread and collect a free Elite drop. The answer to that is not to withhold
+   * the reward, it is to make the fight worth the reward — an ambush you would
+   * choose to walk into is a bill priced too low, and the fix belongs on the
+   * price rather than on the receipt.
+   *
+   * Measured against each act's Elite average, both parties sit roughly a third
+   * above on hull and half again on damage per turn. The damage half is the
+   * important one and it is why each party has a drone in it: Elites are the
+   * TANKY node, not the hard-hitting one — in Act 3 an Elite deals 21 a turn
+   * against a normal pack's 30 — so a party that only added hull would have
+   * been a longer fight rather than a harder one, and a long fight is the thing
+   * that pushes a run past the 45-70 minute target.
+   */
+  {
+    id: 'vareth_hunt_1',
+    name: 'The Heading They Have',
+    act: 1,
+    tier: 'elite',
+    ambush: true,
+    enemyIds: [VARETH_HUNTRESS, VARETH_DRONE],
+  },
+  {
+    id: 'vareth_hunt_2',
+    name: 'What Was Owed The Clutch',
+    act: 2,
+    tier: 'elite',
+    ambush: true,
+    enemyIds: [VARETH_CLUTCHWARD, VARETH_OUTRIDER],
+  },
+  {
+    id: 'vareth_hunt_3',
+    name: 'The One That Laid It',
+    act: 3,
+    tier: 'elite',
+    ambush: true,
+    enemyIds: [VARETH_MATRIARCH, VARETH_CHITINGUARD],
+  },
 ];
 
 export function encountersFor(
@@ -486,8 +634,21 @@ export function encountersFor(
   return ENCOUNTERS.filter(
     (entry) =>
       entry.tutorial !== true &&
+      entry.ambush !== true &&
       entry.act === act &&
       entry.tier === tier &&
       (row === undefined || entry.minRow === undefined || row >= entry.minRow),
   );
+}
+
+/**
+ * The hunting parties a reprisal can open, for one act.
+ *
+ * Separate from `encountersFor` rather than a flag on it, because these are the
+ * complement of what that function is for: it answers "what may a chart place
+ * here", and the whole point of an ambush encounter is that the answer is
+ * never. No `minRow` — a reprisal is not placed, it arrives.
+ */
+export function ambushesFor(act: 1 | 2 | 3): readonly EncounterDef[] {
+  return ENCOUNTERS.filter((entry) => entry.ambush === true && entry.act === act);
 }

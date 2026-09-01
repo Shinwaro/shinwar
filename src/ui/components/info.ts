@@ -160,25 +160,31 @@ export function mapInfo(act: 1 | 2 | 3): readonly InfoSection[] {
 }
 
 export const MAP_INFO: readonly InfoSection[] = [
+  /* First, and one line long.
+   *
+   * It carried four: this, the Wavefront, the Reliquary and the Manifest. All
+   * three of those are things the chart already tells you at the moment they
+   * matter — the front has a readout of its own, the Reliquary is a row you
+   * cannot miss, and the Manifest is a panel sitting open beside the stars. A
+   * legend that repeats what is already on screen is a legend people stop
+   * reading, and the one rule here that the chart CANNOT show you is that the
+   * lines only run one way. */
+  {
+    heading: 'Reading the route',
+    entries: [
+      { term: 'You choose forward, never back', text: 'A route is a commitment. Lines only run up the chart, so what you skip is skipped for the act.' },
+    ],
+  },
   {
     heading: 'What the stars are',
     entries: [
       { swatch: '#dfe7f5', term: 'Combat', text: 'A fight. The badge names the enemies and the environment before you commit.' },
-      { swatch: '#e0564d', term: 'Elite', text: 'A harder fight that drops a relic. The only early source of one, and worth routing for.' },
+      { swatch: '#e0564d', term: 'Elite', text: 'A harder fight that always drops a relic. The best source of rare ones, and worth routing for.' },
       { swatch: '#f0a13c', term: 'Boss', text: 'The end of the act. Every route funnels into it. It pays a relic and raises your maximum health.' },
       { swatch: '#6ba8e8', term: 'Station', text: 'Cards, a card removal, one forge, one repair, and the implant shelf. What Alloy is for.' },
       { swatch: '#8fd6a8', term: 'Safe Planet', text: 'Heal, forge a card, or remove one — you pick one. Nothing here wants anything from you.' },
       { swatch: '#b79ae0', term: 'Anomaly', text: 'A situation with three or four answers and a way to walk off. Some of them defer their consequence into a Thread.' },
       { swatch: '#e8c87c', term: 'Unknown', text: 'The scan is inconclusive. It resolves into one of the others when you set down.' },
-    ],
-  },
-  {
-    heading: 'Reading the route',
-    entries: [
-      { term: 'You choose forward, never back', text: 'A route is a commitment. Lines only run up the chart, so what you skip is skipped for the act.' },
-      { term: 'The Wavefront', text: 'From Act 2, the collapse front follows you up the chart. A Station or a Safe Planet costs two rows of lead instead of one — the detour is priced.' },
-      { term: 'The Reliquary', text: 'Halfway through Act 2, a full row of your own order’s vault. Every route crosses it, and it is the only place a Mythic card comes from.' },
-      { term: 'The Manifest', text: 'The panel beside the chart lists the Threads you are holding. Each one comes due later in the same run, always.' },
     ],
   },
 ];

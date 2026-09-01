@@ -244,6 +244,9 @@
 }
 
 .combat-inner {
+  /* The positioning context for the rail, which hangs off its left edge — see
+     `.rail`. Everything else in here is grid flow. */
+  position: relative;
   width: 100%;
   max-width: 68rem;
   margin: 0 auto;
@@ -1351,6 +1354,25 @@
   }
 }
 
+/* The chart is the one screen that wants the whole display, so it does not get
+   the big reading margin `.screen` hands everything else. The run bar goes to
+   the very top and the sky takes what is left — see `--map-h` below, which is
+   written in terms of exactly this padding.
+
+   `:has()` rather than a class the script sets, which is the one place on this
+   screen where that is the right way round: the chart and the Inventory are two
+   different CHILDREN of the same `main.map.screen`, and the host cannot tell
+   which of them it is holding from anything on itself. Everywhere the question
+   is about the element being styled, the script answers it directly.
+
+   Scoped rather than applied to the whole screen because the Inventory is the
+   other child, and it is a document: a deck list read from the top wants the
+   4rem `.screen` gives it. Only the chart is a thing you look at rather than
+   read. */
+.map.screen:has(.map-inner--chart) {
+  padding-block: max(0.75rem, env(safe-area-inset-top)) max(0.75rem, env(safe-area-inset-bottom));
+}
+
 /* ---------- the shared run bar ---------- */
 
 .run-bar {
@@ -1390,57 +1412,127 @@
   gap: 0.75rem;
 }
 
-/* The chart and its Manifest, side by side — and the CHART stays centred.
+/* The CHART takes the display; the Inventory that shares this class keeps the
+   78rem above, because it is a list you read and this is a thing you look at.
+   104rem leaves a real margin at 1920 rather than running to the bezel — the
+   complaint was a chart marooned in empty space, and the answer to that is not
+   an edge-to-edge one.
+
+   The width is worth more to this screen than to any other in the game: node
+   positions are FRACTIONS of the field, so every extra pixel here is spent
+   directly on the gap between two stars. */
+.map-inner--chart {
+  max-width: 104rem;
+
+  /*
+   * How tall the sky is — and, through it, how big everything in the sky is.
+   *
+   * The two used to be set independently: the box was `min(66dvh, 40rem)` and
+   * the field under it a flat `118rem`. Independent is the bug. What the
+   * numbers actually decide together is HOW MUCH OF THE ACT YOU SEE AT ONCE,
+   * and with only one of them responding to the display that fraction drifted
+   * with the window — a third of the act on a desktop, a quarter on a short
+   * laptop, and on a tall monitor a 40rem letterbox with 240px of nothing under
+   * it. That letterbox is the thing being fixed here.
+   *
+   * So the box takes the display and the field is a MULTIPLE of the box. The
+   * fraction visible is then the constant, and growing the window spreads the
+   * stars apart instead of showing more of them — which is the whole point:
+   * this is a chart you read, not a map you survey.
+   *
+   * `11rem` is the chrome above and below: measured at 160px — the screen's own
+   * 0.75rem twice, the run bar, the head row and the two 0.75rem gaps between
+   * them — plus a rem of slack, because the bar and the head are content and
+   * content wraps. Exactly 160px would fill the display to the pixel and then
+   * start a page scrollbar the first time either of them took a second line.
+   * The clamp's floor keeps a short window or a phone from collapsing the sky
+   * to a slot.
+   */
+  --map-h: clamp(20rem, calc(100dvh - 11rem), 60rem);
+}
+
+/* The chart between its two rails: what you are carrying on the left, what you
+   owe on the right.
 
    The Manifest used to sit above the chart at full width, so the sky moved down
    by however many Threads you happened to be carrying. Beside it, it is the
    same shape as the relic rail in a fight: a standing list you glance at, next
    to the thing you are actually deciding about.
 
-   Beside it is not the same as pushing it, though. A two-track row hands the
-   chart the left column and the panel the right, which slides the whole sky off
-   centre the moment you pick up a Thread — the chart is the thing being read,
-   and it should not move because of what is written next to it. So when there
-   is a panel the row is three tracks wide with a matching empty one on the
-   left, and the chart sits in the middle of the screen whatever is beside it.
+   **The three tracks are unconditional, and that is the point.** They used to
+   appear only when there was a Manifest to hold, which meant picking up your
+   first Thread narrowed the chart by a third of its width — the sky visibly
+   shrinking as a side effect of an event somewhere else. A chart that resizes
+   under you is a chart you have to re-read. So the row is always
+   rail / sky / rail, the tracks are the same width whether anything is standing
+   in them, and the only thing that changes when a Thread arrives is that the
+   right-hand column stops being empty.
 
-   The class comes from `map.ts` rather than from `:has()`, because the screen
-   already knows whether it built a Manifest and a selector is a worse way to
-   ask a question you have the answer to. */
+   Adapting to the WINDOW is a different question and still happens: the middle
+   track is `1fr` and takes whatever the display leaves after the two rails. */
 .map-body {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: var(--manifest-w) minmax(0, 1fr) var(--manifest-w);
   align-items: start;
   gap: 0.75rem;
 }
 
-.map-body.has-manifest {
-  grid-template-columns: var(--manifest-w) minmax(0, 1fr) var(--manifest-w);
+.map-viewport { grid-column: 2; }
+
+/* Both rails run to the chart's own height and scroll inside it. A panel that
+   stops short of the box beside it reads as unfinished, and one that runs PAST
+   it drags the page into a scrollbar the chart was sized to avoid. */
+.map-body > .carried,
+.map-body > .manifest {
+  max-height: var(--map-h, min(66dvh, 40rem));
+  overflow-y: auto;
 }
 
-.map-body.has-manifest .map-viewport { grid-column: 2; }
+.map-body > .manifest { grid-column: 3; }
 
-.map-body.has-manifest .manifest {
-  grid-column: 3;
-  max-height: min(66dvh, 40rem);
-  overflow-y: auto;
+/* What you are carrying, on the chart rather than only in a fight.
+ 
+   The left track existed as deliberate empty ballast — the only way to keep the
+   sky centred on the screen while a panel stood on the right. Ballast is a poor
+   use of a column on the one screen with a decision on it: routing is exactly
+   when "every attack deals 2 more" should be in front of you, and it was behind
+   the Inventory key. Same component as the fight's rail, same reason. */
+.map-body > .carried {
+  grid-column: 1;
+  gap: 0.3rem;
 }
 
 /* Below this there is no room for a column beside the chart, so it goes back
    under it — where it costs vertical space, which on a phone is the cheaper of
    the two prices. */
 @media (max-width: 66rem) {
-  .map-body.has-manifest {
+  .map-body {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .map-body.has-manifest .map-viewport,
-  .map-body.has-manifest .manifest {
+  .map-body > .carried,
+  .map-body > .map-viewport,
+  .map-body > .manifest {
     grid-column: 1;
   }
 
-  .map-body.has-manifest .manifest {
+  .map-body > .carried,
+  .map-body > .manifest {
     max-height: none;
+  }
+
+  /* Under the chart rather than over it. What you are carrying is reference;
+     the chart is the decision, and the decision should not need a scroll. */
+  .map-body > .carried { order: 1; }
+
+  /* And the sky stops taking the whole window down here, because down here it
+     is no longer the only thing in it. Above the breakpoint the Manifest is a
+     column beside the chart and costs it nothing vertically; below it, it is
+     stacked underneath — so a chart sized to the display would put everything
+     you are carrying off the bottom of the screen with no sign it was there.
+     Back to the old share-the-height rule, which is what that layout wants. */
+  .map-inner--chart {
+    --map-h: min(66dvh, 40rem);
   }
 }
 
@@ -1457,7 +1549,7 @@
  */
 .map-viewport {
   position: relative;
-  height: min(66dvh, 40rem);
+  height: var(--map-h, min(66dvh, 40rem));
   display: flex;
   flex-direction: column;
   overflow-y: auto;
@@ -1473,7 +1565,11 @@
 .map-field {
   position: relative;
   width: 100%;
-  height: 118rem;
+  /* 2.95 is the ratio the flat `118rem` had against the old 40rem box, kept
+     deliberately: the amount of the act on screen at once was right, it just
+     stopped being right the moment the window was not 40rem tall. Written as a
+     multiple, it now holds on every window. */
+  height: calc(var(--map-h, 40rem) * 2.95);
   /* A flex item shrinks by default, which collapsed the whole field to the
      viewport's height and left nothing at all to scroll. */
   flex: 0 0 auto;
@@ -1536,8 +1632,8 @@
 }
 
 .star-dot {
-  width: 0.62rem;
-  height: 0.62rem;
+  width: 0.76rem;
+  height: 0.76rem;
   border-radius: 50%;
   background: var(--star, rgba(226, 236, 255, 0.85));
   box-shadow: 0 0 0.5rem var(--star-glow, rgba(226, 236, 255, 0.45));
@@ -1555,9 +1651,9 @@
 .star--wreck   { --star: #c9453f; --star-glow: rgba(201, 69, 63, 0.5); }
 
 .star--boss .star-dot {
-  width: 1.05rem;
-  height: 1.05rem;
-  box-shadow: 0 0 1.4rem var(--star-glow);
+  width: 1.28rem;
+  height: 1.28rem;
+  box-shadow: 0 0 1.6rem var(--star-glow);
 }
 
 /* Unvisited, unreachable stars stay readable — reading the sky ahead is the
@@ -1608,7 +1704,7 @@
    hit area into its neighbours. */
 .star-label {
   position: absolute;
-  top: calc(50% + 0.6rem);
+  top: calc(50% + 0.68rem);
   left: 50%;
   transform: translateX(-50%);
   display: grid;
@@ -1625,13 +1721,13 @@
 
 /* The name is what you scan for; the type is what you check once you have. */
 .star-name {
-  font-size: 0.7rem;
+  font-size: 0.8rem;
   font-weight: 600;
   color: var(--ink);
 }
 
 .star-detail {
-  font-size: 0.6rem;
+  font-size: 0.68rem;
   color: var(--muted);
 }
 
@@ -1639,12 +1735,12 @@
    own colour, because folded into one grey run they were unreadable at a
    glance — which is the only way anyone reads a chart. */
 .star-encounter {
-  font-size: 0.6rem;
+  font-size: 0.68rem;
   color: color-mix(in srgb, var(--danger) 78%, var(--ink));
 }
 
 .star-env {
-  font-size: 0.6rem;
+  font-size: 0.68rem;
   font-weight: 600;
   color: var(--accent);
 }
@@ -1656,8 +1752,10 @@
 .star-env[data-environment='sensor_fog'] { color: var(--guard); }
 .star-env[data-environment='chronal_shear'] { color: var(--danger); }
 
+/* Up with the type inside it — at 10rem the longer names had started wrapping
+   to three lines once the text grew. */
 .star-label {
-  max-width: 10rem;
+  max-width: 11.5rem;
 }
 
 /* Captioned everywhere, but only loud where you are choosing.
@@ -2180,17 +2278,21 @@
 /* Beside the chart it is a rail, not a section: narrower, tighter, and set at
    the size of the carrying rail in a fight — because that is the same job. It
    is glanced at while the eye is somewhere else, so it should take as little of
-   the row as it can and still be readable. */
-.map-body.has-manifest .manifest {
+   the row as it can and still be readable.
+
+   `.map-body >` rather than the old `.has-manifest` prefix: on this screen the
+   Manifest is only ever the right-hand rail, so the question the class used to
+   ask no longer has a second answer. */
+.map-body > .manifest {
   gap: 0.4rem;
   padding: 0.5rem 0.6rem;
 }
 
-.map-body.has-manifest .manifest-name { font-size: 0.8rem; }
-.map-body.has-manifest .manifest-due { font-size: 0.68rem; }
+.map-body > .manifest .manifest-name { font-size: 0.8rem; }
+.map-body > .manifest .manifest-due { font-size: 0.68rem; }
 
-.map-body.has-manifest .manifest-desc,
-.map-body.has-manifest .manifest-omen {
+.map-body > .manifest .manifest-desc,
+.map-body > .manifest .manifest-omen {
   font-size: 0.72rem;
   line-height: 1.35;
 }
@@ -2385,9 +2487,12 @@
 
 .shop-lot {
   display: grid;
+  /* The card takes the slack and the price sits under it, so two lots side by
+     side are the same height whatever their rules text runs to. */
+  grid-template-rows: 1fr;
   gap: 0.5rem;
   justify-items: stretch;
-  width: 14rem;
+  width: 16.5rem;
 }
 
 .shop-lot.is-sold {
@@ -2645,7 +2750,17 @@
 
 /* A face is a display card: no hover lift, no pointer. */
 .card--face {
-  width: 13.5rem;
+  /* 16.5rem, up from 13.5. The head carries a cost, a name and a rarity badge,
+     and at 216px that left the name eighty pixels — so "Meet the Charge" and
+     "Bank the Breath" both broke across two lines and the cards beside them
+     ended up shorter.
+
+     Measured rather than guessed: the cost circle is 21px, the widest badge is
+     78, two gaps are 16, and the longest card name in the pool needs 112. That
+     is 227 of head, so 236 of head and 264 of card leaves a little room for a
+     name longer than any shipped today. The type is unchanged; the card is what
+     got bigger. */
+  width: 16.5rem;
   cursor: default;
 }
 
@@ -3548,19 +3663,29 @@
 
 /* The fixed left column. Holds the totals, then the rail. */
 .rail {
-  position: fixed;
-  left: max(0.6rem, env(safe-area-inset-left));
-  /* Centred down the side, with the board it qualifies, rather than pinned to
-     the top of the margin. `max-height` below still bounds it, so a long list
-     of relics grows into the space it has instead of off the screen. */
-  top: 50%;
-  transform: translateY(-50%);
+  /* Hung off the BOARD's left edge, level with its top — so it starts at the
+     health bar rather than halfway down the screen.
+     
+     Absolute against `.combat-inner` rather than fixed against the viewport,
+     which is what makes that alignment free: the board is vertically centred
+     and its top moves with its own height, and a fixed box has no way to know
+     where that landed. It was `top: 50%` and centred, which put a two-relic
+     rail level with the stance strip and a long one level with nothing.
+     
+     `right: 100%` puts its right edge on the board's left edge; the margin is
+     the gutter. Below 95rem there is no room out there and the media query
+     below drops it back into the flow. */
+  position: absolute;
+  right: 100%;
+  top: 0;
+  margin-right: 0.6rem;
   z-index: 20;
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
   width: 12.5rem;
   max-height: calc(100dvh - 1.2rem);
+  overflow-y: auto;
 }
 
 .carried {
@@ -3657,13 +3782,13 @@
     position: static;
     width: auto;
     max-height: none;
-    /* Both of these undo the centring above, and the transform is the one that
-       bites: a `translateY(-50%)` left on a STATIC element still moves it, so
-       the rail would ride half its own height up out of the board it has just
-       become part of. It measures clean while the rail is empty — half of zero
-       — and breaks the moment you pick up a relic. */
+    overflow-y: visible;
+    /* Undo the out-of-flow placement above. `right` and the gutter matter as
+       much as `top` here: left on a static element they would offset it out of
+       the board it has just become the first row of. */
     top: auto;
-    transform: none;
+    right: auto;
+    margin-right: 0;
   }
 
   .carried {
@@ -4171,6 +4296,8 @@
    rather than one per glyph: a legend the player can hold is a short one, and
    the glyph carries the detail inside its family. */
 .card-mark {
+  /* Hard right. Only hand cards carry a mark — a face has a rarity badge in
+     this slot instead — so this is the only auto margin in that head. */
   margin-left: auto;
   flex: 0 0 auto;
   /* Big enough to be read rather than noticed. At 0.78rem the difference
@@ -4376,4 +4503,26 @@
   font-size: 0.88rem;
   line-height: 1.65;
   color: var(--muted);
+}
+
+/* ---------- a shelf is a row of equal cards ----------
+
+   The hand gets this for free: `.hand` is a flex row and the cards are its
+   direct children, so `align-items: stretch` makes every one of them the height
+   of the tallest. A shelf does not, because the face is wrapped — in a button
+   on the reward screen, in a lot at the Station — and a wrapper that stretches
+   does not pass the stretch on to a block child. A button is worse than that:
+   it centres its content, so a short card floated in the middle of its own
+   button and three cards read as three different sizes at three heights.
+
+   One rule per wrapper, and the face fills it. */
+.card-pick {
+  display: flex;
+  align-items: stretch;
+}
+
+.card-pick > .card--face,
+.shop-lot > .card--face {
+  flex: 1 1 auto;
+  height: 100%;
 }

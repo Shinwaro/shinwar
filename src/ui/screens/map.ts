@@ -21,6 +21,7 @@ import { button, el, fill } from '../dom.ts';
 import { liveScreen } from '../screen.ts';
 import { renderRunBar } from '../components/runbar.ts';
 import { renderManifest } from '../components/manifest.ts';
+import { renderCarried } from '../components/carried.ts';
 import {
   implants as implantTable,
   masteries as masteryTable,
@@ -420,10 +421,12 @@ function buildMap(
 
   const field = el('div', { class: 'map-field' }, [chart, stars]);
 
-  /* Built here rather than inline below, because whether it EXISTS decides the
-     shape of the row it sits in — the chart stays centred on the screen either
-     way, and with no Threads to list there is nothing to centre it against. */
+  /* The two rails. Either can be null — `renderCarried` and `renderManifest`
+     both return nothing rather than an empty box — and neither absence changes
+     the shape of the row any more: the grid is three fixed tracks whatever is
+     standing in them. See `.map-body`. */
   const manifest = renderManifest(state, 'Manifest');
+  const carried = renderCarried(state);
 
   const viewport = el('div', { class: 'map-viewport', role: 'group', 'aria-label': actLabel(map) }, [
     field,
@@ -448,9 +451,15 @@ function buildMap(
    * we actually need — connected, and taller than its own viewport — polled for
    * a few frames and then given up on rather than looped forever.
    */
-  // The Manifest sits on the chart, not behind the pause key. What you are
-  // carrying is part of reading the route.
-  return el('div', { class: 'map-inner' }, [
+  /* `--chart` because the chart wants the whole window and the Inventory that
+     shares this class does not. The Inventory is a document — a deck list, a
+     relic list — and a document read across 1700px is a document nobody reads.
+     Set here rather than asked for with `:has(.map-body)`: the screen already
+     knows which of the two it is building, and a selector is a worse way to ask
+     a question you have the answer to. */
+  // The rails sit on the chart, not behind the pause key. What you are carrying
+  // and what you owe are both part of reading the route.
+  return el('div', { class: 'map-inner map-inner--chart' }, [
     renderRunBar(store, state),
     el('div', { class: 'map-head' }, [
       el('span', { class: 'map-act' }, [`Act ${map.act}`]),
@@ -470,20 +479,19 @@ function buildMap(
         rerender();
       }),
     ]),
-    /* The chart and the Manifest, side by side.
+    /* Carrying on the left, the sky, the Manifest on the right.
      *
-     * It used to sit ABOVE the chart, full width, which pushed the sky down by
-     * however many Threads you were carrying — so the same act read differently
-     * depending on your luck, and a third Thread could cost you a row of stars.
-     * A column beside it is the same shape as the relic rail in a fight: a
-     * standing list you glance at, next to the thing you are deciding about,
-     * that never moves the thing you are deciding about.
+     * Both rails used to be conditional and the grid used to change shape
+     * around them — the Manifest arriving switched the row from one track to
+     * three and took a third of the chart's width away with it. So the sky
+     * shrank because of an event somewhere else, and the same act read
+     * differently depending on your luck.
      *
-     * The column collapses to nothing when you carry no Threads — `auto` on an
-     * empty track is zero — so Act 1 gets the full width back. */
-    manifest === null
-      ? el('div', { class: 'map-body' }, [viewport])
-      : el('div', { class: 'map-body has-manifest' }, [viewport, manifest]),
+     * Three tracks, always, and the rails simply stand in them or do not. What
+     * you are carrying moves onto the chart for the same reason it is beside
+     * the health bar in a fight: routing is a decision, and it is made out of
+     * what a turn can currently do. */
+    el('div', { class: 'map-body' }, [carried, viewport, manifest]),
     view.showInfo
       ? renderInfoPanel('Reading the chart', mapInfo(map.act), () => {
           view.showInfo = false;

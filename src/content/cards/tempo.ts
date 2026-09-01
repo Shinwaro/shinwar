@@ -20,7 +20,7 @@
  */
 
 import type { CardDef } from '../../engine/types.ts';
-import { RUST, VULNERABLE } from '../statuses.ts';
+import { RUST } from '../statuses.ts';
 
 export const TEMPO_CARDS: readonly CardDef[] = [
   {
@@ -103,8 +103,8 @@ export const TEMPO_CARDS: readonly CardDef[] = [
       {
         op: 'scaleWith',
         source: 'cardsPlayedThisTurn',
-        per: 1,
-        then: [{ op: 'damage', amount: 4, target: 'enemy' }],
+        per: 2,
+        then: [{ op: 'damage', amount: 8, target: 'enemy' }],
       },
     ],
     upgrade: {
@@ -114,8 +114,8 @@ export const TEMPO_CARDS: readonly CardDef[] = [
         {
           op: 'scaleWith',
           source: 'cardsPlayedThisTurn',
-          per: 1,
-          then: [{ op: 'damage', amount: 6, target: 'enemy' }],
+          per: 2,
+          then: [{ op: 'damage', amount: 12, target: 'enemy' }],
         },
       ],
     },
@@ -161,18 +161,45 @@ export const TEMPO_CARDS: readonly CardDef[] = [
     archetype: 'overheat',
     cost: 1,
     exhaust: true,
-    // The other end of the Heat bargain: the hotter you are, the harder this
-    // lands, and it hands the gauge straight back down so the turn can continue.
+    /* The other end of the Heat bargain: the hotter you are, the harder this
+       lands.
+ 
+       It no longer hands the gauge all the way back. Venting 5 meant the card
+       cashed a full reactor AND returned you to a cold one, so the only cost of
+       running the Heat plan at maximum was the turn you spent doing it — the
+       card was the payoff and the reset in one. Two leaves you hot, which is
+       where a card that rewards being hot should leave you: still in the
+       bargain, still one bad draw from the ceiling.
+ 
+       The Vulnerable came off for the same reason. A legendary that hits for 25
+       does not also need to make the next hit land harder; that was the payoff
+       paying a second time, and it made Flashpoint the correct opener to every
+       burst rather than the end of one. */
+    /* Four per two Heat, as ONE hit — and the step size is the point, not the
+       rate.
+
+       The rate is unchanged: two a point before, two a point now, 21 off an
+       eight-point gauge either way. What changed is that it used to arrive as
+       NINE separate two-damage blows, because "deal 2 more per Heat" was
+       spelled as a `scaleWith` that repeated the hit. Strength is flat per hit
+       and a `damageEveryHit` relic is flat per hit, so at three Strength and
+       one relic this card silently gained 36 damage that nothing on its face
+       mentioned — the biggest per-hit-bonus carrier in the game, on the card
+       already designed to be the biggest hit in the game.
+
+       Counted in twos rather than ones because that is how the card now reads
+       out loud, and because a gauge is a coarse resource: "4 per 2 Heat" is a
+       number you can plan a turn around, where "2 per Heat" invited counting
+       single points that never mattered individually. */
     effects: [
       { op: 'damage', amount: 5, target: 'enemy' },
       {
         op: 'scaleWith',
         source: 'currentHeat',
-        per: 1,
-        then: [{ op: 'damage', amount: 3, target: 'enemy' }],
+        per: 2,
+        then: [{ op: 'damage', amount: 4, target: 'enemy' }],
       },
-      { op: 'applyStatus', status: VULNERABLE, stacks: 1, target: 'enemy' },
-      { op: 'ventHeat', amount: 5 },
+      { op: 'ventHeat', amount: 2 },
     ],
     upgrade: {
       name: 'Flashpoint+',
@@ -181,11 +208,10 @@ export const TEMPO_CARDS: readonly CardDef[] = [
         {
           op: 'scaleWith',
           source: 'currentHeat',
-          per: 1,
-          then: [{ op: 'damage', amount: 4, target: 'enemy' }],
+          per: 2,
+          then: [{ op: 'damage', amount: 6, target: 'enemy' }],
         },
-        { op: 'applyStatus', status: VULNERABLE, stacks: 2, target: 'enemy' },
-        { op: 'ventHeat', amount: 5 },
+        { op: 'ventHeat', amount: 2 },
       ],
     },
     flavor: 'Spend the whole reactor through the edge and start again cold.',

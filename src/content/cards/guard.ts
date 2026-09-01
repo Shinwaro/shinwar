@@ -58,7 +58,12 @@ export const GUARD_CARDS: readonly CardDef[] = [
     id: 'take_the_weight',
     name: 'Take the Weight',
     type: 'skill',
-    rarity: 'common',
+    /* Up a tier. A permanent Tempered stack for one Energy is the cheapest
+       lasting mitigation in the game, and the exhaust only limits it per COPY —
+       two commons in a deck is still two stacks for the run. The comment below
+       is the argument for why it must exhaust; it is also the argument for why
+       it was never really a common. */
+    rarity: 'uncommon',
     archetype: 'guard',
     cost: 1,
     /* Burn. Tempered never falls off, so a card that grants it and stays in the
@@ -109,22 +114,12 @@ export const GUARD_CARDS: readonly CardDef[] = [
     archetype: 'guard',
     cost: 1,
     effects: [
-      {
-        op: 'scaleWith',
-        source: 'blockGainedThisTurn',
-        per: 3,
-        then: [{ op: 'damage', amount: 2, target: 'enemy' }],
-      },
+      { op: 'damage', amount: 0, target: 'enemy', plusPer: { source: 'blockGainedThisTurn', per: 3, amount: 2 } },
     ],
     upgrade: {
       name: 'Counterweight+',
       effects: [
-        {
-          op: 'scaleWith',
-          source: 'blockGainedThisTurn',
-          per: 3,
-          then: [{ op: 'damage', amount: 3, target: 'enemy' }],
-        },
+        { op: 'damage', amount: 0, target: 'enemy', plusPer: { source: 'blockGainedThisTurn', per: 3, amount: 3 } },
       ],
     },
     flavor: 'Everything you put in front of you is also something to swing.',

@@ -145,7 +145,50 @@ function describeOp(op: EffectOp, state: GameState | null, afterDamage = false):
        * The projected damage on the enemy still shows the true total, so nothing
        * is hidden -- it has just moved to the place that is about to be hit.
        */
-      return `Deal ${op.amount} damage${hits}${targetSuffix(op.target)}.`;
+      /*
+       * The scaling term rides in the same sentence as the hit it grows.
+       *
+       * These used to be two sentences — "Deal 6 damage. For every card played
+       * this turn, deal 4 extra." — because they were two ops, a `damage`
+       * followed by a `scaleWith` that repeated it. Accurate about the
+       * implementation and wrong about the card: it described extra HITS as
+       * extra damage. One clause, because it is now one swing.
+       *
+       * The live count stays, and goes last. `scaleWith` printed one and it is
+       * the useful half of the line — the card's own number is static on
+       * purpose (see above), so "(4x now)" is the only thing saying what the
+       * term is worth this turn. It has to sit after the target, or a card that
+       * hits the room reads "plus 2 per 2 Heat (4x now) to all enemies".
+       */
+      const plus = op.plusPer;
+      if (plus === undefined) {
+        return `Deal ${op.amount} damage${hits}${targetSuffix(op.target)}.`;
+      }
+
+      const source = describeScaleSource(plus.source, plus.per);
+      /* No space before a source that opens with a symbol — "per 10% of health"
+         rather than "per 10 % of health". Same rule `scaleWith` used. */
+      const per = plus.per === 1 ? '' : `${plus.per}${source.startsWith('%') ? '' : ' '}`;
+      const combat =
+        state === null || plus.source === 'discardedThisPlay' ? null : activeCombat(state);
+      const live =
+        combat === null
+          ? ''
+          : ` (${Math.floor(currentScale(combat, plus.source) / Math.max(1, plus.per))}x now)`;
+
+      /* A card with no flat damage of its own says so in one clause instead of
+         opening with "Deal 0 damage, plus ...". Six of these exist — Momentum,
+         Counterweight, Empty the Rack and friends are ENTIRELY their scaling
+         term — and "Deal 0" is the kind of generated sentence that makes a
+         player distrust every other generated sentence on the card. */
+      if (op.amount === 0) {
+        return `Deal ${plus.amount} damage per ${per}${source}${hits}${targetSuffix(op.target)}.${live}`;
+      }
+      /* The comma before "N times" matters: "plus 2 per Focus 3 times" reads as
+         three Focus, which is a different card. */
+      return `Deal ${op.amount} damage, plus ${plus.amount} per ${per}${source}${
+        hits === '' ? '' : ','
+      }${hits}${targetSuffix(op.target)}.${live}`;
     }
     case 'block':
       return `Gain ${op.amount} Block.`;
@@ -224,12 +267,36 @@ function describeOp(op: EffectOp, state: GameState | null, afterDamage = false):
       const live =
         combat === null ? '' : ` (${Math.floor(currentScale(combat, op.source) / Math.max(1, op.per))}x now)`;
       /*
-       * "deal 3 extra", not "deal 3 damage".
+       * "hit for 4", not "deal 4 extra damage" — and this is the whole reason
+       * the wording was rewritten rather than the numbers retuned.
        *
-       * A scaling term almost always sits behind a base hit, and reading two
-       * "deal N damage" sentences in a row invites the player to think the
-       * second one replaces the first. `extra` says it is additional without
-       * needing a second sentence to explain that it is.
+       * `scaleWith` produces SEPARATE HITS: one instance of its body per step.
+       * That is what the op is for and these cards want it. But it used to
+       * describe itself as "deal 4 extra", which reads as one bigger swing —
+       * so the cards that hit nine times told the player they hit once, and the
+       * two things a player needs that number for are exactly the two things
+       * that count hits. Strength is flat per hit. An every-hit relic is flat
+       * per hit. A card claiming to be one swing while landing nine made both
+       * of them silently worth nine times their printed value.
+       *
+       * So the damage case gets its own clause with the word HIT in it, and the
+       * card's mark and sound already agree: `cardVoice` reads a scaleWith over
+       * damage as multi-hit, and `plusPer` — which really is one bigger swing —
+       * deliberately does not. Three places now say the same thing about the
+       * same card, in three different channels.
+       */
+      const single = op.then.length === 1 ? op.then[0] : undefined;
+      if (single !== undefined && single.op === 'damage') {
+        const repeats = (single.times ?? 1) > 1 ? ` ${single.times} times` : '';
+        const who = single.target === 'allEnemies' ? ' all enemies' : '';
+        return `For every ${per}${describeScaleSource(op.source, op.per)}, hit${who} for ${single.amount}${repeats}.${live}`;
+      }
+
+      /*
+       * Everything that is not damage keeps "extra", which is still right for
+       * it: Jettison scales draw and Ablative Layer scales Block, and neither
+       * has a per-instance bonus for the count to multiply. Repeating a Block
+       * op is arithmetic; repeating a damage op is a fight.
        */
       const additive = afterDamage ? body.replace(/^deal (\d+) damage/, 'deal $1 extra') : body;
       return `For every ${per}${describeScaleSource(op.source, op.per)}, ${additive}${live}`;

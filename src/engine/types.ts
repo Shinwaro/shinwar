@@ -127,7 +127,39 @@ export type ScaleSource =
   | 'targetHullMissingPct';
 
 export type EffectOp =
-  | { readonly op: 'damage'; readonly amount: number; readonly target: Target; readonly times?: number }
+  /**
+   * `plusPer` scales the SIZE of the hit. `scaleWith` scales the NUMBER of them.
+   *
+   * Both were spelled the same way for a long time — a `scaleWith` wrapping a
+   * `damage` — and that is the whole reason this field exists. "Deal 3 more
+   * damage per Focus" compiled into one extra 3-damage instance per stack, so
+   * The Whole Sword at six Focus was NINE separate swings. Every per-hit bonus
+   * in the game then multiplied by nine: Strength is flat per hit, a
+   * `damageEveryHit` relic is flat per hit, and a card that reads as one big
+   * swing was quietly the best possible carrier for both.
+   *
+   * The fix is not smaller numbers, it is fewer instances. A card that says
+   * "deal more damage" now deals ONE hit that is bigger, which is also what the
+   * words always meant. `times` still exists for cards that genuinely swing
+   * more than once, and those are now the only cards that stack per-hit bonuses
+   * — which is a property you can look at a card and see.
+   *
+   * Read ONCE, before the first swing, from the state the op started in. A
+   * multi-hit card whose own damage moves the source — `targetHullMissingPct`
+   * is the obvious one — must not grow mid-card, or the second swing is bigger
+   * than the first for reasons nothing on the face explains.
+   */
+  | {
+      readonly op: 'damage';
+      readonly amount: number;
+      readonly target: Target;
+      readonly times?: number;
+      readonly plusPer?: {
+        readonly source: ScaleSource;
+        readonly per: number;
+        readonly amount: number;
+      };
+    }
   | { readonly op: 'block'; readonly amount: number }
   | { readonly op: 'applyStatus'; readonly status: StatusId; readonly stacks: number; readonly target: Target }
   | { readonly op: 'gainHeat'; readonly amount: number }
@@ -668,11 +700,34 @@ export interface RelicPassive {
   readonly whenHullAbovePct?: number;
   readonly energyPerTurn?: number;
   readonly drawPerTurn?: number;
+  /**
+   * Extra cards on the FIRST turn of a fight only.
+   *
+   * Declared rather than hooked, and this one is not a preference — a hook
+   * cannot do it at all. `onTurnStart` fires before the hand is dealt, and
+   * `drawForTurn` subtracts whatever is already in hand on turn 1 so that an
+   * innate card occupies a slot instead of adding one. A hook that drew a card
+   * there would have it subtracted straight back out: the relic fires, the log
+   * says it fired, and the hand is the same size. Folded into the count itself,
+   * there is no ordering left to get wrong.
+   */
+  readonly drawFirstTurn?: number;
   readonly blockPerTurn?: number;
   readonly focusPerTurn?: number;
   readonly ventPerTurn?: number;
   /** Health back at the start of each turn. Capped at the pilot's maximum. */
   readonly healPerTurn?: number;
+  /**
+   * Health back whenever an enemy dies. Capped at the pilot's maximum.
+   *
+   * Declared rather than hooked, even though a kill is a MOMENT and moments are
+   * usually hook territory — because implants stack and hooks do not. A hook
+   * fires once per registered source however many copies you have fitted, so a
+   * hook-based version of this would have made the second Reclaim Loop do
+   * literally nothing while still charging for it. `pilotRules` already sums a
+   * passive across stacks, so declaring it is the only shape that can count.
+   */
+  readonly healPerKill?: number;
   /**
    * Added to the FIRST swing of every card you play.
    *

@@ -30,7 +30,12 @@ export const POWER_CARDS: readonly CardDef[] = [
     id: 'settle_the_stance',
     name: 'Settle the Stance',
     type: 'power',
-    rarity: 'uncommon',
+    /* Epic. Permanent armour is the most durable thing a single card can buy —
+       it does not fall off, it does not need re-buying, and it compounds with
+       every other reduction in the deck. The four Heat is a real price on the
+       turn you pay it and no price at all by turn six, which is an uncommon's
+       shape of decision attached to an epic's shape of payoff. */
+    rarity: 'epic',
     archetype: 'guard',
     cost: 1,
     exhaust: true,
@@ -82,7 +87,12 @@ export const POWER_CARDS: readonly CardDef[] = [
     id: 'annealing_run',
     name: 'Annealing Run',
     type: 'power',
-    rarity: 'epic',
+    /* Down to common. It reads as an epic and measures as a filler: the payoff
+       is gated on already being in trouble, which means the runs that most want
+       it are the runs that were losing anyway, and the ones that are winning
+       draw a dead card. A conditional that only pays in the bad case belongs
+       where a dead draw is affordable. */
+    rarity: 'common',
     archetype: 'overheat',
     cost: 1,
     exhaust: true,

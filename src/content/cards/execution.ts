@@ -392,35 +392,48 @@ export const EXECUTION_CARDS: readonly CardDef[] = [
     type: 'attack',
     rarity: 'epic',
     archetype: 'iai',
-    /* One Energy, and the ceiling is the reason it can be.
+    /* Two Energy, with the floor raised to pay for it.
      *
-     * Against a target at 10% it is 5 + nine steps = 23 for one Energy, which
-     * is above anything else at the price. Against a full one it is 5, which is
-     * below everything at the price. A card whose good case is enormous and
-     * whose bad case is a wasted draw is a card you HOLD — and holding a card
-     * for the right turn is the decision the whole family exists to create. At
-     * two Energy the bad case was unplayable rather than merely poor, which
-     * meant nobody held it, they cut it. */
-    cost: 1,
+     * It went to one Energy on the argument that the bad case had to be merely
+     * poor rather than unplayable, or nobody would hold the card. That was the
+     * right diagnosis and the wrong lever: at one Energy the GOOD case was the
+     * problem instead — nine steps into something on its last legs, for a price
+     * that left the rest of the turn intact, made the finisher free.
+     *
+     * So the floor moves rather than the price. Four base means the bad case is
+     * a playable if unexciting attack instead of a wasted draw, which is the
+     * thing that made it holdable, and two Energy means the good case costs you
+     * the turn around it. Same card, paid for at both ends. */
+    cost: 2,
+    /* One hit that gets bigger, not a hit and then more hits.
+
+       This card was the clearest case for `plusPer`. As a base swing plus a
+       `scaleWith`, a target at 10% took SIX separate blows — so every per-hit
+       bonus in the game was worth six times its printed value on it, and the
+       card most likely to be aimed at something nearly dead was also the best
+       carrier for Strength in the deck.
+
+       It also quietly fixes an ordering bug rather than working around one. The
+       effects used to be deliberately ordered scale-first, because a base hit
+       resolving before the slope was measured meant the card read a hull bar it
+       had just moved itself: at 50%, four damage off a 30-hull Shard is another
+       13% missing and a whole extra step, so the same card at the same fraction
+       dealt 14 to a boss and 16 to a Shard. `plusPer` is measured once, before
+       the first swing, so there is no order left to get wrong. */
     effects: [
-      { op: 'damage', amount: 2, target: 'enemy' },
       {
-        op: 'scaleWith',
-        source: 'targetHullMissingPct',
-        per: 10,
-        then: [{ op: 'damage', amount: 2, target: 'enemy' }],
+        op: 'damage',
+        amount: 4,
+        target: 'enemy',
+        plusPer: { source: 'targetHullMissingPct', per: 10, amount: 2 },
       },
     ],
     upgrade: {
       name: 'Widening Gyre+',
+      // Measured first here too — see the base card.
       effects: [
-        { op: 'damage', amount: 4, target: 'enemy' },
-        {
-          op: 'scaleWith',
-          source: 'targetHullMissingPct',
-          per: 10,
-          then: [{ op: 'damage', amount: 3, target: 'enemy' }],
-        },
+        { op: 'damage', amount: 0, target: 'enemy', plusPer: { source: 'targetHullMissingPct', per: 10, amount: 3 } },
+        { op: 'damage', amount: 6, target: 'enemy' },
       ],
     },
     flavor: 'It opens as it turns. By the end there is nothing in the middle of it.',

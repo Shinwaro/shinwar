@@ -36,6 +36,10 @@ const FLAME = 'M50 14 L66 52 L50 74 L34 52 Z';
 const FRAME = 'M24 30 L24 76 L76 76 L76 30';
 /* The shallow arc the choirs and processions share. */
 const RANK = 'M18 66 C34 46 66 46 82 66';
+/* The shell every Vareth is built on. The only domed body on the roster —
+   everything else here is a flame, a bracket or an arc, so a carapace reads as
+   "not from around here" before you have identified which one it is. */
+const CARAPACE = 'M26 44 C26 26 74 26 74 44 L74 62 C74 76 26 76 26 62 Z';
 
 export const GLYPHS: { readonly [enemyId: string]: Glyph } = {
   /* ---------- the Kiln line: fire, Heat, Strength ----------
@@ -99,6 +103,53 @@ export const GLYPHS: { readonly [enemyId: string]: Glyph } = {
   scrap_hound: {
     solid: ['M20 44 C34 30 66 30 82 46 L82 62 L20 62 Z'],
     form: ['M28 62 L24 82', 'M48 62 L48 82', 'M72 62 L78 82', 'M82 46 L94 40 L88 56'],
+  },
+
+  /* ---------- the Vareth: chitin, and a heading they will not drop ----------
+     One carapace, and what each of them has grown to do with it. Legs count up
+     with the act; mandibles mean it closes with you. Only ever met through a
+     reprisal, so the family is deliberately unlike anything on a chart. */
+
+  // The drone. The shell and two legs, and nothing decided about it.
+  vareth_drone: { solid: [CARAPACE], form: ['M32 74 L26 88', 'M68 74 L74 88'] },
+
+  // The scout. Mandibles forward: it is the one that closes.
+  vareth_huntress: {
+    solid: [CARAPACE],
+    form: ['M30 44 L14 32 L22 48', 'M70 44 L86 32 L78 48', 'M34 74 L28 90', 'M66 74 L72 90'],
+  },
+
+  // The outrider. Legs swept back — it is always already ahead of you.
+  vareth_outrider: {
+    solid: [CARAPACE],
+    form: ['M30 72 L12 84', 'M50 76 L50 92', 'M70 72 L88 84'],
+  },
+
+  /* The clutchward, carrying the thing it was told to bring back. The egg is
+     the second filled shape, held under the shell. */
+  vareth_clutchward: {
+    solid: [CARAPACE, 'M44 74 C44 66 56 66 56 74 C56 82 44 82 44 74 Z'],
+    form: ['M28 46 L12 38', 'M72 46 L88 38', 'M32 84 C40 92 60 92 68 84'],
+  },
+
+  // The chitinguard. One heavy bar across the body: it interposes.
+  vareth_chitinguard: {
+    solid: [CARAPACE],
+    form: ['M12 58 L88 58', 'M34 76 L30 90', 'M66 76 L70 90'],
+  },
+
+  /* The matriarch. Mandibles raised into something like the Sovereign's crown,
+     because she is the other thing in this game that an act is named after. */
+  vareth_matriarch: {
+    solid: [CARAPACE],
+    form: [
+      'M22 40 L10 22 L26 30',
+      'M78 40 L90 22 L74 30',
+      'M50 26 L50 8',
+      'M30 74 L22 92',
+      'M50 76 L50 94',
+      'M70 74 L78 92',
+    ],
   },
 
   // A round body on many legs, and the lance it burrows with.

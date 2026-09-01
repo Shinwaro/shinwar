@@ -685,9 +685,16 @@ describe('what an Elite costs you', () => {
   }
 
   it('is the same size whether or not it brought company', () => {
+    /* Ambushes excluded: a hunting party is not a bet you placed, so it is not
+       held to the size of the ones you did. Mirrors the same rule in
+       `validateEncounters`. */
     for (const act of [1, 2, 3] as const) {
       const elites = ENCOUNTERS.filter(
-        (entry) => entry.act === act && entry.tier === 'elite' && entry.tutorial !== true,
+        (entry) =>
+          entry.act === act &&
+          entry.tier === 'elite' &&
+          entry.tutorial !== true &&
+          entry.ambush !== true,
       );
       expect(elites.length, `act ${act} has no elites`).toBeGreaterThan(0);
       if (elites.length < 2) continue;

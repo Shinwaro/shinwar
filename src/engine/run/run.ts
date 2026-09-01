@@ -41,7 +41,7 @@ import {
   cards as cardTable,
   enemies as enemyTable,
 } from '../../content/registry.ts';
-import { ENCOUNTERS as encounterTable, encountersFor } from '../../content/encounters.ts';
+import { ENCOUNTERS as encounterTable, ambushesFor, encountersFor } from '../../content/encounters.ts';
 import { describeDerelict, describeLanding } from './describe.ts';
 
 /* ---------- opening the run ---------- */
@@ -135,7 +135,7 @@ export function enterNode(state: GameState, nodeId: string): GameState {
 
   next = fireHook(next, 'onNodeEntered', { nodeId, nodeType: node.type });
   next = advanceWavefront(next, node);
-  const settled = settleThreads(next, node);
+  const settled = settleThreads(next);
   next = settled.state;
 
   return openLanding(next, node, settled.resolved);
@@ -177,15 +177,20 @@ function advanceWavefront(state: GameState, node: MapNode): GameState {
 /**
  * Move every carried Thread one node closer, and pay out the ones that arrive.
  *
- * The boss is exempt from reprisals only — a Thread coming due there still pays
- * out, it just cannot replace the act finale. The boss must be a culmination,
- * not a curveball, and being jumped by a bill instead of fighting it is the
- * definition of a curveball.
+ * **The boss is no longer exempt, and the exemption's own reasoning is why.**
+ * It read: a Thread coming due at a finale still pays out, it just cannot
+ * REPLACE the act finale — the boss must be a culmination, not a curveball.
+ * That was right, and it stopped applying the day a reprisal became an
+ * interrupt instead of a substitution. Nothing replaces the boss now:
+ * `ambushOwes` holds the node and opens it the moment the ambush is paid. The
+ * guard was still throwing the Thread away regardless, so Marked coming due on
+ * a finale printed its line and cost nothing at all.
+ *
+ * What is left is an elite immediately before the act's hardest fight, which is
+ * a real difficulty spike and is meant to be one. Marked says the Vareth do not
+ * stop; the finale is exactly where that should be expensive.
  */
-function settleThreads(
-  state: GameState,
-  node: MapNode,
-): { state: GameState; resolved: ResolvedThread[] } {
+function settleThreads(state: GameState): { state: GameState; resolved: ResolvedThread[] } {
   let next = advanceThreads(state);
   const resolved: ResolvedThread[] = [];
 
@@ -241,10 +246,20 @@ function settleThreads(
     });
   }
 
-  if (node.type === 'boss' && requireRun(next).forcedTier !== null) {
-    next = withRun(next, (current) => ({ ...current, forcedTier: null }));
-  }
-
+  /* A reprisal owed on a boss node used to be thrown away right here — three
+     lines that cleared `forcedTier` whenever the node was a boss, with no
+     comment. Removed, and worth recording why it was ever right.
+ 
+     It was correct when an ambush REPLACED the node it landed on: without the
+     guard, Marked landing on an act finale would have fed you an elite instead
+     of the boss and skipped the act's whole argument. Then the reprisal became
+     an INTERRUPT — the fight happens, and `ambushOwes` reopens the node
+     afterwards — and the guard silently stopped being a safety rail and became
+     a way to dodge the bill. Route into the boss with Marked pending and the
+     Thread resolved, printed its line on the landing report, and did nothing.
+ 
+     Now it lands like anywhere else: the Vareth catch you, then the boss. Which
+     is what "they are slower than you and they do not stop" always said. */
   return { state: next, resolved };
 }
 
@@ -427,7 +442,21 @@ function forcedEncounter(
 ): { readonly encounterId: string | null; readonly state: GameState } {
   const run = requireRun(state);
   const node = run.position === null || run.map === null ? undefined : nodeById(run.map, run.position);
-  const pool = encountersFor(run.act, tier === 'elite' ? 'elite' : 'normal', node?.row);
+
+  /* The hunting parties first, and they are the whole point of a reprisal now.
+   *
+   * An elite reprisal used to roll the act's ordinary Elite pool, so being
+   * Marked meant "a Kiln Alpha turns up" — which is a fight, but it is not the
+   * fight the Thread describes. `ambushesFor` returns content no chart can
+   * place: the Vareth hunting parties, which exist because the Vareth are
+   * following YOU and should not also be wildlife on somebody else's route.
+   *
+   * Falls through to the ordinary pool if an act has no party written for it,
+   * so adding a Thread that forces a fight never depends on remembering to
+   * author an ambush for every act first. */
+  const hunt = tier === 'elite' ? ambushesFor(run.act) : [];
+  const pool =
+    hunt.length > 0 ? hunt : encountersFor(run.act, tier === 'elite' ? 'elite' : 'normal', node?.row);
   if (pool.length === 0) return { encounterId: fallbackEncounter(run), state };
 
   const picked = pick(run.rng, 'events', pool);

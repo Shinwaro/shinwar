@@ -1426,7 +1426,7 @@ export const EVENTS: readonly EventDef[] = [
         label: 'Give the bearing',
         detail: 'It takes eleven seconds. The broadcast stops about an hour later.',
         effects: [
-          { op: 'alloy', amount: 100 },
+          { op: 'alloy', amount: 150 },
           { op: 'card', cardId: 'voided_the_name' },
         ],
         risk: 'Permanent',
@@ -1436,11 +1436,12 @@ export const EVENTS: readonly EventDef[] = [
         id: 'jam',
         label: 'Jam the triangulation',
         detail: 'You put your own reactor noise across the band until they give up.',
-        effects: [
-          { op: 'health', amount: -11 },
-          { op: 'setThread', threadId: 'navigators_favour' },
-        ],
-        risk: 'The body',
+        /* No longer costs health. Jamming the band is the option that BUYS a
+           Thread, and a Thread is already a deferred bill — charging hull as
+           well made it the only option on the screen that was paid for twice,
+           and the immediate cost was doing the deciding. */
+        effects: [{ op: 'setThread', threadId: 'navigators_favour' }],
+        risk: 'Deferred',
         payoff: 'Deferred',
       },
       {

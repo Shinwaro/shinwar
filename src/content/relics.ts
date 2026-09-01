@@ -60,7 +60,15 @@ export const RELICS: readonly RelicDef[] = [
     id: 'ceramic_underplate',
     name: 'Ceramic Underplate',
     text: 'Every attack against you deals 2 less.',
-    rarity: 'uncommon',
+    /* Swapped up, and Exchange Coil swapped down to meet it.
+
+       Two off every incoming attack is the most durable defensive effect on the
+       shelf: it never expires, it applies to every hit of a multi-hit intent,
+       and against a wide board of small attackers it can erase most of a turn.
+       Nothing else at uncommon does that. The Coil, meanwhile, is one Focus a
+       turn conditional on running hot — a real effect, but a narrow one that a
+       cold deck cannot use at all, which is uncommon's shape. */
+    rarity: 'epic',
     passive: { damageTakenFlat: 2 },
     flavor: 'It cracks instead of you. Once per crack.',
   },
@@ -215,7 +223,11 @@ export const RELICS: readonly RelicDef[] = [
        is not what the name says and not what the rarity is priced for. Now it
        is one exchange: no Heat, no Focus. */
     text: 'At the start of each turn, convert 1 Heat into 1 Focus.',
-    rarity: 'epic',
+    /* Down to uncommon, trading places with Ceramic Underplate. It is gated on
+       having Heat to spend, so a deck that is not running the gauge gets
+       nothing from it — a conditional that some builds cannot switch on at all
+       belongs a tier below one that every build gets full value from. */
+    rarity: 'uncommon',
     flavor: 'What comes off the reactor has to go somewhere. It may as well go into your hands.',
   },
   {
@@ -258,6 +270,32 @@ export const RELICS: readonly RelicDef[] = [
     text: 'Gain 10 Block when you overheat.',
     rarity: 'common',
     flavor: 'The plate does not mind the heat. That is the entire design brief.',
+  },
+  {
+    /* The opener. One card on turn one and nothing after it, which is a smaller
+       promise than it sounds and a bigger help than it sounds: turn one is the
+       turn with the least information and the fewest outs, and a sixth card is
+       the difference between committing to the hand you were dealt and having
+       a choice about it. Nothing later in the fight, so it never becomes the
+       engine — it just makes the first decision a real one. */
+    id: 'ready_rack',
+    name: 'Ready Rack',
+    text: 'Draw 1 extra card on the first turn of each fight.',
+    rarity: 'common',
+    passive: { drawFirstTurn: 1 },
+    flavor: 'Everything laid out the night before, in the order you will want it.',
+  },
+  {
+    /* Scavenger's Rig one tier down and one card thinner. Deliberately the same
+       trigger: a wide board is where card draw is worth most, and having the
+       common and the epic answer the same question means the epic has to be
+       worth the four tiers between them rather than merely being the one that
+       exists. */
+    id: 'salvage_hook',
+    name: 'Salvage Hook',
+    text: 'Draw 1 card whenever an enemy dies.',
+    rarity: 'common',
+    flavor: 'Whatever comes off them on the way past is yours by salvage law.',
   },
   {
     id: 'duelists_mark',
@@ -557,6 +595,28 @@ export function registerRelicHooks(): void {
       hook: 'onOverheat',
       priority: HOOK_PRIORITY.module,
       handle: (state) => grantBlock(state, 10, 'cauterising_plate', 'Cauterising Plate.'),
+    }),
+  ]);
+
+  /* Ready Rack has no handler on purpose. It began as an `onTurnStart` hook
+     drawing on turn 1, which fired correctly and did nothing: the hook runs
+     before the hand is dealt, and the turn-1 draw subtracts whatever is already
+     in hand so an innate occupies a slot rather than adding one. The card was
+     drawn and then subtracted back out. It is a declared `drawFirstTurn`
+     passive instead, counted inside the draw where nothing can undo it. */
+
+  registerHooks('salvage_hook', [
+    defineHook({
+      hook: 'onEnemyKilled',
+      priority: HOOK_PRIORITY.module,
+      /* Not on the kill that ends the fight — drawing into a won board is a
+         card you never play and a log line that reads like a bug. Same guard
+         Scavenger's Rig uses. */
+      handle: (state) => {
+        const combat = state.run?.combat;
+        if (combat === undefined || combat === null || combat.outcome !== 'ongoing') return state;
+        return grantDraw(state, 1, 'salvage_hook', 'Salvage Hook.');
+      },
     }),
   ]);
 

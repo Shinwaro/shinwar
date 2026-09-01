@@ -8,14 +8,15 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { CardDef, EffectOp } from '../src/engine/types.ts';
 import { describeCard, describeRider, riderIsLive } from '../src/engine/combat/describe.ts';
-import { definitionOf, playCard } from '../src/engine/combat/combat.ts';
+import { definitionOf, playCard, startPlayerTurn } from '../src/engine/combat/combat.ts';
 import { reloadContent } from '../src/content/index.ts';
 import { cards as cardTable } from '../src/content/registry.ts';
 import { makeFight, combatOf, firstEnemy } from './helpers.ts';
 import type { GameState } from '../src/engine/types.ts';
 import { JETTISON } from '../src/content/cards/discard.ts';
 import { STILLWATER_GUARD } from '../src/content/cards/focus.ts';
-import { SCALD } from '../src/content/statuses.ts';
+import { SCALD, STRENGTH } from '../src/content/statuses.ts';
+import { cardVoice } from '../src/ui/card-voice.ts';
 import { statuses as statusTable } from '../src/content/registry.ts';
 import {
   FANNED_CUT,
@@ -158,9 +159,14 @@ describe('generated rules text', () => {
       },
       hot,
     );
-    // "extra" only reads right after a base hit; with nothing before it, the
-    // reader would be asking "extra to what?".
-    expect(text).toBe('For every 2 Heat, deal 3 damage. (3x now)');
+    /* "hit for 3", not "deal 3 damage" and not "deal 3 extra".
+ 
+       `scaleWith` over damage lands SEPARATE hits, and the word has to say so:
+       Strength and every-hit relics are both flat per hit, so a card that
+       described nine blows as one number made both of them silently worth nine
+       times their face. "extra" was the older wording and was wrong in the
+       other direction — it read as one bigger swing. */
+    expect(text).toBe('For every 2 Heat, hit for 3. (3x now)');
   });
 
   it('appends Burn and Innate', () => {
@@ -214,19 +220,26 @@ describe('cards that read the enemy health bar', () => {
   });
 
   it('slopes with how much the target has lost', () => {
-    /* Two against something untouched, which is the point of the card and not
-       a typo: the floor is deliberately below anything else at the cost, so
-       the slope is the whole reason to hold it. */
+    /* Four against something untouched. The floor is deliberately low for the
+       cost — the slope is the reason to hold the card — but not so low that an
+       opening draw is dead, which is what two at one Energy had become. */
     const whole = play('widening_gyre', 100, 100).dealt;
     const half = play('widening_gyre', 50, 100).dealt;
-    expect(whole, 'nothing missing, nothing extra').toBe(2);
+    expect(whole, 'nothing missing, nothing extra').toBe(4);
     expect(half).toBeGreaterThan(whole);
   });
 
   it('measures the percentage, not the health', () => {
     /* One card, two enemies, the same fraction. This is why the source is in
        percentage points rather than raw health: "for every 10% missing" has to
-       mean the same thing against a 30-hull Shard and a 430-hull boss. */
+       mean the same thing against a 30-hull Shard and a 430-hull boss.
+ 
+       It also pins the EFFECT ORDER, which is the less obvious half. The card
+       measures the slope before its own base hit; with the hit first it was
+       reading a bar it had just moved, and four damage off a 30-hull target is
+       an extra step while off a 430-hull one it is nothing. This assertion is
+       what catches that, and it only caught it once the base was big enough to
+       cross a boundary — so leave both hull sizes far apart. */
     const small = play('widening_gyre', 15, 30).dealt;
     const large = play('widening_gyre', 215, 430).dealt;
     expect(small).toBe(large);
@@ -250,6 +263,165 @@ describe('cards that read the enemy health bar', () => {
     expect(describeCard(cardTable.get('execute'))).toBe(
       'If the target is below 30% health, deal 16 damage. Otherwise deal 5 damage.',
     );
+  });
+});
+
+describe('a card says how many times it hits, and means it', () => {
+  /* The rule the whole family was rebuilt around, and it is about WORDS.
+   *
+   * `scaleWith` produces separate hits — one instance of its body per step —
+   * and several cards want exactly that. What was wrong was never the hits, it
+   * was that the generated text called them "deal 4 extra", which reads as one
+   * bigger swing. So Flashpoint said it hit once and hit nine times, and the
+   * two things that number is used for are the two things that count hits:
+   * Strength is flat per hit, and an every-hit relic is flat per hit. The card
+   * was the best carrier for both in the game and its own face denied it.
+   *
+   * There are now two spellings and they must not blur:
+   *   `scaleWith` over damage  -> several hits  -> "hit for N"      -> multi mark
+   *   `plusPer` on damage      -> one bigger    -> "plus N per X"   -> plain mark
+   *
+   * Asserted across all three channels together, because a card that is honest
+   * in one and lying in another is the bug this replaced.
+   */
+  type AnyOp = {
+    readonly op: string;
+    readonly times?: number;
+    readonly plusPer?: unknown;
+    readonly then?: readonly AnyOp[];
+    readonly else?: readonly AnyOp[];
+  };
+
+  const walk = (ops: readonly AnyOp[], hit: (op: AnyOp) => boolean): boolean =>
+    ops.some(
+      (op) => hit(op) || walk(op.then ?? [], hit) || walk(op.else ?? [], hit),
+    );
+
+  const repeats = (ops: readonly AnyOp[]): boolean =>
+    walk(ops, (op) => op.op === 'scaleWith' && (op.then ?? []).some((t) => t.op === 'damage')) ||
+    walk(ops, (op) => op.op === 'damage' && (op.times ?? 1) > 1);
+
+  it('calls a repeated hit a hit, never "extra damage"', () => {
+    const lying: string[] = [];
+    for (const def of cardTable.all()) {
+      if (!repeats(def.effects as readonly AnyOp[])) continue;
+      const words = describeCard(def);
+      if (!/\bhit\b/i.test(words) && !/\btimes\b/i.test(words)) {
+        lying.push(`${def.name}: ${words}`);
+      }
+    }
+    expect(lying, 'a card that swings more than once must say so').toEqual([]);
+  });
+
+  it('gives every repeating card the multi-hit mark and sound', () => {
+    /* The mark is where a player learns which cards multiply Strength, so it
+       has to track the behaviour rather than a hand-kept list. */
+    const wrong: string[] = [];
+    for (const def of cardTable.all()) {
+      const many = repeats(def.effects as readonly AnyOp[]);
+      const voice = cardVoice(def, null);
+      const isMulti = voice === 'atkMultihit' || voice === 'atkAoeMultihit';
+      if (many && !isMulti) wrong.push(`${def.name} repeats but sounds ${voice}`);
+      if (!many && isMulti) wrong.push(`${def.name} sounds ${voice} but hits once`);
+    }
+    expect(wrong).toEqual([]);
+  });
+
+  it('keeps a plusPer card to exactly one blow', () => {
+    /* The other spelling, measured rather than read: N Strength raises the
+       total by N x hits, so a single swing answers 1. Widening Gyre against
+       something nearly dead used to answer 9. */
+    const hitsOf = (cardId: string, hp: number, stacks: number): number => {
+      const play = (str: number): number => {
+        const base = makeFight({
+          hand: [cardId],
+          energy: 9,
+          enemyHp: 900,
+          ...(str > 0 ? { playerStatuses: [{ status: STRENGTH, stacks: str, fresh: false }] } : {}),
+        });
+        const seated = startPlayerTurn(base);
+        const enemy = firstEnemy(seated);
+        const staged: GameState = {
+          ...seated,
+          run: {
+            ...seated.run!,
+            combat: { ...combatOf(seated), enemies: [{ ...enemy, hp, maxHp: 900 }] },
+          },
+        };
+        const card = combatOf(staged).hand.find((entry) => entry.defId === cardId);
+        if (card === undefined) throw new Error(`test: ${cardId} not in hand`);
+        const after = playCard(staged, card.uid, enemy.uid);
+        return hp - (combatOf(after).enemies[0]?.hp ?? 0);
+      };
+      return (play(stacks) - play(0)) / stacks;
+    };
+
+    expect(hitsOf('widening_gyre', 450, 5), 'Widening Gyre split into instances').toBe(1);
+    expect(hitsOf('the_long_draw', 450, 5), 'The Long Draw split into instances').toBe(1);
+  });
+
+  it('still uses scaleWith for the things that are not damage', () => {
+    /* Jettison scales draw, Ablative Layer scales Block. Those repeat too and
+       are fine repeating: there is no per-instance bonus for the count to
+       multiply, which is why this whole distinction is about damage. */
+    const users = cardTable
+      .all()
+      .filter((def) => JSON.stringify(def.effects).includes('"scaleWith"'))
+      .map((def) => def.id);
+    expect(users.length, 'scaleWith went unused — did something over-convert?').toBeGreaterThan(0);
+  });
+});
+
+describe('cards that count the cards you have played', () => {
+  /* The counter increments AFTER effects resolve, so a card that scales on it
+     never counts itself. Momentum is the one that made this visible: it used to
+     be incremented next to the Energy at the top of `playCard`, which meant the
+     face in your hand read the counter before the increment and the resolver
+     read it after — the card showed one number and dealt another. */
+  const played = (hand: readonly string[], target: string): number => {
+    let state = startPlayerTurn(makeFight({ hand: [...hand], energy: 9, enemyHp: 999 }));
+    const enemy = firstEnemy(state);
+    const before = firstEnemy(state).hp;
+    for (const id of hand) {
+      const card = combatOf(state).hand.find((entry) => entry.defId === id);
+      if (card === undefined) throw new Error(`test: ${id} not in hand`);
+      state = playCard(state, card.uid, id === target ? enemy.uid : null);
+    }
+    return before - firstEnemy(state).hp;
+  };
+
+  it('does not count the card doing the counting', () => {
+    /* Momentum alone is 3 x 0. Not 3 x 1 — "for every card played this turn"
+       cannot include the one still resolving, or the number on the card in your
+       hand is never the number you get. */
+    expect(played(['momentum'], 'momentum'), 'counted itself').toBe(0);
+  });
+
+  it('counts the cards actually played before it', () => {
+    /* Two cards first, because Momentum counts in twos: one hit of 6 per two
+       cards played. One card is a real count of 1 and still floors to no hits,
+       which is the same rule read from the other end — and worth asserting,
+       since "played one card, got nothing" looks like the self-count bug this
+       block exists to guard. */
+    expect(played(['vector_step', 'momentum'], 'momentum'), 'one card is half a step').toBe(0);
+    expect(played(['vector_step', 'vector_step', 'momentum'], 'momentum')).toBe(6);
+  });
+
+  it('still lets a relic that reads the counter see its own card', () => {
+    /* The other side of the same move. The increment happens before
+       `onCardPlayed` fires, which is what Long Form Ledger and Splitfire Core
+       read — both count every third card and both have a comment saying they
+       trust this field rather than counting separately. Third card played must
+       therefore see 3, not 2. */
+    let state = startPlayerTurn(
+      makeFight({ hand: ['vector_step', 'vector_step', 'vector_step'], energy: 9 }),
+    );
+    for (let i = 0; i < 3; i += 1) {
+      const card = combatOf(state).hand.find((entry) => entry.defId === 'vector_step');
+      if (card === undefined) break;
+      state = playCard(state, card.uid, null);
+    }
+    expect(combatOf(state).cardsPlayedThisTurn).toBe(3);
   });
 });
 
@@ -482,9 +654,13 @@ describe('spending the hand', () => {
     const before = firstEnemy(state).hp;
     const after = play(state);
 
-    // Three cards left in hand once the played one has gone: 3 x 3 damage.
+    /* Three cards left in hand once the played one has gone, and the card hits
+       once per TWO of them for 6 — so three discards buy one hit and leave a
+       remainder. Half the instances at the same rate, which is the whole point
+       of counting in twos: the odd card is the price of not handing Strength a
+       seven-times multiplier. */
     expect(combatOf(after).hand).toHaveLength(0);
-    expect(before - firstEnemy(after).hp).toBe(9);
+    expect(before - firstEnemy(after).hp).toBe(6);
   });
 
   it('does nothing on an empty hand rather than something strange', () => {
@@ -528,12 +704,12 @@ describe('spending the hand', () => {
     const handAfterOverdraw = combatOf(state).hand.length;
     const before = firstEnemy(state).hp;
     const after = playCard(state, rack.uid, firstEnemy(state).uid);
-    expect(before - firstEnemy(after).hp).toBe((handAfterOverdraw - 1) * 3);
+    expect(before - firstEnemy(after).hp).toBe(Math.floor((handAfterOverdraw - 1) / 2) * 6);
   });
 
   it('says what it does, in generated words', () => {
     expect(describeCard(cardTable.get('empty_the_rack'))).toBe(
-      'Discard your hand. For every card discarded, deal 3 damage. Burn.',
+      'Discard your hand. For every 2 cards discarded, hit for 6. Burn.',
     );
     expect(describeCard(cardTable.get('overdraw'))).toBe('Draw 3 cards. Discard 1 at random.');
   });

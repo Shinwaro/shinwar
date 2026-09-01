@@ -327,6 +327,22 @@ function applyOp(state: GameState, op: EffectOp, context: EffectContext): Effect
       const resolved = resolveTargets(state, context, op.target);
       let next = resolved.state;
       const times = Math.max(1, op.times ?? 1);
+      /*
+       * One bigger hit, not more hits. See `plusPer` on the op.
+       *
+       * Measured here, once, from the state the op begins in — deliberately
+       * outside both loops below. Inside them it would be re-read per swing,
+       * and a card that hits three times while scaling on the target's missing
+       * health would grow as it landed: swing two bigger than swing one because
+       * swing one connected. Nothing on the face could explain that, and the
+       * face is generated from this op.
+       */
+      const step =
+        op.plusPer === undefined
+          ? 0
+          : Math.floor(scaleValue(next, op.plusPer.source, context) / Math.max(1, op.plusPer.per)) *
+            op.plusPer.amount;
+      const amount = op.amount + step;
       /* Swings outer, targets inner.
       
          A card that hits everything twice is two swings at the board, not two
@@ -355,7 +371,7 @@ function applyOp(state: GameState, op: EffectOp, context: EffectContext): Effect
           next = applyDamage(
             next,
             {
-              amount: op.amount,
+              amount,
               attacker: context.actor,
               target,
               isAttack: true,

@@ -156,15 +156,30 @@ function namedStatuses(
 }
 
 /**
- * Compound a multiplicative status across its stacks, respecting its floor.
+ * Stack a multiplicative status across its stacks, respecting its floor.
+ *
+ * **Flat steps, not compounding.** Two Weak used to be 0.75 x 0.75 = 0.5625 and
+ * two Vulnerable 1.25 x 1.25 = 1.5625, which is the arithmetic nobody does in
+ * their head. The status says "25% less damage per stack"; a player reading
+ * that expects two stacks to be half, and the damage breakdown then printed
+ * `x0.5625` next to a card that promised a quarter off twice. Generated rules
+ * text is only worth having if the number underneath it is the number the text
+ * describes.
+ *
+ * So a stack is worth `value - 1` and they add: 1 + (value - 1) x stacks. Weak
+ * goes 0.75 / 0.5, Vulnerable 1.25 / 1.5, and both land exactly on their own
+ * caps at two — which is the other reason this reads better than compounding
+ * did. The cap used to be an arbitrary-looking clamp that bit somewhere between
+ * the second and third stack; now the second stack IS the cap.
  *
  * Both directions of clamp, because a status can multiply up or down: a floor
- * on a reducing status (Weak) is a minimum, and on an amplifying one it would
- * be a maximum. One helper rather than two branches at the call site.
+ * on a reducing status is a minimum, and on an amplifying one it is a maximum.
+ * The `Math.max(0, ...)` is for an uncapped reducing status, where enough
+ * stacks would otherwise cross zero and start healing the target.
  */
-function compound(value: number, stacks: number, floor: number | null): number {
-  const raw = Math.pow(value, stacks);
-  if (floor === null) return raw;
+function stackedFactor(value: number, stacks: number, floor: number | null): number {
+  const raw = 1 + (value - 1) * stacks;
+  if (floor === null) return value < 1 ? Math.max(0, raw) : raw;
   return value < 1 ? Math.max(floor, raw) : Math.min(floor, raw);
 }
 
@@ -281,11 +296,11 @@ export function computeDamage(state: GameState, input: DamageInput): DamageBreak
 
   /* 4 — multiplicatives: what the attacker suffers, then what the target invites. */
   for (const status of namedStatuses(attackerStatuses, 'damageDealtMult')) {
-    const factor = compound(status.value, status.stacks, status.floor);
+    const factor = stackedFactor(status.value, status.stacks, status.floor);
     ctx = record(ctx, status.name, 'mult', ctx.amount * factor, factor);
   }
   for (const status of namedStatuses(targetStatuses, 'damageTakenMult')) {
-    const factor = compound(status.value, status.stacks, status.floor);
+    const factor = stackedFactor(status.value, status.stacks, status.floor);
     ctx = record(ctx, status.name, 'mult', ctx.amount * factor, factor);
   }
 
@@ -576,11 +591,20 @@ function checkDeath(state: GameState, target: Combatant, source: string): GameSt
   if (enemy === undefined || enemy.hp > 0) return state;
 
   const name = enemyTable.find(enemy.defId)?.name ?? enemy.defId;
-  const killed = fireHook(
+  let killed = fireHook(
     appendLog(state, { source, kind: 'combat', text: `${name} destroyed.`, detail: { enemy: enemy.defId } }),
     'onEnemyKilled',
     { enemyUid: enemy.uid, enemyId: enemy.defId },
   );
+
+  /* Mending off the kill, from what you are carrying. After the hook rather
+     than before it, so a relic that responds to a death and an implant that
+     pays for one resolve in the order the carrying rail lists them.
+
+     `healPlayer` caps at maximum on its own and does nothing at zero, so this
+     costs nothing for the runs carrying none of it. */
+  const perKill = pilotRules(killed).healPerKill;
+  if (perKill > 0) killed = healPlayer(killed, perKill, 'implants');
 
   const remaining = killed.run?.combat;
   if (remaining !== undefined && remaining !== null && livingEnemies(remaining).length === 0) {

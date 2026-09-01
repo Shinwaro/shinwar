@@ -24,6 +24,7 @@ import { ACT1_ENEMIES } from './act1.ts';
 import { ACT1_ELITES } from './act1elites.ts';
 import { ACT2_ENEMIES } from './act2.ts';
 import { ACT3_ENEMIES, HEAT_SIPHON, NULL_PRISM, TESSELLATE_SHARD } from './act3.ts';
+import { VARETH_ENEMIES } from './vareth.ts';
 import { TUTORIAL_ENEMIES } from '../tutorial.ts';
 
 export const ENEMIES: readonly EnemyDef[] = [
@@ -31,6 +32,11 @@ export const ENEMIES: readonly EnemyDef[] = [
   ...ACT1_ELITES,
   ...ACT2_ENEMIES,
   ...ACT3_ENEMIES,
+  /* The hunting party. Reachable only through a Thread's reprisal, because
+     their encounters are `ambush: true` and `encountersFor` refuses to hand
+     those to the map generator — the same rule that keeps the introduction's
+     hulk off the chart. */
+  ...VARETH_ENEMIES,
   // The introduction's training target. Reachable only by its own encounter,
   // which `encountersFor` refuses to hand to the map generator.
   ...TUTORIAL_ENEMIES,

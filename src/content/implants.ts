@@ -40,7 +40,12 @@ export const IMPLANTS: readonly ImplantDef[] = [
     rarity: 'legendary',
     price: 260,
     maxStacks: 1,
-    passive: { drawPerTurn: 1 },
+    /* Two, not one. At one card a turn this was the quietest 260 Alloy in the
+       game — a legendary sitting next to Reactor Tuning's whole extra Energy
+       and asking the same kind of money for a single extra option. Two cards is
+       a different turn rather than a slightly wider one, which is what a
+       run-definer has to be. */
+    passive: { drawPerTurn: 2 },
     flavor: 'You see one more thing coming. It is astonishing how much that is.',
   },
   /* Two more epics, because a boss offers three of them and there was one.
@@ -134,10 +139,27 @@ export const IMPLANTS: readonly ImplantDef[] = [
     flavor: 'It counts for you, so you do not have to.',
   },
   {
+    /* Two a body, and it stacks — which is the whole reason this is declared as
+       a passive rather than written as a hook. See `RelicPassive.healPerKill`:
+       a hook would have fired once no matter how many were fitted, so the
+       second one would have been 95 Alloy for nothing. */
+    id: 'reclaim_loop',
+    name: 'Reclaim Loop',
+    rarity: 'common',
+    price: 95,
+    maxStacks: 3,
+    passive: { healPerKill: 2 },
+    flavor: 'It takes something back out of them on the way past. Not much. Enough.',
+  },
+  {
+    /* Up a tier. A vent every turn is not a small common effect — it is a
+       permanent shift in how much Heat the deck can afford to spend, and at
+       three stacks it is three, which reprices every overheat card in the game.
+       Priced with the uncommons it now sits among. */
     id: 'coolant_shunt',
     name: 'Coolant Shunt',
-    rarity: 'common',
-    price: 85,
+    rarity: 'uncommon',
+    price: 120,
     maxStacks: 3,
     passive: { ventPerTurn: 1 },
     flavor: 'Runs hot into the dark and hopes the dark is big enough.',

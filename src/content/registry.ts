@@ -493,10 +493,22 @@ function validateEncounters(issues: ValidationIssue[]): void {
      top of an elite already sized to stand alone.
 
      Total hull rather than the elite's own, which is the whole point: a
-     companion comes OUT of the budget instead of being added to it. */
+     companion comes OUT of the budget instead of being added to it.
+
+     Ambushes are exempt, and the rule's own first sentence is why: this is
+     about two fights being the same BET, and a hunting party is not a bet. You
+     do not route into it, you do not price it against the node beside it, and
+     it never appears on a chart — it is the bill for something you did three
+     nodes ago. Holding it to the size of the thing you chose would mean a
+     reprisal could never be worse than an ordinary Elite, which is the entire
+     reason it exists. */
   for (const act of [1, 2, 3] as const) {
     const elites = ENCOUNTERS.filter(
-      (entry) => entry.act === act && entry.tier === 'elite' && entry.tutorial !== true,
+      (entry) =>
+        entry.act === act &&
+        entry.tier === 'elite' &&
+        entry.tutorial !== true &&
+        entry.ambush !== true,
     ).map((entry) => ({
       id: entry.id,
       hull: entry.enemyIds.reduce((sum, id) => sum + (enemies.find(id)?.maxHp ?? 0), 0),

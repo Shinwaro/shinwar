@@ -32,8 +32,11 @@ export const OVERHEAT_CARDS: readonly CardDef[] = [
     rarity: 'uncommon',
     archetype: 'overheat',
     cost: 1,
+    /* Base up to 6. The scaling half only pays once the gauge is running, so
+       the floor is what the card is worth on the turn you draw it cold — and at
+       5 for one Energy that floor was under the commons. */
     effects: [
-      { op: 'damage', amount: 5, target: 'enemy' },
+      { op: 'damage', amount: 6, target: 'enemy' },
       {
         op: 'scaleWith',
         source: 'currentHeat',

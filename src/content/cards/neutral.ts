@@ -84,8 +84,8 @@ export const NEUTRAL_CARDS: readonly CardDef[] = [
       {
         op: 'scaleWith',
         source: 'cardsPlayedThisTurn',
-        per: 1,
-        then: [{ op: 'damage', amount: 3, target: 'enemy' }],
+        per: 2,
+        then: [{ op: 'damage', amount: 6, target: 'enemy' }],
       },
     ],
     upgrade: {
@@ -94,8 +94,8 @@ export const NEUTRAL_CARDS: readonly CardDef[] = [
         {
           op: 'scaleWith',
           source: 'cardsPlayedThisTurn',
-          per: 1,
-          then: [{ op: 'damage', amount: 4, target: 'enemy' }],
+          per: 2,
+          then: [{ op: 'damage', amount: 8, target: 'enemy' }],
         },
       ],
     },

@@ -31,21 +31,43 @@ export const LEGENDARY_CARDS: readonly CardDef[] = [
     archetype: 'iai',
     cost: 3,
     exhaust: true,
-    /* `keepsFocus`, so the scaling reads the whole bank instead of spending a
-       stack on the first instance and scaling off what is left. Three hits at
-       nine plus three per Focus is 27 at empty and 81 at a full six — which is
-       absurd, and is meant to be: it is three Energy, it exhausts, and getting
-       to six Focus is most of a deck's worth of decisions. */
+    /* Three hits of (8 + 2 per Focus). 24 at an empty bank, 60 at a full six.
+
+       `keepsFocus`, so the scaling reads the whole bank rather than spending a
+       stack on the first swing and scaling off what is left.
+
+       The shape is the change, not the numbers. It used to be three hits at
+       nine PLUS one extra three-damage hit per Focus — so at six Focus it was
+       nine separate swings, and every per-hit bonus in the game multiplied by
+       nine. At three Strength and a relic on every hit that was 81 becoming
+       117, on a card whose face said nothing about it. Folding the Focus term
+       into the size of each swing keeps this the biggest number in the game and
+       makes three the most hits it can ever be — which is a thing you can read
+       off the card instead of having to work out.
+
+       Effectively flat at the top end and lower in the middle: 60 + 12 from
+       bonuses at six Focus against the old 45 + 36. The ceiling is intact and
+       the multiplier on it is gone. */
     keepsFocus: true,
     effects: [
-      { op: 'damage', amount: 9, target: 'enemy', times: 3 },
-      { op: 'scaleWith', source: 'focus', per: 1, then: [{ op: 'damage', amount: 3, target: 'enemy' }] },
+      {
+        op: 'damage',
+        amount: 8,
+        target: 'enemy',
+        times: 3,
+        plusPer: { source: 'focus', per: 1, amount: 2 },
+      },
     ],
     upgrade: {
       name: 'The Whole Sword+',
       effects: [
-        { op: 'damage', amount: 12, target: 'enemy', times: 3 },
-        { op: 'scaleWith', source: 'focus', per: 1, then: [{ op: 'damage', amount: 4, target: 'enemy' }] },
+        {
+          op: 'damage',
+          amount: 10,
+          target: 'enemy',
+          times: 3,
+          plusPer: { source: 'focus', per: 1, amount: 3 },
+        },
       ],
     },
     flavor: 'Everything the order ever taught, spent at once, on one person.',

@@ -92,8 +92,8 @@ export const DISCARD_CARDS: readonly CardDef[] = [
       {
         op: 'scaleWith',
         source: 'discardedThisPlay',
-        per: 1,
-        then: [{ op: 'damage', amount: 3, target: 'enemy' }],
+        per: 2,
+        then: [{ op: 'damage', amount: 6, target: 'enemy' }],
       },
     ],
     upgrade: {
@@ -103,8 +103,8 @@ export const DISCARD_CARDS: readonly CardDef[] = [
         {
           op: 'scaleWith',
           source: 'discardedThisPlay',
-          per: 1,
-          then: [{ op: 'damage', amount: 4, target: 'enemy' }],
+          per: 2,
+          then: [{ op: 'damage', amount: 8, target: 'enemy' }],
         },
       ],
     },
@@ -277,8 +277,8 @@ export const DISCARD_CARDS: readonly CardDef[] = [
       {
         op: 'scaleWith',
         source: 'discardedThisPlay',
-        per: 1,
-        then: [{ op: 'damage', amount: 2, target: 'allEnemies' }],
+        per: 2,
+        then: [{ op: 'damage', amount: 4, target: 'allEnemies' }],
       },
     ],
     upgrade: {
@@ -288,8 +288,8 @@ export const DISCARD_CARDS: readonly CardDef[] = [
         {
           op: 'scaleWith',
           source: 'discardedThisPlay',
-          per: 1,
-          then: [{ op: 'damage', amount: 3, target: 'allEnemies' }],
+          per: 2,
+          then: [{ op: 'damage', amount: 6, target: 'allEnemies' }],
         },
       ],
     },
