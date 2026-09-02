@@ -71,6 +71,8 @@ export function createRunState(seed: string, depth: number): RunState {
     shop: null,
     forcedTier: null,
     ambushOwes: null,
+    combatRelicDry: 0,
+    combatRelicsFound: 0,
     // Act 1 has no front. `openMap` sets it when the act that does begins.
     wavefront: null,
     combat: null,

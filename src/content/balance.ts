@@ -75,7 +75,15 @@ export const HEAT = {
   overheatSkipsTurn: true,
   /** At or above this, additionally lose 1 Energy the turn after. */
   criticalAt: 10,
-  criticalEnergyLoss: 1,
+  /* `criticalEnergyLoss` was here: reaching the ceiling cost 1 Energy on the
+     turn AFTER the overheat. Removed.
+
+     An overheat already takes damage, empties the gauge, ends the turn where
+     you stand and burns a card out of the next hand. A fifth consequence that
+     lands a turn later, on a different turn from its cause, is the one nobody
+     could connect to anything — it read as an Energy bug rather than as a
+     price, which is the clearest sign a punishment has stopped teaching
+     anything. The gauge is punishing enough without it. */
 } as const;
 
 /* ---------- focus ----------
@@ -738,10 +746,57 @@ export const BOSS_IMPLANT_WEIGHTS: {
 };
 
 export const RELIC_COMBAT_CHANCE: { readonly [act in 1 | 2 | 3]: number } = {
-  1: 0.33,
-  2: 0.12,
+  /* Down from 0.33 and 0.12, and the drop is not a nerf — it is the price of
+     the pity curve below. Measured over real routes, the old flat chance paid
+     3.04 relics a run; base plus pity pays 3.13. The mean barely moves. What
+     moves is the bottom: see `RELIC_COMBAT_PITY`. */
+  1: 0.2,
+  2: 0.07,
   3: 0,
 };
+
+/**
+ * Bad-luck protection on the ordinary-fight relic drop.
+ *
+ * A flat 33% over a six-fight act is a fair coin that is allowed to be cruel.
+ * Measured across real generated routes, **one run in six finished with at most
+ * one relic from ordinary combat and one in thirty finished with none** — and
+ * that is the run where the deck never becomes a build, which is the failure
+ * this game can least afford to hand somebody at random. Relics are the only
+ * thing that changes what a turn can DO.
+ *
+ * Three parts, and each is there to stop the fix from being worse than the bug:
+ *
+ * `grace` is why this is protection rather than a schedule. The first attempt
+ * escalated on every miss, and over eighteen fights that reaches the cap almost
+ * surely: 96% of runs ended on exactly the cap, which is not a roll, it is a
+ * delivery timetable. Nothing happens for the first two misses, so an ordinary
+ * unlucky patch stays an ordinary unlucky patch and only a real drought bends
+ * the odds.
+ *
+ * `step` then climbs fast enough to matter — a fifth dry fight sits near 74% in
+ * Act 1 — and `max` keeps it short of certain, because a guaranteed drop is a
+ * thing you can count rather than hope for.
+ *
+ * `cap` is the ceiling the request asked for, and it is deliberately set ABOVE
+ * the common outcome rather than at it. A cap of 4 pulled 57% of runs onto
+ * exactly 4; at 5 it binds only the lucky tail, which is what a limit should
+ * do. Elites and bosses are untouched by all of this.
+ *
+ * Measured against 6000 runs on real routes: at most one relic falls from 16.4%
+ * to 2.9%, none from 3.1% to nil, the mean moves 3.04 -> 3.13, and the spread
+ * survives — no single outcome above 38%.
+ */
+export const RELIC_COMBAT_PITY = {
+  /** Misses that pass at the base rate before the odds start climbing. */
+  grace: 2,
+  /** Added to the act's chance for each dry fight past the grace. */
+  step: 0.18,
+  /** Never certain. A drop you can count on stops being a drop. */
+  max: 0.85,
+  /** Relics one run may take from ordinary fights. Elites and bosses are extra. */
+  cap: 5,
+} as const;
 
 export const REWARDS = {
   cardChoices: 3,

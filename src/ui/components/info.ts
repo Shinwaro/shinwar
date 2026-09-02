@@ -264,7 +264,7 @@ export function combatInfo(): readonly InfoSection[] {
         },
         {
           term: `${HEAT.criticalAt} ends the turn`,
-          text: `Reaching ${HEAT.criticalAt} does not wait for you to finish — the turn ends there and then, wherever you were, and everything above happens anyway. On top of it you are ${HEAT.criticalEnergyLoss} Energy short the turn after.`,
+          text: `Reaching ${HEAT.criticalAt} does not wait for you to finish — the turn ends there and then, wherever you were, and everything above happens anyway.`,
         },
       ],
     },

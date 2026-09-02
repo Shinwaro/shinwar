@@ -969,7 +969,6 @@ export interface CombatState {
    */
   readonly attacksThisTurn: number;
   /** Energy lost next turn, from a critical overheat. */
-  readonly energyPenaltyNextTurn: number;
   /**
    * The reactor cooked and takes your next turn. Set by an overheat, spent at
    * the start of the turn it costs you.
@@ -1386,6 +1385,20 @@ export interface RunState {
    * node has to survive it.
    */
   readonly ambushOwes: string | null;
+  /**
+   * Ordinary fights since the last one that paid a relic.
+   *
+   * Feeds `RELIC_COMBAT_PITY`. Counted rather than derived from the log because
+   * the reward roll needs it before the log exists for that fight, and a second
+   * way of computing the same fact is a second way of getting it wrong.
+   *
+   * Only ordinary fights move it. An Elite always drops, so it would reset this
+   * every time and the protection would only ever apply to players who never
+   * route into one — the opposite of who needs it.
+   */
+  readonly combatRelicDry: number;
+  /** Relics taken from ordinary fights this run. Stops at `RELIC_COMBAT_PITY.cap`. */
+  readonly combatRelicsFound: number;
   /** The collapse front. `null` in Act 1, where it would only be noise. */
   readonly wavefront: WavefrontState | null;
   readonly combat: CombatState | null;

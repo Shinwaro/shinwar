@@ -78,8 +78,19 @@ export function withChildren<T extends Element>(node: T, children: readonly Chil
 }
 
 /** Real `<button>`s everywhere, so keyboard and focus work without being asked. */
-export function button(label: string, attrs: Attrs, onClick: () => void): HTMLButtonElement {
-  const node = el('button', { type: 'button', ...attrs }, [label]);
+/**
+ * `children` is for a button whose face is more than a word — the corner rail's
+ * controls carry a glyph and a label so CSS can show one or the other without a
+ * resize listener. Pass `''` as the label when using it; a button with both
+ * would render the word twice.
+ */
+export function button(
+  label: string,
+  attrs: Attrs,
+  onClick: () => void,
+  children?: readonly Child[],
+): HTMLButtonElement {
+  const node = el('button', { type: 'button', ...attrs }, children ?? [label]);
   node.addEventListener('click', onClick);
   return node;
 }
@@ -103,16 +114,49 @@ export function button(label: string, attrs: Attrs, onClick: () => void): HTMLBu
  * leaving starts a strobe loop between enter and leave.
  */
 export function onHoverOrFocus(node: HTMLElement, set: (on: boolean) => void): void {
+  /* Whether WE raised the preview, so a blur following a tap-focus we ignored
+     cannot clear a preview something else is showing. */
+  let raised = false;
+  const raise = (on: boolean): void => {
+    raised = on;
+    set(on);
+  };
+
   node.addEventListener('pointerenter', (event) => {
     if (event.pointerType !== 'mouse') return;
-    set(true);
+    raise(true);
   });
   node.addEventListener('pointerleave', (event) => {
     if (event.pointerType !== 'mouse') return;
-    if (node.isConnected) set(false);
+    if (node.isConnected) raise(false);
   });
-  node.addEventListener('focus', () => set(true));
+
+  /*
+   * KEYBOARD focus only — the second half of the same bug, and the one that
+   * took the whole game down on Android.
+   *
+   * The pointer guards above stop a finger raising the preview through
+   * `pointerenter`. `focus` was left unguarded, and Android Chrome focuses a
+   * `<button>` when you tap it. So: finger lands, the button takes focus, this
+   * fired, the hover preview re-rendered the hand, THIS NODE WAS DESTROYED, the
+   * finger lifted on nothing, and no `click` was ever dispatched. Every tap on
+   * a card did nothing at all.
+   *
+   * It bit on Android and nowhere else because that is where a tap focuses a
+   * button: desktop arrives here by keyboard, where a re-render is harmless,
+   * and iOS Safari does not focus buttons on tap. One platform unplayable, the
+   * others perfect — which is why it read as "cards don't work on Android"
+   * rather than as a hover bug.
+   *
+   * `:focus-visible` is the exact question: true for keyboard focus, false for
+   * a tap. The preview exists for people navigating without a pointer, and a
+   * tap is not that.
+   */
+  node.addEventListener('focus', () => {
+    if (!node.matches(':focus-visible')) return;
+    raise(true);
+  });
   node.addEventListener('blur', () => {
-    if (node.isConnected) set(false);
+    if (raised && node.isConnected) raise(false);
   });
 }

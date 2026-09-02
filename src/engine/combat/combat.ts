@@ -129,7 +129,6 @@ export function startCombat(state: GameState, encounterId: string, environmentId
       stanceChangesThisTurn: 0,
       attacksThisTurn: 0,
       envMemory: {},
-      energyPenaltyNextTurn: 0,
       skipNextTurn: false,
       burnOwed: 0,
       pendingEnemies: [],
@@ -227,13 +226,13 @@ export function startPlayerTurn(state: GameState): GameState {
   const stance = liveStance(state);
   const turn = combat.turn + 1;
 
-  // Block is lost at the start of your turn, except what GUARD retains. Energy
-  // is refilled, less anything a critical overheat took.
+  // Block is lost at the start of your turn, except what GUARD retains, and
+  // Energy is refilled.
   //
-  // A turn the reactor takes does not spend the penalty: an overheat at 10
-  // costs a turn AND the Energy, and letting the skipped turn absorb the Energy
-  // loss would quietly refund half the punishment for the worst overheat there
-  // is.
+  // There used to be a carried `energyPenaltyNextTurn` here, charged by a
+  // critical overheat and spent on the turn after it. It is gone: a price that
+  // lands on a different turn from its cause is a price nobody can attribute,
+  // and this one was being read as a bug in the Energy counter.
   const relics = pilotRules(state);
   /*
    * The reactor took this turn — so it takes the ENERGY, and nothing else.
@@ -256,13 +255,7 @@ export function startPlayerTurn(state: GameState): GameState {
   const overclock = statusEnergy(combat.statuses);
   const energy = skipping
     ? 0
-    : Math.max(
-        0,
-        PLAYER_BALANCE.energyPerTurn +
-          relics.energyPerTurn +
-          overclock -
-          combat.energyPenaltyNextTurn,
-      );
+    : Math.max(0, PLAYER_BALANCE.energyPerTurn + relics.energyPerTurn + overclock);
 
   let next = withCombat(state, (current) => ({
     ...current,
@@ -274,7 +267,6 @@ export function startPlayerTurn(state: GameState): GameState {
     block: Math.min(current.block, stance.blockRetained) + relics.blockPerTurn,
     focus: Math.min(FOCUS_MAX, current.focus + relics.focusPerTurn),
     energy,
-    energyPenaltyNextTurn: skipping ? current.energyPenaltyNextTurn : 0,
     cardsPlayedThisTurn: 0,
     blockGainedThisTurn: 0,
     attacksThisTurn: 0,

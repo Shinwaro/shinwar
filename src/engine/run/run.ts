@@ -32,6 +32,7 @@ import {
   BOSS_MAX_HEALTH,
   ECONOMY,
   PLAYER,
+  RELIC_COMBAT_CHANCE,
   TREASURE_ALLOY,
   UNKNOWN_WEIGHTS,
   WAVEFRONT,
@@ -531,9 +532,30 @@ export function concludeNode(state: GameState): GameState {
     // A reprisal pays cards and Alloy and no relic — see `rollReward`.
     run.forcedTier !== null,
   );
+  /* Remember how the ordinary-fight drop went, for `RELIC_COMBAT_PITY`.
+   *
+   * Only ordinary fights, and only where the act pays them at all: an Elite
+   * always drops, so counting one would reset the drought every time and hand
+   * the protection to exactly the players who did not need it. Act 3 pays none
+   * by design, so a fight there is neither a hit nor a miss — leaving the
+   * counters alone means a dry Act 2 is still remembered if a Thread somehow
+   * pays out later, rather than being quietly wiped by the last act.
+   *
+   * Counted on the OFFER rather than on what the player takes. The roll decided
+   * a relic was there; skipping the screen is a choice, and protection against
+   * bad luck should not also be protection against your own decisions. */
+  const paysRelics = tier === 'combat' && RELIC_COMBAT_CHANCE[run.act] > 0;
+  const foundOne = rolled.offer.relicIds.length > 0;
+
   next = withRun(next, (current) => ({
     ...current,
     rng: rolled.rng,
+    ...(paysRelics
+      ? {
+          combatRelicDry: foundOne ? 0 : current.combatRelicDry + 1,
+          combatRelicsFound: current.combatRelicsFound + (foundOne ? 1 : 0),
+        }
+      : {}),
     // Alloy is paid on arrival. It is not a decision — nobody has ever left
     // money on a reward screen — so it should not cost a click.
     pendingReward: { ...rolled.offer, alloyClaimed: true },

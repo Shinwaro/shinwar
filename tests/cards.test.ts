@@ -7,7 +7,12 @@
 
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { CardDef, EffectOp } from '../src/engine/types.ts';
-import { describeCard, describeRider, riderIsLive } from '../src/engine/combat/describe.ts';
+import {
+  describeCard,
+  describeCardSegments,
+  describeRider,
+  riderIsLive,
+} from '../src/engine/combat/describe.ts';
 import { definitionOf, playCard, startPlayerTurn } from '../src/engine/combat/combat.ts';
 import { reloadContent } from '../src/content/index.ts';
 import { cards as cardTable } from '../src/content/registry.ts';
@@ -263,6 +268,54 @@ describe('cards that read the enemy health bar', () => {
     expect(describeCard(cardTable.get('execute'))).toBe(
       'If the target is below 30% health, deal 16 damage. Otherwise deal 5 damage.',
     );
+  });
+});
+
+describe('the hand and the reward screen say the same thing', () => {
+  /* Two describers, one sentence — asserted, because they had already drifted.
+   *
+   * `describeCard` returns a string for the reward and inventory screens.
+   * `describeCardSegments` returns the same sentence with the damage figure cut
+   * out so the hand can colour it. The segment version used to carry its own
+   * copy of the damage prose, and when `plusPer` was added the copy did not
+   * learn about it: Widening Gyre read "Deal 4 damage" in your hand and dealt
+   * four plus two per 10% of missing health, with nothing on the face saying
+   * so. The only visible hint was a Focus chip that belonged to a different
+   * mechanic entirely.
+   *
+   * Compared with no combat state, so the live figures (the stance's hot bonus,
+   * the Focus chip, the "(3x now)" count) are all zero or absent in both and
+   * the comparison is about the WORDS. */
+  const flatten = (def: CardDef): string =>
+    describeCardSegments(def, null)
+      .map((seg) => (seg.kind === 'text' ? seg.text : String(seg.figures.shown)))
+      .join('')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+  it('generates one sentence, not two that can disagree', () => {
+    const drifted: string[] = [];
+    for (const def of cardTable.all()) {
+      const flat = describeCard(def, null).replace(/\s+/g, ' ').trim();
+      if (flatten(def) !== flat) drifted.push(`${def.name}
+  hand: ${flatten(def)}
+  card: ${flat}`);
+      if (def.upgrade === undefined) continue;
+      const up = { ...def, ...def.upgrade };
+      const upFlat = describeCard(up, null).replace(/\s+/g, ' ').trim();
+      if (flatten(up) !== upFlat) drifted.push(`${up.name}
+  hand: ${flatten(up)}
+  card: ${upFlat}`);
+    }
+    expect(drifted, 'the hand and the card face describe these differently').toEqual([]);
+  });
+
+  it('shows the scaling term on a card whose damage scales', () => {
+    /* The specific regression, named. A card that grows must say what it grows
+       on, in the hand, where the decision is actually made. */
+    const gyre = flatten(cardTable.get('widening_gyre'));
+    expect(gyre, 'Widening Gyre hid its own slope').toContain('per 10%');
+    expect(flatten(cardTable.get('the_long_draw'))).toContain('per Focus');
   });
 });
 

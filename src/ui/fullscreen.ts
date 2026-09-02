@@ -49,11 +49,36 @@ export function isFullscreen(): boolean {
 }
 
 /**
+ * Set once a request has actually been REFUSED by this browser.
+ *
+ * `fullscreenEnabled` is a promise, not a guarantee: several phone browsers
+ * report it true and then reject the request, which left a button that looked
+ * fine and did nothing every time it was pressed. The file's own rule is that
+ * a control which cannot work is not a control, and it was only being applied
+ * to the browsers honest enough to say so up front.
+ *
+ * A refusal is remembered rather than retried because the reasons are all
+ * standing ones — the platform does not do it, or a permissions policy forbids
+ * it. It is not stored anywhere: `settings.ts` and this module are both
+ * presentation, and this is a fact about the browser, not a preference.
+ */
+let refused = false;
+
+/** Listeners that want to know the control has become impossible. */
+const refusalWatchers = new Set<() => void>();
+
+function markRefused(): void {
+  if (refused) return;
+  refused = true;
+  for (const watcher of [...refusalWatchers]) watcher();
+}
+
+/**
  * In or out.
  *
  * `requestFullscreen` rejects when it was not called from a gesture, and that
- * rejection is not an error worth showing anybody — the control simply did
- * nothing, which is exactly what the browser decided should happen.
+ * rejection is not an error worth showing anybody. It IS worth acting on: a
+ * refusal means the button should stop claiming to work — see `markRefused`.
  */
 export function toggleFullscreen(): void {
   const target = doc();
@@ -67,10 +92,39 @@ export function toggleFullscreen(): void {
 
   const root: Element & WebkitFullscreenElement = target.documentElement;
   if (typeof root.requestFullscreen === 'function') {
-    void root.requestFullscreen().catch(() => undefined);
+    void root.requestFullscreen().catch(() => {
+      markRefused();
+    });
     return;
   }
-  root.webkitRequestFullscreen?.();
+  if (typeof root.webkitRequestFullscreen === 'function') {
+    root.webkitRequestFullscreen();
+    /* The prefixed form returns nothing, so there is no rejection to catch.
+       If the document is still not fullscreen a moment later, it was refused —
+       one frame is enough, because a granted request applies synchronously
+       enough to be visible on the next tick. */
+    setTimeout(() => {
+      if (!isFullscreen()) markRefused();
+    }, 250);
+    return;
+  }
+  markRefused();
+}
+
+/**
+ * Told when a request has been refused, so a control can take itself away.
+ *
+ * Returns its own unsubscribe, and fires immediately if the refusal already
+ * happened — a button built after the first failed press must not be born
+ * claiming to work.
+ */
+export function watchRefusal(listener: () => void): () => void {
+  if (refused) {
+    listener();
+    return () => undefined;
+  }
+  refusalWatchers.add(listener);
+  return () => refusalWatchers.delete(listener);
 }
 
 /** Fires for F11 and for Esc as well as for our own button. */
@@ -106,9 +160,26 @@ export function renderFullscreenButton(className: string): HTMLButtonElement | n
   node.dataset['sound'] = 'own';
   node.setAttribute('aria-keyshortcuts', 'F');
 
+  /* Two spans rather than a text node, so the corner rail can go icon-only on
+     a narrow window without this button needing to know the breakpoint. The
+     glyph is `aria-hidden` and the accessible name comes from the label, so
+     hiding the label visually never leaves the button unnamed — see
+     `aria-label` below, which carries it either way. */
+  const glyph = document.createElement('span');
+  glyph.className = 'btn-corner-glyph';
+  glyph.setAttribute('aria-hidden', 'true');
+  glyph.textContent = '\u26F6';
+
+  const label = document.createElement('span');
+  label.className = 'btn-corner-label';
+
+  node.append(glyph, label);
+
   const paint = (): void => {
     const on = isFullscreen();
-    node.textContent = on ? 'Exit fullscreen' : 'Fullscreen';
+    const words = on ? 'Exit fullscreen' : 'Fullscreen';
+    label.textContent = words;
+    node.setAttribute('aria-label', words);
     node.setAttribute('aria-pressed', on ? 'true' : 'false');
   };
   paint();
@@ -121,6 +192,17 @@ export function renderFullscreenButton(className: string): HTMLButtonElement | n
       return;
     }
     paint();
+  });
+
+  /* And if the browser refuses, the button removes itself.
+     "Fullscreen does not work on phones" was this: several phone browsers say
+     `fullscreenEnabled` and then reject, so the control sat there being pressed
+     and doing nothing. Now the first refusal takes it off the screen, which is
+     the same answer this module already gives an iPhone — it just took a
+     rejection to find out. */
+  const unwatch = watchRefusal(() => {
+    unwatch();
+    node.remove();
   });
 
   return node;

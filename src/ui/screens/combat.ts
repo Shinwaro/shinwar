@@ -33,6 +33,7 @@ import { describeStatus } from '../../engine/combat/keywords.ts';
 import { currentSeed, healthFraction } from '../../engine/queries.ts';
 import { environments, statuses as statusTable } from '../../content/registry.ts';
 import { HEAT } from '../../content/balance.ts';
+import type { Child } from '../dom.ts';
 import { button, el } from '../dom.ts';
 import { renderFullscreenButton } from '../fullscreen.ts';
 import { renderCard } from '../components/card.ts';
@@ -128,6 +129,14 @@ interface Selection {
    */
   keyboardTargeting: boolean;
   logOpen: boolean;
+  /**
+   * The Carrying drawer, on windows too narrow for the rail beside the board.
+   *
+   * Separate from `logOpen` because they are different questions and a player
+   * checking one is not done checking the other — and because the rail is
+   * still the primary presentation above 95rem, where this flag does nothing.
+   */
+  carryOpen: boolean;
   /** The rules panel. Never in `GameState` — it changes nothing about the world. */
   infoOpen: boolean;
   /**
@@ -153,6 +162,7 @@ export function renderCombat(store: Store): HTMLElement {
        to a question. `L` and the corner button both still open it, and the
        introduction says so. */
     logOpen: false,
+    carryOpen: false,
     infoOpen: false,
     playedUid: null,
   };
@@ -560,11 +570,14 @@ function build(
             }),
           ),
     ]),
-    el('div', { class: 'stat' }, [
+    /* Classed so the phone layout can drop the two that do not change during a
+       fight. Alloy and the seed are both read BETWEEN fights; hull and the
+       environment are read during one. */
+    el('div', { class: 'stat stat--alloy' }, [
       el('span', { class: 'stat-label' }, ['ALLOY']),
       el('span', { class: 'stat-value' }, [String(run.alloy)]),
     ]),
-    el('div', { class: 'stat' }, [
+    el('div', { class: 'stat stat--env' }, [
       el('span', { class: 'stat-label' }, ['ENV']),
       el('span', { class: 'stat-value', title: environment?.text ?? '' }, [environment?.name ?? '—']),
     ]),
@@ -778,6 +791,11 @@ function build(
     ]),
   ]);
 
+  /* How much there is to carry, for the drawer's label and for whether the
+     drawer exists at all. Same three lists the rail reads. */
+  const pilot = requireRun(state).pilot;
+  const carryCount = pilot.relics.length + pilot.implants.length + pilot.masteries.length;
+
   /* ---- the corner rail ----
      The log and the reference panel are things you reach for *between*
      decisions, and they were sitting next to End turn — the one button you
@@ -795,10 +813,15 @@ function build(
       /* Everything the fight assumes you already know, one click from the
          fight. An hour-long run cannot afford a tutorial and cannot afford a
          player still guessing what Rust does in Act 3. */
-      button('Info', { class: 'btn btn-quiet btn-corner', 'aria-label': 'How combat works' }, () => {
-        selection.infoOpen = true;
-        rerender();
-      }),
+      button(
+        '',
+        { class: 'btn btn-quiet btn-corner', 'aria-label': 'How combat works' },
+        () => {
+          selection.infoOpen = true;
+          rerender();
+        },
+        cornerFace('ⓘ', 'Info'),
+      ),
       /* Volume. A slider rather than a switch: these are recordings at
          different levels sitting under a fight that already has numbers flying
          off it, and "too loud" and "silent" are not the only two opinions a
@@ -810,14 +833,28 @@ function build(
          most crowded and most worth reclaiming. */
       renderFullscreenButton('btn btn-quiet btn-corner'),
     ]),
+    /* The two DRAWERS share a row, under the two settings and Fullscreen.
+     *
+     * They were on separate rows and the cluster grew to three, which is 138px
+     * tall — deep enough to reach past the environment banner and into the
+     * health bar behind it. Paired, the cluster is two rows again and clears
+     * everything below the banner. They belong together anyway: Log and
+     * Carrying are the two things that OPEN, and the row above is the two that
+     * merely toggle. */
     el('div', { class: 'combat-corner-buttons combat-corner-buttons--log' }, [
       button(
-        selection.logOpen ? 'Hide log' : 'Show log',
-        { class: 'btn btn-quiet btn-corner btn-corner--log', 'aria-keyshortcuts': 'L' },
+        '',
+        {
+          class: 'btn btn-quiet btn-corner btn-corner--log',
+          'aria-keyshortcuts': 'L',
+          'aria-label': selection.logOpen ? 'Hide the combat log' : 'Show the combat log',
+          'aria-expanded': selection.logOpen ? 'true' : 'false',
+        },
         () => {
           selection.logOpen = !selection.logOpen;
           rerender();
         },
+        cornerFace('☰', selection.logOpen ? 'Hide log' : 'Show log'),
       ),
     ]),
     /* The log hangs off its own button. It used to sit at the bottom of the
@@ -825,6 +862,52 @@ function build(
        the button appeared to do nothing until you looked somewhere else. */
     selection.logOpen ? renderLog(state, true) : null,
   ]);
+
+  /*
+   * Carrying gets its OWN corner, on the left.
+   *
+   * It started in the right-hand cluster with Info, the volume, Fullscreen and
+   * the log — which on a phone is five controls in one 143px stack, and buries
+   * the one control that is about the FIGHT among four that are about the
+   * browser. On the left it is also the corner the rail occupies on a wide
+   * window, so "what am I carrying" lives in the same place at every size.
+   *
+   * Its own fixed box rather than a member of the other one, because the two
+   * anchor to opposite edges and their panels have to open in opposite
+   * directions.
+   *
+   * Below 95rem the rail cannot fit in the margin, and what it used to do
+   * instead was drop into the flow as the board's FIRST ROW — so on a 1440
+   * laptop, and on every phone, the relics sat above the fight and pushed it
+   * down. Measured at 390 wide that cost 127px off the top and left the hand at
+   * y=967 in an 844px viewport: you scrolled to see your own cards.
+   *
+   * The count is on the button because a closed drawer's whole weakness is
+   * being closed: "Carrying 3" says there is something in there worth opening.
+   */
+  const carry =
+    carryCount > 0
+      ? el('div', { class: 'combat-carry' }, [
+          button(
+            '',
+            {
+              class: 'btn btn-quiet btn-corner btn-corner--carry',
+              'aria-label': selection.carryOpen
+                ? 'Hide what you are carrying'
+                : `Show what you are carrying, ${carryCount} items`,
+              'aria-expanded': selection.carryOpen ? 'true' : 'false',
+            },
+            () => {
+              selection.carryOpen = !selection.carryOpen;
+              rerender();
+            },
+            cornerFace('❖', `Carrying ${carryCount}`),
+          ),
+          selection.carryOpen
+            ? el('div', { class: 'carry-panel' }, [renderGains(state), renderCarried(state)])
+            : null,
+        ])
+      : null;
 
   /* One fixed column, totals first.
    *
@@ -843,6 +926,7 @@ function build(
 
   return el('div', { class: 'combat-inner' }, [
     corner,
+    carry,
     rail,
     /* The environment first, above your own health. It decides what the whole
        fight is; the numbers under it are what it decides. */
@@ -930,6 +1014,21 @@ function captureHand(host: HTMLElement): Map<string, HeldCard> {
  * mute — clicking it drops to zero and clicking again restores what was there,
  * which is the gesture people already have for this control.
  */
+/**
+ * A corner control's face: a glyph for narrow windows, words for wide ones.
+ *
+ * Both are always in the DOM and CSS decides which is visible, so there is no
+ * resize listener and no breakpoint duplicated in script. The glyph is
+ * decorative — `aria-hidden` — and the caller sets an `aria-label`, so the
+ * button keeps its name when the words are hidden.
+ */
+function cornerFace(glyph: string, words: string): readonly Child[] {
+  return [
+    el('span', { class: 'btn-corner-glyph', 'aria-hidden': 'true' }, [glyph]),
+    el('span', { class: 'btn-corner-label' }, [words]),
+  ];
+}
+
 function renderVolume(rerender: () => void): HTMLElement {
   const level = getSettings().volume;
   const pct = Math.round(level * 100);

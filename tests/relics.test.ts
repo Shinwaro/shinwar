@@ -12,12 +12,13 @@ import type { GameState, RunEffect } from '../src/engine/types.ts';
 import { createInitialState, createRunState } from '../src/engine/state.ts';
 import { applyAction } from '../src/engine/reducer.ts';
 import { HOOK_NAMES, handlersFor } from '../src/engine/hooks.ts';
-import { createRng } from '../src/engine/rng.ts';
+import { createRng, chance } from '../src/engine/rng.ts';
 import {
   rollRelics,
   rollMastery,
   rollReward,
   rollCardChoices,
+  combatRelicChance,
 } from '../src/engine/run/rewards.ts';
 import { applyRunEffects } from '../src/engine/run/effects.ts';
 import { resolveThread, setThread } from '../src/engine/run/threads.ts';
@@ -37,7 +38,13 @@ import {
 import { overheatThreshold } from '../src/engine/combat/heat.ts';
 import { pilotRules, liveStance } from '../src/engine/combat/rules.ts';
 import { describeImplant, describePassive } from '../src/engine/run/describe.ts';
-import { PLAYER as PLAYER_BALANCE, RELIC_RARITY_WEIGHTS, REWARDS } from '../src/content/balance.ts';
+import {
+  PLAYER as PLAYER_BALANCE,
+  RELIC_COMBAT_CHANCE,
+  RELIC_COMBAT_PITY,
+  RELIC_RARITY_WEIGHTS,
+  REWARDS,
+} from '../src/content/balance.ts';
 import { reloadContent } from '../src/content/index.ts';
 import {
   cards as cardTable,
@@ -189,6 +196,95 @@ describe('the relic pool', () => {
       const after = kill(looped).run?.pilot.health ?? 0;
       expect(after - before, `Reclaim Loop x${stacks} did not pay per stack`).toBe(2 * stacks);
     }
+  });
+
+  it('bends the ordinary-fight drop toward a run that has gone dry', () => {
+    /* Bad-luck protection, and the shape of it is the point.
+
+       A flat chance over a six-fight act is a fair coin that is allowed to be
+       cruel: measured on real routes, one run in six ended with at most one
+       relic from ordinary combat. Relics are the only thing that changes what a
+       turn can DO, so that run is the one where the deck never becomes a build.
+
+       The grace is what keeps this protection rather than a schedule. Escalating
+       on every miss reached the cap almost surely over a full run — 96% of runs
+       landed on exactly the cap, which is a delivery timetable, not a roll. */
+    const at = (act: 1 | 2 | 3, dry: number, found = 0): number =>
+      combatRelicChance({ ...createRunState('PITY', 0), act, combatRelicDry: dry, combatRelicsFound: found });
+
+    const base = RELIC_COMBAT_CHANCE[1];
+    expect(at(1, 0), 'a fresh run is the plain rate').toBeCloseTo(base, 6);
+    expect(at(1, RELIC_COMBAT_PITY.grace), 'the grace still pays the plain rate').toBeCloseTo(base, 6);
+    expect(at(1, RELIC_COMBAT_PITY.grace + 1), 'one past the grace has to move').toBeGreaterThan(base);
+
+    // Monotonic past the grace, and never certain.
+    let previous = 0;
+    for (let dry = RELIC_COMBAT_PITY.grace; dry <= 12; dry += 1) {
+      const now = at(1, dry);
+      expect(now, `dry ${dry} went backwards`).toBeGreaterThanOrEqual(previous);
+      expect(now, 'a drop you can count on is not a drop').toBeLessThanOrEqual(RELIC_COMBAT_PITY.max);
+      previous = now;
+    }
+  });
+
+  it('stops paying at the cap, and never starts in Act 3', () => {
+    /* The cap is the request's "up to a certain amount". Act 3 is the older
+       rule and pity must not resurrect it: the item curve deliberately ends
+       there, so a dry streak in the last act buys nothing. */
+    const at = (act: 1 | 2 | 3, dry: number, found: number): number =>
+      combatRelicChance({ ...createRunState('CAP', 0), act, combatRelicDry: dry, combatRelicsFound: found });
+
+    expect(at(1, 99, RELIC_COMBAT_PITY.cap), 'the cap leaked').toBe(0);
+    expect(at(1, 99, RELIC_COMBAT_PITY.cap + 3), 'over the cap leaked').toBe(0);
+    expect(at(3, 99, 0), 'Act 3 started paying combat relics').toBe(0);
+    expect(at(1, 0, RELIC_COMBAT_PITY.cap - 1), 'one under the cap still pays').toBeGreaterThan(0);
+  });
+
+  it('costs the same one roll whether it pays or not', () => {
+    /* The rule the whole reward stream rests on, and the easiest thing for a
+       pity curve to break. If a dry fight consumed a different number of draws
+       than a lucky one, every downstream reward in the act would depend on
+       whether this one happened to fire — and two runs on one seed would stop
+       matching the moment their luck differed. The pity maths may change the
+       PROBABILITY handed to `chance` and never whether it is called. */
+    /* A HIT legitimately draws more — it still has to roll the tier and sample
+       the three relics. The invariant is about the gate: a fight that pays
+       nothing costs exactly one draw, whatever probability it was handed. */
+    const afterOneDraw = JSON.stringify(chance(createRng('DRAW-SEED'), 'rewards', 0).rng);
+
+    for (const [dry, found] of [
+      [0, 0],
+      [1, 0],
+      [5, 0],
+      [40, 0],
+      [9, RELIC_COMBAT_PITY.cap],
+    ] as const) {
+      const run = {
+        ...createRunState('DRAW', 0),
+        act: 1 as const,
+        combatRelicDry: dry,
+        combatRelicsFound: found,
+      };
+      const rolled = rollRelics(createRng('DRAW-SEED'), run, 'combat');
+      if (rolled.relicIds.length > 0) continue;
+      expect(
+        JSON.stringify(rolled.rng),
+        `a miss at dry ${dry}/found ${found} did not cost exactly one draw`,
+      ).toBe(afterOneDraw);
+    }
+
+    /* And the capped case is the one that could most easily skip the draw
+       entirely, since its probability is a literal zero — assert it missed
+       rather than assuming it. */
+    const cappedRun = {
+      ...createRunState('DRAW', 0),
+      act: 1 as const,
+      combatRelicDry: 9,
+      combatRelicsFound: RELIC_COMBAT_PITY.cap,
+    };
+    const atCap = rollRelics(createRng('DRAW-SEED'), cappedRun, 'combat');
+    expect(atCap.relicIds, 'the cap paid a relic').toEqual([]);
+    expect(JSON.stringify(atCap.rng), 'a zero chance skipped its draw').toBe(afterOneDraw);
   });
 
   it('never offers an exclusive relic', () => {

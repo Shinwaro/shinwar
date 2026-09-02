@@ -86,7 +86,6 @@ export function makeFight(options: FightOptions = {}): GameState {
     stanceChangesThisTurn: 0,
     attacksThisTurn: 0,
     envMemory: {},
-    energyPenaltyNextTurn: 0,
     skipNextTurn: false,
     burnOwed: 0,
     pendingEnemies: [],

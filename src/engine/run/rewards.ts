@@ -28,6 +28,7 @@ import {
   MASTERY,
   RARITY_WEIGHTS,
   RELIC_COMBAT_CHANCE,
+  RELIC_COMBAT_PITY,
   RELIC_COMBAT_WEIGHTS,
   RELIC_ELITE_WEIGHTS,
   RELIC_RARITY_WEIGHTS,
@@ -285,20 +286,42 @@ export function rollBossImplants(
  * This is also what finally makes routing into an Elite a decision rather than a
  * tax. `chooseNode` in the simulator now has something real to weigh.
  */
+/**
+ * The chance THIS ordinary fight pays a relic, given how dry the run has been.
+ *
+ * Exported because the reward screen and the simulator both want to show or
+ * reason about it, and a second implementation of a rule that decides drops is
+ * how two numbers that must agree stop agreeing.
+ *
+ * Returns 0 rather than the base rate once the cap is reached, and in Act 3
+ * where the base is already 0 — pity must not resurrect a curve that was
+ * deliberately ended. `Math.max(0, ...)` on the grace keeps a fresh run at
+ * exactly the base rate rather than below it.
+ */
+export function combatRelicChance(run: RunState): number {
+  const base = RELIC_COMBAT_CHANCE[run.act];
+  if (base <= 0 || run.combatRelicsFound >= RELIC_COMBAT_PITY.cap) return 0;
+  const over = Math.max(0, run.combatRelicDry - RELIC_COMBAT_PITY.grace);
+  return Math.min(RELIC_COMBAT_PITY.max, base + over * RELIC_COMBAT_PITY.step);
+}
+
 export function rollRelics(
   rng: RngState,
   run: RunState,
   tier: 'combat' | 'elite' | 'boss',
 ): { readonly relicIds: readonly RelicId[]; readonly rng: RngState } {
   /* An ordinary fight can drop one early in the run and never late. See
-     `RELIC_COMBAT_CHANCE` for why the curve runs that way round.
+     `RELIC_COMBAT_CHANCE` for why the curve runs that way round, and
+     `RELIC_COMBAT_PITY` for why a dry streak bends it.
 
      Rolled BEFORE the tier roll and on the same stream, so a combat that fails
      the check still costs exactly one draw — an item rate that changed how many
      rolls a fight consumed would make every downstream reward in the act depend
-     on whether this one happened to fire. */
+     on whether this one happened to fire. The pity maths only changes the
+     PROBABILITY handed to `chance`, never whether it is called, so the stream
+     is exactly where it was before this existed. */
   if (tier === 'combat') {
-    const gate = chance(rng, 'rewards', RELIC_COMBAT_CHANCE[run.act]);
+    const gate = chance(rng, 'rewards', combatRelicChance(run));
     if (!gate.value) return { relicIds: [], rng: gate.rng };
     rng = gate.rng;
   }

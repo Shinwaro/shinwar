@@ -125,11 +125,65 @@ function describeScaleSource(
   }
 }
 
+/**
+ * A damage op, split where the UI needs to put a styled number in.
+ *
+ * ONE implementation, because there are two describers and they had already
+ * drifted. `describeCard` builds a string; `describeCardSegments` builds the
+ * same sentence with the figure broken out so the hand can colour it. The
+ * segment version carried its own copy of this prose, and the day `plusPer`
+ * arrived the copy did not learn about it — so Widening Gyre read "Deal 4
+ * damage" in hand while dealing four plus two a step, and the only hint was a
+ * Focus chip that belonged to something else entirely.
+ *
+ * The comment above `describeCardSegments` had already predicted this in as
+ * many words. Splitting the sentence rather than duplicating it is the fix that
+ * makes the prediction unnecessary.
+ */
+function damageParts(
+  op: Extract<EffectOp, { readonly op: 'damage' }>,
+  state: GameState | null,
+): { readonly lead: string; readonly amount: number; readonly tail: string } {
+  const times = op.times ?? 1;
+  const hits = times > 1 ? ` ${times} times` : '';
+  const plus = op.plusPer;
+  if (plus === undefined) {
+    return { lead: 'Deal ', amount: op.amount, tail: ` damage${hits}${targetSuffix(op.target)}.` };
+  }
+
+  const source = describeScaleSource(plus.source, plus.per);
+  /* No space before a source that opens with a symbol — "per 10% of health"
+     rather than "per 10 % of health". Same rule `scaleWith` uses. */
+  const per = plus.per === 1 ? '' : `${plus.per}${source.startsWith('%') ? '' : ' '}`;
+  const combat =
+    state === null || plus.source === 'discardedThisPlay' ? null : activeCombat(state);
+  const live =
+    combat === null
+      ? ''
+      : ` (${Math.floor(currentScale(combat, plus.source) / Math.max(1, plus.per))}x now)`;
+
+  /* A card with no flat damage of its own says so in one clause instead of
+     opening with "Deal 0 damage, plus ...". The figure the UI styles is then
+     the per-step amount, because that is the number on the card. */
+  if (op.amount === 0) {
+    return {
+      lead: 'Deal ',
+      amount: plus.amount,
+      tail: ` damage per ${per}${source}${hits}${targetSuffix(op.target)}.${live}`,
+    };
+  }
+  /* The comma before "N times" matters: "plus 2 per Focus 3 times" reads as
+     three Focus, which is a different card. */
+  return {
+    lead: 'Deal ',
+    amount: op.amount,
+    tail: ` damage, plus ${plus.amount} per ${per}${source}${hits === '' ? '' : ','}${hits}${targetSuffix(op.target)}.${live}`,
+  };
+}
+
 function describeOp(op: EffectOp, state: GameState | null, afterDamage = false): string {
   switch (op.op) {
     case 'damage': {
-      const times = op.times ?? 1;
-      const hits = times > 1 ? ` ${times} times` : '';
       /*
        * The printed number is the card's own number, always.
        *
@@ -144,52 +198,14 @@ function describeOp(op: EffectOp, state: GameState | null, afterDamage = false):
        *
        * The projected damage on the enemy still shows the true total, so nothing
        * is hidden -- it has just moved to the place that is about to be hit.
-       */
-      /*
-       * The scaling term rides in the same sentence as the hit it grows.
        *
-       * These used to be two sentences — "Deal 6 damage. For every card played
-       * this turn, deal 4 extra." — because they were two ops, a `damage`
-       * followed by a `scaleWith` that repeated it. Accurate about the
-       * implementation and wrong about the card: it described extra HITS as
-       * extra damage. One clause, because it is now one swing.
-       *
-       * The live count stays, and goes last. `scaleWith` printed one and it is
-       * the useful half of the line — the card's own number is static on
-       * purpose (see above), so "(4x now)" is the only thing saying what the
-       * term is worth this turn. It has to sit after the target, or a card that
-       * hits the room reads "plus 2 per 2 Heat (4x now) to all enemies".
+       * The sentence itself comes from `damageParts`, which the segment
+       * describer also uses. See the note there for why it is shared.
        */
-      const plus = op.plusPer;
-      if (plus === undefined) {
-        return `Deal ${op.amount} damage${hits}${targetSuffix(op.target)}.`;
-      }
-
-      const source = describeScaleSource(plus.source, plus.per);
-      /* No space before a source that opens with a symbol — "per 10% of health"
-         rather than "per 10 % of health". Same rule `scaleWith` used. */
-      const per = plus.per === 1 ? '' : `${plus.per}${source.startsWith('%') ? '' : ' '}`;
-      const combat =
-        state === null || plus.source === 'discardedThisPlay' ? null : activeCombat(state);
-      const live =
-        combat === null
-          ? ''
-          : ` (${Math.floor(currentScale(combat, plus.source) / Math.max(1, plus.per))}x now)`;
-
-      /* A card with no flat damage of its own says so in one clause instead of
-         opening with "Deal 0 damage, plus ...". Six of these exist — Momentum,
-         Counterweight, Empty the Rack and friends are ENTIRELY their scaling
-         term — and "Deal 0" is the kind of generated sentence that makes a
-         player distrust every other generated sentence on the card. */
-      if (op.amount === 0) {
-        return `Deal ${plus.amount} damage per ${per}${source}${hits}${targetSuffix(op.target)}.${live}`;
-      }
-      /* The comma before "N times" matters: "plus 2 per Focus 3 times" reads as
-         three Focus, which is a different card. */
-      return `Deal ${op.amount} damage, plus ${plus.amount} per ${per}${source}${
-        hits === '' ? '' : ','
-      }${hits}${targetSuffix(op.target)}.${live}`;
+      const parts = damageParts(op, state);
+      return `${parts.lead}${parts.amount}${parts.tail}`;
     }
+
     case 'block':
       return `Gain ${op.amount} Block.`;
     case 'applyStatus':
@@ -473,19 +489,27 @@ export function describeCardSegments(
   def: CardDef,
   state: GameState | null = null,
 ): readonly CardSegment[] {
+  /* A Voided card has no ops, so walking them produces an empty paragraph —
+     and a card in your hand with nothing written on it reads as a rendering
+     fault rather than as the curse it is. `describeCard` already says the right
+     words and has no figure to style, so this hands the whole sentence over
+     rather than repeating it. Found by the test that asserts these two agree,
+     which is the second thing that test caught. */
+  if (def.type === 'voided') return [{ kind: 'text', text: describeCard(def, state) }];
+
   const out: CardSegment[] = [];
   let afterDamage = false;
 
   for (const op of def.effects) {
     if (op.op === 'damage') {
-      const figures = damageFigures(op.amount, def, state);
-      const times = Math.max(1, op.times ?? 1);
-      out.push({ kind: 'text', text: 'Deal ' });
-      out.push({ kind: 'damage', figures });
-      out.push({
-        kind: 'text',
-        text: ` damage${times > 1 ? ` ${times} times` : ''}${targetSuffix(op.target)}. `,
-      });
+      /* Same sentence as `describeOp`, cut where the styled figure goes — see
+         `damageParts`. Splitting one implementation rather than keeping two is
+         what stopped Widening Gyre from printing "Deal 4 damage" in hand while
+         scaling two a step. */
+      const parts = damageParts(op, state);
+      out.push({ kind: 'text', text: parts.lead });
+      out.push({ kind: 'damage', figures: damageFigures(parts.amount, def, state) });
+      out.push({ kind: 'text', text: `${parts.tail} ` });
       afterDamage = true;
       continue;
     }

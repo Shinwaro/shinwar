@@ -82,7 +82,7 @@ export function heatStatus(state: GameState): {
       damage === 0
         ? `Overheat at ${threshold} — ${atThreshold} damage${lostTurn}, and burn a card`
         : critical
-          ? `${damage} damage${lostTurn}, burn a card, and -${HEAT.criticalEnergyLoss} Energy after`
+          ? `${damage} damage${lostTurn}, and burn a card`
           : `${damage} damage${lostTurn}, and burn a card`,
   };
 }
@@ -339,21 +339,6 @@ export function resolveOverheat(state: GameState): GameState {
     text: 'A card will burn out of the next hand.',
     detail: null,
   });
-
-  if (heat >= HEAT.criticalAt) {
-    next = appendLog(
-      withCombat(next, (current) => ({
-        ...current,
-        energyPenaltyNextTurn: current.energyPenaltyNextTurn + HEAT.criticalEnergyLoss,
-      })),
-      {
-        source: 'heat',
-        kind: 'heat',
-        text: `Critical. -${HEAT.criticalEnergyLoss} Energy next turn.`,
-        detail: null,
-      },
-    );
-  }
 
   return next;
 }
