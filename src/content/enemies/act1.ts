@@ -49,14 +49,18 @@ export const ACT1_ENEMIES: readonly EnemyDef[] = [
       {
         id: 'bite',
         label: 'Bite',
-        intent: [{ kind: 'attack', amount: 9, times: 1, label: 'Bite' }],
-        effects: [{ op: 'damage', amount: 9, target: 'enemy' }],
+        /* 9 -> 6. Snap went 3 x 2 to 5 x 2 so its hits survive a point or two
+           of soak, which pushed the Hound to 9.5 damage a turn — level with
+           the ACT 1 ELITE average, on the enemy of the opening fight. The bite
+           pays for the snap. */
+        intent: [{ kind: 'attack', amount: 6, times: 1, label: 'Bite' }],
+        effects: [{ op: 'damage', amount: 6, target: 'enemy' }],
       },
       {
         id: 'snap',
         label: 'Snap',
-        intent: [{ kind: 'attack', amount: 3, times: 2, label: 'Snap' }],
-        effects: [{ op: 'damage', amount: 3, target: 'enemy', times: 2 }],
+        intent: [{ kind: 'attack', amount: 5, times: 2, label: 'Snap' }],
+        effects: [{ op: 'damage', amount: 5, target: 'enemy', times: 2 }],
       },
     ],
     script: {
@@ -196,8 +200,8 @@ export const ACT1_ENEMIES: readonly EnemyDef[] = [
       {
         id: 'flare',
         label: 'Flare',
-        intent: [{ kind: 'attack', amount: 4, times: 2, label: 'Flare' }],
-        effects: [{ op: 'damage', amount: 4, target: 'enemy', times: 2 }],
+        intent: [{ kind: 'attack', amount: 5, times: 2, label: 'Flare' }],
+        effects: [{ op: 'damage', amount: 5, target: 'enemy', times: 2 }],
       },
     ],
     script: { kind: 'sequence', moves: ['kindle', 'sear', 'flare'] },

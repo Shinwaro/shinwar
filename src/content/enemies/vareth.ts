@@ -81,11 +81,11 @@ export const VARETH_ENEMIES: readonly EnemyDef[] = [
         id: 'flense',
         label: 'Flense',
         intent: [
-          { kind: 'attack', amount: 7, times: 2, label: 'Flense' },
+          { kind: 'attack', amount: 8, times: 2, label: 'Flense' },
           { kind: 'debuff', amount: 1, times: 1, label: 'Weak 1' },
         ],
         effects: [
-          { op: 'damage', amount: 7, target: 'enemy', times: 2 },
+          { op: 'damage', amount: 8, target: 'enemy', times: 2 },
           { op: 'applyStatus', status: WEAK, stacks: 1, target: 'enemy' },
         ],
       },
@@ -153,11 +153,11 @@ export const VARETH_ENEMIES: readonly EnemyDef[] = [
         id: 'scissor',
         label: 'Scissor',
         intent: [
-          { kind: 'attack', amount: 9, times: 2, label: 'Scissor' },
+          { kind: 'attack', amount: 11, times: 2, label: 'Scissor' },
           { kind: 'debuff', amount: 2, times: 1, label: 'Vulnerable 2' },
         ],
         effects: [
-          { op: 'damage', amount: 9, target: 'enemy', times: 2 },
+          { op: 'damage', amount: 11, target: 'enemy', times: 2 },
           /* Two stacks, for the reason Kiln Alpha's Worry gives: the move that
              follows this one plates instead of attacking, so a single stack
              would fall off before anything could collect on it. */
@@ -185,11 +185,11 @@ export const VARETH_ENEMIES: readonly EnemyDef[] = [
         id: 'harry',
         label: 'Harry',
         intent: [
-          { kind: 'attack', amount: 5, times: 2, label: 'Harry' },
+          { kind: 'attack', amount: 8, times: 2, label: 'Harry' },
           { kind: 'debuff', amount: 1, times: 1, label: 'Weak 1' },
         ],
         effects: [
-          { op: 'damage', amount: 5, target: 'enemy', times: 2 },
+          { op: 'damage', amount: 8, target: 'enemy', times: 2 },
           { op: 'applyStatus', status: WEAK, stacks: 1, target: 'enemy' },
         ],
       },
@@ -236,8 +236,8 @@ export const VARETH_ENEMIES: readonly EnemyDef[] = [
            the reason stalling a Matriarch is the losing line. */
         id: 'brood_fury',
         label: 'Brood-Fury',
-        intent: [{ kind: 'attack', amount: 11, times: 3, label: 'Brood-Fury' }],
-        effects: [{ op: 'damage', amount: 11, target: 'enemy', times: 3 }],
+        intent: [{ kind: 'attack', amount: 14, times: 3, label: 'Brood-Fury' }],
+        effects: [{ op: 'damage', amount: 14, target: 'enemy', times: 3 }],
       },
     ],
     script: { kind: 'sequence', moves: ['shroud', 'sunder', 'brood_fury'] },
@@ -265,8 +265,8 @@ export const VARETH_ENEMIES: readonly EnemyDef[] = [
       {
         id: 'rake',
         label: 'Rake',
-        intent: [{ kind: 'attack', amount: 7, times: 2, label: 'Rake' }],
-        effects: [{ op: 'damage', amount: 7, target: 'enemy', times: 2 }],
+        intent: [{ kind: 'attack', amount: 12, times: 2, label: 'Rake' }],
+        effects: [{ op: 'damage', amount: 12, target: 'enemy', times: 2 }],
       },
     ],
     script: { kind: 'sequence', moves: ['interpose', 'crush', 'rake'] },

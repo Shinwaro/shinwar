@@ -255,6 +255,30 @@ export function stanceChangeLimit(state: GameState): number {
   return Math.min(fromEnvironment, liveStance(state).stanceChangesPerTurn);
 }
 
+/**
+ * Chronal Shear's cadence, as a countdown.
+ *
+ * `null` when the environment does not fold at all. `0` means THIS round — the
+ * enemies queued for the end of this turn will act twice.
+ *
+ * The environment's badge said "Every 3 rounds, enemies act twice" and left the
+ * player to keep the count themselves, against a round number that is not on
+ * screen. A rule you have to do arithmetic to apply is a rule you get wrong
+ * once and then stop trusting; the Debris Field marks its target a full turn
+ * ahead for exactly the same reason.
+ *
+ * Read off the same expression `queueEnemyTurn` uses, so the badge and the
+ * queue cannot disagree about which round is the doubled one.
+ */
+export function shearCountdown(state: GameState): number | null {
+  const every = environmentRules(state).doubleActEvery ?? 0;
+  if (every <= 0) return null;
+  const combat = state.run?.combat;
+  if (combat === undefined || combat === null) return null;
+  const into = combat.round % every;
+  return into === 0 ? 0 : every - into;
+}
+
 export function intentsHidden(state: GameState): boolean {
   const every = environmentRules(state).hideIntentsEvery ?? 0;
   if (every <= 0) return false;

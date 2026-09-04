@@ -279,6 +279,57 @@ function validateReferences(issues: ValidationIssue[]): void {
   }
 }
 
+/**
+ * What a move TELLS the player, against what it actually does.
+ *
+ * The intent is hand-written beside the effects, which means the two can be
+ * edited apart — and they were. A damage pass moved Mirror Ronin's Sever to
+ * `14 x 3` in its intent and left the effect at `9 x 3`, so the card
+ * telegraphed 42 and swung 27. That direction is merely wrong; the other
+ * direction is unforgivable, and nothing was watching either.
+ *
+ * "A player who plans around a telegraphed 14 and takes 21 will never trust the
+ * game again" is a project rule (CLAUDE.md), and until now it was enforced by
+ * nobody. This is the cheapest possible enforcement: sum the attack intents,
+ * sum the damage ops, and insist they agree.
+ *
+ * Only totals are compared, not the split. A move is free to declare one
+ * `3 x 5` intent against three separate ops or the reverse — what the player
+ * is owed is the number that lands on them.
+ */
+function validateTelegraphs(enemy: EnemyDef, where: string, issues: ValidationIssue[]): void {
+  for (const move of enemy.moves) {
+    const told = move.intent
+      .filter((hit) => hit.kind === 'attack')
+      .reduce((sum, hit) => sum + hit.amount * Math.max(1, hit.times), 0);
+
+    const dealt = damageInOps(move.effects);
+
+    if (told !== dealt) {
+      issues.push({
+        where: `${where} move '${move.id}'`,
+        problem: `telegraphs ${told} damage and deals ${dealt}`,
+      });
+    }
+  }
+}
+
+/** Every point of `damage` in an op tree, conditionals and scaling included. */
+function damageInOps(ops: readonly EffectOp[]): number {
+  let total = 0;
+  for (const op of ops) {
+    if (op.op === 'damage') {
+      total += op.amount * Math.max(1, op.times ?? 1);
+      continue;
+    }
+    /* A conditional's branches are NOT counted: a telegraph states what the
+       move will do, and a branch that may not be taken cannot be stated as a
+       flat number. No enemy move uses one today; if one ever does, it needs a
+       rule of its own rather than a silent guess. */
+  }
+  return total;
+}
+
 function validateEnemies(issues: ValidationIssue[]): void {
   for (const enemy of enemies.all()) {
     const where = `enemy '${enemy.id}'`;
@@ -286,6 +337,8 @@ function validateEnemies(issues: ValidationIssue[]): void {
 
     if (enemy.moves.length === 0) issues.push({ where, problem: 'no moves' });
     if (enemy.maxHp <= 0) issues.push({ where, problem: `maxHp ${enemy.maxHp}` });
+
+    validateTelegraphs(enemy, where, issues);
 
     // An enemy whose script names a move it does not have would throw mid-fight,
     // which is the worst possible time to find out.

@@ -113,7 +113,7 @@ export function createTutorialRunState(seed: string): RunState {
    log line: it is the debugger and the player's answer to "why did I take 19
    damage" at the same time. */
 
-export type LogInput = Omit<LogEntry, 'turn' | 'round'>;
+export type LogInput = Omit<LogEntry, 'seq' | 'turn' | 'round'>;
 
 /** Turn and round come from the combat in progress, or 0 outside one. */
 function logCoordinates(state: GameState): { turn: number; round: number } {
@@ -124,7 +124,11 @@ function logCoordinates(state: GameState): { turn: number; round: number } {
 
 export function appendLog(state: GameState, entry: LogInput): GameState {
   const { turn, round } = logCoordinates(state);
-  const next: LogEntry = { turn, round, ...entry };
+  /* Numbered from the last entry rather than from a counter held elsewhere in
+     state, so the sequence is a property of the log itself and cannot drift out
+     of step with it. Deterministic for a seed, like everything else here. */
+  const seq = (state.log[state.log.length - 1]?.seq ?? 0) + 1;
+  const next: LogEntry = { seq, turn, round, ...entry };
   const log = state.log.length >= LOG_LIMIT ? [...state.log.slice(1 - LOG_LIMIT), next] : [...state.log, next];
   return { ...state, log };
 }

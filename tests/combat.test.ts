@@ -9,7 +9,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import type { EnemyAiState, EnemyDef, GameState } from '../src/engine/types.ts';
 import { reloadContent } from '../src/content/index.ts';
 import { applyAction, applyActions } from '../src/engine/reducer.ts';
-import { createInitialState, createRunState } from '../src/engine/state.ts';
+import { createInitialState, createRunState, appendLog, LOG_LIMIT } from '../src/engine/state.ts';
 import {
   canPlay,
   endTurnImmediately,
@@ -104,7 +104,7 @@ describe('intents', () => {
     // instead of the choice is exactly how "it said 5" happens.
     const clean = telegraphAll(makeFight({ enemyIds: ['lathe_drone'] }));
     const vulnerable = telegraphAll(
-      makeFight({ enemyIds: ['lathe_drone'], playerStatuses: [{ status: VULNERABLE, stacks: 1, fresh: false }] }),
+      makeFight({ enemyIds: ['lathe_drone'], playerStatuses: [{ status: VULNERABLE, stacks: 1, freshStacks: 0 }] }),
     );
 
     expect(intentOf(clean, firstEnemy(clean))[0]?.amount).toBe(5);
@@ -116,8 +116,17 @@ describe('intents', () => {
     const telegraphed = telegraphAll(state);
     const hit = intentOf(telegraphed, firstEnemy(telegraphed))[0];
     expect(hit).toBeDefined();
-    if (hit?.times === 2) expect(hit.amount).toBe(3);
-    else expect(hit?.amount).toBe(11);
+    /* Read off the enemy's own definition rather than hardcoded. The numbers
+       here were literals and a routine damage pass moved them, which failed a
+       test about the SHAPE of a telegraph for a reason that had nothing to do
+       with shape. What matters is that the telegraph reports the move's own
+       figures, whatever they currently are. */
+    const def = enemyTable.get('scrap_hound');
+    const move = def.moves.find((entry) => entry.id === firstEnemy(telegraphed).intentMoveId);
+    const declared = move?.intent.find((entry) => entry.kind === 'attack');
+    expect(declared, 'the committed move has no attack to telegraph').toBeDefined();
+    expect(hit?.times).toBe(declared?.times);
+    expect(hit?.amount).toBe(declared?.amount);
   });
 
   it('runs a sequence script in order, every time', () => {
@@ -394,7 +403,7 @@ describe('overheat', () => {
     const state = makeFight({
       stance: 'guard',
       heat: HEAT.criticalAt - 2,
-      playerStatuses: [{ status: SCALD, stacks: 3, fresh: false }],
+      playerStatuses: [{ status: SCALD, stacks: 3, freshStacks: 0 }],
       hand: [IAI_SLASH],
       drawPile: [SOLAR_PARRY, IAI_SLASH, IAI_SLASH, IAI_SLASH, IAI_SLASH, IAI_SLASH],
       hull: 500,
@@ -468,14 +477,14 @@ describe('statuses across the round boundary', () => {
 
   it('clears the stack once the holder has had its turn', () => {
     const held = addStacks([], WEAK, 1);
-    expect(held[0]?.fresh, 'a new stack is fresh').toBe(true);
+    expect(held[0]?.freshStacks, 'a new stack is fresh').toBe(1);
 
     // Fresh survives one decay — that is the round it was applied in.
     expect(decayStatuses(held)[0]?.stacks).toBe(1);
 
     // Once the holder acts it is no longer new, and the next decay takes it.
     const acted = clearFresh(held);
-    expect(acted[0]?.fresh).toBe(false);
+    expect(acted[0]?.freshStacks).toBe(0);
     expect(decayStatuses(acted)).toEqual([]);
   });
 
@@ -562,8 +571,30 @@ describe('statuses across the round boundary', () => {
     const two = clearFresh(addStacks([], WEAK, 2));
     const once = decayStatuses(two);
     expect(once[0]?.stacks).toBe(1);
-    expect(once[0]?.fresh).toBe(false);
+    expect(once[0]?.freshStacks).toBe(0);
     expect(decayStatuses(once)).toEqual([]);
+  });
+
+  it('lets an old stack fall off while a new one keeps its turn', () => {
+    /*
+     * The bug this replaced: freshness used to be a FLAG on the whole entry, so
+     * a newly applied stack handed its decay immunity to the stacks already
+     * sitting under it. Hold 1 Weak that is due to fall off, take 1 more from
+     * an enemy, and you had 2 with nothing decaying — an enemy applying one
+     * stack a turn pinned the player at the cap for the rest of the fight.
+     */
+    const settled = clearFresh(addStacks([], WEAK, 1));
+    expect(settled[0]?.freshStacks, 'the stack has had its turn').toBe(0);
+
+    const topped = addStacks(settled, WEAK, 1);
+    expect(topped[0]?.stacks).toBe(2);
+    expect(topped[0]?.freshStacks, 'only the arriving stack is new').toBe(1);
+
+    const decayed = decayStatuses(topped);
+    expect(decayed[0]?.stacks, 'the old stack should have fallen off').toBe(1);
+
+    // And the survivor is the fresh one, which decays on the round after.
+    expect(decayStatuses(clearFresh(decayed))).toEqual([]);
   });
 });
 
@@ -929,7 +960,7 @@ describe('Scald, and the way out of it', () => {
   function scalded(stacks: number, heat: number): GameState {
     return makeFight({
       heat,
-      playerStatuses: [{ status: SCALD, stacks, fresh: false }],
+      playerStatuses: [{ status: SCALD, stacks, freshStacks: 0 }],
     });
   }
 
@@ -972,22 +1003,35 @@ describe('Scald, and the way out of it', () => {
 
   it('can be vented off the turn it lands', () => {
     /* `fresh` stops a status decaying on the turn it arrives, so a debuff
-       always costs its victim at least one turn. That guard is about PASSIVE
-       decay and deliberately does not cover this: the vent is a counterplay the
-       player pays a card for, and taking Scald 2 then venting 4 to no effect
-       would read as the game ignoring the answer it just asked for.
+       always costs its victim at least one turn.
 
-       Asserted both ways so the distinction is on the record rather than an
-       accident of which flag the shed happens to read. */
-    for (const fresh of [true, false]) {
-      const state = makeFight({
-        heat: 8,
-        playerStatuses: [{ status: SCALD, stacks: 3, fresh }],
-      });
-      expect(stacksOf(combatOf(ventHeat(state, 2, 'test')).statuses, SCALD), `fresh=${fresh}`).toBe(
-        2,
-      );
-    }
+       This used to be the exception: a vent shed a Scald stack whether or not
+       it had ever bitten, on the argument that the vent is a counterplay the
+       player pays a card for. True of a Scald you have been carrying; false of
+       one you just took. Cards now hand the player Scald as their COST, and
+       that cost was being cancelled by the vent they were going to play
+       anyway — the stack fell off before giving a single point of Heat, which
+       is the entire thing Scald exists to do.
+
+       So a vent clears SETTLED stacks and leaves a new one to bite once. The
+       counterplay still works, one turn later, and it still costs a card. */
+    const settled = makeFight({
+      heat: 8,
+      playerStatuses: [{ status: SCALD, stacks: 3, freshStacks: 0 }],
+    });
+    expect(
+      stacksOf(combatOf(ventHeat(settled, 2, 'test')).statuses, SCALD),
+      'a carried Scald is still shed by a vent',
+    ).toBe(2);
+
+    const justTaken = makeFight({
+      heat: 8,
+      playerStatuses: [{ status: SCALD, stacks: 1, freshStacks: 1 }],
+    });
+    expect(
+      stacksOf(combatOf(ventHeat(justTaken, 2, 'test')).statuses, SCALD),
+      'a Scald taken this turn was vented away before it ever bit',
+    ).toBe(1);
   });
 
   it('cannot be given and taken back by the same card', () => {
@@ -1034,8 +1078,8 @@ describe('Scald, and the way out of it', () => {
     const state = makeFight({
       heat: 8,
       playerStatuses: [
-        { status: SCALD, stacks: 2, fresh: false },
-        { status: WEAK, stacks: 2, fresh: false },
+        { status: SCALD, stacks: 2, freshStacks: 0 },
+        { status: WEAK, stacks: 2, freshStacks: 0 },
       ],
     });
     const after = ventHeat(state, 3, 'test');
@@ -1270,7 +1314,7 @@ describe('Rust charges for the turn you took', () => {
 
   it('does nothing at the start of the turn', () => {
     const state = makeFight({
-      playerStatuses: [{ status: RUST, stacks: 3, fresh: false }],
+      playerStatuses: [{ status: RUST, stacks: 3, freshStacks: 0 }],
     });
     const before = hullOf(state);
     const opened = startPlayerTurn(state);
@@ -1283,7 +1327,7 @@ describe('Rust charges for the turn you took', () => {
        also hands the enemy its move — a raw hull difference is that blow plus
        this one, and asserting on the total would pass for the wrong reason. */
     const armed = startPlayerTurn(
-      makeFight({ playerStatuses: [{ status: RUST, stacks: 3, fresh: false }] }),
+      makeFight({ playerStatuses: [{ status: RUST, stacks: 3, freshStacks: 0 }] }),
     );
     const bare = startPlayerTurn(makeFight({}));
 
@@ -1302,7 +1346,7 @@ describe('Rust charges for the turn you took', () => {
        a round, so a status that already shed at its own tick would lose two a
        round and vanish in half the time it says it does. */
     let state = startPlayerTurn(
-      makeFight({ enemyHp: 999, playerStatuses: [{ status: RUST, stacks: 4, fresh: false }] }),
+      makeFight({ enemyHp: 999, playerStatuses: [{ status: RUST, stacks: 4, freshStacks: 0 }] }),
     );
     state = endTurnVia(state);
     expect(stacksOf(combatOf(state).statuses, RUST), 'after one full round').toBe(3);
@@ -1313,7 +1357,7 @@ describe('Rust charges for the turn you took', () => {
   it('leaves Scald at the start of the turn, where it can be planned around', () => {
     const scald = statusTable.get(SCALD);
     expect(scald.tickAt ?? 'turnStart', 'Scald moved to the end of the turn').toBe('turnStart');
-    const state = makeFight({ heat: 0, playerStatuses: [{ status: SCALD, stacks: 2, fresh: false }] });
+    const state = makeFight({ heat: 0, playerStatuses: [{ status: SCALD, stacks: 2, freshStacks: 0 }] });
     expect(combatOf(startPlayerTurn(state)).heat, 'Scald stopped ticking on the way in').toBe(2);
   });
 });
@@ -1361,6 +1405,52 @@ describe('an enemy support move', () => {
 
     expect(stacksOf(combat.statuses, TEMPERED), 'the player was braced for free').toBe(0);
     expect(combat.enemies.every((enemy) => stacksOf(enemy.statuses, TEMPERED) === 2)).toBe(true);
+  });
+});
+
+describe('the log is a rolling window', () => {
+  /*
+   * Which means an array index is not a usable cursor into it.
+   *
+   * Once the window is full its length stops changing, so a reader tracking
+   * "how many entries have I seen" compares the cap against the cap and
+   * concludes nothing was appended — for the rest of the run. Every effect the
+   * combat screen drives off the log died together, late, in exactly the runs
+   * that had the most to show: damage numbers stopped rising, card sounds
+   * stopped playing, the Heat gauge stopped animating. More relics meant more
+   * entries per turn, so a well-equipped run hit it sooner, which is why it
+   * looked like the items were at fault.
+   *
+   * `seq` is monotonic and survives the window sliding under it.
+   */
+  it('keeps entries findable after the window has filled', () => {
+    let state: GameState = createInitialState('LOG');
+    for (let i = 0; i < LOG_LIMIT + 50; i += 1) {
+      state = appendLog(state, { source: 'test', kind: 'combat', text: `e${i}`, detail: null });
+    }
+
+    expect(state.log.length, 'the window holds at the cap').toBe(LOG_LIMIT);
+    expect(state.log[state.log.length - 1]?.seq, 'sequence keeps counting').toBe(LOG_LIMIT + 50);
+    expect(state.log[0]?.seq, 'the front of the window moved').toBeGreaterThan(1);
+
+    const seen = state.log[state.log.length - 1]?.seq ?? 0;
+    const after = appendLog(state, { source: 'test', kind: 'combat', text: 'new', detail: null });
+
+    // The old cursor. Kept as an assertion because it is the bug: an index
+    // equal to the length finds nothing new, however much arrives.
+    expect(after.log.slice(state.log.length), 'an index cursor is blind here').toEqual([]);
+
+    const fresh = after.log.filter((entry) => entry.seq > seen);
+    expect(fresh.length, 'a sequence cursor still sees it').toBe(1);
+    expect(fresh[0]?.text).toBe('new');
+  });
+
+  it('numbers every entry exactly once, in order', () => {
+    let state: GameState = createInitialState('LOG');
+    for (let i = 0; i < 12; i += 1) {
+      state = appendLog(state, { source: 'test', kind: 'combat', text: `e${i}`, detail: null });
+    }
+    expect(state.log.map((entry) => entry.seq)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
   });
 });
 

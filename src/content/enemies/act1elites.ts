@@ -34,11 +34,11 @@ export const ACT1_ELITES: readonly EnemyDef[] = [
         id: 'worry',
         label: 'Worry',
         intent: [
-          { kind: 'attack', amount: 5, times: 2, label: 'Worry' },
+          { kind: 'attack', amount: 7, times: 2, label: 'Worry' },
           { kind: 'debuff', amount: 2, times: 1, label: 'Vulnerable 2' },
         ],
         effects: [
-          { op: 'damage', amount: 5, target: 'enemy', times: 2 },
+          { op: 'damage', amount: 7, target: 'enemy', times: 2 },
           /* 2, not 1. Vulnerable sheds a stack at the end of the target's
              turn, and the move that follows this one in the script does not
              attack — so a single stack was always spent on a turn that could
@@ -87,8 +87,8 @@ export const ACT1_ELITES: readonly EnemyDef[] = [
       {
         id: 'cut',
         label: 'Cut',
-        intent: [{ kind: 'attack', amount: 6, times: 2, label: 'Cut' }],
-        effects: [{ op: 'damage', amount: 6, target: 'enemy', times: 2 }],
+        intent: [{ kind: 'attack', amount: 7, times: 2, label: 'Cut' }],
+        effects: [{ op: 'damage', amount: 7, target: 'enemy', times: 2 }],
       },
       {
         id: 'true',
@@ -168,8 +168,8 @@ export const ACT1_ELITES: readonly EnemyDef[] = [
       {
         id: 'rake',
         label: 'Rake',
-        intent: [{ kind: 'attack', amount: 9, times: 2, label: 'Rake' }],
-        effects: [{ op: 'damage', amount: 9, target: 'enemy', times: 2 }],
+        intent: [{ kind: 'attack', amount: 11, times: 2, label: 'Rake' }],
+        effects: [{ op: 'damage', amount: 11, target: 'enemy', times: 2 }],
       },
       {
         /* The spike, and it is a Heat spike as much as a damage one — four is

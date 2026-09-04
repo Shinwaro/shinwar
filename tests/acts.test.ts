@@ -47,7 +47,6 @@ import {
   STELLAR_CORONA_ID,
 } from '../src/content/environments.ts';
 import { BANKED_FIRE, IRON_TIDE, UNSHEATHED_MIND } from '../src/content/masteries.ts';
-import { CHIRALITY_WARDEN } from '../src/content/enemies/act3.ts';
 import { ENCOUNTERS } from '../src/content/encounters.ts';
 import { reloadContent } from '../src/content/index.ts';
 import {
@@ -567,49 +566,18 @@ describe('stance masteries', () => {
   });
 });
 
-describe("Act 3's counter-enemies", () => {
-  it('read the number the pipeline is producing, and the preview shows it', () => {
-    const state = makeFight({ enemyIds: [CHIRALITY_WARDEN], stance: 'guard' });
-    const enemy = firstEnemy(state);
-    const shape = {
-      attacker: PLAYER,
-      target: enemyTarget(enemy.uid),
-      isAttack: true,
-      attackOrdinal: 1,
-      consumesFocus: false,
-    } as const;
+/* "Act 3's counter-enemies" was here.
+ *
+ * Two tests pinned `damageRules`: that a hit over the threshold was reduced,
+ * and that two small hits beat one big one. The mechanic is gone — it reduced
+ * any hit over a threshold and said so NOWHERE the player could read it, so the
+ * only way to learn it was to lose damage and then find a step in the log
+ * called `Mirror` that nothing had ever introduced. The three enemies that
+ * carried it got hull instead, which is a number already on their card.
+ *
+ * Nothing replaces these tests, because there is no rule left to pin. The
+ * pipeline note at step 5 of `damage.ts` is the record. */
 
-    // Under the threshold it lands in full; over it, most of it is thrown away.
-    expect(computeDamage(state, { ...shape, amount: 20 }).beforeBlock).toBe(20);
-    expect(computeDamage(state, { ...shape, amount: 40 }).beforeBlock).toBe(16);
-    expect(previewDamage(state, { ...shape, amount: 40 })).toEqual(
-      computeDamage(state, { ...shape, amount: 40 }),
-    );
-  });
-
-  it('are worth routing around rather than through — the counter is real', () => {
-    const state = makeFight({ enemyIds: [CHIRALITY_WARDEN] });
-    const enemy = firstEnemy(state);
-    const big = computeDamage(state, {
-      amount: 45,
-      attacker: PLAYER,
-      target: enemyTarget(enemy.uid),
-      isAttack: true,
-      attackOrdinal: 1,
-      consumesFocus: false,
-    });
-    const twoSmall =
-      computeDamage(state, {
-        amount: 18,
-        attacker: PLAYER,
-        target: enemyTarget(enemy.uid),
-        isAttack: true,
-        attackOrdinal: 1,
-        consumesFocus: false,
-      }).beforeBlock * 2;
-    expect(twoSmall).toBeGreaterThan(big.beforeBlock);
-  });
-});
 
 describe('the act ladder', () => {
   it('has a full roster for every act and tier', () => {

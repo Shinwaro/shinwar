@@ -7,10 +7,12 @@
  *
  * Three of Act 3's enemies need ongoing behaviour rather than a move, so they
  * subscribe to the hook bus below — an enemy id is a hook source exactly the
- * way a module or an environment is. Anything expressible as a `damageRules`
- * declaration is declared instead, because a hook cannot change a number the
- * damage pipeline is about to produce and the preview must never be able to
- * disagree with the result.
+ * way a module or an environment is.
+ *
+ * There used to be a `damageRules` declaration for target-side damage rules
+ * too, and it is gone: an enemy that silently reduced any hit over a threshold
+ * was a rule the player could not read anywhere on the board. See the note at
+ * step 5 of the damage pipeline.
  */
 
 import type { EnemyDef, GameState } from '../../engine/types.ts';

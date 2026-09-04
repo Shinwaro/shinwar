@@ -76,11 +76,11 @@ export const ACT2_ENEMIES: readonly EnemyDef[] = [
         id: 'arc',
         label: 'Arc',
         intent: [
-          { kind: 'attack', amount: 5, times: 2, label: 'Arc' },
+          { kind: 'attack', amount: 8, times: 2, label: 'Arc' },
           { kind: 'debuff', amount: 2, times: 1, label: 'Heat +2' },
         ],
         effects: [
-          { op: 'damage', amount: 5, target: 'enemy', times: 2 },
+          { op: 'damage', amount: 8, target: 'enemy', times: 2 },
           { op: 'gainHeat', amount: 2 },
         ],
       },
@@ -236,11 +236,11 @@ export const ACT2_ENEMIES: readonly EnemyDef[] = [
         id: 'advance',
         label: 'Advance',
         intent: [
-          { kind: 'attack', amount: 9, times: 2, label: 'Advance' },
+          { kind: 'attack', amount: 11, times: 2, label: 'Advance' },
           { kind: 'block', amount: 12, times: 1, label: 'Plate 12' },
         ],
         effects: [
-          { op: 'damage', amount: 9, target: 'enemy', times: 2 },
+          { op: 'damage', amount: 11, target: 'enemy', times: 2 },
           { op: 'block', amount: 12 },
         ],
       },
@@ -295,8 +295,8 @@ export const ACT2_ENEMIES: readonly EnemyDef[] = [
       {
         id: 'overpressure',
         label: 'Overpressure',
-        intent: [{ kind: 'attack', amount: 7, times: 3, label: 'Overpressure' }],
-        effects: [{ op: 'damage', amount: 7, target: 'enemy', times: 3 }],
+        intent: [{ kind: 'attack', amount: 10, times: 3, label: 'Overpressure' }],
+        effects: [{ op: 'damage', amount: 10, target: 'enemy', times: 3 }],
       },
       {
         id: 'bank',
@@ -356,11 +356,11 @@ export const ACT2_ENEMIES: readonly EnemyDef[] = [
         id: 'shockfall',
         label: 'Shockfall',
         intent: [
-          { kind: 'attack', amount: 12, times: 3, label: 'Shockfall' },
+          { kind: 'attack', amount: 14, times: 3, label: 'Shockfall' },
           { kind: 'debuff', amount: 1, times: 1, label: 'Rust 1' },
         ],
         effects: [
-          { op: 'damage', amount: 12, target: 'enemy', times: 3 },
+          { op: 'damage', amount: 14, target: 'enemy', times: 3 },
           /* The Heat that used to be here has gone to the Kiln Sovereign, whose
              whole fight is about the gauge. This one is about the clock, and
              Rust is the clock: it is on the move that survives into the second
@@ -476,8 +476,8 @@ export const ACT2_ENEMIES: readonly EnemyDef[] = [
       {
         id: 'splint',
         label: 'Splint',
-        intent: [{ kind: 'attack', amount: 6, times: 2, label: 'Splint' }],
-        effects: [{ op: 'damage', amount: 6, target: 'enemy', times: 2 }],
+        intent: [{ kind: 'attack', amount: 8, times: 2, label: 'Splint' }],
+        effects: [{ op: 'damage', amount: 8, target: 'enemy', times: 2 }],
       },
     ],
     script: { kind: 'sequence', moves: ['brace', 'splint'] },

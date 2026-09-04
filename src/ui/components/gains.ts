@@ -11,11 +11,17 @@
  * the engine already made. A panel that did its own arithmetic could disagree
  * with the fight, which is the one thing it must never do.
  *
- * **Damage taken is deliberately absent.** Flat reduction lands at step 5 of
- * the pipeline, before Block, so every enemy telegraph on screen has already
- * subtracted it — the 9 above an enemy's head is what it will actually swing
- * for. Printing "-1 damage taken" here would be the same fact twice, and the
- * second copy invites the player to subtract it again.
+ * **Damage taken is here, and it used to be deliberately absent.** The old
+ * argument was that flat reduction lands at step 5, before Block, so every
+ * enemy telegraph on screen has already subtracted it — the 9 above an enemy's
+ * head is what it will really swing for — and printing it again invites the
+ * player to subtract it twice.
+ *
+ * Kept anyway, because "what is my total" and "what is this one enemy about to
+ * do" are different questions. By Act 3 the soak is spread over several relics
+ * and an implant or two, and no single telegraph tells you what it adds up to;
+ * that is the whole reason this panel exists. The note says `every hit`, which
+ * is exactly what the items say, so the two cannot be read as different rules.
  */
 
 import type { GameState } from '../../engine/types.ts';
@@ -47,6 +53,11 @@ export function renderGains(state: GameState): HTMLElement | null {
      three times it. Two rows, each saying which it is, because a player adding
      them in their head cannot be asked to remember which was which. */
   add(rules.damageEveryHit, `+${rules.damageEveryHit}`, 'damage', 'every hit of a card');
+  /* Read straight off `pilotRules`, like every other row — the panel shows the
+     sum the pipeline made rather than making its own. The note says "an attack"
+     rather than "a hit" because that is the unit it is charged in: a three-hit
+     attack has this taken off it once, spread across the three. */
+  add(rules.damageTakenFlat, `-${rules.damageTakenFlat}`, 'damage taken', 'every hit');
   add(rules.damageFlat, `+${rules.damageFlat}`, 'damage', 'first hit of a card');
   add(rules.energyPerTurn, `+${rules.energyPerTurn}`, 'Energy a turn');
   add(rules.drawPerTurn, `+${rules.drawPerTurn}`, rules.drawPerTurn === 1 ? 'card a turn' : 'cards a turn');

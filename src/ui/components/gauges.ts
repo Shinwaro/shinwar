@@ -12,7 +12,7 @@
 import type { GameState } from '../../engine/types.ts';
 import { heatStatus } from '../../engine/combat/heat.ts';
 import { requireCombat } from '../../engine/state.ts';
-import { canEnterStance, envGetString, liveStance, stanceChangeLimit } from '../../engine/combat/rules.ts';
+import { canEnterStance, envGetString, liveStance, stanceChangeLimit, shearCountdown } from '../../engine/combat/rules.ts';
 import { ACTIVE_STANCES, FOCUS_MAX, HEAT, STANCES } from '../../content/balance.ts';
 import { CLEAR_SPACE_ID } from '../../content/environments.ts';
 import {
@@ -98,6 +98,11 @@ export function renderEnvironmentBadge(state: GameState): HTMLElement | null {
   const mark = environmentMark(def.id);
   const arriving = environmentIsNew(def.id);
 
+  /* Chronal Shear's countdown. See `shearCountdown`: the badge used to state
+     the cadence and leave the player to track it against a round number that
+     is not on screen. */
+  const shear = shearCountdown(state);
+
   return el(
     'div',
     {
@@ -112,6 +117,21 @@ export function renderEnvironmentBadge(state: GameState): HTMLElement | null {
       el('div', { class: 'env-words' }, [
         el('span', { class: 'env-name' }, [def.name]),
         el('span', { class: 'env-text' }, [def.text]),
+        shear === null
+          ? null
+          : el(
+              'span',
+              {
+                class: `env-count${shear === 0 ? ' is-now' : ''}`,
+                role: 'status',
+                'aria-live': 'polite',
+              },
+              [
+                shear === 0
+                  ? 'The shear folds THIS round — they move twice'
+                  : `Folds in ${shear} round${shear === 1 ? '' : 's'}`,
+              ],
+            ),
       ]),
     ],
   );

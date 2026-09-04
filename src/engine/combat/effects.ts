@@ -500,7 +500,7 @@ function applyOp(state: GameState, op: EffectOp, context: EffectContext): Effect
         /*
          * A cost you put on YOURSELF sheds at the end of the round you paid it.
          *
-         * `fresh` exists so a debuff skips exactly one decay, and it earns that
+         * `freshStacks` exists so a debuff skips exactly one decay, and it earns that
          * for a good reason: enemies act at the END of a round, so without it a
          * debuff an enemy applied would be stripped before the player ever took
          * a turn under it. The player acts FIRST, though — so a debuff the
@@ -524,8 +524,20 @@ function applyOp(state: GameState, op: EffectOp, context: EffectContext): Effect
           target.kind === 'player'
             ? actor.kind === 'player'
             : actor.kind === 'enemy' && actor.uid === target.uid;
+        /* A debuff you put on yourself, and only one that DECAYS.
+         *
+           The rule is that a cost you take on yourself is already being paid
+           this turn, so it should not also skip the decay that closes the turn.
+           That reasoning is entirely about `decay: 'turn'` — Weak, Vulnerable.
+         *
+           Applied to a `decay: 'never'` status it bought no decay behaviour at
+           all and did one thing actively wrong: it let the very next vent shed
+           a Scald the player had just taken as a card's cost, before it had
+           given a single point of Heat. See `shedOnVent`. */
         const debuffingSelf =
-          sameCombatant && statusTable.find(op.status)?.kind === 'debuff';
+          sameCombatant &&
+          statusTable.find(op.status)?.kind === 'debuff' &&
+          statusTable.find(op.status)?.decay === 'turn';
 
         next = withCombat(next, (combat) =>
           target.kind === 'player'

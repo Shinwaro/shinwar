@@ -434,16 +434,6 @@ export interface EnemyDef {
   readonly tier: 'normal' | 'elite' | 'boss';
   readonly moves: readonly EnemyMove[];
   readonly script: EnemyScript;
-  /**
-   * A target-side rule in the damage pipeline. Act 3's counter-enemies read the
-   * player's build, and "takes 60% less from anything over 20" is a rule about
-   * a number the pipeline is producing, so it is declared rather than hooked.
-   */
-  readonly damageRules?: {
-    readonly overAmount: number;
-    readonly multiplier: number;
-    readonly label: string;
-  };
   readonly flavor?: string;
 }
 
@@ -869,6 +859,22 @@ export type LogKind =
   | 'debug';
 
 export interface LogEntry {
+  /**
+   * Monotonically increasing, never reused, and never renumbered.
+   *
+   * The log is a ROLLING WINDOW (`LOG_LIMIT`), which makes an array index a
+   * useless cursor: once the window is full its length is pinned at the limit
+   * forever, so a reader tracking "how many entries have I seen" compares
+   * 4000 against 4000 and concludes nothing is new — for the rest of the run.
+   *
+   * That is not a theoretical problem. It silently killed every log-driven
+   * effect in the game late in a long run: damage numbers stopped rising, card
+   * sounds stopped playing, the Heat gauge stopped animating. All of them read
+   * the log, all of them died at the same moment, and the more relics a run was
+   * carrying the sooner it happened, because more relics means more entries per
+   * turn. A sequence number survives the window sliding under it.
+   */
+  readonly seq: number;
   readonly turn: number;
   readonly round: number;
   /** Who caused it: a card id, enemy id, `'player'`, `'system'`. */
@@ -886,18 +892,25 @@ export interface StatusStack {
   readonly status: StatusId;
   readonly stacks: number;
   /**
-   * Applied since its holder last acted, so the coming decay skips it once.
+   * How many of these stacks arrived since the holder last acted.
    *
-   * Without this, a debuff an enemy puts on you during the enemy phase is
-   * stripped by the decay at the end of that same round — it is applied, logged,
-   * and gone before you ever take a turn under it. Every enemy debuff in the
-   * game was silently doing nothing.
+   * The protection exists because a debuff an enemy puts on you during the
+   * enemy phase would otherwise be stripped by the decay at the end of that
+   * same round — applied, logged, and gone before you ever take a turn under
+   * it. Every enemy debuff in the game was silently doing nothing.
    *
-   * Cleared when the holder acts: at the start of the player's turn, and when an
-   * enemy takes its action. So a status is always live for exactly one turn of
+   * A COUNT rather than a flag, and that distinction is a bug report: as a
+   * boolean, a gain marked the whole entry fresh, so a new stack handed its
+   * immunity to the old ones sitting under it. Hold 1 Weak that is due to fall
+   * off, take 1 more, and you had 2 with nothing decaying — so an enemy
+   * applying one stack a turn pinned you at the cap forever. Counting them
+   * means the decay can take an old stack while the new one keeps its turn.
+   *
+   * Zeroed when the holder acts: at the start of the player's turn, and when an
+   * enemy takes its action. So a stack is always live for exactly one turn of
    * whoever is carrying it, whichever phase it arrived in.
    */
-  readonly fresh: boolean;
+  readonly freshStacks: number;
 }
 
 /** What a move declares. The amount is filled in at display time for attacks. */

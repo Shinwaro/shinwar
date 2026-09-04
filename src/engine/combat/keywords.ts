@@ -44,17 +44,23 @@ export function addStacks(
   const without = held.filter((entry) => entry.status !== status);
   if (next <= 0) return without;
 
-  // Gaining stacks marks the whole entry fresh, so the coming decay skips it
-  // once. Losing them never does — a decay must not refresh its own target.
-  const wasFresh = held.find((entry) => entry.status === status)?.fresh ?? false;
-  /* A gain marks the entry fresh unless the caller says otherwise. Everything
-     else — a loss, or a self-applied cost — leaves the flag where it was, so a
-     player stacking their own Weak on top of an enemy's cannot strip the
-     protection the enemy's stack had earned. */
-  const fresh = delta > 0 && markFresh ? true : wasFresh;
+  const wasFresh = held.find((entry) => entry.status === status)?.freshStacks ?? 0;
+
+  /* Only the stacks actually arriving are new.
+   *
+     This is the fix for the bug that made an enemy applying one Weak a turn
+     pin the player at the cap: as a boolean, a gain marked the WHOLE entry
+     fresh, so the stack that was due to fall off inherited the newcomer's
+     immunity and nothing ever decayed.
+   *
+     A loss never adds protection, and it takes from the fresh count last —
+     `min(wasFresh, next)` — so shedding a stack removes an OLD one first and
+     leaves a newly-applied stack its turn. */
+  const freshStacks =
+    delta > 0 && markFresh ? Math.min(next, wasFresh + delta) : Math.min(wasFresh, next);
 
   // Keep the list sorted so the order never depends on application order.
-  return [...without, { status, stacks: next, fresh }].sort((a, b) =>
+  return [...without, { status, stacks: next, freshStacks }].sort((a, b) =>
     a.status < b.status ? -1 : a.status > b.status ? 1 : 0,
   );
 }
@@ -72,7 +78,9 @@ export function addStacks(
 export function decayStatuses(held: readonly StatusStack[]): readonly StatusStack[] {
   let out = held;
   for (const entry of held) {
-    if (entry.fresh) continue;
+    /* Skipped only while EVERY stack is new. One old stack under a new one is
+       still an old stack, and it is the one that goes. */
+    if (entry.freshStacks >= entry.stacks) continue;
     const def = statusTable.find(entry.status);
     if (def === undefined || def.decay !== 'turn') continue;
     // A `turnEnd` status already shed its stack the moment it bit. Taking one
@@ -90,8 +98,15 @@ export function decayStatuses(held: readonly StatusStack[]): readonly StatusStac
  * the two moments that mean "you have now had a turn with this".
  */
 export function clearFresh(held: readonly StatusStack[]): readonly StatusStack[] {
-  if (!held.some((entry) => entry.fresh)) return held;
-  return held.map((entry) => (entry.fresh ? { ...entry, fresh: false } : entry));
+  if (!held.some((entry) => entry.freshStacks > 0)) return held;
+  return held.map((entry) => (entry.freshStacks > 0 ? { ...entry, freshStacks: 0 } : entry));
+}
+
+/** Stacks of this status that have already had a turn under their holder. */
+export function settledStacks(held: readonly StatusStack[], status: StatusId): number {
+  const entry = held.find((row) => row.status === status);
+  if (entry === undefined) return 0;
+  return Math.max(0, entry.stacks - entry.freshStacks);
 }
 
 export function describeStatus(status: StatusId, stacks: number): string {

@@ -2188,6 +2188,23 @@
 /* A stance you have shut behind you this turn — Iron Tide's and Banked Fire's
    cost. Danger red rather than the muted grey the change-counter uses: this is
    not information about the turn, it is something that will refuse you. */
+/* Chronal Shear's countdown, under the environment's own line. Quiet while it
+   is only counting; the danger colour on the round it actually folds, which is
+   the one round the player has to change their turn for. */
+.env-count {
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.env-count.is-now {
+  color: var(--danger);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
 .stance-limit.is-shut {
   color: var(--danger);
   font-weight: 700;

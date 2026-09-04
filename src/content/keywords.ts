@@ -38,11 +38,14 @@ export const KEYWORDS: readonly KeywordDef[] = [
     name: 'Innate',
     text: 'Starts in your hand every fight.',
   },
-  {
-    id: 'keeps-focus',
-    name: 'Does not consume Focus',
-    text: 'Reads your Focus stack without spending it.',
-  },
+  /* `keeps-focus` was here.
+   *
+     "Does not consume Focus" already says the whole rule in the four words it
+     takes to print it, so the glossary line under it restated the sentence
+     directly above with no new information — and every line of fine print on a
+     card is a line the player has to decide to skip. The keyword budget is
+     tight on purpose (see CLAUDE.md); a term that explains itself does not need
+     a seat in it. The card text is unchanged. */
   {
     id: 'energy',
     name: 'Energy',

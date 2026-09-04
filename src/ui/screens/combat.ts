@@ -178,10 +178,18 @@ export function renderCombat(store: Store): HTMLElement {
   /*
    * How far through the log the animation layer has played. The log is the
    * event stream, so "what should animate" is exactly "what was appended since
-   * last time". Starts at the current length so mounting mid-fight does not
+   * last time". Starts at the newest entry so mounting mid-fight does not
    * replay the whole history at once.
+   *
+   * A SEQUENCE NUMBER, not an array index, and that is a bug fix rather than a
+   * refinement. The log is a rolling window (`LOG_LIMIT`), so once it fills its
+   * length stops changing: an index cursor then compares 4000 against 4000 on
+   * every render and concludes nothing was appended — permanently. Every effect
+   * driven off the log died together late in a long run: damage numbers, card
+   * sounds, the Heat gauge. The more relics a run carried, the sooner it hit,
+   * because more relics mean more entries per turn.
    */
-  let logCursor = store.getState().log.length;
+  let logSeen = store.getState().log[store.getState().log.length - 1]?.seq ?? 0;
 
   /*
    * The enemy turn is paced rather than resolved in one frame. The engine
@@ -298,10 +306,14 @@ export function renderCombat(store: Store): HTMLElement {
     if (rendering) return;
     const state = store.getState();
 
-    // The rolling log window can shrink; never slice from a stale index.
-    if (state.log.length < logCursor) logCursor = state.log.length;
-    const fresh = state.log.slice(logCursor);
-    logCursor = state.log.length;
+    /* Everything appended since the last render, found by sequence rather than
+       by position — so the window sliding out from under the cursor cannot hide
+       new entries. A fight starting over rewinds the sequence, so a `seq` below
+       what we last saw means a new log entirely: take it all. */
+    const newest = state.log[state.log.length - 1]?.seq ?? 0;
+    if (newest < logSeen) logSeen = 0;
+    const fresh = state.log.filter((entry) => entry.seq > logSeen);
+    logSeen = newest;
 
     /*
      * The last frame of a won fight.

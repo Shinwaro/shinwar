@@ -26,7 +26,7 @@ describe('Tempered', () => {
   it('takes a flat point off every attack, per stack', () => {
     const at = (stacks: number): number => {
       const state = makeFight(
-        stacks === 0 ? {} : { playerStatuses: [{ status: TEMPERED, stacks, fresh: false }] },
+        stacks === 0 ? {} : { playerStatuses: [{ status: TEMPERED, stacks, freshStacks: 0 }] },
       );
       const enemy = firstEnemy(state);
       return computeDamage(state, {
@@ -51,7 +51,7 @@ describe('Tempered', () => {
        defensive game from Block — Block is a wall you rebuild every turn, this
        is plating that accumulates. */
     const soak = (amount: number): number => {
-      const state = makeFight({ playerStatuses: [{ status: TEMPERED, stacks: 3, fresh: false }] });
+      const state = makeFight({ playerStatuses: [{ status: TEMPERED, stacks: 3, freshStacks: 0 }] });
       const enemy = firstEnemy(state);
       const hit = computeDamage(state, {
         amount,
@@ -68,7 +68,7 @@ describe('Tempered', () => {
   });
 
   it('never turns an attack into a heal', () => {
-    const state = makeFight({ playerStatuses: [{ status: TEMPERED, stacks: 9, fresh: false }] });
+    const state = makeFight({ playerStatuses: [{ status: TEMPERED, stacks: 9, freshStacks: 0 }] });
     const enemy = firstEnemy(state);
     expect(
       computeDamage(state, {
@@ -94,7 +94,7 @@ describe('Overclock', () => {
   it('adds one Energy a turn while held, however many stacks', () => {
     // Stacks are the DURATION, not the size — three stacks is three turns of
     // one extra Energy, not one turn of three.
-    const state = makeFight({ playerStatuses: [{ status: OVERCLOCK, stacks: 3, fresh: false }] });
+    const state = makeFight({ playerStatuses: [{ status: OVERCLOCK, stacks: 3, freshStacks: 0 }] });
     const after = startPlayerTurn(state);
     expect(combatOf(after).energy).toBe(PLAYER_BALANCE.energyPerTurn + 1);
   });
@@ -102,7 +102,7 @@ describe('Overclock', () => {
   it('grants nothing on a turn the reactor took', () => {
     /* An overheat at 10 costs you the turn. A buff that quietly hands the
        Energy back would refund the worst punishment in the game. */
-    const base = makeFight({ playerStatuses: [{ status: OVERCLOCK, stacks: 3, fresh: false }] });
+    const base = makeFight({ playerStatuses: [{ status: OVERCLOCK, stacks: 3, freshStacks: 0 }] });
     const combat = combatOf(base);
     const skipping = {
       ...base,
@@ -112,7 +112,7 @@ describe('Overclock', () => {
   });
 
   it('runs out', () => {
-    const state = makeFight({ playerStatuses: [{ status: OVERCLOCK, stacks: 1, fresh: false }] });
+    const state = makeFight({ playerStatuses: [{ status: OVERCLOCK, stacks: 1, freshStacks: 0 }] });
     const started = startPlayerTurn(state);
     expect(combatOf(started).energy).toBe(PLAYER_BALANCE.energyPerTurn + 1);
 

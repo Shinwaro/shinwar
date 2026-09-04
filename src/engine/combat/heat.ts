@@ -24,7 +24,7 @@ import { fireHook } from '../hooks.ts';
 import { HEAT } from '../../content/balance.ts';
 import { cards as cardTable, statuses as statusTable } from '../../content/registry.ts';
 import { PLAYER, applyDirectDamage } from './damage.ts';
-import { addStacks } from './keywords.ts';
+import { addStacks, settledStacks } from './keywords.ts';
 import { moveToExhaust, randomFromHand } from './piles.ts';
 import { environmentRules, pilotRules } from './rules.ts';
 
@@ -50,7 +50,18 @@ export function overheatDamageAt(
   maxHealth: number,
   threshold: number = HEAT.overheatAt,
 ): number {
-  if (heat < threshold) return 0;
+  /* The ceiling is absolute, whatever the threshold has been raised to.
+   *
+     Relics and implants push the overheat threshold up, and at +2 it reaches
+     `criticalAt` — which is also `HEAT.max`. At that point the turn ended for
+     hitting the ceiling and then nothing happened, because the turn-end vent
+     dropped the gauge one under a threshold of 10 and this returned 0. So the
+     reward for stacking threshold relics was that the single worst thing the
+     gauge can do stopped happening at all.
+   *
+     Reaching the top of the gauge is its own consequence. A threshold is a
+     promise about where the danger STARTS, not a licence to sit at maximum. */
+  if (heat < threshold && heat < HEAT.criticalAt) return 0;
   return Math.max(1, Math.round(maxHealth * HEAT.overheatDamagePctOfMax));
 }
 
@@ -177,7 +188,20 @@ function shedOnVent(state: GameState, size: number, source: string): GameState {
   const combat = requireCombat(state);
   const shedding = combat.statuses.filter((held) => {
     const threshold = statusTable.find(held.status)?.shedOnVent;
-    return threshold !== undefined && size >= threshold;
+    if (threshold === undefined || size < threshold) return false;
+    /* Never a stack that has not had its turn yet.
+     *
+       This used to shed regardless, on the argument that the vent is a
+       counterplay the player pays a card for and should not be ignored. True
+       of a Scald you have been carrying; false of one you just took. A card
+       that hands you Scald as its COST and then gets that cost cancelled by
+       the vent you were going to play anyway is a card with no downside — the
+       self-inflicted Scald was falling off before it ever gave a single point
+       of Heat, which is the whole thing it exists to do.
+     *
+       So the vent clears settled stacks and leaves the new one to bite once.
+       The counterplay still works, one turn later, and it still costs a card. */
+    return settledStacks(combat.statuses, held.status) > 0;
   });
   if (shedding.length === 0) return state;
 
@@ -270,9 +294,20 @@ export function collectBurn(state: GameState): GameState {
  * End of the player's turn. Runs *after* the stance passive, so IAI's +1 can
  * be the point that tips you over — which is the whole bargain IAI offers.
  */
-export function resolveOverheat(state: GameState): GameState {
+export function resolveOverheat(state: GameState, reached?: number): GameState {
   const combat = requireCombat(state);
-  const damage = overheatDamageAt(combat.heat, state.run?.pilot.maxHealth ?? 1, overheatThreshold(state));
+  /* `reached` is the heat the gauge actually hit this turn, before the stance's
+     own turn-end vent took its point off — see the call in `endPlayerTurn`.
+   *
+     Without it, ending a turn at exactly the threshold in GUARD never
+     overheated: the vent ran first, dropped you one under, and this found
+     nothing to charge you for. The gauge had spent the whole turn saying
+     "OVERHEATING — end this turn and take N" and then did not, which is the
+     one thing a readout must never do. The tests used to compensate by
+     pre-adding `ventAtTurnEnd` to the heat they set up, which is the shape of a
+     known wart rather than an intended rule. */
+  const judged = Math.max(combat.heat, reached ?? combat.heat);
+  const damage = overheatDamageAt(judged, state.run?.pilot.maxHealth ?? 1, overheatThreshold(state));
   if (damage === 0) return state;
 
   const heat = combat.heat;

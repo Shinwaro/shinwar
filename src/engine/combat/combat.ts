@@ -705,6 +705,13 @@ export function endPlayerTurn(state: GameState): GameState {
   let next = collectBurn(state);
 
   if (stance.heatAtTurnEnd > 0) next = gainHeat(next, stance.heatAtTurnEnd, stance.name);
+
+  /* The gauge's verdict is taken HERE — after the stance's own heat, before
+     anything vents. See `resolveOverheat`: a GUARD deck ending a turn exactly
+     on the threshold used to have its overheat quietly cancelled by the vent
+     one line below, after a full turn of the gauge promising otherwise. */
+  const heatReached = requireCombat(next).heat;
+
   if (stance.ventAtTurnEnd > 0) next = ventHeat(next, stance.ventAtTurnEnd, stance.name);
 
   // Deep Void bleeds Heat on its own. Declared rather than hooked for the same
@@ -720,7 +727,7 @@ export function endPlayerTurn(state: GameState): GameState {
   if (requireCombat(next).outcome !== 'ongoing') return next;
 
   next = fireHook(next, 'onTurnEnd', { turn: requireCombat(next).turn });
-  next = resolveOverheat(next);
+  next = resolveOverheat(next, heatReached);
 
   next = checkOutcome(next);
   if (requireCombat(next).outcome !== 'ongoing') return next;

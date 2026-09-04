@@ -460,7 +460,7 @@ describe('a card says how many times it hits, and means it', () => {
           hand: [cardId],
           energy: 9,
           enemyHp: 900,
-          ...(str > 0 ? { playerStatuses: [{ status: STRENGTH, stacks: str, fresh: false }] } : {}),
+          ...(str > 0 ? { playerStatuses: [{ status: STRENGTH, stacks: str, freshStacks: 0 }] } : {}),
         });
         const seated = startPlayerTurn(base);
         const enemy = firstEnemy(seated);

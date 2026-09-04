@@ -51,22 +51,25 @@ export const ACT3_ENEMIES: readonly EnemyDef[] = [
   {
     id: CHIRALITY_WARDEN,
     name: 'Chirality Warden',
-    maxHp: 104,
+    /* 104 -> 122.
+     *
+       It used to take 60% off anything over 20, which against a typical Act 3
+       swing of 35-40 was worth about a sixth of its effective hull. The rule is
+       gone — it was never stated anywhere the player could read it — so the
+       hull it was quietly buying is paid for honestly here. */
+    maxHp: 122,
     act: 3,
     tier: 'normal',
-    // Declared rather than hooked: this is a rule about the number the pipeline
-    // is producing, and the preview has to show it or the preview is a lie.
-    damageRules: { overAmount: 20, multiplier: 0.4, label: 'Chirality' },
     moves: [
       {
         id: 'invert',
         label: 'Invert',
         intent: [
-          { kind: 'attack', amount: 19, times: 1, label: 'Invert' },
+          { kind: 'attack', amount: 14, times: 1, label: 'Invert' },
           { kind: 'debuff', amount: 1, times: 1, label: 'Weak 1' },
         ],
         effects: [
-          { op: 'damage', amount: 19, target: 'enemy' },
+          { op: 'damage', amount: 14, target: 'enemy' },
           /* One stack, not two — and note this is Weak, not Vulnerable.
            *
            * The old note claimed a single stack "sheds before an attacking turn
@@ -93,13 +96,16 @@ export const ACT3_ENEMIES: readonly EnemyDef[] = [
          * correct play against it was to shrug and eat the fight. 33 is a turn
          * you have to answer.
          *
-         * And back to 7. Measured across its script the Warden dealt 29.5 a
-         * turn — more than the Act 3 BOSS (23) and more than every elite in
-         * the act. That is not a spike, it is a mis-tier: any pack holding it
-         * was an elite fight charged at a normal's rate. 7 x 3 keeps the move's
-         * job, which is a wide swing the 0.4 multiplier cannot blunt. */
-        intent: [{ kind: 'attack', amount: 7, times: 3, label: 'Handedness' }],
-        effects: [{ op: 'damage', amount: 7, target: 'enemy', times: 3 }],
+         * 7 x 3 -> 12 x 2. Fewer, bigger hits, and the reason is the player's
+         * side of the arithmetic: flat mitigation is charged PER HIT, because
+         * that is what the items say, so a 7 landing into six or eight points
+         * of soak arrived as a 1 or a 0. Three hits of nothing is not a
+         * telegraph, it is an enemy that has stopped existing.
+         *
+         * Twelve clears any plausible Act 3 soak with something left, and two
+         * of them keeps the total where a normal's should be. */
+        intent: [{ kind: 'attack', amount: 12, times: 2, label: 'Handedness' }],
+        effects: [{ op: 'damage', amount: 12, target: 'enemy', times: 2 }],
       },
     ],
     script: {
@@ -168,11 +174,11 @@ export const ACT3_ENEMIES: readonly EnemyDef[] = [
         id: 'null',
         label: 'Null',
         intent: [
-          { kind: 'attack', amount: 9, times: 2, label: 'Null' },
+          { kind: 'attack', amount: 12, times: 2, label: 'Null' },
           { kind: 'debuff', amount: 2, times: 1, label: 'Vulnerable 2' },
         ],
         effects: [
-          { op: 'damage', amount: 9, target: 'enemy', times: 2 },
+          { op: 'damage', amount: 12, target: 'enemy', times: 2 },
           /* 2, not 1. Vulnerable sheds a stack at the end of the target's
              turn, and the move that follows this one in the script does not
              attack — so a single stack was always spent on a turn that could
@@ -264,8 +270,8 @@ export const ACT3_ENEMIES: readonly EnemyDef[] = [
       {
         id: 'rake',
         label: 'Rake',
-        intent: [{ kind: 'attack', amount: 7, times: 3, label: 'Rake' }],
-        effects: [{ op: 'damage', amount: 7, target: 'enemy', times: 3 }],
+        intent: [{ kind: 'attack', amount: 12, times: 2, label: 'Rake' }],
+        effects: [{ op: 'damage', amount: 12, target: 'enemy', times: 2 }],
       },
       {
         id: 'crest',
@@ -281,10 +287,15 @@ export const ACT3_ENEMIES: readonly EnemyDef[] = [
   {
     id: MIRROR_RONIN,
     name: 'Mirror Ronin',
-    maxHp: 204,
+    /* 204 -> 220, and 220 rather than the 236 this first got.
+     *
+       Act 3's elite encounters are held to a 15% hull spread — two elite
+       fights are meant to be the same BET — and 236 against the Cantor's 196
+       broke it. The rest of what the removed threshold rule was worth is paid
+       in Sever instead, which went 9 x 3 to 14 x 3. */
+    maxHp: 220,
     act: 3,
     tier: 'elite',
-    damageRules: { overAmount: 26, multiplier: 0.5, label: 'Mirror' },
     moves: [
       {
         id: 'iai',
@@ -308,11 +319,11 @@ export const ACT3_ENEMIES: readonly EnemyDef[] = [
         id: 'sever',
         label: 'Sever',
         intent: [
-          { kind: 'attack', amount: 9, times: 3, label: 'Sever' },
+          { kind: 'attack', amount: 14, times: 3, label: 'Sever' },
           { kind: 'debuff', amount: 2, times: 1, label: 'Weak 2' },
         ],
         effects: [
-          { op: 'damage', amount: 9, target: 'enemy', times: 3 },
+          { op: 'damage', amount: 14, target: 'enemy', times: 3 },
           { op: 'applyStatus', status: WEAK, stacks: 2, target: 'enemy' },
         ],
       },
@@ -332,11 +343,11 @@ export const ACT3_ENEMIES: readonly EnemyDef[] = [
         id: 'descant',
         label: 'Descant',
         intent: [
-          { kind: 'attack', amount: 7, times: 4, label: 'Descant' },
+          { kind: 'attack', amount: 11, times: 3, label: 'Descant' },
           { kind: 'debuff', amount: 3, times: 1, label: 'Heat +3' },
         ],
         effects: [
-          { op: 'damage', amount: 7, target: 'enemy', times: 4 },
+          { op: 'damage', amount: 11, target: 'enemy', times: 3 },
           { op: 'gainHeat', amount: 3 },
         ],
       },
@@ -403,20 +414,20 @@ export const ACT3_ENEMIES: readonly EnemyDef[] = [
      * pressure the fight was missing: the boss's own escalation says "you
      * cannot afford to grind" and the Belt makes it literally true, on a clock
      * that runs whether or not either side does anything. */
-    maxHp: 384,
+    // 384 -> 440, replacing the threshold rule it used to carry.
+    maxHp: 440,
     act: 3,
     tier: 'boss',
-    damageRules: { overAmount: 30, multiplier: 0.6, label: 'Horizon' },
     moves: [
       {
         id: 'tidal',
         label: 'Tidal',
         intent: [
-          { kind: 'attack', amount: 11, times: 3, label: 'Tidal' },
+          { kind: 'attack', amount: 16, times: 3, label: 'Tidal' },
           { kind: 'debuff', amount: 2, times: 1, label: 'Heat +2' },
         ],
         effects: [
-          { op: 'damage', amount: 11, target: 'enemy', times: 3 },
+          { op: 'damage', amount: 16, target: 'enemy', times: 3 },
           { op: 'gainHeat', amount: 2 },
         ],
       },
@@ -448,11 +459,11 @@ export const ACT3_ENEMIES: readonly EnemyDef[] = [
         id: 'collapse',
         label: 'Collapse',
         intent: [
-          { kind: 'attack', amount: 14, times: 2, label: 'Collapse' },
+          { kind: 'attack', amount: 16, times: 2, label: 'Collapse' },
           { kind: 'buff', amount: 3, times: 1, label: 'Strength +3' },
         ],
         effects: [
-          { op: 'damage', amount: 14, target: 'enemy', times: 2 },
+          { op: 'damage', amount: 16, target: 'enemy', times: 2 },
           { op: 'applyStatus', status: STRENGTH, stacks: 3, target: 'self' },
         ],
       },
@@ -460,11 +471,11 @@ export const ACT3_ENEMIES: readonly EnemyDef[] = [
         id: 'silence',
         label: 'Silence',
         intent: [
-          { kind: 'attack', amount: 11, times: 2, label: 'Silence' },
+          { kind: 'attack', amount: 15, times: 2, label: 'Silence' },
           { kind: 'debuff', amount: 3, times: 1, label: 'Weak 3' },
         ],
         effects: [
-          { op: 'damage', amount: 11, target: 'enemy', times: 2 },
+          { op: 'damage', amount: 15, target: 'enemy', times: 2 },
           { op: 'applyStatus', status: WEAK, stacks: 3, target: 'enemy' },
         ],
       },
@@ -559,8 +570,8 @@ export const ACT3_ENEMIES: readonly EnemyDef[] = [
       {
         id: 'antiphon',
         label: 'Antiphon',
-        intent: [{ kind: 'attack', amount: 13, times: 3, label: 'Antiphon' }],
-        effects: [{ op: 'damage', amount: 13, target: 'enemy', times: 3 }],
+        intent: [{ kind: 'attack', amount: 14, times: 3, label: 'Antiphon' }],
+        effects: [{ op: 'damage', amount: 14, target: 'enemy', times: 3 }],
       },
       {
         id: 'benediction',

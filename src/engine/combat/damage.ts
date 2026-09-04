@@ -326,9 +326,16 @@ export function computeDamage(state: GameState, input: DamageInput): DamageBreak
     }
   }
 
-  /* 5 — target-side reductions. Act 3's counter-enemies live here: reading the
-     player's build means reading the number about to land on them, and so does
-     the plating the player is wearing. */
+  /* 5 — target-side reductions: the plating the player is wearing, and the
+     plating bolted to the ship.
+   *
+     PER HIT, both of them, because that is what the items say. "2 less damage
+     on every hit" is the printed rule and the printed rule is the contract —
+     an item that quietly meant "2 less per attack, divided" would be a worse
+     item than the one on the card, however much better it made multi-hit
+     enemies feel. The multi-hit problem is real and it is fixed where it
+     belongs: on the enemies, by making their hits big enough that a flat 2 is
+     a dent rather than a deletion. */
   if (input.isAttack && input.target.kind === 'player') {
     const soak = pilotRules(state).damageTakenFlat;
     if (soak !== 0) ctx = record(ctx, 'Relics', 'reduce', Math.max(0, ctx.amount - soak));
@@ -342,14 +349,22 @@ export function computeDamage(state: GameState, input: DamageInput): DamageBreak
     if (soak === 0) continue;
     ctx = record(ctx, `${status.name} ${status.stacks}`, 'reduce', Math.max(0, ctx.amount - soak));
   }
-  const struck = input.target;
-  if (input.isAttack && struck.kind === 'enemy') {
-    const defId = combat.enemies.find((enemy) => enemy.uid === struck.uid)?.defId;
-    const rule = defId === undefined ? undefined : enemyTable.find(defId)?.damageRules;
-    if (rule !== undefined && ctx.amount > rule.overAmount) {
-      ctx = record(ctx, rule.label, 'reduce', ctx.amount * rule.multiplier, rule.multiplier);
-    }
-  }
+  /* `damageRules` was here: three Act 3 enemies reduced any hit over a
+     threshold — Chirality Warden over 20 at x0.4, Mirror Ronin over 26 at
+     x0.5, The Event Horizon over 30 at x0.6. Removed, enemies buffed to
+     compensate.
+   *
+     It was not stated anywhere the player could read it. Not on the enemy
+     card, not in the Bestiary, not in the info panel; the only place it ever
+     appeared was after the fact in the damage log, as a step called `Mirror`
+     that nothing had ever introduced. So the mechanic was: your best card
+     silently loses half its damage, and you find out by reading the log
+     afterwards and noticing a word you have never seen. Hull and damage say
+     what they are on the card; a resistance that does not is a different
+     KIND of thing, and it was the only one of its kind in the game.
+   *
+     Surfacing it was the other option. Cheaper and more honest to delete it
+     and put the difficulty in numbers the board already shows. */
 
   /* 6 — Block absorbs. Rounded down first: block is always an integer, so
      `floor(x) - b` and `floor(x - b)` agree, and this keeps the number the log

@@ -113,16 +113,23 @@ export const NEUTRAL_CARDS: readonly CardDef[] = [
     archetype: 'neutral',
     cost: 2,
     exhaust: true,
+    /* 12 -> 10, and two Vulnerable -> one.
+     *
+       The Vulnerable was the larger half of the card and the quieter one: two
+       stacks on the whole room is +50% on everything that follows it, so the
+       printed damage was never what the card was worth. One stack is still a
+       real opening — the room takes 25% more for a turn — without the sweep
+       also deciding the two turns after it. */
     effects: [
-      { op: 'damage', amount: 12, target: 'allEnemies' },
-      { op: 'applyStatus', status: VULNERABLE, stacks: 2, target: 'allEnemies' },
+      { op: 'damage', amount: 10, target: 'allEnemies' },
+      { op: 'applyStatus', status: VULNERABLE, stacks: 1, target: 'allEnemies' },
       { op: 'gainHeat', amount: 3 },
     ],
     upgrade: {
       name: 'Starfall+',
       effects: [
-        { op: 'damage', amount: 16, target: 'allEnemies' },
-        { op: 'applyStatus', status: VULNERABLE, stacks: 2, target: 'allEnemies' },
+        { op: 'damage', amount: 14, target: 'allEnemies' },
+        { op: 'applyStatus', status: VULNERABLE, stacks: 1, target: 'allEnemies' },
         { op: 'gainHeat', amount: 3 },
       ],
     },

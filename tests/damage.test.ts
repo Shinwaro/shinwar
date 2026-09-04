@@ -23,14 +23,14 @@ const STANCE_IDS: readonly StanceId[] = ['iai', 'guard', 'flow'];
 
 const STATUS_CASES: readonly { readonly name: string; readonly player: readonly StatusStack[]; readonly enemy: readonly StatusStack[] }[] = [
   { name: 'clean', player: [], enemy: [] },
-  { name: 'enemy Vulnerable 1', player: [], enemy: [{ status: VULNERABLE, stacks: 1, fresh: false }] },
-  { name: 'enemy Vulnerable 2', player: [], enemy: [{ status: VULNERABLE, stacks: 2, fresh: false }] },
-  { name: 'player Weak', player: [{ status: WEAK, stacks: 1, fresh: false }], enemy: [] },
-  { name: 'player Strength 3', player: [{ status: STRENGTH, stacks: 3, fresh: false }], enemy: [] },
+  { name: 'enemy Vulnerable 1', player: [], enemy: [{ status: VULNERABLE, stacks: 1, freshStacks: 0 }] },
+  { name: 'enemy Vulnerable 2', player: [], enemy: [{ status: VULNERABLE, stacks: 2, freshStacks: 0 }] },
+  { name: 'player Weak', player: [{ status: WEAK, stacks: 1, freshStacks: 0 }], enemy: [] },
+  { name: 'player Strength 3', player: [{ status: STRENGTH, stacks: 3, freshStacks: 0 }], enemy: [] },
   {
     name: 'Weak and Vulnerable together',
-    player: [{ status: WEAK, stacks: 1, fresh: false }],
-    enemy: [{ status: VULNERABLE, stacks: 1, fresh: false }],
+    player: [{ status: WEAK, stacks: 1, freshStacks: 0 }],
+    enemy: [{ status: VULNERABLE, stacks: 1, freshStacks: 0 }],
   },
 ];
 
@@ -66,7 +66,7 @@ describe('preview equals resolution', () => {
   }
 
   it('holds for an enemy attacking through Block', () => {
-    const state = makeFight({ block: 5, playerStatuses: [{ status: VULNERABLE, stacks: 1, fresh: false }] });
+    const state = makeFight({ block: 5, playerStatuses: [{ status: VULNERABLE, stacks: 1, freshStacks: 0 }] });
     const enemy = firstEnemy(state);
     const input = {
       amount: 9,
@@ -89,7 +89,7 @@ describe('the ordered steps', () => {
     const state = makeFight({
       stance: 'iai',
       focus: 2,
-      enemyStatuses: [{ status: VULNERABLE, stacks: 1, fresh: false }],
+      enemyStatuses: [{ status: VULNERABLE, stacks: 1, freshStacks: 0 }],
       enemyHp: 999,
     });
     const enemy = firstEnemy(state);
@@ -110,7 +110,7 @@ describe('the ordered steps', () => {
   });
 
   it('rounds down rather than up', () => {
-    const state = makeFight({ enemyStatuses: [{ status: VULNERABLE, stacks: 1, fresh: false }], enemyHp: 999 });
+    const state = makeFight({ enemyStatuses: [{ status: VULNERABLE, stacks: 1, freshStacks: 0 }], enemyHp: 999 });
     const enemy = firstEnemy(state);
     // 5 x 1.25 = 6.25 -> 6, never 7.
     expect(
@@ -158,7 +158,7 @@ describe('the ordered steps', () => {
 
     const at = (stacks: number): number => {
       const state = makeFight({
-        playerStatuses: [{ status: WEAK, stacks, fresh: false }],
+        playerStatuses: [{ status: WEAK, stacks, freshStacks: 0 }],
         enemyHp: 999,
       });
       const enemy = firstEnemy(state);
@@ -182,7 +182,7 @@ describe('the ordered steps', () => {
        "stack Vulnerable, then hit it once". */
     const hit = (stacks: number): number => {
       const state = makeFight({
-        enemyStatuses: [{ status: VULNERABLE, stacks, fresh: false }],
+        enemyStatuses: [{ status: VULNERABLE, stacks, freshStacks: 0 }],
         enemyHp: 999,
       });
       return computeDamage(state, {
@@ -535,7 +535,7 @@ describe('flat damage, once a swing', () => {
   it('leaves Strength paying on every swing', () => {
     const state = makeFight({
       enemyHp: 999,
-      playerStatuses: [{ status: STRENGTH, stacks: 2, fresh: false }],
+      playerStatuses: [{ status: STRENGTH, stacks: 2, freshStacks: 0 }],
     });
     // Same on both, because Strength is not scoped to the first hit.
     expect(swing(state, false)).toBe(swing(state, true));
