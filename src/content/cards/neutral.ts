@@ -141,17 +141,20 @@ export const NEUTRAL_CARDS: readonly CardDef[] = [
        once a run and pay 25 max health for. */
     cost: 1,
     exhaust: true,
+    /* The vent came off. Strength, two cards and four Heat off the gauge was
+       three unrelated favours on one card — and the vent was the one nobody
+       chose it for, quietly making it the best Heat answer in the game as well
+       as the best opener. What is left is what the card is about: a permanent
+       raise and the cards to use it with. */
     effects: [
       { op: 'applyStatus', status: STRENGTH, stacks: 2, target: 'self' },
       { op: 'draw', amount: 2 },
-      { op: 'ventHeat', amount: 4 },
     ],
     upgrade: {
       name: 'The Dead Sect+',
       effects: [
         { op: 'applyStatus', status: STRENGTH, stacks: 3, target: 'self' },
         { op: 'draw', amount: 2 },
-        { op: 'ventHeat', amount: 4 },
       ],
     },
     flavor: 'Every name you were taught, spoken once, in order, to nobody.',
@@ -170,14 +173,21 @@ export const NEUTRAL_CARDS: readonly CardDef[] = [
     rarity: 'common',
     archetype: 'neutral',
     cost: 1,
+    /* The Rust is the card; the cut is how it gets there.
+     *
+       Five damage plus two Rust for one Energy was a common that beat the
+       uncommon attacks on raw numbers and then also left a status behind. At
+       two, the swing is a delivery mechanism and the decision is about the
+       Rust — which is the card this was always supposed to be, and it keeps
+       Rust Bloom worth building around rather than incidental. */
     effects: [
-      { op: 'damage', amount: 5, target: 'enemy' },
+      { op: 'damage', amount: 2, target: 'enemy' },
       { op: 'applyStatus', status: RUST, stacks: 2, target: 'enemy' },
     ],
     upgrade: {
       name: 'Corrosive Edge+',
       effects: [
-        { op: 'damage', amount: 7, target: 'enemy' },
+        { op: 'damage', amount: 4, target: 'enemy' },
         { op: 'applyStatus', status: RUST, stacks: 3, target: 'enemy' },
       ],
     },
@@ -222,15 +232,24 @@ export const NEUTRAL_CARDS: readonly CardDef[] = [
        on. */
     cost: 2,
     exhaust: true,
+    /* Two Vulnerable on YOU, last, after the Rust is on them.
+     *
+     * The card's whole shape is a bill you hand somebody else and walk away
+     * from — thirty unblockable, arriving over five turns. Two Vulnerable is
+     * what stops walking away being free: you are exposed for the round you
+     * spent setting it up, which is the round you are least able to answer
+     * anything. */
     effects: [
       { op: 'damage', amount: 6, target: 'enemy' },
       { op: 'applyStatus', status: RUST, stacks: 5, target: 'enemy' },
+      { op: 'applyStatus', status: VULNERABLE, stacks: 2, target: 'self' },
     ],
     upgrade: {
       name: 'Salt the Wound+',
       effects: [
         { op: 'damage', amount: 8, target: 'enemy' },
         { op: 'applyStatus', status: RUST, stacks: 6, target: 'enemy' },
+        { op: 'applyStatus', status: VULNERABLE, stacks: 2, target: 'self' },
       ],
     },
     flavor: 'You do not have to be there when it finishes.',
@@ -258,14 +277,18 @@ export const NEUTRAL_CARDS: readonly CardDef[] = [
     /* Burn, for the reason Take the Weight burns: Strength does not decay, so
        a permanent stack on a re-drawable card is not a stack, it is a slope. */
     exhaust: true,
+    /* Four health, up from two. Strength never falls off, so this is a permanent
+       raise bought with a one-off payment — and at two the payment was small
+       enough that the card had no argument against it in any deck that could
+       afford a card slot. Four is a real bite out of an act's hull budget. */
     effects: [
-      { op: 'heal', amount: -2 },
+      { op: 'heal', amount: -4 },
       { op: 'applyStatus', status: STRENGTH, stacks: 1, target: 'self' },
     ],
     upgrade: {
       name: 'Set the Shoulder+',
       effects: [
-        { op: 'heal', amount: -2 },
+        { op: 'heal', amount: -4 },
         { op: 'applyStatus', status: STRENGTH, stacks: 2, target: 'self' },
       ],
     },

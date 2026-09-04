@@ -13,7 +13,7 @@ import type { GameState, StanceId } from '../types.ts';
 import { appendLog, requireCombat, withCombat } from '../state.ts';
 import { fireHook } from '../hooks.ts';
 import { ACTIVE_STANCES, STANCES } from '../../content/balance.ts';
-import { stanceChangeLimit, stanceRulesFor } from './rules.ts';
+import { stanceChangeLimit, stanceRulesFor, canEnterStance } from './rules.ts';
 
 export function currentStance(state: GameState): StanceId {
   return requireCombat(state).stance;
@@ -65,11 +65,29 @@ export function setStance(state: GameState, to: StanceId, source: string): GameS
     });
   }
 
+  /* Left it once this turn, so it is shut. See `StanceRules.noReentry`: this is
+     Iron Tide's and Banked Fire's whole cost, and it is checked against the
+     DESTINATION because a limit on the stance you are standing in is a limit
+     you escape by standing somewhere else. */
+  if (!canEnterStance(state, to)) {
+    return appendLog(state, {
+      source,
+      kind: 'stance',
+      text: `${STANCES[to].name} is shut — you left it this turn.`,
+      detail: { from, to, refused: true },
+    });
+  }
+
   const rules = stanceRulesFor(state, to);
   const changed = withCombat(state, (current) => ({
     ...current,
     stance: to,
     stanceChangesThisTurn: current.stanceChangesThisTurn + 1,
+    /* Every departure is recorded, whether or not the stance being left cares
+       today — a mastery earned mid-fight must not get one free return. */
+    stancesLeftThisTurn: current.stancesLeftThisTurn.includes(from)
+      ? current.stancesLeftThisTurn
+      : [...current.stancesLeftThisTurn, from],
   }));
   const logged = appendLog(changed, {
     source,

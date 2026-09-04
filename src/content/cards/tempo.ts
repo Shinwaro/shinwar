@@ -15,17 +15,22 @@
  *   - Something at the end that scales on the whole turn, so a nine-card turn
  *     ends in a number a three-card turn cannot reach.
  *
- * They chain: Pressure Release into Open the Line into Long Form is a turn you
+ * They chain: Pressure Utilization into Open the Line into Long Form is a turn you
  * build rather than a hand you play.
  */
 
 import type { CardDef } from '../../engine/types.ts';
-import { RUST } from '../statuses.ts';
+import { RUST, VULNERABLE, WEAK } from '../statuses.ts';
 
 export const TEMPO_CARDS: readonly CardDef[] = [
   {
-    id: 'pressure_release',
-    name: 'Pressure Release',
+    /* Renamed from Pressure Release, id and all — nothing referenced the old
+       one. "Release" is what venting does, and this card is the opposite: it
+       spends a gauge that is already high rather than bringing it down. A name
+       that describes the wrong half of the mechanic is worse on an archetype
+       whose whole difficulty is knowing which direction you are pushing. */
+    id: 'pressure_utilization',
+    name: 'Pressure Utilization',
     type: 'skill',
     rarity: 'common',
     archetype: 'overheat',
@@ -38,6 +43,11 @@ export const TEMPO_CARDS: readonly CardDef[] = [
        two points from the line — you are choosing to sit inside the overheat
        window to get it, which is the bargain the card is supposed to be
        offering. */
+    /* The Vulnerable is unconditional, and that is the point of putting it
+       here. The card's own bargain already reads the gauge — Energy if you are
+       hot, more Heat if you are not — so a cost that ALSO scaled with Heat
+       would have been the same question twice. A flat point of Vulnerable is
+       what you pay for asking the question at all. */
     effects: [
       {
         op: 'conditional',
@@ -45,9 +55,10 @@ export const TEMPO_CARDS: readonly CardDef[] = [
         then: [{ op: 'gainEnergy', amount: 1 }],
         else: [{ op: 'gainHeat', amount: 2 }],
       },
+      { op: 'applyStatus', status: VULNERABLE, stacks: 1, target: 'self' },
     ],
     upgrade: {
-      name: 'Pressure Release+',
+      name: 'Pressure Utilization+',
       effects: [
         {
           op: 'conditional',
@@ -55,6 +66,7 @@ export const TEMPO_CARDS: readonly CardDef[] = [
           then: [{ op: 'gainEnergy', amount: 2 }],
           else: [{ op: 'gainHeat', amount: 2 }],
         },
+        { op: 'applyStatus', status: VULNERABLE, stacks: 1, target: 'self' },
       ],
     },
     flavor: 'Let it out through something useful on the way past.',
@@ -274,15 +286,36 @@ export const TEMPO_CARDS: readonly CardDef[] = [
     archetype: 'overheat',
     cost: 0,
     exhaust: true,
+    /* Four Heat, and the Energy only if that leaves you at six or more.
+     *
+       The unconditional version was Energy for Heat at a fixed rate, which made
+       it best in the deck that wanted it least: a cold deck played it from two
+       Heat, took the Energy and was still nowhere near the threshold. The whole
+       point of the archetype is that Heat is dangerous, and a card that hands
+       out the reward before the danger starts is the archetype's floor rather
+       than its ceiling.
+     *
+       Gated at six, it has to be played from two or above to pay at all — so
+       taking the Energy means standing in the half of the gauge where overheat
+       is a real possibility. The Heat comes first and the check reads the total
+       after it, which is the reading the card's own sentence gives.
+     *
+       The upgrade keeps its unconditional Energy at half the Heat: gating that
+       too would make the cheaper version WORSE at reaching the gate, which is
+       an upgrade that undoes itself. */
     effects: [
-      { op: 'gainHeat', amount: 3 },
-      { op: 'gainEnergy', amount: 1 },
+      { op: 'gainHeat', amount: 4 },
+      {
+        op: 'conditional',
+        when: { kind: 'heatAtLeast', value: 6 },
+        then: [{ op: 'gainEnergy', amount: 1 }],
+      },
     ],
     upgrade: {
       name: 'Stoke the Core+',
       effects: [
-        { op: 'gainHeat', amount: 3 },
-        { op: 'gainEnergy', amount: 2 },
+        { op: 'gainHeat', amount: 2 },
+        { op: 'gainEnergy', amount: 1 },
       ],
     },
     flavor: 'Ask it for more. It has never once refused.',
@@ -501,10 +534,22 @@ export const TEMPO_CARDS: readonly CardDef[] = [
        that wants this card, is none of them. Two Heat is a quarter of the gauge
        for a quarter of a turn, which is a trade you have to actually think
        about at 6. */
+    /* And a point of Vulnerable, which is the honest half of the price.
+     *
+     * Heat alone was the wrong currency for this card: it is a NEUTRAL 0-cost
+     * that hands you an Energy, and the decks that want a free Energy most are
+     * the ones running the gauge on purpose — so its cost was a discount for
+     * exactly the archetype it was strongest in. Vulnerable is a cost nothing
+     * in the game rewards, so it lands the same on every deck.
+     *
+     * Last, after the Energy, because a self-applied debuff sheds at the end of
+     * the round it was paid — see `applyStatus` in `effects.ts`. You take the
+     * enemy phase under it and then it starts wearing off. */
     effects: [
       { op: 'cycleStance', direction: 1 },
       { op: 'gainEnergy', amount: 1 },
       { op: 'gainHeat', amount: 2 },
+      { op: 'applyStatus', status: VULNERABLE, stacks: 1, target: 'self' },
     ],
     upgrade: {
       name: 'Weight Shift+',
@@ -513,6 +558,7 @@ export const TEMPO_CARDS: readonly CardDef[] = [
         { op: 'gainEnergy', amount: 1 },
         { op: 'gainHeat', amount: 2 },
         { op: 'draw', amount: 1 },
+        { op: 'applyStatus', status: VULNERABLE, stacks: 1, target: 'self' },
       ],
     },
     flavor: 'Once a fight the footing is free. After that you are paying for it.',
@@ -594,4 +640,39 @@ export const TEMPO_CARDS: readonly CardDef[] = [
     },
     flavor: 'One motion that has not finished when the next one starts.',
   },
+
+  {
+    /* The Weak-cost utility card, the other half of the same idea.
+     *
+     * Weak belongs on cards that do NOT deal damage — on an attack it fights
+     * the card it is printed on, and on a draw card it is a clean price: you
+     * spent the turn reading instead of swinging, so you swing softer.
+     *
+     * Burns, and the reason is the stack cap. Weak stops at two, so a
+     * repeatable card charging one stack stops paying after the second play —
+     * within a single turn the third copy is free. On a card whose whole output
+     * is more cards, that is an engine that pays its price once. Once per copy
+     * keeps the cost real.
+     */
+    id: 'count_the_beats',
+    name: 'Count the Beats',
+    type: 'skill',
+    rarity: 'uncommon',
+    archetype: 'neutral',
+    cost: 0,
+    exhaust: true,
+    effects: [
+      { op: 'draw', amount: 3 },
+      { op: 'applyStatus', status: WEAK, stacks: 1, target: 'self' },
+    ],
+    upgrade: {
+      name: 'Count the Beats+',
+      effects: [
+        { op: 'draw', amount: 4 },
+        { op: 'applyStatus', status: WEAK, stacks: 1, target: 'self' },
+      ],
+    },
+    flavor: 'Four of them, always, and the fifth is where they stop being careful.',
+  },
+
 ];

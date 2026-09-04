@@ -247,4 +247,43 @@ export const IAI_CARDS: readonly CardDef[] = [
     },
     flavor: 'It arrives before the sound does and leaves before the sound catches up.',
   },
+
+  {
+    /* The Vulnerable-cost attack, and the shape the cost was invented for.
+     *
+     * Heat was the only currency a powerful card could be priced in, and Heat
+     * is upside for the archetype most likely to want a big swing — so the
+     * price was a discount for exactly the wrong deck. Two Vulnerable is a cost
+     * nothing in the game rewards: it lands identically on every build.
+     *
+     * The debuff goes LAST, and that is load-bearing. Effects resolve in array
+     * order, so a self-debuff placed before the damage would be read by the
+     * pipeline and nerf the card's own hit — see step 4 in `damage.ts`. It is
+     * Vulnerable rather than Weak here for the same reason: Weak would fight
+     * the card, Vulnerable is paid on the way back.
+     *
+     * Repeatable on purpose. The stack sheds at the end of the round you paid
+     * it, so keeping this up means paying every round — the cost recurs even
+     * though the status caps at two.
+     */
+    id: 'open_guard',
+    name: 'Open Guard',
+    type: 'attack',
+    rarity: 'epic',
+    archetype: 'iai',
+    cost: 1,
+    effects: [
+      { op: 'damage', amount: 15, target: 'enemy' },
+      { op: 'applyStatus', status: VULNERABLE, stacks: 2, target: 'self' },
+    ],
+    upgrade: {
+      name: 'Open Guard+',
+      effects: [
+        { op: 'damage', amount: 19, target: 'enemy' },
+        { op: 'applyStatus', status: VULNERABLE, stacks: 2, target: 'self' },
+      ],
+    },
+    flavor: 'The opening is the offer. They take it or they do not.',
+  },
+
 ];

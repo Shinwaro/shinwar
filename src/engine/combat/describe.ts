@@ -30,6 +30,11 @@ function targetSuffix(target: Target): string {
       return ' to all enemies';
     case 'randomEnemy':
       return ' to a random enemy';
+    /* The player has no allies, so their own side is only ever themselves — and
+       "gain 2 Block to yourself" is worse English than "gain 2 Block". Enemy
+       moves never reach here; their telegraphs are hand-written labels. */
+    case 'allAllies':
+      return '';
     default:
       return '';
   }
@@ -215,10 +220,20 @@ function describeOp(op: EffectOp, state: GameState | null, afterDamage = false):
        * whole pool reads by, since `targetSuffix` only speaks up for the plural
        * targets. So a self-buff rendered bare said the opposite of what it did,
        * and it only became visible once buffs other than Strength existed.
-       * "Gain" is also the verb the card already uses for Block and Focus. */
-      return op.target === 'self'
-        ? `Gain ${op.stacks} ${statusName(op.status)}.`
-        : `Apply ${op.stacks} ${statusName(op.status)}${targetSuffix(op.target)}.`;
+       * "Gain" is also the verb the card already uses for Block and Focus.
+       *
+       * "TAKE 2 Weak" for a debuff you put on yourself, though. `Gain` was
+       * built for buffs and reads as upside, which is exactly backwards once
+       * cards start pricing themselves in Vulnerable and Weak — "Gain 2
+       * Vulnerable" is a sentence that tells the player they are being given
+       * something. The status table already knows which kind each one is, so
+       * the verb can come from the status rather than from the target alone.
+       * Cost and benefit are the two things a card must never confuse. */
+      if (op.target === 'self') {
+        const verb = statusTable.find(op.status)?.kind === 'debuff' ? 'Take' : 'Gain';
+        return `${verb} ${op.stacks} ${statusName(op.status)}.`;
+      }
+      return `Apply ${op.stacks} ${statusName(op.status)}${targetSuffix(op.target)}.`;
     case 'gainHeat':
       return `Gain ${op.amount} Heat.`;
     case 'ventHeat':
@@ -305,7 +320,11 @@ function describeOp(op: EffectOp, state: GameState | null, afterDamage = false):
       if (single !== undefined && single.op === 'damage') {
         const repeats = (single.times ?? 1) > 1 ? ` ${single.times} times` : '';
         const who = single.target === 'allEnemies' ? ' all enemies' : '';
-        return `For every ${per}${describeScaleSource(op.source, op.per)}, hit${who} for ${single.amount}${repeats}.${live}`;
+        /* "for 4 damage", not "for 4". Every other number on a card face names
+           its unit — Block, Heat, Focus — and a bare figure in the one sentence
+           that is about repeated hits reads as a count of hits rather than as
+           the size of each. */
+        return `For every ${per}${describeScaleSource(op.source, op.per)}, hit${who} for ${single.amount} damage${repeats}.${live}`;
       }
 
       /*
@@ -478,29 +497,62 @@ export type CardSegment =
   | { readonly kind: 'block'; readonly figures: DamageFigures };
 
 /**
- * The card's text, split so the UI can style the numbers that move.
+ * Whether the Focus bonus has been spoken for yet.
  *
- * Only the top-level damage ops are broken out; everything else is handed
- * straight to the string generator above. That keeps prose in one place — a
- * second walk of the op tree here would drift from `describeCard` the first
- * time either changed.
+ * ONE stack is spent per card play — see `context.focusSpent` in `effects.ts`,
+ * which both the damage and the Block side check. So exactly one figure on a
+ * card may wear the `+2`, and which one is settled by resolution order: the
+ * base effects run first and the rider runs after with the same context, so the
+ * base claims it and the rider gets nothing.
+ *
+ * A mutable token rather than a return value because the claim has to survive
+ * from the card's own text into its rider, which the UI renders as a separate
+ * paragraph. IAI Slash is the case that made this necessary: base "Deal 6" and
+ * an IAI rider "Deal 2" both printed "+2", promising four points of Focus on a
+ * card that spends one stack.
  */
-export function describeCardSegments(
-  def: CardDef,
-  state: GameState | null = null,
-): readonly CardSegment[] {
-  /* A Voided card has no ops, so walking them produces an empty paragraph —
-     and a card in your hand with nothing written on it reads as a rendering
-     fault rather than as the curse it is. `describeCard` already says the right
-     words and has no figure to style, so this hands the whole sentence over
-     rather than repeating it. Found by the test that asserts these two agree,
-     which is the second thing that test caught. */
-  if (def.type === 'voided') return [{ kind: 'text', text: describeCard(def, state) }];
+interface FocusClaim {
+  claimed: boolean;
+}
 
+/**
+ * Hand the bonus to this figure, if nothing has taken it yet.
+ *
+ * A figure with no bonus to show never claims — that matters for the
+ * cross-stance cards, where GUARD's Focus has to reach past a damage op it does
+ * not apply to and land on the Block in the rider (Sweeping Guard), or IAI's
+ * has to reach past a Block (Riposte Plate).
+ */
+function claimFocus(figures: DamageFigures, claim: FocusClaim): DamageFigures {
+  if (figures.focus <= 0) return figures;
+  if (claim.claimed) return { ...figures, focus: 0 };
+  claim.claimed = true;
+  return figures;
+}
+
+/**
+ * One op list, split where the UI puts a styled number in.
+ *
+ * Only the top-level `damage` and `block` ops are broken out; everything else
+ * is handed straight to the string generator above. That keeps prose in one
+ * place — a second walk of the op tree here would drift from `describeCard`
+ * the first time either changed. What the nested ones get instead is
+ * `focusNote`.
+ *
+ * Shared by the card's own effects and by its stance rider, which used to be
+ * rendered as a flat string — so a GUARD rider granting Block showed no Focus
+ * bonus at all, on exactly the cards whose Block only lives in the rider.
+ */
+function segmentsOfOps(
+  ops: readonly EffectOp[],
+  def: CardDef,
+  state: GameState | null,
+  claim: FocusClaim,
+): CardSegment[] {
   const out: CardSegment[] = [];
   let afterDamage = false;
 
-  for (const op of def.effects) {
+  for (const op of ops) {
     if (op.op === 'damage') {
       /* Same sentence as `describeOp`, cut where the styled figure goes — see
          `damageParts`. Splitting one implementation rather than keeping two is
@@ -508,7 +560,7 @@ export function describeCardSegments(
          scaling two a step. */
       const parts = damageParts(op, state);
       out.push({ kind: 'text', text: parts.lead });
-      out.push({ kind: 'damage', figures: damageFigures(parts.amount, def, state) });
+      out.push({ kind: 'damage', figures: claimFocus(damageFigures(parts.amount, def, state), claim) });
       out.push({ kind: 'text', text: `${parts.tail} ` });
       afterDamage = true;
       continue;
@@ -516,20 +568,153 @@ export function describeCardSegments(
 
     if (op.op === 'block') {
       out.push({ kind: 'text', text: 'Gain ' });
-      out.push({ kind: 'block', figures: blockFigures(op.amount, def, state) });
+      out.push({ kind: 'block', figures: claimFocus(blockFigures(op.amount, def, state), claim) });
       out.push({ kind: 'text', text: ' Block. ' });
       continue;
     }
     out.push({ kind: 'text', text: `${describeOp(op, state, afterDamage)} ` });
   }
 
+  return out;
+}
+
+export interface CardParts {
+  /** The card's own text. */
+  readonly text: readonly CardSegment[];
+  /** The stance rider's text, or `null` when it has no rider. */
+  readonly rider: readonly CardSegment[] | null;
+  /** The Focus bonus in words, when no figure above could carry it. */
+  readonly note: string | null;
+}
+
+/**
+ * Everything printed on one card, built together.
+ *
+ * Together rather than by three separate calls, because the Focus bonus is a
+ * fact about the CARD and the three pieces have to agree on who wears it. Built
+ * in resolution order — own effects, then rider, then whatever is left over
+ * for the note — so the piece that claims the `+2` is the piece the engine
+ * actually spends it on.
+ */
+export function describeCardParts(def: CardDef, state: GameState | null = null): CardParts {
+  /* A Voided card has no ops, so walking them produces an empty paragraph —
+     and a card in your hand with nothing written on it reads as a rendering
+     fault rather than as the curse it is. `describeCard` already says the right
+     words and has no figure to style, so this hands the whole sentence over
+     rather than repeating it. Found by the test that asserts these two agree,
+     which is the second thing that test caught. */
+  if (def.type === 'voided') {
+    return { text: [{ kind: 'text', text: describeCard(def, state) }], rider: null, note: null };
+  }
+
+  const claim: FocusClaim = { claimed: false };
+  const text = segmentsOfOps(def.effects, def, state, claim);
+
   const tail: string[] = [];
   if (def.exhaust === true && !def.effects.some((op) => op.op === 'exhaustSelf')) tail.push('Burn.');
   if (def.innate === true) tail.push('Innate.');
   if (def.keepsFocus === true) tail.push('Does not consume Focus.');
-  if (tail.length > 0) out.push({ kind: 'text', text: tail.join(' ') });
+  if (tail.length > 0) text.push({ kind: 'text', text: tail.join(' ') });
 
-  return out;
+  /* The rider second, because it resolves second. Built even when the player is
+     out of its stance: the paragraph is still on the card, greyed, and a number
+     that appears only once you are already in the stance is no use for deciding
+     whether to enter it. */
+  const rider =
+    def.stanceRider === undefined
+      ? null
+      : segmentsOfOps(def.stanceRider.effects, def, state, claim);
+
+  return { text, rider, note: claim.claimed ? null : focusNoteFor(def, state) };
+}
+
+/**
+ * The stance rider, as segments, so its figures carry the same live bonuses the
+ * card's own text does. `null` when the card has no rider.
+ *
+ * The `STANCE:` label is still the UI's, so it can highlight when live.
+ */
+export function describeRiderSegments(
+  def: CardDef,
+  state: GameState | null = null,
+): readonly CardSegment[] | null {
+  return describeCardParts(def, state).rider;
+}
+
+export function describeCardSegments(
+  def: CardDef,
+  state: GameState | null = null,
+): readonly CardSegment[] {
+  return describeCardParts(def, state).text;
+}
+
+/** Does an op of this kind appear anywhere in the tree, however deeply nested? */
+function hasOpKind(ops: readonly EffectOp[], kind: 'damage' | 'block'): boolean {
+  for (const op of ops) {
+    if (op.op === kind) return true;
+    if (op.op === 'conditional') {
+      if (hasOpKind(op.then, kind)) return true;
+      if (op.else !== undefined && hasOpKind(op.else, kind)) return true;
+    }
+    if (op.op === 'scaleWith' && hasOpKind(op.then, kind)) return true;
+  }
+  return false;
+}
+
+/**
+ * The Focus bonus this card will get, said in words, for the cards where no
+ * printed figure can carry it.
+ *
+ * The `+2` chip hangs off a damage or Block *segment*, and only a TOP-LEVEL
+ * `damage` or `block` op becomes one — anything nested inside a `conditional`
+ * or a `scaleWith` is handed to the string generator whole, with no figure to
+ * hang anything on. So fifteen cards spent the whole game never mentioning
+ * their Focus bonus: Momentum, Execute and Criticality deal all their damage
+ * from inside a `scaleWith`, and Unhurried, The Last Plate and Shed Weight
+ * gain all their Block from inside a `conditional`. Reliably the long cards,
+ * which is the worst place to lose a number — they are the ones a player is
+ * already working to read.
+ *
+ * Recursing the whole tree into segments is the other fix, and it is the wrong
+ * one: `conditional` and `scaleWith` build their prose by rewriting the
+ * flattened body ("deal 8 damage" → "deal 8 additional damage"), so segments
+ * there would need a second copy of that wording — which is the exact drift
+ * this file keeps warning about. A sentence costs nothing and cannot drift,
+ * because the numbers in it come from the same `damageFigures`/`blockFigures`
+ * the chip does.
+ *
+ * Only ever reached when the claim went unspent — see `describeCardParts` —
+ * so no card can say it twice. This used to decide that for itself by looking
+ * for a top-level op of the right kind, which was the same question asked a
+ * second way and would have drifted the moment either answer changed.
+ */
+export function focusNote(def: CardDef, state: GameState | null): string | null {
+  return describeCardParts(def, state).note;
+}
+
+function focusNoteFor(def: CardDef, state: GameState | null): string | null {
+  if (state === null) return null;
+  const combat = activeCombat(state);
+  if (combat === null) return null;
+
+  const stance = liveStance(state);
+  const kind = stance.focusMode === 'damage' ? 'damage' : 'block';
+
+  /* The same three conditions `damageFigures` and `blockFigures` check. Asking
+     them directly would be better still, but they answer about one op and the
+     question here is about the card. */
+  const figures =
+    kind === 'damage'
+      ? damageFigures(0, def, state)
+      : blockFigures(0, def, state);
+  if (figures.focus <= 0) return null;
+
+  const rider = def.stanceRider?.effects ?? [];
+  // Nothing of this kind on the card at all, so the bonus has nothing to land
+  // on and saying otherwise would promise damage the card never deals.
+  if (!hasOpKind(def.effects, kind) && !hasOpKind(rider, kind)) return null;
+
+  return `Focus: +${figures.focus} ${kind === 'damage' ? 'damage' : 'Block'}`;
 }
 
 /** The card's base rules text. The rider is described separately so the UI can grey it. */

@@ -27,6 +27,16 @@ export function addStacks(
   held: readonly StatusStack[],
   status: StatusId,
   delta: number,
+  /**
+   * Whether a gain counts as new. Defaults to true, which is right for anything
+   * one combatant puts on another.
+   *
+   * Pass `false` when the holder is the one applying it and is acting right now
+   * — see the `applyStatus` case in `effects.ts`. A cost you take on yourself is
+   * already being paid this turn, so it should not also skip the decay that
+   * closes the turn.
+   */
+  markFresh = true,
 ): readonly StatusStack[] {
   if (delta === 0) return held;
   const existing = stacksOf(held, status);
@@ -37,7 +47,11 @@ export function addStacks(
   // Gaining stacks marks the whole entry fresh, so the coming decay skips it
   // once. Losing them never does — a decay must not refresh its own target.
   const wasFresh = held.find((entry) => entry.status === status)?.fresh ?? false;
-  const fresh = delta > 0 ? true : wasFresh;
+  /* A gain marks the entry fresh unless the caller says otherwise. Everything
+     else — a loss, or a self-applied cost — leaves the flag where it was, so a
+     player stacking their own Weak on top of an enemy's cannot strip the
+     protection the enemy's stack had earned. */
+  const fresh = delta > 0 && markFresh ? true : wasFresh;
 
   // Keep the list sorted so the order never depends on application order.
   return [...without, { status, stacks: next, fresh }].sort((a, b) =>

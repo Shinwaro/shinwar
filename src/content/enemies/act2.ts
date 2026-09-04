@@ -41,8 +41,12 @@ export const ACT2_ENEMIES: readonly EnemyDef[] = [
       {
         id: 'lunge',
         label: 'Lunge',
-        intent: [{ kind: 'attack', amount: 19, times: 1, label: 'Lunge' }],
-        effects: [{ op: 'damage', amount: 19, target: 'enemy' }],
+        /* 19 -> 16. It banks Strength on the alternate turn, so the printed
+           figure is the floor rather than the number you actually take — by
+           the third Lunge it was well past what an Act 2 normal should be
+           asking for on its own. */
+        intent: [{ kind: 'attack', amount: 16, times: 1, label: 'Lunge' }],
+        effects: [{ op: 'damage', amount: 16, target: 'enemy' }],
       },
       {
         id: 'drift',
@@ -102,7 +106,7 @@ export const ACT2_ENEMIES: readonly EnemyDef[] = [
         id: 'hymn',
         label: 'Hymn',
         intent: [{ kind: 'buff', amount: 2, times: 1, label: 'Strength +2 to all' }],
-        effects: [{ op: 'applyStatus', status: STRENGTH, stacks: 2, target: 'allEnemies' }],
+        effects: [{ op: 'applyStatus', status: STRENGTH, stacks: 2, target: 'allAllies' }],
       },
       {
         id: 'dirge',
@@ -428,19 +432,23 @@ export const ACT2_ENEMIES: readonly EnemyDef[] = [
         id: 'levy',
         label: 'Levy',
         intent: [
-          { kind: 'attack', amount: 8, times: 1, label: 'Levy' },
+          { kind: 'attack', amount: 7, times: 1, label: 'Levy' },
           { kind: 'debuff', amount: 35, times: 1, label: 'Alloy -35' },
         ],
         effects: [
-          { op: 'damage', amount: 8, target: 'enemy' },
+          { op: 'damage', amount: 7, target: 'enemy' },
           { op: 'gainAlloy', amount: -35 },
         ],
       },
       {
         id: 'audit',
         label: 'Audit',
-        intent: [{ kind: 'attack', amount: 16, times: 1, label: 'Audit' }],
-        effects: [{ op: 'damage', amount: 16, target: 'enemy' }],
+        /* 16 -> 12. Measured at 12 damage a turn averaged over its script, the
+           Keeper was hitting as hard as the average Act 2 ELITE (12.5) while
+           costing a normal's worth of the encounter budget — so any pack
+           containing it was quietly an elite fight. */
+        intent: [{ kind: 'attack', amount: 12, times: 1, label: 'Audit' }],
+        effects: [{ op: 'damage', amount: 12, target: 'enemy' }],
       },
     ],
     script: { kind: 'sequence', moves: ['levy', 'audit'] },
@@ -463,7 +471,7 @@ export const ACT2_ENEMIES: readonly EnemyDef[] = [
         id: 'brace',
         label: 'Brace',
         intent: [{ kind: 'buff', amount: 2, times: 1, label: 'Tempered 2 to all' }],
-        effects: [{ op: 'applyStatus', status: TEMPERED, stacks: 2, target: 'allEnemies' }],
+        effects: [{ op: 'applyStatus', status: TEMPERED, stacks: 2, target: 'allAllies' }],
       },
       {
         id: 'splint',

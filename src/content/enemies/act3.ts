@@ -62,14 +62,23 @@ export const ACT3_ENEMIES: readonly EnemyDef[] = [
         id: 'invert',
         label: 'Invert',
         intent: [
-          { kind: 'attack', amount: 26, times: 1, label: 'Invert' },
-          { kind: 'debuff', amount: 2, times: 1, label: 'Weak 2' },
+          { kind: 'attack', amount: 19, times: 1, label: 'Invert' },
+          { kind: 'debuff', amount: 1, times: 1, label: 'Weak 1' },
         ],
         effects: [
-          { op: 'damage', amount: 26, target: 'enemy' },
-          // Two, so at least one attacking turn lands under it — a single stack
-          // sheds at the end of your turn and was regularly spent on nothing.
-          { op: 'applyStatus', status: WEAK, stacks: 2, target: 'enemy' },
+          { op: 'damage', amount: 19, target: 'enemy' },
+          /* One stack, not two — and note this is Weak, not Vulnerable.
+           *
+           * The old note claimed a single stack "sheds before an attacking turn
+           * lands under it". That is true of Vulnerable, which the enemy has to
+           * still be around to exploit; it is not true of Weak, which is on the
+           * PLAYER and bites on the player's very next turn. One stack is
+           * already a full turn at reduced damage.
+           *
+           * And the Warden never appears alone. In a pack every other body is
+           * stacking Weak too, so two from each hit the cap on turn one and the
+           * act read as fighting at half strength whatever the player did. */
+          { op: 'applyStatus', status: WEAK, stacks: 1, target: 'enemy' },
         ],
       },
       {
@@ -82,9 +91,15 @@ export const ACT3_ENEMIES: readonly EnemyDef[] = [
          * gear — and the enemy that demands you find one has to be able to
          * punish you for not having it. At 18 a turn it could not, so the
          * correct play against it was to shrug and eat the fight. 33 is a turn
-         * you have to answer. */
-        intent: [{ kind: 'attack', amount: 11, times: 3, label: 'Handedness' }],
-        effects: [{ op: 'damage', amount: 11, target: 'enemy', times: 3 }],
+         * you have to answer.
+         *
+         * And back to 7. Measured across its script the Warden dealt 29.5 a
+         * turn — more than the Act 3 BOSS (23) and more than every elite in
+         * the act. That is not a spike, it is a mis-tier: any pack holding it
+         * was an elite fight charged at a normal's rate. 7 x 3 keeps the move's
+         * job, which is a wide swing the 0.4 multiplier cannot blunt. */
+        intent: [{ kind: 'attack', amount: 7, times: 3, label: 'Handedness' }],
+        effects: [{ op: 'damage', amount: 7, target: 'enemy', times: 3 }],
       },
     ],
     script: {
@@ -108,8 +123,8 @@ export const ACT3_ENEMIES: readonly EnemyDef[] = [
       {
         id: 'tap',
         label: 'Tap',
-        intent: [{ kind: 'attack', amount: 17, times: 1, label: 'Tap' }],
-        effects: [{ op: 'damage', amount: 17, target: 'enemy' }],
+        intent: [{ kind: 'attack', amount: 15, times: 1, label: 'Tap' }],
+        effects: [{ op: 'damage', amount: 15, target: 'enemy' }],
       },
       {
         id: 'stoke',
@@ -141,11 +156,11 @@ export const ACT3_ENEMIES: readonly EnemyDef[] = [
         id: 'refract',
         label: 'Refract',
         intent: [
-          { kind: 'attack', amount: 19, times: 1, label: 'Refract' },
+          { kind: 'attack', amount: 15, times: 1, label: 'Refract' },
           { kind: 'block', amount: 12, times: 1, label: 'Plate 12' },
         ],
         effects: [
-          { op: 'damage', amount: 19, target: 'enemy' },
+          { op: 'damage', amount: 15, target: 'enemy' },
           { op: 'block', amount: 12 },
         ],
       },
@@ -153,11 +168,11 @@ export const ACT3_ENEMIES: readonly EnemyDef[] = [
         id: 'null',
         label: 'Null',
         intent: [
-          { kind: 'attack', amount: 11, times: 2, label: 'Null' },
+          { kind: 'attack', amount: 9, times: 2, label: 'Null' },
           { kind: 'debuff', amount: 2, times: 1, label: 'Vulnerable 2' },
         ],
         effects: [
-          { op: 'damage', amount: 11, target: 'enemy', times: 2 },
+          { op: 'damage', amount: 9, target: 'enemy', times: 2 },
           /* 2, not 1. Vulnerable sheds a stack at the end of the target's
              turn, and the move that follows this one in the script does not
              attack — so a single stack was always spent on a turn that could
@@ -249,14 +264,14 @@ export const ACT3_ENEMIES: readonly EnemyDef[] = [
       {
         id: 'rake',
         label: 'Rake',
-        intent: [{ kind: 'attack', amount: 8, times: 3, label: 'Rake' }],
-        effects: [{ op: 'damage', amount: 8, target: 'enemy', times: 3 }],
+        intent: [{ kind: 'attack', amount: 7, times: 3, label: 'Rake' }],
+        effects: [{ op: 'damage', amount: 7, target: 'enemy', times: 3 }],
       },
       {
         id: 'crest',
         label: 'Crest',
-        intent: [{ kind: 'attack', amount: 22, times: 1, label: 'Crest' }],
-        effects: [{ op: 'damage', amount: 22, target: 'enemy' }],
+        intent: [{ kind: 'attack', amount: 19, times: 1, label: 'Crest' }],
+        effects: [{ op: 'damage', amount: 19, target: 'enemy' }],
       },
     ],
     script: { kind: 'sequence', moves: ['gather', 'rake', 'crest'] },
@@ -501,12 +516,15 @@ export const ACT3_ENEMIES: readonly EnemyDef[] = [
         id: 'unwrite',
         label: 'Unwrite',
         intent: [
-          { kind: 'attack', amount: 18, times: 1, label: 'Unwrite' },
-          { kind: 'debuff', amount: 2, times: 1, label: 'Weak 2' },
+          { kind: 'attack', amount: 16, times: 1, label: 'Unwrite' },
+          { kind: 'debuff', amount: 1, times: 1, label: 'Weak 1' },
         ],
         effects: [
-          { op: 'damage', amount: 18, target: 'enemy' },
-          { op: 'applyStatus', status: WEAK, stacks: 2, target: 'enemy' },
+          { op: 'damage', amount: 16, target: 'enemy' },
+          // One, for the same reason as the Warden's above: Act 3 packs stack
+          // Weak on top of each other, and two from every body reached the cap
+          // immediately whatever the player did.
+          { op: 'applyStatus', status: WEAK, stacks: 1, target: 'enemy' },
         ],
       },
     ],

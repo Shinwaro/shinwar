@@ -7,7 +7,7 @@
 import type { CombatState, GameState, LogEntry, RunState, TitleState } from './types.ts';
 import { createRng } from './rng.ts';
 import { buildDeck } from './combat/instances.ts';
-import { PLAYER } from '../content/balance.ts';
+import { PLAYER, RELIC_COMBAT_PITY } from '../content/balance.ts';
 import { TUTORIAL_DECK } from '../content/tutorial.ts';
 import { STARTING_DECK } from '../content/cards/index.ts';
 
@@ -71,7 +71,13 @@ export function createRunState(seed: string, depth: number): RunState {
     shop: null,
     forcedTier: null,
     ambushOwes: null,
-    combatRelicDry: 0,
+    /* Starts AT neutral, not at zero.
+
+       The curve reads this as "fights since the last drop", and zero now means
+       "one just landed" — which would open every run two fights below the base
+       rate as a penalty for a relic nobody received. Neutral is the honest
+       starting position: no history either way. */
+    combatRelicDry: RELIC_COMBAT_PITY.neutral,
     combatRelicsFound: 0,
     // Act 1 has no front. `openMap` sets it when the act that does begins.
     wavefront: null,

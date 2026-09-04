@@ -7,6 +7,7 @@
  */
 
 import type { EnemyState, GameState } from '../../engine/types.ts';
+import type { TargetHullInterest } from '../../engine/queries.ts';
 import {
   describeIntentHit,
   describeIntentKind,
@@ -41,6 +42,15 @@ export interface EnemyViewOptions {
   readonly focused: boolean;
   /** This enemy is taking its turn right now. */
   readonly acting: boolean;
+  /**
+   * What the card in hand wants to know about this target's hull, or null.
+   *
+   * Comes from `targetHullInterest` in the engine — the component does not read
+   * effect ops itself. Present only while a card is actually picked up, because
+   * these marks answer a question the card is asking and mean nothing without
+   * one.
+   */
+  readonly hullInterest: TargetHullInterest | null;
   readonly onPick: () => void;
 }
 
@@ -136,12 +146,39 @@ export function renderEnemy(
   // which rock comes, never in whether the player could have seen it.
   const marked = !dead && envGetString(requireCombat(state), 'debrisTarget') === enemy.uid;
 
+
+
   // Outlines the whole card, so "who is marked" is answerable without reading.
   if (marked) classes.push('is-marked');
 
   const hpPct = enemy.maxHp === 0 ? 0 : Math.max(0, (enemy.hp / enemy.maxHp) * 100);
   const hpFill = el('span', { class: 'bar-fill' });
-  const hpBar = el('div', { class: 'bar bar--hp' }, [hpFill]);
+
+  /*
+   * The lines the selected card is asking about, drawn on the bar it asks
+   * about.
+   *
+   * Execute pays below 30% and the board says `28/28`, so the player converts
+   * hull into percent in their head, every turn, against a number that changes
+   * every turn. A tick turns that into looking at where the fill sits relative
+   * to a line — the question, drawn, rather than the question, computed.
+   *
+   * Positioned from the left with no width: it is a hairline at a percentage,
+   * and the fill it is compared against is positioned the same way, so the two
+   * cannot drift apart.
+   */
+  const interest = options.hullInterest;
+  const ticks = (interest?.thresholds ?? []).map((line) =>
+    el('span', {
+      class: 'bar-line',
+      style: `left:${line.pct}%`,
+      'data-side': line.side,
+      'aria-hidden': 'true',
+      title: `This card reads ${line.side} ${line.pct}% hull`,
+    }),
+  );
+
+  const hpBar = el('div', { class: 'bar bar--hp' }, [hpFill, ...ticks]);
   // Drains from wherever it was rather than snapping, so a hit reads as a hit.
   setBarFill(hpFill, `enemy:${enemy.uid}`, hpPct, true);
 
@@ -166,6 +203,20 @@ export function renderEnemy(
         renderGlyph(def.id, def.name),
         el('span', { class: 'enemy-name' }, [def.name]),
         el('span', { class: 'enemy-hp' }, [`${enemy.hp}/${enemy.maxHp}`]),
+        /* The percentage, and only while a card that speaks in percentages is
+           in hand. It is the same fact as the numbers beside it, in the units
+           the card used — worth its space exactly when something is asking,
+           and noise the rest of the time. */
+        interest === null
+          ? null
+          : el(
+              'span',
+              {
+                class: 'enemy-hp-pct',
+                title: 'This card reads the target’s hull as a percentage.',
+              },
+              [`${Math.round(hpPct)}%`],
+            ),
         // Same shield as the player's, on the same row as the health it
         // protects. Block is not a status and should not read as one.
         el(
@@ -182,6 +233,19 @@ export function renderEnemy(
       // out, and a container that disappears with it takes the fade with it.
       el('div', { class: 'pips', 'data-owner': enemy.uid }, statusRow),
       intentNode,
+      /* The mark, in the card's own bottom-right corner.
+       *
+       * Its own right-aligned row at the bottom of the card grid — see the CSS
+       * for why it is not simply overlaid on the corner: the intent row is
+       * centred and spans the card, so an overlay collided with the telegraph
+       * on every normal-tier enemy.
+       *
+       * It rode inside the intent row for a moment. That put it in the right
+       * place conceptually and the wrong place visually: on a normal-tier card
+       * it competed with the telegraph for a line barely wide enough for the
+       * telegraph. Its own row is the only version where nothing moves and
+       * nothing overlaps. */
+      marked ? debrisChip() : null,
     ],
   );
 
@@ -189,49 +253,31 @@ export function renderEnemy(
   return node;
 }
 
-/** Which way the mark points. */
-export type DebrisAim = 'left' | 'right' | 'down';
-
-const AIM_GLYPH: Record<DebrisAim, string> = { left: '◁', right: '▷', down: '▽' };
-const AIM_WORDS: Record<DebrisAim, string> = {
-  left: 'A rock is coming for the enemy on the left at the end of the round.',
-  right: 'A rock is coming for the enemy on the right at the end of the round.',
-  down: 'A rock is coming for YOU at the end of the round.',
-};
+const DEBRIS_WORDS = 'A rock hits this one at the end of the round. Block stops it.';
 
 /**
- * The Debris Field's mark. One place on the board, and the arrow says who.
+ * The Debris Field’s mark, for whoever the rock is coming for.
  *
- * It used to live inside the marked card — a label about the box, printed in
- * the box — and then beside whichever card was marked, which meant it MOVED
- * from round to round and the eye had to find it again every time.
+ * One chip, no direction, on the marked combatant’s own panel — beside the
+ * intent on an enemy card, beside Energy in the stance window for the player.
+ * Both of those are places the player is already reading to find out what
+ * happens at the end of this round, which is exactly what the mark says.
  *
- * Now it holds still, in the middle of the enemy row, and only the arrow
- * changes: left or right for an enemy, down for the player. One place to look
- * and a direction to follow beats a label that could be anywhere, and the red
- * outline on the marked card — or on the player's own panel — is what removes
- * the last ambiguity on a three-wide board.
- *
- * A flex sibling rather than an overlay: the row divides its width between the
- * enemies by tier, so anything absolutely positioned over it would lie across
- * whichever card happened to sit underneath.
+ * It has been four things now and the arrow is the one worth remembering: a
+ * single fixed label with a left/right/down arrow held still, which was the
+ * point, but it put a direction between the reader and the answer — and
+ * sitting between two cards on a three-wide board, "left" is a guess. Words on
+ * the thing they are about need no resolving step. The red outline on the card
+ * or panel is what makes it findable from across the board; this is what makes
+ * it readable once found.
  */
-export function renderDebrisMark(aim: DebrisAim): HTMLElement {
-  const arrow = el('span', { class: 'debris-arrow', 'aria-hidden': 'true' }, [AIM_GLYPH[aim]]);
-  const word = el('span', { class: 'debris-word' }, ['Marked']);
-  const said = el('span', { class: 'visually-hidden' }, [' — ' + AIM_WORDS[aim]]);
-
-  /* The arrow goes on the side it points at.
-   *
-   * It was always first, so a right-pointing arrow sat on the LEFT of the word
-   * with the whole label between it and the thing it meant — an arrow with its
-   * own caption in the way. Pointing left it leads, pointing right it follows,
-   * and pointing down it goes underneath (see the CSS: the flex direction turns
-   * a column for that one). */
-  const parts = aim === 'left' ? [arrow, word, said] : [word, arrow, said];
+export function debrisChip(): HTMLElement {
   return el(
     'div',
-    { class: 'debris-mark debris-mark--' + aim, role: 'status', title: AIM_WORDS[aim] },
-    parts,
+    { class: 'debris-mark', role: 'status', title: DEBRIS_WORDS },
+    [
+      el('span', { class: 'debris-word' }, ['Marked']),
+      el('span', { class: 'visually-hidden' }, [' — ' + DEBRIS_WORDS]),
+    ],
   );
 }

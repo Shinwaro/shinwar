@@ -121,14 +121,44 @@ export interface StanceRules {
    * it, so repeating it here was the same fact in two places — and the strip is
    * for what the stance does to a turn, not for a resource that has its own
    * readout.
+   *
+   * Two placeholders, `{block}` and `{hot}`, are substituted by
+   * `stanceRulesFor` with the live figures. They exist because those two
+   * numbers now SCALE BY ACT (see `STANCE_BY_ACT`), and a hand-written "Retain
+   * 3 Block" would have been a lie from Act 2 on — which is the exact failure
+   * the generated-text rule elsewhere in the project exists to prevent. The
+   * prose stays authored; only the figures are filled in, from the same fields
+   * the pipeline reads.
    */
   readonly text: string;
   readonly firstAttackBonus: number;
   readonly heatAtTurnEnd: number;
   readonly ventAtTurnEnd: number;
   readonly blockRetained: number;
+  /**
+   * Retain this FRACTION of Block instead of the flat `blockRetained`.
+   *
+   * Iron Tide's, and the reason it is a fraction rather than a bigger flat
+   * number: retaining all of it meant a Block deck simply never lost a wall
+   * again, and the mastery scaled with the one stat it was already best at.
+   * Half keeps the compounding shape and halves the ceiling.
+   */
+  readonly blockRetainedPct?: number;
   readonly extraDraw: number;
   readonly attackPenalty: number;
+  /**
+   * A stance you left this turn cannot be re-entered this turn.
+   *
+   * Iron Tide used to buy its upside with `stanceChangesPerTurn: 1`, which did
+   * not work: the limit lives on the stance you are STANDING in, so leaving
+   * GUARD put you in IAI, where no limit applied, and you walked straight back.
+   * The cost evaporated exactly when it was supposed to bite.
+   *
+   * Declared on the stance rather than counted globally so the question is
+   * always "may I enter THIS stance", which `stanceRulesFor` can answer for a
+   * stance the player is not currently in.
+   */
+  readonly noReentry?: boolean;
   /**
    * What a stack of Focus does when this stance spends one.
    *
@@ -150,13 +180,35 @@ export interface StanceRules {
   readonly hotDamage?: number;
 }
 
+/**
+ * What the two stance payoffs are worth, per act.
+ *
+ * A stance bonus fixed for the whole run is a bonus that shrinks: 3 Block
+ * retained is a third of a turn's wall in Act 1 and a rounding error against
+ * Act 3's damage, and the same is true of 2 damage on a hot swing. The stance
+ * layer is supposed to be the axis the whole game turns on, so it has to keep
+ * pace with the numbers around it.
+ *
+ * Scaled rather than re-tuned upward once, because the alternative is a stance
+ * that is either too strong in Act 1 or irrelevant in Act 3. These are the
+ * BASE figures; masteries override them afterwards, so a mastery that names its
+ * own number still wins.
+ */
+export const STANCE_BY_ACT: {
+  readonly [act: number]: { readonly blockRetained: number; readonly hotDamage: number };
+} = {
+  1: { blockRetained: 3, hotDamage: 2 },
+  2: { blockRetained: 6, hotDamage: 3 },
+  3: { blockRetained: 9, hotDamage: 4 },
+};
+
 export const STANCES: { readonly [K in StanceId]: StanceRules } = {
   iai: {
     id: 'iai',
     name: 'IAI',
     // The Heat cost last: it is what the stance charges you, and it reads
     // better after the two things it is paying for.
-    text: 'Focus adds damage · +2 Heat at turn end · +2 damage at 5+ Heat',
+    text: 'Focus adds damage · +2 Heat at turn end · +{hot} damage at 5+ Heat',
     firstAttackBonus: 0,
     heatAtTurnEnd: 2,
     ventAtTurnEnd: 0,
@@ -173,7 +225,7 @@ export const STANCES: { readonly [K in StanceId]: StanceRules } = {
   guard: {
     id: 'guard',
     name: 'GUARD',
-    text: 'Focus adds Block · Vent 1 Heat at turn end · Retain 3 Block',
+    text: 'Focus adds Block · Vent 1 Heat at turn end · Retain {block} Block',
     firstAttackBonus: 0,
     heatAtTurnEnd: 0,
     ventAtTurnEnd: 1,
@@ -788,12 +840,32 @@ export const RELIC_COMBAT_CHANCE: { readonly [act in 1 | 2 | 3]: number } = {
  * survives — no single outcome above 38%.
  */
 export const RELIC_COMBAT_PITY = {
-  /** Misses that pass at the base rate before the odds start climbing. */
-  grace: 2,
-  /** Added to the act's chance for each dry fight past the grace. */
+  /**
+   * Fights since the last drop at which the chance is exactly the act's base
+   * rate. Below it the odds are REDUCED, above it they climb.
+   *
+   * This used to be called `grace` and only bent one way: nothing happened for
+   * two misses, then the chance rose. That protected an unlucky run and left a
+   * lucky one alone, which made the mechanic a one-directional gift rather than
+   * a smoothing. Bending both ways means the run that just took a relic is less
+   * likely to take the next one, so the curve pulls toward the intended rate
+   * from either side instead of only from below.
+   */
+  neutral: 2,
+  /** Added per fight of distance from `neutral`, in whichever direction. */
   step: 0.18,
   /** Never certain. A drop you can count on stops being a drop. */
   max: 0.85,
+  /**
+   * And never quite impossible. Two fights after a drop the curve wants a
+   * negative chance; the floor is what it pays instead.
+   *
+   * Not zero, deliberately. A run that found a relic early would otherwise be
+   * locked out for two guaranteed fights, which is a worse feeling than a low
+   * roll — "this cannot happen" reads as the game withholding, where 5% reads
+   * as unlikely.
+   */
+  floor: 0.05,
   /** Relics one run may take from ordinary fights. Elites and bosses are extra. */
   cap: 5,
 } as const;

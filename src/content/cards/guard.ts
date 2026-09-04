@@ -71,15 +71,30 @@ export const GUARD_CARDS: readonly CardDef[] = [
        the run at 6 armour if the fight goes long enough. Once per copy is the
        whole of what makes a permanent stack safe to print this low. */
     exhaust: true,
+    /* A Weak on yourself is the price of the permanent stack, where it used to
+       be two Heat.
+     *
+       Heat was the wrong currency for this card. It is a GUARD card and Heat is
+       IAI's problem — a defensive deck sitting at two Heat has paid nothing at
+       all, so the cost fell entirely on the decks that were not buying. Weak
+       lands on every deck equally and it lands on the turn you take the armour:
+       you spend a turn hitting softer to be harder for the rest of the fight,
+       which is the trade the card is actually about.
+     *
+       One stack, and player-applied debuffs shed at the end of the round they
+       are applied — so this is one turn of hitting softer, not a lasting
+       penalty stapled to a lasting benefit. */
     effects: [
       { op: 'block', amount: 4 },
       { op: 'applyStatus', status: TEMPERED, stacks: 1, target: 'self' },
+      { op: 'applyStatus', status: WEAK, stacks: 1, target: 'self' },
     ],
     upgrade: {
       name: 'Take the Weight+',
       effects: [
         { op: 'block', amount: 6 },
         { op: 'applyStatus', status: TEMPERED, stacks: 1, target: 'self' },
+        { op: 'applyStatus', status: WEAK, stacks: 1, target: 'self' },
       ],
     },
     flavor: 'Not caught. Accepted, and then carried.',
@@ -93,13 +108,13 @@ export const GUARD_CARDS: readonly CardDef[] = [
     archetype: 'guard',
     cost: 2,
     effects: [
-      { op: 'block', amount: 12 },
+      { op: 'block', amount: 14 },
       { op: 'ventHeat', amount: 2 },
     ],
     upgrade: {
       name: 'Iron Wake+',
       effects: [
-        { op: 'block', amount: 16 },
+        { op: 'block', amount: 18 },
         { op: 'ventHeat', amount: 3 },
       ],
     },
@@ -132,11 +147,18 @@ export const GUARD_CARDS: readonly CardDef[] = [
     rarity: 'legendary',
     archetype: 'guard',
     cost: 2,
-    exhaust: true,
-    // An epic that costs 2 and exhausts was giving 10 Block -- two less than the
-    // uncommon Iron Wake, and gone afterwards. It has to be a wall or it has no
-    // reason to be in the deck at all.
-    effects: [{ op: 'block', amount: 24 }],
+    /* No Burn any more — the Weak is the limit instead.
+     *
+     * A wall you get once a fight is a wall you hold for one turn, and the card
+     * wanted to be the answer to a whole fight rather than to a single swing.
+     * Repeatable, two Weak is what stops it being free: hold the position and
+     * you are hitting at half strength while you do. That is a real defensive
+     * BUILD rather than one good turn, and it prices itself — Weak caps at two
+     * stacks, so playing it every turn keeps you there and never worse. */
+    effects: [
+      { op: 'block', amount: 24 },
+      { op: 'applyStatus', status: WEAK, stacks: 2, target: 'self' },
+    ],
     stanceRider: {
       stance: 'guard',
       effects: [
@@ -144,7 +166,13 @@ export const GUARD_CARDS: readonly CardDef[] = [
         { op: 'applyStatus', status: WEAK, stacks: 2, target: 'allEnemies' },
       ],
     },
-    upgrade: { name: 'Standing Wave+', effects: [{ op: 'block', amount: 32 }] },
+    upgrade: {
+      name: 'Standing Wave+',
+      effects: [
+        { op: 'block', amount: 32 },
+        { op: 'applyStatus', status: WEAK, stacks: 2, target: 'self' },
+      ],
+    },
     flavor: 'Hold the position long enough and the position starts holding you.',
   },
 

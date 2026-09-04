@@ -151,6 +151,19 @@ export function cardVoice(def: CardDef, rider: string | null): SoundKey {
        the whole reason IAI has a sound of its own. */
     if (rider === 'iai') return 'cardAttackIai';
 
+    /* The same swing, one phase of it.
+     *
+     * A card with an IAI rider is written as two beats and sounds like two
+     * beats — but out of IAI the second beat never happens, and it was falling
+     * through to the generic small-attack sound, which made the same card two
+     * completely unrelated noises depending on where you were standing. This is
+     * the matched single-phase version: recognisably the same blade, once.
+     *
+     * Keyed off the rider's STANCE rather than off a card id, so every card
+     * built on the two-phase IAI shape gets the pair without anyone
+     * remembering to wire it. */
+    if (def.stanceRider?.stance === 'iai') return 'cardAttackIaiSolo';
+
     if (shape.aoe) {
       if (shape.multi) return 'atkAoeMultihit';
       if (shape.debuff) return 'atkDebuffAoe';

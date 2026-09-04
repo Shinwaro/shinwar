@@ -198,33 +198,50 @@ describe('the relic pool', () => {
     }
   });
 
-  it('bends the ordinary-fight drop toward a run that has gone dry', () => {
-    /* Bad-luck protection, and the shape of it is the point.
+  it('bends the ordinary-fight drop BOTH ways around the base rate', () => {
+    /* Smoothing, not a gift. A flat chance over a six-fight act is a fair coin
+       allowed to be cruel: measured on real routes, one run in six ended with
+       at most one relic from ordinary combat, and that is the run where the
+       deck never becomes a build.
 
-       A flat chance over a six-fight act is a fair coin that is allowed to be
-       cruel: measured on real routes, one run in six ended with at most one
-       relic from ordinary combat. Relics are the only thing that changes what a
-       turn can DO, so that run is the one where the deck never becomes a build.
-
-       The grace is what keeps this protection rather than a schedule. Escalating
-       on every miss reached the cap almost surely over a full run — 96% of runs
-       landed on exactly the cap, which is a delivery timetable, not a roll. */
+       It bent only upward at first, which protected the unlucky run and left
+       the lucky one alone — a one-directional thumb on the scale rather than a
+       curve. Now `neutral` is the fights-since-a-drop at which the chance is
+       exactly the base rate, and distance from it moves the odds in whichever
+       direction it points. A run that just took a relic is less likely to take
+       the next one. */
     const at = (act: 1 | 2 | 3, dry: number, found = 0): number =>
       combatRelicChance({ ...createRunState('PITY', 0), act, combatRelicDry: dry, combatRelicsFound: found });
 
     const base = RELIC_COMBAT_CHANCE[1];
-    expect(at(1, 0), 'a fresh run is the plain rate').toBeCloseTo(base, 6);
-    expect(at(1, RELIC_COMBAT_PITY.grace), 'the grace still pays the plain rate').toBeCloseTo(base, 6);
-    expect(at(1, RELIC_COMBAT_PITY.grace + 1), 'one past the grace has to move').toBeGreaterThan(base);
+    const { neutral, max, floor } = RELIC_COMBAT_PITY;
 
-    // Monotonic past the grace, and never certain.
-    let previous = 0;
-    for (let dry = RELIC_COMBAT_PITY.grace; dry <= 12; dry += 1) {
+    expect(at(1, neutral), 'neutral is the plain rate').toBeCloseTo(base, 6);
+    expect(at(1, neutral + 1), 'a dry fight has to raise it').toBeGreaterThan(base);
+    expect(at(1, neutral - 1), 'a recent drop has to lower it').toBeLessThan(base);
+
+    /* Monotonic across the WHOLE range now, not just above neutral, and
+       clamped at both ends. */
+    let previous = -1;
+    for (let dry = 0; dry <= 14; dry += 1) {
       const now = at(1, dry);
       expect(now, `dry ${dry} went backwards`).toBeGreaterThanOrEqual(previous);
-      expect(now, 'a drop you can count on is not a drop').toBeLessThanOrEqual(RELIC_COMBAT_PITY.max);
+      expect(now, 'a drop you can count on is not a drop').toBeLessThanOrEqual(max);
+      expect(now, 'an impossibility is worse than a long shot').toBeGreaterThanOrEqual(floor);
       previous = now;
     }
+  });
+
+  it('opens a fresh run at the plain rate, not at the floor', () => {
+    /* The trap this exists to stop. The curve reads `combatRelicDry` as "fights
+       since the last drop", so zero means one JUST landed — and a fresh run
+       initialised to zero would open two fights below base as a penalty for a
+       relic nobody received. `createRunState` starts it at neutral. */
+    const fresh = createRunState('FRESH', 0);
+    expect(fresh.combatRelicDry, 'a fresh run carries a history it does not have')
+      .toBe(RELIC_COMBAT_PITY.neutral);
+    expect(combatRelicChance({ ...fresh, act: 1 }), 'the first fight of a run is not penalised')
+      .toBeCloseTo(RELIC_COMBAT_CHANCE[1], 6);
   });
 
   it('stops paying at the cap, and never starts in Act 3', () => {
@@ -868,3 +885,53 @@ describe('what a boss hands you', () => {
     expect(epicImplants.length, 'epic implants').toBeGreaterThanOrEqual(REWARDS.implantChoices);
   });
 });
+
+describe('Cascade Governor', () => {
+  /*
+   * A legendary for the deck that plays MANY cards rather than big ones.
+   *
+   * Counted off `cardsPlayedThisTurn`, which is incremented after a card's
+   * effects resolve and before `onCardPlayed` fires — so the fifth card sees
+   * exactly 5. That ordering is load-bearing and it is the same trap Momentum
+   * fell into: reading the counter a moment early made the card's own face
+   * disagree with what it dealt.
+   */
+  const withRelic = (state: GameState): GameState => {
+    if (state.run === null) throw new Error('test: no run');
+    return {
+      ...state,
+      run: { ...state.run, pilot: { ...state.run.pilot, relics: ['cascade_governor'] } },
+    };
+  };
+
+  it('pays on the fifth card and not before', () => {
+    // Five 0-cost cards, so nothing but the relic can move Energy.
+    const hand = [VECTOR_STEP, VECTOR_STEP, VECTOR_STEP, VECTOR_STEP, VECTOR_STEP];
+    let state = startPlayerTurn(withRelic(makeFight({ hand, energy: 3 })));
+
+    const seen: number[] = [];
+    for (let i = 0; i < 5; i += 1) {
+      const card = combatOf(state).hand[0];
+      if (card === undefined) break;
+      state = playCard(state, card.uid, null);
+      seen.push(combatOf(state).energy);
+    }
+
+    /* Vector Step costs 0, so Energy holds at 3 for four cards and steps to 4
+       on the fifth. Asserted as the whole sequence rather than the final value:
+       a relic that paid on every card would also end at 4 if it paid once. */
+    expect(seen, 'Energy after each of five cards').toEqual([3, 3, 3, 3, 4]);
+  });
+
+  it('does nothing for a run that is not carrying it', () => {
+    const hand = [VECTOR_STEP, VECTOR_STEP, VECTOR_STEP, VECTOR_STEP, VECTOR_STEP];
+    let state = startPlayerTurn(makeFight({ hand, energy: 3 }));
+    for (let i = 0; i < 5; i += 1) {
+      const card = combatOf(state).hand[0];
+      if (card === undefined) break;
+      state = playCard(state, card.uid, null);
+    }
+    expect(combatOf(state).energy).toBe(3);
+  });
+});
+

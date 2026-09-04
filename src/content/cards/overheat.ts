@@ -44,6 +44,10 @@ export const OVERHEAT_CARDS: readonly CardDef[] = [
         then: [{ op: 'damage', amount: 2, target: 'enemy' }],
       },
     ],
+    /* The upgrade buys the SLOPE, not the floor. Three a step against two means
+       the upgraded card is worth more the hotter you are, which is the axis the
+       archetype is actually playing on — a bigger base would have made it a
+       better cold draw, which is the one thing this card is not for. */
     upgrade: {
       name: 'Reactor Lance+',
       effects: [
@@ -52,7 +56,7 @@ export const OVERHEAT_CARDS: readonly CardDef[] = [
           op: 'scaleWith',
           source: 'currentHeat',
           per: 2,
-          then: [{ op: 'damage', amount: 2, target: 'enemy' }],
+          then: [{ op: 'damage', amount: 3, target: 'enemy' }],
         },
       ],
     },
@@ -211,15 +215,31 @@ export const OVERHEAT_CARDS: readonly CardDef[] = [
        and a card you always play is not a decision. Two is most of a turn for
        most of the gauge, which is. Exhausts, because a deck that can do this
        twice is not playing the gauge at all. */
+    /* Four Heat and two Scald rather than six Heat flat.
+     *
+     * Six was most of the gauge in one lump, which an overheat deck could
+     * simply vent back. Four plus two Scald is less on the moment and more over
+     * the fight: the Scald keeps charging until you spend a real vent on it, so
+     * the card costs you cards as well as gauge. Same trade, paid on a clock. */
     effects: [
       { op: 'gainEnergy', amount: 2 },
-      { op: 'gainHeat', amount: 6 },
+      { op: 'gainHeat', amount: 4 },
+      { op: 'applyStatus', status: SCALD, stacks: 2, target: 'self' },
     ],
+    /* The upgrade buys the third Energy and keeps the whole six Heat.
+     *
+       It used to buy the Heat down to four instead, which made the upgraded
+       card strictly safer and left the base card's own argument — three
+       quarters of the gauge for most of a turn — as the thing you upgraded AWAY
+       from. Three for six is the trade the card was always describing, taken
+       one step further: it is a whole extra turn, and it puts you two points
+       off the ceiling to get it. */
     upgrade: {
       name: 'Overpressure+',
       effects: [
-        { op: 'gainEnergy', amount: 2 },
+        { op: 'gainEnergy', amount: 3 },
         { op: 'gainHeat', amount: 4 },
+        { op: 'applyStatus', status: SCALD, stacks: 2, target: 'self' },
       ],
     },
     flavor: 'Every warning at once, and about four seconds of being unstoppable.',

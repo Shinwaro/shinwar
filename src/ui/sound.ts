@@ -51,6 +51,7 @@ import blockedUrl from '../assets/sound/blocked.mp3';
 import burnUrl from '../assets/sound/burn.mp3';
 import buttonUrl from '../assets/sound/button.mp3';
 import cardAttackIaiUrl from '../assets/sound/card-attack-iai.mp3';
+import cardAttackIaiSoloUrl from '../assets/sound/card-attack-iai-solo.mp3';
 import cardSkillUrl from '../assets/sound/card-skill.mp3';
 import damageUrl from '../assets/sound/damage.mp3';
 import drawTurnUrl from '../assets/sound/draw-turn.mp3';
@@ -71,6 +72,7 @@ import stanceGuardUrl from '../assets/sound/stance-guard.mp3';
 import stanceIaiUrl from '../assets/sound/stance-iai.mp3';
 import upgradeUrl from '../assets/sound/upgrade.mp3';
 import ventUrl from '../assets/sound/vent.mp3';
+import victoryUrl from '../assets/sound/victory.mp3';
 
 import { volume } from './settings.ts';
 
@@ -97,6 +99,7 @@ const LIBRARY = {
   target: targetUrl,
   button: buttonUrl,
   cardAttackIai: cardAttackIaiUrl,
+  cardAttackIaiSolo: cardAttackIaiSoloUrl,
   cardSkill: cardSkillUrl,
   damage: damageUrl,
   draw: drawUrl,
@@ -116,6 +119,7 @@ const LIBRARY = {
   stanceIai: stanceIaiUrl,
   upgrade: upgradeUrl,
   vent: ventUrl,
+  victory: victoryUrl,
 } as const;
 
 export type SoundKey = keyof typeof LIBRARY;
@@ -134,6 +138,7 @@ const LEVEL: Partial<Record<SoundKey, number>> = {
   draw: 0.5,
   drawTurn: 0.55,
   cardAttackIai: 0.5,
+  cardAttackIaiSolo: 0.5,
   atkMini: 0.5,
   atkSmall: 0.5,
   atkBig: 0.55,
@@ -158,6 +163,10 @@ const LEVEL: Partial<Record<SoundKey, number>> = {
   stanceIai: 0.5,
   stanceGuard: 0.5,
   heal: 0.7,
+  /* The loudest thing in the game, and it gets to be. It plays once per run,
+     over a held frame, and it is the only sound that is not competing with
+     anything else on screen. */
+  victory: 0.85,
 };
 
 /* ---------- the player ---------- */

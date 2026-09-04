@@ -301,8 +301,15 @@ export function rollBossImplants(
 export function combatRelicChance(run: RunState): number {
   const base = RELIC_COMBAT_CHANCE[run.act];
   if (base <= 0 || run.combatRelicsFound >= RELIC_COMBAT_PITY.cap) return 0;
-  const over = Math.max(0, run.combatRelicDry - RELIC_COMBAT_PITY.grace);
-  return Math.min(RELIC_COMBAT_PITY.max, base + over * RELIC_COMBAT_PITY.step);
+
+  /* Distance from neutral, signed. Negative right after a drop, positive on a
+     dry streak — so the same expression handles both halves and the two can
+     never be tuned apart by accident. Clamped at both ends: `max` because a
+     certainty is not a drop, `floor` because an impossibility is worse than a
+     long shot. */
+  const gap = run.combatRelicDry - RELIC_COMBAT_PITY.neutral;
+  const drift = base + gap * RELIC_COMBAT_PITY.step;
+  return Math.min(RELIC_COMBAT_PITY.max, Math.max(RELIC_COMBAT_PITY.floor, drift));
 }
 
 export function rollRelics(

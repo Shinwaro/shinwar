@@ -53,7 +53,22 @@ export type Archetype = 'iai' | 'guard' | 'flow' | 'overheat' | 'neutral';
    Adding an op is permanent complexity — check whether `conditional` and
    `scaleWith` already express it, and ask before adding one. */
 
-export type Target = 'self' | 'enemy' | 'allEnemies' | 'randomEnemy' | 'chosenEnemy';
+/**
+ * Who an op lands on, always relative to the ACTOR rather than to the player.
+ *
+ * `allEnemies` therefore means "everyone opposing whoever is acting" — which is
+ * every living enemy when the player plays a card, and the player alone when an
+ * enemy takes a move. That relativity is what lets one effect vocabulary drive
+ * both sides, and it is also the trap: for a long time there was no way at all
+ * to say "my own side", so the two enemy support moves in the game were written
+ * with `allEnemies` and quietly buffed the PLAYER. Ash Choir handed out +2
+ * Strength; Splint Chorus handed out 2 Tempered. Both are `decay: 'never'`, so
+ * the gift lasted the whole fight.
+ *
+ * `allAllies` is the missing word. Nothing stops a card from using it — for the
+ * player it resolves to the player, since the player fights alone.
+ */
+export type Target = 'self' | 'enemy' | 'allEnemies' | 'allAllies' | 'randomEnemy' | 'chosenEnemy';
 
 export type Condition =
   | { readonly kind: 'stanceIs'; readonly stance: StanceId }
@@ -817,11 +832,19 @@ export interface MasteryDef {
     readonly heatAtTurnEnd?: number;
     readonly ventAtTurnEnd?: number;
     readonly blockRetained?: number;
+    /** Iron Tide's: retain this fraction instead of the flat figure. */
+    readonly blockRetainedPct?: number;
     readonly extraDraw?: number;
     readonly attackPenalty?: number;
     readonly spendsFocus?: boolean;
     readonly focusPerStack?: number;
-    /** Iron Tide's cost: you may only change stance this many times a turn. */
+    /**
+     * Iron Tide's and Banked Fire's cost: leave this stance and you are out of
+     * it for the rest of the turn. See `StanceRules.noReentry` for why this
+     * replaced a per-turn change limit, which the player could walk around.
+     */
+    readonly noReentry?: boolean;
+    /** A per-turn cap on stance changes. The environments' cost; no mastery uses it. */
     readonly stanceChangesPerTurn?: number;
   };
 }
@@ -952,6 +975,15 @@ export interface CombatState {
   readonly blockGainedThisTurn: number;
   /** Gravity Well and the Iron Tide mastery both cap this. */
   readonly stanceChangesThisTurn: number;
+  /**
+   * Which stances have been left during this turn.
+   *
+   * Only consulted for a stance whose rules declare `noReentry`, but recorded
+   * for every departure regardless — the mastery can be earned mid-fight, and
+   * a list that only started tracking once it mattered would let the first
+   * departure after that go free.
+   */
+  readonly stancesLeftThisTurn: readonly StanceId[];
   /**
    * Scratch space owned by the environment's hook handlers and by nothing else.
    *

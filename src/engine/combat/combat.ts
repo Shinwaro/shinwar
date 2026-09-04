@@ -127,6 +127,7 @@ export function startCombat(state: GameState, encounterId: string, environmentId
       cardsPlayedThisTurn: 0,
       blockGainedThisTurn: 0,
       stanceChangesThisTurn: 0,
+      stancesLeftThisTurn: [],
       attacksThisTurn: 0,
       envMemory: {},
       skipNextTurn: false,
@@ -264,13 +265,20 @@ export function startPlayerTurn(state: GameState): GameState {
     /* Relic Block is granted on top of whatever the stance retained, so a
        GUARD build and a Ballast Weave add up rather than one capping the other.
        And it is granted on a REACTOR TURN too — see below. */
-    block: Math.min(current.block, stance.blockRetained) + relics.blockPerTurn,
+    /* A fraction when the stance names one — Iron Tide — and the flat figure
+       otherwise. Floored, so half of 5 keeps 2: a wall rounding up in the
+       player's favour every turn compounds into a wall that never falls. */
+    block:
+      (stance.blockRetainedPct === undefined
+        ? Math.min(current.block, stance.blockRetained)
+        : Math.floor(current.block * stance.blockRetainedPct)) + relics.blockPerTurn,
     focus: Math.min(FOCUS_MAX, current.focus + relics.focusPerTurn),
     energy,
     cardsPlayedThisTurn: 0,
     blockGainedThisTurn: 0,
     attacksThisTurn: 0,
     stanceChangesThisTurn: 0,
+    stancesLeftThisTurn: [],
     // You are acting, so nothing on you is new any more. Whatever the enemies
     // put on you last phase is live for this turn and decays at the end of it.
     statuses: clearFresh(current.statuses),

@@ -50,6 +50,20 @@ const DEATH_HOLD_MS = 2200;
  * enemy to finish dying, short enough that clearing a pack of Wisps does not
  * become four pauses in a row. */
 const WIN_HOLD_MS = 1000;
+/**
+ * And the run's last blow, which is neither of the above.
+ *
+ * The Act 3 boss dying sets `phase: 'over'` in the same dispatch as the hit, so
+ * it matched neither the death hold (wrong outcome) nor the win hold (wrong
+ * view) and the end screen replaced the board instantly — the one kill in the
+ * whole run that deserves a beat was the only one that never got one.
+ *
+ * Longer than a fight's win hold and shorter than the death hold: it is an
+ * ending, so it can breathe, but the player has already won and is waiting to
+ * see what they won. The victory sound outlasts it deliberately and carries
+ * over onto the end screen rather than being cut by it.
+ */
+const VICTORY_HOLD_MS = 2800;
 
 function viewOf(state: GameState): View {
   if (state.phase !== 'run' || state.run === null) return state.phase;
@@ -114,6 +128,7 @@ let lastScreen: string | null = null;
  * common is that the number changed.
  */
 let lastHealth: number | null = null;
+let lastHealthScreen: string | null = null;
 
 function healthSound(state: GameState): void {
   const health = state.run?.pilot.health ?? null;
@@ -121,13 +136,26 @@ function healthSound(state: GameState): void {
 
   if (health === null) {
     lastHealth = null;
+    lastHealthScreen = null;
     return;
   }
   const before = lastHealth;
+  const beforeScreen = lastHealthScreen;
   lastHealth = health;
+  lastHealthScreen = screen;
 
-  // In a fight the blows already speak, on the beat, with the numbers.
-  if (before === null || before === health || screen === 'combat') return;
+  /* In a fight the blows already speak, on the beat, with the numbers — and
+     so does the frame the fight ENDS on.
+   *
+     The killing blow that wins a fight clears combat and moves to the reward
+     screen in the same dispatch, so by the time this runs the screen is no
+     longer 'combat' and the guard below let it through. Anything that healed
+     you on that blow — Reclaim Loop, which pays per kill — got announced
+     twice: once by the combat screen reading its log, once here. Checking the
+     screen we came FROM closes it, because the combat screen has already
+     spoken for every health change up to and including its last frame. */
+  if (before === null || before === health) return;
+  if (screen === 'combat' || beforeScreen === 'combat') return;
 
   play(health > before ? 'heal' : 'damage');
   /* And the number, for the same reason: the bar moving in the corner is not
@@ -304,15 +332,20 @@ export function mountApp(root: HTMLElement, store: Store): void {
     const ending =
       mountedView === 'run:combat' && !outcomeHeld
         ? view === 'over' && state.run?.outcome === 'died'
-          ? { ms: DEATH_HOLD_MS, dying: true }
-          : view === 'run:reward'
-            ? { ms: WIN_HOLD_MS, dying: false }
-            : null
+          ? { ms: DEATH_HOLD_MS, dying: true, won: false }
+          : view === 'over' && state.run?.outcome === 'won'
+            ? { ms: VICTORY_HOLD_MS, dying: false, won: true }
+            : view === 'run:reward'
+              ? { ms: WIN_HOLD_MS, dying: false, won: false }
+              : null
         : null;
 
     if (ending !== null) {
       if (outcomeHold !== null) return;
       if (ending.dying) mounted?.classList.add('is-dying');
+      /* On the blow, not on the screen that follows it. The whole point of the
+         hold is that the kill is what you are looking at. */
+      if (ending.won) play('victory');
 
       /* Two stages, and the zero-delay first one is the point.
        *

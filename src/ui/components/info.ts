@@ -14,6 +14,7 @@
  * because the player now has a wrong thing they trust.
  */
 
+import { stanceRulesFor } from '../../engine/combat/rules.ts';
 import { ACTIVE_STANCES, HEAT, FOCUS_MAX, PLAYER, STANCES } from '../../content/balance.ts';
 import { ENCOUNTERS } from '../../content/encounters.ts';
 import { enemies as enemyTable, statuses as statusTable } from '../../content/registry.ts';
@@ -274,7 +275,14 @@ export function combatInfo(): readonly InfoSection[] {
         /* Only the stances actually in rotation. `STANCES` still holds FLOW —
            it is written, tested, and deliberately benched — and listing it
            here described a stance the player can never enter. */
-        ...ACTIVE_STANCES.map((id) => ({ term: STANCES[id].name, text: STANCES[id].text })),
+        /* Through `stanceRulesFor` with no run, so the {block}/{hot} placeholders
+           in the stance lines are filled with Act 1's figures rather than
+           printed raw. The panel is reference for a player about to start, so
+           Act 1 is the honest reading. */
+        ...ACTIVE_STANCES.map((id) => ({
+          term: STANCES[id].name,
+          text: stanceRulesFor({ run: null } as never, id).text,
+        })),
         {
           term: 'Focus',
           text: `Up to ${FOCUS_MAX} stacks. One is spent per card, and the stance decides what it becomes — damage in ${iai.name}, Block in ${guard.name}.`,

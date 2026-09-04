@@ -14,12 +14,13 @@ import { definitionOf } from '../../engine/combat/combat.ts';
 import { cardMark } from '../card-mark.ts';
 import {
   describeCard,
-  describeCardSegments,
+  describeCardParts,
   describeCost,
   describeRider,
   glossaryFor,
   riderIsLive,
 } from '../../engine/combat/describe.ts';
+import type { CardSegment } from '../../engine/combat/describe.ts';
 import { STANCES } from '../../content/balance.ts';
 import type { Child } from '../dom.ts';
 import { el, onHoverOrFocus } from '../dom.ts';
@@ -126,8 +127,8 @@ export interface CardViewOptions {
  * disagree with the result, which is the one thing the damage pipeline exists
  * to make impossible.
  */
-function cardTextNodes(def: CardDef, state: GameState | null): readonly Child[] {
-  return describeCardSegments(def, state).flatMap((segment): Child[] => {
+function segmentNodes(segments: readonly CardSegment[]): readonly Child[] {
+  return segments.flatMap((segment): Child[] => {
     if (segment.kind === 'text') return [segment.text];
 
     const { shown, hot, focus } = segment.figures;
@@ -145,7 +146,12 @@ export function renderCard(
   options: CardViewOptions,
 ): HTMLElement {
   const def = definitionOf(card);
-  const rider = describeRider(def, state);
+  /* One call for all three pieces. They have to agree on which figure wears the
+     Focus bonus — one stack is spent per card play — and three separate calls
+     each started a fresh claim, so IAI Slash printed "+2" on its own hit AND on
+     its IAI rider's. See `describeCardParts`. */
+  const parts = describeCardParts(def, state);
+  const rider = parts.rider;
   const live = riderIsLive(def, state);
 
   const classes = ['card', `card--${def.type}`];
@@ -168,8 +174,16 @@ export function renderCard(
       ),
       el('span', { class: 'visually-hidden' }, [mark.label]),
     ]),
-    el('p', { class: 'card-text' }, cardTextNodes(def, state)),
+    el('p', { class: 'card-text' }, segmentNodes(parts.text)),
   ];
+
+  /* The Focus bonus, when it has no figure to sit beside.
+     See `focusNote`: a card whose damage or Block lives inside a `conditional`
+     or a `scaleWith` has no styled number for the `+2` chip to hang off, and
+     for fifteen cards that meant the bonus was simply never mentioned. */
+  if (parts.note !== null) {
+    body.push(el('p', { class: 'card-focus-note' }, [parts.note]));
+  }
 
   if (rider !== null && def.stanceRider !== undefined) {
     const stance = STANCES[def.stanceRider.stance];
@@ -177,7 +191,7 @@ export function renderCard(
       el('p', { class: `card-rider ${live ? 'is-live' : 'is-dormant'}`, 'data-stance': def.stanceRider.stance }, [
         el('span', { class: 'card-rider-label' }, [`${stance.name}:`]),
         ' ',
-        rider,
+        ...segmentNodes(rider),
         live ? null : el('span', { class: 'visually-hidden' }, [' (not active in your current stance)']),
       ]),
     );

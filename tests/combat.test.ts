@@ -34,7 +34,9 @@ import {
 import { addStacks, clearFresh, decayStatuses, stacksOf } from '../src/engine/combat/keywords.ts';
 import { applyEffects, createContext } from '../src/engine/combat/effects.ts';
 import { PLAYER as PLAYER_SIDE, applyDamage, enemyTarget } from '../src/engine/combat/damage.ts';
-import { RUST, SCALD, WEAK } from '../src/content/statuses.ts';
+import { OVERCLOCK, RUST, SCALD, STRENGTH, TEMPERED, WEAK } from '../src/content/statuses.ts';
+import { ASH_CHOIR, SPLINT_CHORUS } from '../src/content/enemies/act2.ts';
+import { SCRAP_HOUND } from '../src/content/enemies/act1.ts';
 import { cards as cardTable, statuses as statusTable } from '../src/content/registry.ts';
 import { CLEAR_SPACE_ID } from '../src/content/environments.ts';
 import { ENCOUNTERS } from '../src/content/encounters.ts';
@@ -475,6 +477,83 @@ describe('statuses across the round boundary', () => {
     const acted = clearFresh(held);
     expect(acted[0]?.fresh).toBe(false);
     expect(decayStatuses(acted)).toEqual([]);
+  });
+
+  it('sheds a cost you put on yourself at the end of the round you paid it', () => {
+    /* `fresh` earns its skip for enemy debuffs because enemies act at the END of
+       a round — without it the player never gets a turn under one. The player
+       acts FIRST, so a debuff the player applies has already had its round by
+       the time decay runs, and skipping that decay handed it a second one.
+
+       The two sides had drifted: a Weak the player put on an ENEMY did shed at
+       the end of that round, because the enemy acts later in it and acting
+       clears the flag. Only the self case carried over, so the same status sat
+       on you a round longer than on them. Both are asserted here so they cannot
+       drift apart again. */
+    const seed = () =>
+      startPlayerTurn(makeFight({ drawPile: Array(30).fill('solar_parry'), enemyHp: 3000 }));
+
+    const onSelf = applyEffects(
+      seed(),
+      [{ op: 'applyStatus', status: WEAK, stacks: 2, target: 'self' }],
+      createContext('test', PLAYER_SIDE, null),
+    ).state;
+    expect(stacksOf(combatOf(onSelf).statuses, WEAK), 'it did not land').toBe(2);
+
+    const afterRound = endTurnImmediately(onSelf);
+    expect(
+      stacksOf(combatOf(afterRound).statuses, WEAK),
+      'a self-applied cost skipped the decay that closed its own round',
+    ).toBe(1);
+  });
+
+  it('still spares a debuff the enemy applied, which is what fresh is for', () => {
+    /* The other half of the same rule, and the reason it cannot simply be
+       "never skip a decay". An enemy acts at the end of the round, so its
+       debuff has to survive to the player's next turn or it never happened. */
+    let next = makeFight({ enemyIds: ['lathe_drone'], enemyHp: 999, hull: 999 });
+    let landed = false;
+    for (let round = 0; round < 6 && !landed; round += 1) {
+      next = endTurnImmediately(next);
+      landed = combatOf(next).statuses.some((held) => held.status === WEAK);
+    }
+    expect(landed, 'Sap never landed').toBe(true);
+    expect(
+      stacksOf(combatOf(next).statuses, WEAK),
+      'an enemy debuff was stripped before the player could act under it',
+    ).toBe(1);
+  });
+
+  it('leaves a self-applied BUFF its full run, which is what Overclock counts on', () => {
+    /* Overclock the Core is the one turn-decaying buff a player puts on
+       themselves, and its generated text says "the stacks are how many turns it
+       lasts". That is only true because of the skip: the turn you play it grants
+       nothing, since the Energy arrives at turn START. Three stacks therefore
+       needs four round-ends to pay three times.
+
+       So the rule above is about DEBUFFS. A cost is felt the moment you take
+       it; a boon that pays at the start of your next turn has not happened yet
+       when this round closes. */
+    let state = startPlayerTurn(
+      makeFight({
+        hand: ['overclock_the_core'],
+        drawPile: Array(30).fill('solar_parry'),
+        energy: 9,
+        enemyHp: 3000,
+      }),
+    );
+    const card = combatOf(state).hand.find((entry) => entry.defId === 'overclock_the_core');
+    if (card === undefined) throw new Error('test: Overclock not in hand');
+    state = playCard(state, card.uid, null);
+    expect(stacksOf(combatOf(state).statuses, OVERCLOCK), 'it did not land').toBe(3);
+
+    let paid = 0;
+    for (let round = 0; round < 5; round += 1) {
+      state = endTurnImmediately(state);
+      if (combatOf(state).outcome !== 'ongoing') break;
+      if (combatOf(state).energy > PLAYER.energyPerTurn) paid += 1;
+    }
+    expect(paid, 'Overclock stopped lasting as many turns as it has stacks').toBe(3);
   });
 
   it('does not let a decay refresh its own target', () => {
@@ -1238,3 +1317,50 @@ describe('Rust charges for the turn you took', () => {
     expect(combatOf(startPlayerTurn(state)).heat, 'Scald stopped ticking on the way in').toBe(2);
   });
 });
+
+/* ---------- whose side an effect lands on ---------- */
+
+describe('an enemy support move', () => {
+  /*
+   * `allEnemies` means "everyone opposing whoever is ACTING", which is what
+   * lets one effect vocabulary drive both sides of a fight. There was no way at
+   * all to say "my own side", so the game's two support moves were written with
+   * `allEnemies` and buffed the PLAYER: Ash Choir's Hymn handed out +2 Strength
+   * and Splint Chorus's Brace handed out 2 Tempered, both `decay: 'never'`, so
+   * the gift lasted the whole fight. `allAllies` is the missing word.
+   *
+   * Asserted from the outside — run the real move, look at who holds the
+   * status — rather than by reading the target off the op, so it still catches
+   * this if the resolution changes rather than the data.
+   */
+  it('buffs its own side and not the player', () => {
+    let state = makeFight({ enemyIds: [ASH_CHOIR, SCRAP_HOUND], hand: [] });
+    state = startPlayerTurn(state);
+
+    // Hymn opens Ash Choir's sequence, so one round is enough.
+    state = endTurnVia(state);
+    const combat = combatOf(state);
+
+    expect(
+      stacksOf(combat.statuses, STRENGTH),
+      'the Hymn made the player stronger',
+    ).toBe(0);
+    for (const enemy of combat.enemies) {
+      expect(
+        stacksOf(enemy.statuses, STRENGTH),
+        `${enemy.defId} was left out of its own choir`,
+      ).toBe(2);
+    }
+  });
+
+  it('reaches every ally, not just the singer', () => {
+    let state = makeFight({ enemyIds: [SPLINT_CHORUS, SCRAP_HOUND], hand: [] });
+    state = startPlayerTurn(state);
+    state = endTurnVia(state);
+    const combat = combatOf(state);
+
+    expect(stacksOf(combat.statuses, TEMPERED), 'the player was braced for free').toBe(0);
+    expect(combat.enemies.every((enemy) => stacksOf(enemy.statuses, TEMPERED) === 2)).toBe(true);
+  });
+});
+

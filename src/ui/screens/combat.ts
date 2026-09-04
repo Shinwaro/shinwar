@@ -30,15 +30,14 @@ import { burnPending } from '../../engine/combat/heat.ts';
 import { intentOf, intentVisible } from '../../engine/combat/intents.ts';
 import { livingEnemies } from '../../engine/combat/damage.ts';
 import { describeStatus } from '../../engine/combat/keywords.ts';
-import { currentSeed, healthFraction } from '../../engine/queries.ts';
+import { currentSeed, healthFraction, targetHullInterest } from '../../engine/queries.ts';
 import { environments, statuses as statusTable } from '../../content/registry.ts';
 import { HEAT } from '../../content/balance.ts';
 import type { Child } from '../dom.ts';
 import { button, el } from '../dom.ts';
 import { renderFullscreenButton } from '../fullscreen.ts';
 import { renderCard } from '../components/card.ts';
-import type { DebrisAim } from '../components/enemy.ts';
-import { renderDebrisMark, renderEnemy } from '../components/enemy.ts';
+import { renderEnemy } from '../components/enemy.ts';
 import {
   renderEnvironmentBadge,
   renderHeatGauge,
@@ -519,6 +518,23 @@ function build(
   const wantsTarget =
     selectedDef === null ? false : needsTarget(definitionOf(selectedDef), combat.stance);
 
+  /* What the card in hand asks about a target's hull, if anything.
+   *
+   * Read once for the whole row rather than per enemy: it is a fact about the
+   * CARD, and asking twelve times would invite the answer to differ. Null
+   * whenever nothing is selected, so the marks appear with the question and
+   * leave with it. */
+  const hullInterest = (() => {
+    if (selectedDef === null) return null;
+    const asked = targetHullInterest(definitionOf(selectedDef));
+    /* `NO_INTEREST` is an OBJECT, not null — so a plain `!== null` check was
+       true for every card in the deck, and selecting Solar Shield put a hull
+       percentage on every enemy. The percentage is only worth its space while
+       something is asking in those units; the rest of the time it is a number
+       the player has to decide to ignore. */
+    return asked.thresholds.length === 0 && !asked.slope ? null : asked;
+  })();
+
   /* ---- top bar ---- */
 
   const healthFill = el('span', { class: 'bar-fill' });
@@ -603,24 +619,14 @@ function build(
    * wide card still has a middle, it is just its own edge, and the arrow points
    * back at it. */
   const debrisTarget = envGetString(combat, 'debrisTarget');
-  const markedIndex = combat.enemies.findIndex(
-    (enemy) => enemy.uid === debrisTarget && enemy.hp > 0,
-  );
   const playerMarked = debrisTarget === 'player';
-  const markSlot = Math.max(1, Math.ceil(combat.enemies.length / 2));
-  const debrisAim: DebrisAim | null = playerMarked
-    ? 'down'
-    : markedIndex === -1
-      ? null
-      : markedIndex < markSlot
-        ? 'left'
-        : 'right';
 
   const enemyRow = el(
     'section',
     { class: 'enemy-row', 'aria-label': 'Enemies' },
-    combat.enemies.flatMap((enemy, index) => {
+    combat.enemies.flatMap((enemy) => {
       const card = renderEnemy(state, enemy, {
+        hullInterest,
         targetable: selection.cardUid !== null && enemy.hp > 0,
         focused: selection.keyboardTargeting && selection.focusUid === enemy.uid,
         acting: combat.actingUid === enemy.uid,
@@ -639,11 +645,7 @@ function build(
           store.dispatch({ kind: 'playCard', cardUid, targetUid: enemy.uid });
         },
       });
-      /* The slot, not the marked card: the mark goes after the card at
-         `markSlot - 1` wherever the rock is actually headed. */
-      return debrisAim !== null && index === markSlot - 1
-        ? [card, renderDebrisMark(debrisAim)]
-        : [card];
+      return [card];
     }),
   );
 

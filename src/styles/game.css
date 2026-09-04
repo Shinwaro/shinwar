@@ -355,6 +355,29 @@
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.1);
   overflow: hidden;
+  /* So a threshold line can be placed on it. `overflow: hidden` then keeps the
+     line inside the pill's rounded ends rather than poking past them. */
+  position: relative;
+}
+
+/* The line a selected card is asking about — Execute's 30%, First Blood's 70%.
+ *
+ * Placed from the left in percent, exactly like the fill it is read against, so
+ * the two are measured by the same ruler and cannot drift apart. Drawn in the
+ * accent because it belongs to the card in your hand rather than to the enemy:
+ * it arrives when you pick the card up and leaves when you put it down. */
+.bar-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  /* Centred ON the percentage rather than starting at it. At a 2px width the
+     difference is visible against a fill edge, which is the exact comparison
+     this line exists to support. */
+  margin-left: -1px;
+  background: var(--accent);
+  box-shadow: 0 0 5px color-mix(in srgb, var(--accent) 75%, transparent);
+  pointer-events: none;
 }
 
 /* Drains rather than snapping. The width is set from the previous value and
@@ -536,6 +559,17 @@
   font-size: 0.85rem;
   font-variant-numeric: tabular-nums;
   color: var(--muted);
+}
+
+/* The same hull, in the units the card used. Accent rather than muted for the
+   same reason the line is: it belongs to the card you are holding, and it
+   should read as having arrived with it. */
+.enemy-hp-pct {
+  margin-left: 0.3rem;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
 }
 
 .pips {
@@ -2088,43 +2122,59 @@
 }
 
 /* Who the rock is coming for.
-   It was a 0.7rem pill in the same colour and weight as a status chip, which
-   made "which one is marked" a thing you had to hunt for one round before it
-   mattered. Loud, and the arrow points at the thing it is about. */
+ *
+ * On the marked combatant's own health bar — the enemy card for an enemy, the
+ * stance strip for the player. It has been three things now and the history is
+ * the argument: a 0.7rem pill in status-chip colours (invisible), then a label
+ * beside the marked card (it MOVED between rounds, so the eye had to find it
+ * again), then one fixed label with an arrow pointing left, right or down.
+ *
+ * The arrow was the problem. It held still, which was the point, but it put a
+ * direction between the reader and the answer — and sitting between two cards
+ * on a three-wide board, "left" is a guess. Words on the thing they are about
+ * need no resolving step, and the red outline on the card or panel is what
+ * makes it findable from across the board.
+ *
+ * Loud on purpose: this is a telegraph, and it has exactly one round to be
+ * read before it stops being a warning and becomes damage. */
 .debris-mark {
-  display: inline-flex;
-  gap: 0.35rem;
-  align-items: center;
-  /* Beside the card it points at, in the row's own flow.
-     `flex: 0 0 auto` keeps it out of the tier grow distribution — the enemies
-     divide the width between them by tier, and a mark that took a share would
-     shrink the board it is annotating. Centred vertically against the card
-     rather than pinned to its top, so the arrow lines up with the thing. */
-  flex: 0 0 auto;
   align-self: center;
-  /* It is a label, not a target. Clicks belong to the enemy. */
+  /* It is a label, not a target. Clicks belong to the enemy card under it. */
   pointer-events: none;
-  font-size: 1rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
+  /* Big enough to be a warning. It started at 0.7rem in status-chip colours and
+     was invisible, which is the failure mode that matters for a telegraph: it
+     has exactly one round to be read before it stops being a warning and
+     becomes damage. */
+  font-size: 0.92rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
+  line-height: 1;
   color: var(--danger);
   text-shadow: 0 0 12px color-mix(in srgb, var(--danger) 50%, transparent);
 }
 
-.debris-arrow {
-  font-size: 1.25rem;
-  line-height: 1;
+/* The enemy card's bottom-right corner.
+ *
+ * Its own grid row, right-aligned, rather than absolutely positioned over the
+ * corner. Overlaying was the obvious reading of "the corner" and it does not
+ * fit: the intent row is centred and spans the card, so on a 227px normal-tier
+ * card the mark landed 2px into a one-hit telegraph and 47px into a two-part
+ * one. Measured, not guessed.
+ *
+ * The alternatives were shifting the intent left to make room — which moves
+ * the telegraph, the one thing on an enemy card that must hold still — or
+ * letting the two draw over each other. A row of its own costs one line of
+ * height, only on the card actually marked, and nothing overlaps at any width.
+ *
+ * `margin-top` is negative against the grid's own 0.4rem gap, so it reads as
+ * attached to the bottom edge rather than floating in its own band. */
+.enemy .debris-mark {
+  justify-self: end;
+  margin-top: -0.15rem;
 }
 
-/* Pointing down means at YOU, and the player's panel is below the enemy row —
-   so the arrow goes under the word rather than beside it. Turning the flex
-   direction is the whole of it; the word and the arrow are already in the right
-   order for a column (see `renderDebrisMark`). */
-.debris-mark--down {
-  flex-direction: column;
-  gap: 0.15rem;
-}
+
 
 /* And the card itself, so the answer is visible without reading any words. */
 .enemy.is-marked {
@@ -2134,6 +2184,14 @@
 
 /* ---------- stance masteries ----------
    A mastery rewrites how the whole deck reads, so it is never a footnote. */
+
+/* A stance you have shut behind you this turn — Iron Tide's and Banked Fire's
+   cost. Danger red rather than the muted grey the change-counter uses: this is
+   not information about the turn, it is something that will refuse you. */
+.stance-limit.is-shut {
+  color: var(--danger);
+  font-weight: 700;
+}
 
 .stance-mastery {
   font-size: 0.72rem;
@@ -4129,6 +4187,20 @@
   color: var(--ink);
   font-weight: 800;
   font-variant-numeric: tabular-nums;
+}
+
+/* The Focus bonus for cards that have no printed figure to hang the chip on.
+   See `focusNote`: a card scaling its damage inside a `scaleWith`, or gaining
+   its Block inside a `conditional`, has no styled number in its text. The same
+   weight and colour as the chip, on its own line, so it reads as the same fact
+   said the only way this card can say it. */
+.card-focus-note {
+  margin: 0;
+  color: var(--ink);
+  font-weight: 800;
+  font-size: 0.78em;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
 }
 
 

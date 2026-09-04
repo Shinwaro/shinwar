@@ -760,3 +760,51 @@ describe('naming a thing the player has not seen', () => {
     expect(named.length).toBeGreaterThan(10);
   });
 });
+
+describe('The Open Channel', () => {
+  /*
+   * Every option on this screen is paid for.
+   *
+   * "Just write down the front’s position" used to be a free card with
+   * `risk: 'None'`, on an event whose entire subject is that broadcasting your
+   * position gets you found — and its own detail line ("it was free, which
+   * should have been the first clue") promised a bill it never sent. A free
+   * option among three priced ones is not an option; it is the answer.
+   *
+   * It carries `marked` now, which is the one thread in the game whose words
+   * describe this exact act: the Vareth know your ship, and you copied their
+   * band down in a notebook.
+   */
+  it('charges for the free data', () => {
+    const def = eventTable.get('the_open_channel');
+    const listen = def.options.find((option) => option.id === 'listen_front');
+    expect(listen, 'the option is gone or renamed').toBeDefined();
+
+    const before = fresh();
+    const had = runOf(before).pilot.deck.filter((card) => card.defId === 'dead_reckoning').length;
+    const after = applyRunEffects(before, listen!.effects, 'test').state;
+    const run = runOf(after);
+
+    expect(
+      run.pilot.deck.filter((card) => card.defId === 'dead_reckoning').length,
+      'the card is the payoff and still has to arrive',
+    ).toBe(had + 1);
+    expect(
+      activeThreads(run).map((entry) => entry.threadId),
+      'the bill did not arrive with it',
+    ).toContain('marked');
+  });
+
+  it('leaves nothing on the screen that costs nothing', () => {
+    /* `isLeave` is the exception — walking away is meant to be worthless, and
+       there is a test above that insists on it. Everything you can actually
+       TAKE has a risk against it. */
+    const def = eventTable.get('the_open_channel');
+    const free = def.options
+      .filter((option) => option.isLeave !== true && option.risk === 'None')
+      .map((option) => option.label);
+
+    expect(free, 'these options are pure upside').toEqual([]);
+  });
+});
+

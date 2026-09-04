@@ -24,7 +24,7 @@ import type {
   StanceId,
 } from '../types.ts';
 import { withCombat } from '../state.ts';
-import { STANCES, type StanceRules } from '../../content/balance.ts';
+import { STANCES, STANCE_BY_ACT, type StanceRules } from '../../content/balance.ts';
 import {
   environments as environmentTable,
   implants as implantTable,
@@ -49,8 +49,24 @@ export interface LiveStanceRules extends StanceRules {
  */
 export function stanceRulesFor(state: GameState, stance: StanceId): LiveStanceRules {
   const earned = state.run?.pilot.masteries ?? [];
+  const base = STANCES[stance];
+
+  /* The act's figures, before any mastery.
+   *
+   * Applied to the BASE table rather than after the overrides, so a mastery
+   * that names its own number still wins — Still Water retains no Block in
+   * Act 3 exactly as it does in Act 1. Falls back to the printed values for a
+   * state with no run, which is how the info panel reads the table. */
+  const scale = STANCE_BY_ACT[state.run?.act ?? 1];
+
   let rules: LiveStanceRules = {
-    ...STANCES[stance],
+    ...base,
+    ...(scale === undefined
+      ? {}
+      : {
+          blockRetained: base.blockRetained > 0 ? scale.blockRetained : 0,
+          ...(base.hotDamage === undefined ? {} : { hotDamage: scale.hotDamage }),
+        }),
     stanceChangesPerTurn: Number.POSITIVE_INFINITY,
     masteries: [],
   };
@@ -71,7 +87,33 @@ export function stanceRulesFor(state: GameState, stance: StanceId): LiveStanceRu
   const bonus = pilotRules(state).focusPerStackBonus;
   if (bonus !== 0) rules = { ...rules, focusPerStack: rules.focusPerStack + bonus };
 
-  return rules;
+  /* The two act-scaled figures, filled into whichever text survived the
+     overrides. Last, so it reads the final numbers rather than the printed
+     ones — a mastery that changes `blockRetained` and keeps the base wording
+     still describes itself correctly. */
+  return { ...rules, text: fillStanceText(rules) };
+}
+
+/** Substitutes `{block}` and `{hot}` in a stance line. See `StanceRules.text`. */
+function fillStanceText(rules: LiveStanceRules): string {
+  return rules.text
+    .replace('{block}', String(rules.blockRetained))
+    .replace('{hot}', String(rules.hotDamage ?? 0));
+}
+
+/**
+ * May the player enter this stance right now?
+ *
+ * Separate from `canChangeStance`, which asks whether any change is left. This
+ * asks about a specific destination, which is the only way to express Iron
+ * Tide's and Banked Fire's cost: the limit belongs to the stance being entered,
+ * not to the one being stood in. See `StanceRules.noReentry`.
+ */
+export function canEnterStance(state: GameState, to: StanceId): boolean {
+  if (stanceRulesFor(state, to).noReentry !== true) return true;
+  const combat = state.run?.combat;
+  if (combat === undefined || combat === null) return true;
+  return !combat.stancesLeftThisTurn.includes(to);
 }
 
 /** The stance in play right now, as this run plays it. */

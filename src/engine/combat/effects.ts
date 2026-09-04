@@ -145,6 +145,18 @@ function opponentsOf(state: GameState, actor: Combatant): readonly Combatant[] {
   return [PLAYER];
 }
 
+/**
+ * The actor's own side, including the actor.
+ *
+ * The player fights alone, so for them this is just the player. For an enemy it
+ * is every living enemy — itself included, which is the natural reading of a
+ * choir singing to "all" of them.
+ */
+function alliesOf(state: GameState, actor: Combatant): readonly Combatant[] {
+  if (actor.kind === 'player') return [PLAYER];
+  return livingEnemies(requireCombat(state)).map((enemy) => enemyTarget(enemy.uid));
+}
+
 function resolveTargets(
   state: GameState,
   context: EffectContext,
@@ -158,6 +170,9 @@ function resolveTargets(
 
     case 'allEnemies':
       return { targets: opponents, state };
+
+    case 'allAllies':
+      return { targets: alliesOf(state, context.actor), state };
 
     case 'randomEnemy': {
       if (opponents.length === 0) return { targets: [], state };
@@ -482,14 +497,50 @@ function applyOp(state: GameState, op: EffectOp, context: EffectContext): Effect
       const resolved = resolveTargets(state, context, op.target);
       let next = resolved.state;
       for (const target of resolved.targets) {
+        /*
+         * A cost you put on YOURSELF sheds at the end of the round you paid it.
+         *
+         * `fresh` exists so a debuff skips exactly one decay, and it earns that
+         * for a good reason: enemies act at the END of a round, so without it a
+         * debuff an enemy applied would be stripped before the player ever took
+         * a turn under it. The player acts FIRST, though — so a debuff the
+         * player applies has already had its round by the time decay runs, and
+         * skipping that decay gave it a second one for free.
+         *
+         * Measured, the two sides had already drifted: a Weak the player put on
+         * an ENEMY did shed at the end of that round, because the enemy acts
+         * later in it and acting clears the flag. Only the self case carried
+         * over, so the same status lasted a round longer on you than on them.
+         *
+         * Debuffs only, and Overclock is why. It is the one turn-decaying BUFF
+         * a player applies to themselves, and its text — "the stacks are how
+         * many turns it lasts" — is only true because of this skip: the turn you
+         * play it grants nothing, so three stacks needs four round-ends to pay
+         * three times. A cost is felt the moment you take it; a boon that pays
+         * at turn start has not happened yet when the round closes.
+         */
+        const actor = context.actor;
+        const sameCombatant =
+          target.kind === 'player'
+            ? actor.kind === 'player'
+            : actor.kind === 'enemy' && actor.uid === target.uid;
+        const debuffingSelf =
+          sameCombatant && statusTable.find(op.status)?.kind === 'debuff';
+
         next = withCombat(next, (combat) =>
           target.kind === 'player'
-            ? { ...combat, statuses: addStacks(combat.statuses, op.status, op.stacks) }
+            ? {
+                ...combat,
+                statuses: addStacks(combat.statuses, op.status, op.stacks, !debuffingSelf),
+              }
             : {
                 ...combat,
                 enemies: combat.enemies.map((enemy) =>
                   enemy.uid === target.uid
-                    ? { ...enemy, statuses: addStacks(enemy.statuses, op.status, op.stacks) }
+                    ? {
+                        ...enemy,
+                        statuses: addStacks(enemy.statuses, op.status, op.stacks, !debuffingSelf),
+                      }
                     : enemy,
                 ),
               },

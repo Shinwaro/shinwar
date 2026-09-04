@@ -41,7 +41,10 @@ export const FOCUS_CARDS: readonly CardDef[] = [
       { op: 'block', amount: 7 },
       { op: 'gainFocus', amount: 1 },
     ],
-    stanceRider: { stance: 'guard', effects: [{ op: 'ventHeat', amount: 1 }] },
+    /* Two off the gauge in GUARD, not one. A single point is inside the noise
+       of a stance that already vents one at turn end — the rider was a line of
+       text for an effect the player could not feel. */
+    stanceRider: { stance: 'guard', effects: [{ op: 'ventHeat', amount: 2 }] },
     upgrade: {
       name: 'Held Breath+',
       effects: [

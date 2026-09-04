@@ -265,11 +265,16 @@ export function computeDamage(state: GameState, input: DamageInput): DamageBreak
      * half, and it is declared here rather than hooked because it modifies a
      * number the pipeline is in the middle of producing.
      */
-    if (
-      input.fromRider !== true &&
-      stance.hotDamageAtHeat !== undefined &&
-      combat.heat >= stance.hotDamageAtHeat
-    ) {
+    /* Every hit, including the rider's.
+     *
+       It was gated on `input.fromRider !== true`, on the reasoning that a
+       stance rider IS the stance's bonus and should not also collect the
+       stance's damage bonus. Tidy, and wrong in play: IAI Slash showed +2 on
+       its own hit and nothing on its IAI rider hit, so the one stance whose
+       whole identity is "hot swings hit harder" visibly failed to apply that to
+       half of its own signature card. The bonus is a property of the swing,
+       not of which clause asked for it. */
+    if (stance.hotDamageAtHeat !== undefined && combat.heat >= stance.hotDamageAtHeat) {
       ctx = record(ctx, `${stance.name} hot`, 'add', ctx.amount + (stance.hotDamage ?? 0));
     }
 

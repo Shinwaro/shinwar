@@ -12,20 +12,37 @@
 import type { GameState } from '../../engine/types.ts';
 import { heatStatus } from '../../engine/combat/heat.ts';
 import { requireCombat } from '../../engine/state.ts';
-import { liveStance, stanceChangeLimit } from '../../engine/combat/rules.ts';
-import { FOCUS_MAX, HEAT } from '../../content/balance.ts';
+import { canEnterStance, envGetString, liveStance, stanceChangeLimit } from '../../engine/combat/rules.ts';
+import { ACTIVE_STANCES, FOCUS_MAX, HEAT, STANCES } from '../../content/balance.ts';
 import { CLEAR_SPACE_ID } from '../../content/environments.ts';
 import {
   environments as environmentTable,
   masteries as masteryTable,
 } from '../../content/registry.ts';
 import { el } from '../dom.ts';
+import { debrisChip } from './enemy.ts';
 import { environmentIsNew, environmentMark } from '../env-mark.ts';
 import { stageHeat } from '../anim.ts';
 import { renderSigil } from './sigil.ts';
 
 export function renderStanceStrip(state: GameState): HTMLElement {
   const combat = requireCombat(state);
+  /* The player's half of the mark, beside the stance description.
+   *
+   * Next to the text rather than the stance NAME, which was the first attempt:
+   * the name is furniture that reads the same every round, so a warning parked
+   * against it stopped being news. The description line is the one the player
+   * re-reads to work out what this turn can do. */
+  const marked = envGetString(combat, 'debrisTarget') === 'player';
+
+  /* Any stance you have shut behind you this turn.
+   *
+   * Iron Tide and Banked Fire both cost a one-way door — leave the stance and
+   * it is closed until the turn ends — and a cost the player cannot see is a
+   * cost that reads as a bug the first time a card refuses to move them. The
+   * refusal is already logged, but the log is the record; this is the warning
+   * you get BEFORE spending a card on a change that will not happen. */
+  const shut = ACTIVE_STANCES.filter((id) => id !== combat.stance && !canEnterStance(state, id));
   // The live table, so a Stance Mastery is described rather than hidden. A
   // strip that still reads out the base stance after a Mastery rewrote it is
   // worse than no strip at all.
@@ -40,10 +57,16 @@ export function renderStanceStrip(state: GameState): HTMLElement {
     renderSigil(combat.stance),
     el('span', { class: 'stance-name' }, [`▶ ${stance.name} ◀`]),
     el('span', { class: 'stance-text' }, [stance.text]),
+    marked ? debrisChip() : null,
     stance.masteries.length === 0
       ? null
       : el('span', { class: 'stance-mastery' }, [
           stance.masteries.map((id) => masteryTable.find(id)?.name ?? id).join(' · '),
+        ]),
+    shut.length === 0
+      ? null
+      : el('span', { class: 'stance-limit is-shut', role: 'status' }, [
+          `${shut.map((id) => STANCES[id].name).join(' and ')} shut for this turn`,
         ]),
     !Number.isFinite(limit)
       ? null

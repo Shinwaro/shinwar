@@ -13,7 +13,7 @@ import { previewCard } from '../src/engine/combat/preview.ts';
 import { blockFigures, damageFigures } from '../src/engine/combat/describe.ts';
 import { pilotRules } from '../src/engine/combat/rules.ts';
 import { cards as cardTable } from '../src/content/registry.ts';
-import { playCard } from '../src/engine/combat/combat.ts';
+import { playCard, startPlayerTurn } from '../src/engine/combat/combat.ts';
 import { FOCUS_DAMAGE_PER_STACK, STANCES } from '../src/content/balance.ts';
 import { STRENGTH, VULNERABLE, WEAK } from '../src/content/statuses.ts';
 import { FANNED_CUT, IAI_SLASH, SEVER, SOLAR_PARRY } from '../src/content/cards/basic.ts';
@@ -573,3 +573,42 @@ describe('the swing index a card logs', () => {
     expect(swings(after)).toEqual([0, 0]);
   });
 });
+
+describe("IAI's hot bonus", () => {
+  /*
+   * Every hit, including a stance rider's.
+   *
+   * It was gated on `fromRider !== true`, on the tidy-sounding reasoning that a
+   * rider IS the stance's bonus and should not also collect the stance's damage
+   * bonus. In play that meant IAI Slash — 6 base, then 2 more from its IAI
+   * rider — showed +2 on the first hit and nothing on the second, so the one
+   * stance whose entire identity is "hot swings hit harder" visibly failed to
+   * apply that to half of its own signature card.
+   *
+   * Asserted end to end through `playCard`, because the bug was in which
+   * clause asked for the damage, and only playing the real card exercises both.
+   */
+  const dealt = (heat: number, act: 1 | 2 | 3): number => {
+    let state = makeFight({ stance: 'iai', hand: [IAI_SLASH], energy: 9, heat, enemyHp: 999 });
+    if (state.run !== null) state = { ...state, run: { ...state.run, act } };
+    state = startPlayerTurn(state);
+    const before = firstEnemy(state).hp;
+    const card = handCard(state, 0);
+    return before - firstEnemy(playCard(state, card.uid, firstEnemy(state).uid)).hp;
+  };
+
+  it('lands on the rider hit as well as the base hit', () => {
+    // 6 + 2 with no bonus; 6+2 and 2+2 once hot. Both halves, or neither.
+    expect(dealt(0, 1), 'cold: 6 base + 2 rider').toBe(8);
+    expect(dealt(6, 1), 'hot: +2 on each of the two hits').toBe(12);
+  });
+
+  it('scales with the act on both hits', () => {
+    /* The figure is per-act now — see `STANCE_BY_ACT`. If the rider were still
+       excluded these would be 9 and 10 rather than 14 and 16, so this pins the
+       scaling and the every-hit rule at once. */
+    expect(dealt(6, 2), 'act 2 pays 3 a hit').toBe(14);
+    expect(dealt(6, 3), 'act 3 pays 4 a hit').toBe(16);
+  });
+});
+

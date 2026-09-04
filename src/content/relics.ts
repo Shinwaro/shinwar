@@ -76,7 +76,11 @@ export const RELICS: readonly RelicDef[] = [
     id: 'bleed_valve',
     name: 'Bleed Valve',
     text: 'Vent 1 Heat at the start of each turn.',
-    rarity: 'common',
+    /* Up a tier. A free vent every turn is the whole answer to the gauge for a
+       deck that was not going to run hot anyway, and it never asks anything —
+       no gate, no cost, no decision. Compare Exchange Coil, which does more and
+       needs Heat to do it. */
+    rarity: 'uncommon',
     passive: { ventPerTurn: 1 },
     flavor: 'Runs constantly. Sounds like something is wrong. Nothing is.',
   },
@@ -223,11 +227,14 @@ export const RELICS: readonly RelicDef[] = [
        is not what the name says and not what the rarity is priced for. Now it
        is one exchange: no Heat, no Focus. */
     text: 'At the start of each turn, convert 1 Heat into 1 Focus.',
-    /* Down to uncommon, trading places with Ceramic Underplate. It is gated on
-       having Heat to spend, so a deck that is not running the gauge gets
-       nothing from it — a conditional that some builds cannot switch on at all
-       belongs a tier below one that every build gets full value from. */
-    rarity: 'uncommon',
+    /* Epic. The tier went down and then back up two, which is worth recording:
+       the argument for uncommon was that a cold deck switches it off, and that
+       is true and turned out not to be the point. Focus is the resource the
+       stance layer is built on, and a relic that turns the gauge into a stack
+       of it every single turn is a build, not a trinket — a hot deck holding
+       this one has an engine running for free. Gated is not the same as weak
+       when the decks that can switch it on are the decks that win. */
+    rarity: 'epic',
     flavor: 'What comes off the reactor has to go somewhere. It may as well go into your hands.',
   },
   {
@@ -301,8 +308,34 @@ export const RELICS: readonly RelicDef[] = [
     id: 'duelists_mark',
     name: 'Duelist’s Mark',
     text: 'Apply 1 Vulnerable to all enemies at the start of each fight.',
-    rarity: 'epic',
+    /* Down to uncommon. One stack, once, at the top of the fight: it is worth
+       the most on the short fights that were never the problem and has
+       stopped mattering by the time a boss is deciding the run. An epic has to
+       change how a deck is built, and nothing is built around a single opening
+       stack. */
+    rarity: 'uncommon',
     flavor: 'You are announced before you arrive, and it has stopped being a courtesy.',
+  },
+  {
+    /* The engine relic, and the one the cheap-cards deck has never had.
+     *
+     * Every existing legendary rewards a deck for the size of what it does:
+     * a bigger swing, a taller wall, a hotter gauge. Nothing rewarded a deck
+     * for the NUMBER of things it does, so the 0- and 1-Energy pile had no
+     * ceiling to build toward — it thinned the deck and drew cards and then
+     * ran out of Energy like everything else.
+     *
+     * Five is the threshold because four is a normal good turn. At five it
+     * pays once, and the Energy it hands back can buy the fifth-again — which
+     * is the loop, and the reason this is legendary rather than epic. It is
+     * also self-limiting in a way Splitfire Core is not: you have to have the
+     * cards in hand to get there, so it rewards the draw engine rather than
+     * simply existing. */
+    id: 'cascade_governor',
+    name: 'Cascade Governor',
+    text: 'Every fifth card you play in a turn, gain 1 Energy.',
+    rarity: 'legendary',
+    flavor: 'It was built to stop a runaway. Someone has wired it in backwards, on purpose.',
   },
   {
     id: 'splitfire_core',
@@ -640,6 +673,38 @@ export function registerRelicHooks(): void {
             kind: 'status',
             text: 'Duelist’s Mark. 1 Vulnerable to all enemies.',
             detail: { status: VULNERABLE, stacks: 1 },
+          },
+        );
+      },
+    }),
+  ]);
+
+  /* Counted off `cardsPlayedThisTurn`, the same counter Splitfire Core and
+     Long Form read — a relic keeping its own tally is a second version of one
+     fact, and the two drift the first time anything else touches the count.
+
+     Note the counter is incremented AFTER a card's effects resolve and before
+     `onCardPlayed` fires, so the fifth card sees exactly 5 here. That ordering
+     is load-bearing and there is a test on it: Momentum used to read the
+     counter early and print a number one short of what it dealt. */
+  registerHooks('cascade_governor', [
+    defineHook({
+      hook: 'onCardPlayed',
+      priority: HOOK_PRIORITY.module,
+      handle: (state) => {
+        const combat = state.run?.combat;
+        if (combat === undefined || combat === null || combat.outcome !== 'ongoing') return state;
+        if (combat.cardsPlayedThisTurn === 0 || combat.cardsPlayedThisTurn % 5 !== 0) return state;
+
+        return appendLog(
+          withCombat(state, (current) => ({ ...current, energy: current.energy + 1 })),
+          {
+            source: 'cascade_governor',
+            kind: 'combat',
+            text: 'Energy +1.',
+            // Same detail shape the `gainEnergy` op logs, so the presentation
+            // layer tells this apart from a heal without a special case.
+            detail: { energy: 1 },
           },
         );
       },

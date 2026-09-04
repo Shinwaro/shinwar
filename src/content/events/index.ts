@@ -1448,8 +1448,29 @@ export const EVENTS: readonly EventDef[] = [
         id: 'listen_front',
         label: 'Just write down the front’s position',
         detail: 'It is good data and it was free, which should have been the first clue.',
-        effects: [{ op: 'card', cardId: 'dead_reckoning' }],
-        risk: 'None',
+        /* The clue pays off now.
+         *
+         * This was the only option on the screen with `risk: 'None'` — a free
+         * card, no bill, from an event whose whole subject is that broadcasting
+         * your position gets you found. Its own detail line promised a cost and
+         * then never charged one, which made the joke a lie and made the choice
+         * a non-choice: take the free card, every time.
+         *
+         * `marked` is the bill it should always have carried. You copied down
+         * the front's real position off an open band, and the Vareth run that
+         * band — the thread's own words are `The Vareth know your ship. They
+         * are slower than you and they do not stop.` Nothing else in the game
+         * connects a specific action to that thread; this is where it belongs.
+         *
+         * Deferred rather than None now, and the pairing is the point: the
+         * payoff is still immediate and specific, and the price arrives later.
+         * That is a real decision against Jam, which pays a Thread for a
+         * Thread, and against the bearing, which pays cash for a curse. */
+        effects: [
+          { op: 'card', cardId: 'dead_reckoning' },
+          { op: 'setThread', threadId: 'marked' },
+        ],
+        risk: 'Deferred',
         payoff: 'Immediate, specific',
       },
       {

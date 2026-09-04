@@ -10,7 +10,10 @@ import type { CardDef, EffectOp } from '../src/engine/types.ts';
 import {
   describeCard,
   describeCardSegments,
+  describeCardParts,
   describeRider,
+  describeRiderSegments,
+  focusNote,
   riderIsLive,
 } from '../src/engine/combat/describe.ts';
 import { definitionOf, playCard, startPlayerTurn } from '../src/engine/combat/combat.ts';
@@ -22,6 +25,7 @@ import { JETTISON } from '../src/content/cards/discard.ts';
 import { STILLWATER_GUARD } from '../src/content/cards/focus.ts';
 import { SCALD, STRENGTH } from '../src/content/statuses.ts';
 import { cardVoice } from '../src/ui/card-voice.ts';
+import { targetHullInterest } from '../src/engine/queries.ts';
 import { statuses as statusTable } from '../src/content/registry.ts';
 import {
   FANNED_CUT,
@@ -171,7 +175,7 @@ describe('generated rules text', () => {
        described nine blows as one number made both of them silently worth nine
        times their face. "extra" was the older wording and was wrong in the
        other direction — it read as one bigger swing. */
-    expect(text).toBe('For every 2 Heat, hit for 3. (3x now)');
+    expect(text).toBe('For every 2 Heat, hit for 3 damage. (3x now)');
   });
 
   it('appends Burn and Innate', () => {
@@ -316,6 +320,72 @@ describe('the hand and the reward screen say the same thing', () => {
     const gyre = flatten(cardTable.get('widening_gyre'));
     expect(gyre, 'Widening Gyre hid its own slope').toContain('per 10%');
     expect(flatten(cardTable.get('the_long_draw'))).toContain('per Focus');
+  });
+});
+
+describe('cards that ask about the target in percentages', () => {
+  /* The board says `28/28` and these cards ask about 30% — so the marks on the
+     enemy exist to close a UNITS gap, not to do arithmetic for anybody. What
+     matters is that the question is read off the card rather than kept in a
+     hand-written list somewhere, because a list is wrong the day somebody
+     writes the sixth one. */
+  it('finds the threshold on every card that has one', () => {
+    const marks = (id: string): string =>
+      targetHullInterest(cardTable.get(id))
+        .thresholds.map((t) => `${t.side} ${t.pct}`)
+        .join(', ');
+
+    expect(marks('execute'), 'Execute reads below 30%').toBe('below 30');
+    expect(marks('first_blood'), 'First Blood reads above 70%').toBe('above 70');
+    expect(marks('meet_the_charge')).toBe('above 80');
+    expect(marks('terminal_velocity')).toBe('below 40');
+  });
+
+  it('reads an upgrade as its own question', () => {
+    /* The upgrades move the line — Execute+ pays below 40, not 30 — so the mark
+       has to come from the card actually in hand. */
+    const up = { ...cardTable.get('execute'), ...cardTable.get('execute').upgrade };
+    expect(targetHullInterest(up as CardDef).thresholds).toEqual([{ pct: 40, side: 'below' }]);
+  });
+
+  it('calls a slope a slope rather than inventing a line for it', () => {
+    /* Widening Gyre scales continuously on how much is missing, so there is no
+       threshold to draw — every value matters, which is what `slope` says. It
+       reaches this through `plusPer` on a damage op rather than a conditional,
+       so this also covers that path. */
+    const gyre = targetHullInterest(cardTable.get('widening_gyre'));
+    expect(gyre.slope, 'the slope went unnoticed').toBe(true);
+    expect(gyre.thresholds, 'a slope has no line').toEqual([]);
+  });
+
+  it('says nothing at all about a card that does not ask', () => {
+    /* The marks appear with the question and leave with it. A card that never
+       mentions the target's hull must produce no percentage and no tick, or the
+       affordance stops meaning anything. */
+    const quiet = ['iai_slash', 'solar_parry', 'bulwark', 'vector_step'];
+    for (const id of quiet) {
+      const i = targetHullInterest(cardTable.get(id));
+      expect(i.thresholds, `${id} drew a line`).toEqual([]);
+      expect(i.slope, `${id} claimed a slope`).toBe(false);
+    }
+  });
+
+  it('covers every card in the pool that mentions target hull', () => {
+    /* The backstop: anything whose ops name a target-hull question must be
+       reported by the query. Written against the OPS rather than against a list
+       of ids, so a sixth card of this family is covered the day it is added. */
+    const mentions = (json: string): boolean =>
+      json.includes('targetHullBelowPct') ||
+      json.includes('targetHullAbovePct') ||
+      json.includes('targetHullMissingPct');
+
+    const missed: string[] = [];
+    for (const def of cardTable.all()) {
+      if (!mentions(JSON.stringify(def.effects))) continue;
+      const i = targetHullInterest(def);
+      if (i.thresholds.length === 0 && !i.slope) missed.push(def.id);
+    }
+    expect(missed, 'these ask about target hull and the query missed them').toEqual([]);
   });
 });
 
@@ -762,8 +832,155 @@ describe('spending the hand', () => {
 
   it('says what it does, in generated words', () => {
     expect(describeCard(cardTable.get('empty_the_rack'))).toBe(
-      'Discard your hand. For every 2 cards discarded, hit for 6. Burn.',
+      'Discard your hand. For every 2 cards discarded, hit for 6 damage. Burn.',
     );
     expect(describeCard(cardTable.get('overdraw'))).toBe('Draw 3 cards. Discard 1 at random.');
   });
 });
+
+describe('the Focus bonus is always on the card somewhere', () => {
+  /*
+   * The `+2` chip hangs off a damage or Block SEGMENT, and only a top-level
+   * `damage` or `block` op becomes one — anything nested inside a `conditional`
+   * or a `scaleWith` goes to the string generator whole, with no figure to hang
+   * it on. Fifteen cards therefore never mentioned their Focus bonus at all:
+   * Momentum, Execute and Criticality deal every point of their damage from
+   * inside a `scaleWith`; Unhurried, The Last Plate and Shed Weight gain all
+   * their Block inside a `conditional`. Reliably the long cards, which is the
+   * worst place to lose a number.
+   *
+   * The sweep is the real assertion. Naming three cards would pass forever
+   * while the next conditional card shipped silent.
+   */
+  const chipFor = (def: CardDef, state: GameState): number => {
+    const own = describeCardSegments(def, state);
+    const rider = describeRiderSegments(def, state) ?? [];
+    let best = 0;
+    for (const seg of [...own, ...rider]) {
+      if (seg.kind !== 'text') best = Math.max(best, seg.figures.focus);
+    }
+    return best;
+  };
+
+  const deals = (def: CardDef, kind: 'damage' | 'block'): boolean => {
+    const walk = (ops: readonly EffectOp[]): boolean =>
+      ops.some((op) => {
+        if (op.op === kind) return true;
+        if (op.op === 'conditional') return walk(op.then) || walk(op.else ?? []);
+        if (op.op === 'scaleWith') return walk(op.then);
+        return false;
+      });
+    return walk(def.effects) || walk(def.stanceRider?.effects ?? []);
+  };
+
+  for (const [stance, kind] of [
+    ['iai', 'damage'],
+    ['guard', 'block'],
+  ] as const) {
+    it(`states it on every ${kind} card, in ${stance.toUpperCase()}`, () => {
+      // Focus has to be held for there to be a bonus at all, and it is spent
+      // per card rather than per op, so one stack is the whole question.
+      const state = makeFight({ stance, focus: 1 });
+      const silent: string[] = [];
+
+      for (const def of cardTable.all()) {
+        if (!deals(def, kind)) continue;
+        if (def.keepsFocus === true) continue;
+        if (chipFor(def, state) > 0) continue;
+        if (focusNote(def, state) === null) silent.push(def.name);
+      }
+
+      expect(silent, 'these cards get a Focus bonus and say nothing about it').toEqual([]);
+    });
+  }
+
+  it('says it once, never twice', () => {
+    const state = makeFight({ stance: 'iai', focus: 1 });
+    const doubled = cardTable
+      .all()
+      .filter((def) => chipFor(def, state) > 0 && focusNote(def, state) !== null)
+      .map((def) => def.name);
+
+    expect(doubled, 'a chip and a note on the same card').toEqual([]);
+  });
+
+  it('promises nothing on a card the bonus cannot reach', () => {
+    // GUARD spends Focus on Block. A pure attack gains none, so neither the
+    // chip nor the note may claim otherwise.
+    const guard = makeFight({ stance: 'guard', focus: 3 });
+    const slash = cardTable.get(IAI_SLASH);
+    expect(chipFor(slash, guard)).toBe(0);
+    expect(focusNote(slash, guard)).toBeNull();
+  });
+});
+
+describe('the stance rider says the same thing both ways', () => {
+  /* Same drift guard as the card text above, for the same reason: the rider
+     was a flat string until its figures had to carry the Focus bonus too, and
+     a second describer is a second thing to keep in step. */
+  it('flattens to the string the reward screen shows', () => {
+    for (const def of cardTable.all()) {
+      const segments = describeRiderSegments(def, null);
+      if (segments === null) {
+        expect(describeRider(def, null), `${def.name} has a rider one way only`).toBeNull();
+        continue;
+      }
+      const flat = segments
+        .map((seg) => (seg.kind === 'text' ? seg.text : String(seg.figures.shown)))
+        .join('')
+        .replace(/\s+/g, ' ')
+        .trim();
+      expect(flat, `${def.name}'s rider drifted`).toBe(
+        (describeRider(def, null) ?? '').replace(/\s+/g, ' ').trim(),
+      );
+    }
+  });
+});
+
+describe('one Focus stack, one bonus on the face', () => {
+  /*
+   * A card play spends exactly ONE stack — `context.focusSpent` in
+   * `effects.ts` guards the damage side and the Block side with the same flag —
+   * so exactly one thing on the card may claim the `+2`.
+   *
+   * IAI Slash is why this test exists. Its own hit and its IAI rider's hit were
+   * described by two separate calls, each starting a fresh claim, so the face
+   * read "Deal 6 +2" AND "IAI: Deal 2 +2": four points of Focus promised on one
+   * stack, in the stance the card is built for.
+   */
+  const bonuses = (def: CardDef, state: GameState): number[] => {
+    const parts = describeCardParts(def, state);
+    return [...parts.text, ...(parts.rider ?? [])]
+      .filter((seg) => seg.kind !== 'text' && seg.figures.focus > 0)
+      .map((seg) => (seg.kind === 'text' ? 0 : seg.figures.focus));
+  };
+
+  for (const stance of ['iai', 'guard'] as const) {
+    it(`never promises the bonus twice, in ${stance.toUpperCase()}`, () => {
+      const state = makeFight({ stance, focus: 1 });
+      const doubled = cardTable
+        .all()
+        .filter((def) => bonuses(def, state).length > 1)
+        .map((def) => def.name);
+
+      expect(doubled, 'these cards print the Focus bonus more than once').toEqual([]);
+    });
+  }
+
+  it('gives it to the half that actually spends it', () => {
+    /* The base effects resolve before the rider and hand it the same context,
+       so the base claims and the rider goes bare. Asserted on IAI Slash in IAI,
+       where both halves deal damage and both would otherwise qualify. */
+    const state = makeFight({ stance: 'iai', focus: 1 });
+    const parts = describeCardParts(cardTable.get(IAI_SLASH), state);
+
+    const own = parts.text.filter((seg) => seg.kind === 'damage');
+    const rider = (parts.rider ?? []).filter((seg) => seg.kind === 'damage');
+
+    expect(own.length, 'the base hit is not a figure').toBe(1);
+    expect(rider.length, 'the rider hit is not a figure').toBe(1);
+    expect(own[0]?.kind === 'damage' ? own[0].figures.focus : 0).toBeGreaterThan(0);
+    expect(rider[0]?.kind === 'damage' ? rider[0].figures.focus : 0).toBe(0);
+  });
+});
+

@@ -169,38 +169,56 @@ export const HULL_CARDS: readonly CardDef[] = [
     rarity: 'legendary',
     archetype: 'guard',
     cost: 2,
-    /* The epic on the high side, and the one that makes staying clean an
-       archetype rather than a preference: a hit, the Weak that keeps you clean,
-       and a second helping of both while you still are. Exhausts, because a
-       card this good at the top of a run should not also be the card you draw
-       four times in the fight that decides it. */
+    /* The legendary sweep, and the GUARD archetype's ceiling: it clears the
+       board wide, and holding the stance turns the same card into the wall as
+       well.
+
+       It used to gate its second half on hull above 60% and open with a Weak of
+       its own — three clauses, two of them conditional, on a card that already
+       hits everything. Read on a real board that was four sentences of text to
+       parse mid-turn.
+
+       Now there is one clause and it carries both gates: the stance, and 80%
+       hull. Folding the hull check into the rider rather than dropping it is
+       what keeps the card its own name — an Unblooded that never asked whether
+       you were unblooded was a legendary sweep wearing flavour text about
+       something it no longer did. Eighty rather than sixty because the rider is
+       the whole payoff now, and a threshold you clear by default is not a
+       threshold.
+
+       Exhausts, because a card this good at the top of a run should not also be
+       the card you draw four times in the fight that decides it. */
     exhaust: true,
-    effects: [
-      { op: 'damage', amount: 12, target: 'allEnemies' },
-      { op: 'applyStatus', status: WEAK, stacks: 1, target: 'allEnemies' },
-      {
-        op: 'conditional',
-        when: { kind: 'hullAbovePct', value: 60 },
-        then: [
-          { op: 'block', amount: 10 },
-          { op: 'applyStatus', status: WEAK, stacks: 1, target: 'allEnemies' },
-        ],
-      },
-    ],
-    upgrade: {
-      name: 'Unblooded+',
+    effects: [{ op: 'damage', amount: 12, target: 'allEnemies' }],
+    stanceRider: {
+      stance: 'guard',
       effects: [
-        { op: 'damage', amount: 16, target: 'allEnemies' },
-        { op: 'applyStatus', status: WEAK, stacks: 1, target: 'allEnemies' },
         {
           op: 'conditional',
-          when: { kind: 'hullAbovePct', value: 60 },
+          when: { kind: 'hullAbovePct', value: 80 },
           then: [
-            { op: 'block', amount: 14 },
+            { op: 'block', amount: 10 },
             { op: 'applyStatus', status: WEAK, stacks: 1, target: 'allEnemies' },
           ],
         },
       ],
+    },
+    upgrade: {
+      name: 'Unblooded+',
+      effects: [{ op: 'damage', amount: 16, target: 'allEnemies' }],
+      stanceRider: {
+        stance: 'guard',
+        effects: [
+          {
+            op: 'conditional',
+            when: { kind: 'hullAbovePct', value: 80 },
+            then: [
+              { op: 'block', amount: 14 },
+              { op: 'applyStatus', status: WEAK, stacks: 1, target: 'allEnemies' },
+            ],
+          },
+        ],
+      },
     },
     flavor: 'Forty of them and not one has touched you. They have noticed.',
   },

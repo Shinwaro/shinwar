@@ -40,11 +40,19 @@ export const MASTERIES: readonly MasteryDef[] = [
     id: BANKED_FIRE,
     name: 'Banked Fire',
     stance: 'iai',
-    text: 'IAI: no Heat at turn end at all, but a stack of Focus is only worth 1.',
+    /* The cost moved off Focus and onto the axis.
+     *
+     * Halving a Focus stack was the same lever Unsheathed Mind pulls the other
+     * way, so the two masteries were one argument at two prices — and it made
+     * the mastery quietly bad in a Focus deck rather than a decision. Shutting
+     * the stance behind you is a cost paid in FLEXIBILITY, which is what IAI
+     * actually trades in: no Heat at turn end means you can live up there, and
+     * the price is that stepping out is a one-way door until the turn ends. */
+    text: 'IAI: no Heat at turn end at all, but once you leave IAI you cannot re-enter it that turn.',
     overrides: {
-      text: 'Attacks spend Focus at 1 each · no Heat at turn end',
-      focusPerStack: 1,
+      text: 'Focus adds damage · no Heat at turn end · Leave IAI and it is shut for the turn',
       heatAtTurnEnd: 0,
+      noReentry: true,
     },
   },
 
@@ -64,10 +72,15 @@ export const MASTERIES: readonly MasteryDef[] = [
     id: CALCULATED_LOOK,
     name: 'Calculated Look',
     stance: 'iai',
-    text: 'IAI: draw 1 extra card each turn, but every attack deals 2 less.',
+    text: 'IAI: draw 2 extra cards each turn, but every attack deals 2 less.',
     overrides: {
-      text: 'Focus adds damage · +2 Heat at turn end · Draw 1 more · Attacks deal 2 less',
-      extraDraw: 1,
+      text: 'Focus adds damage · +2 Heat at turn end · Draw 2 more · Attacks deal 2 less',
+      /* Two, not one. One extra card against two damage off every attack was
+         a trade the one-big-hit deck refused and the cheap-cards deck barely
+         noticed — a mastery nobody's build actually wanted. Two cards a turn
+         is a different hand every turn, which is worth giving up the size of a
+         swing for. */
+      extraDraw: 2,
       attackPenalty: 2,
     },
   },
@@ -89,7 +102,7 @@ export const MASTERIES: readonly MasteryDef[] = [
     stance: 'guard',
     text: 'GUARD: the first attack each turn deals 6 more, but you draw 1 fewer card.',
     overrides: {
-      text: 'Focus adds Block · Vent 1 Heat at turn end · Retain 3 Block · First attack deals 6 more · Draw 1 fewer',
+      text: 'Focus adds Block · Vent 1 Heat at turn end · Retain {block} Block · First attack deals 6 more · Draw 1 fewer',
       firstAttackBonus: 6,
       /* Paid for in CARDS, not in Block.
        *
@@ -107,11 +120,25 @@ export const MASTERIES: readonly MasteryDef[] = [
     id: IRON_TIDE,
     name: 'Iron Tide',
     stance: 'guard',
-    text: 'GUARD: retain all Block instead of 3, but you may change stance only once a turn.',
+    /* Both halves of this were broken, in opposite directions.
+     *
+     * The upside retained ALL Block, which does not scale — it multiplies. A
+     * deck that stacks Block never loses a wall again, so every point of Block
+     * it gains is permanent, and the mastery ends the run at a number no
+     * enemy in the game can get through. Half keeps the compounding shape and
+     * gives the fight a way to wear it down.
+     *
+     * The cost was `stanceChangesPerTurn: 1`, and it simply did not work: the
+     * limit is read off the stance you are STANDING in, so leaving GUARD put
+     * you in IAI where no limit applied, and you walked back in on the same
+     * turn having paid nothing. Shutting GUARD behind you is the cost the
+     * mastery was always describing — you commit to the wall or you leave it,
+     * and you cannot do both. */
+    text: 'GUARD: retain half your Block instead of a flat amount, but once you leave GUARD you cannot re-enter it that turn.',
     overrides: {
-      text: 'Focus is banked · Vent 1 Heat at turn end · Retain all Block · One stance change a turn',
-      blockRetained: 999,
-      stanceChangesPerTurn: 1,
+      text: 'Focus adds Block · Vent 1 Heat at turn end · Retain half your Block · Leave GUARD and it is shut for the turn',
+      blockRetainedPct: 0.5,
+      noReentry: true,
     },
   },
 

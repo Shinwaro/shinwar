@@ -30,6 +30,7 @@ import {
   liveStance,
   stanceChangeLimit,
   stanceRulesFor,
+  canEnterStance,
 } from '../src/engine/combat/rules.ts';
 import { gainHeat, ventHeat } from '../src/engine/combat/heat.ts';
 import { applyEffects, createContext } from '../src/engine/combat/effects.ts';
@@ -45,7 +46,7 @@ import {
   SENSOR_FOG_ID,
   STELLAR_CORONA_ID,
 } from '../src/content/environments.ts';
-import { IRON_TIDE, UNSHEATHED_MIND } from '../src/content/masteries.ts';
+import { BANKED_FIRE, IRON_TIDE, UNSHEATHED_MIND } from '../src/content/masteries.ts';
 import { CHIRALITY_WARDEN } from '../src/content/enemies/act3.ts';
 import { ENCOUNTERS } from '../src/content/encounters.ts';
 import { reloadContent } from '../src/content/index.ts';
@@ -53,7 +54,7 @@ import {
   enemies as enemyTable,
   masteries as masteryTable,
 } from '../src/content/registry.ts';
-import { makeFight, combatOf, firstEnemy, hullOf } from './helpers.ts';
+import { makeFight, combatOf, firstEnemy, hullOf, endTurnVia } from './helpers.ts';
 
 /** A fight in a named environment. */
 function inEnvironment(environmentId: string, options: Parameters<typeof makeFight>[0] = {}): GameState {
@@ -472,9 +473,54 @@ describe('stance masteries', () => {
   });
 
   it('charge a real cost — Iron Tide buys retained Block with the stance axis', () => {
+    /*
+     * The cost is that the door shuts, and this is the test the old version
+     * did not have.
+     *
+     * Iron Tide used to buy retained Block with `stanceChangesPerTurn: 1`, and
+     * that cost was not real: the limit is read off the stance you are
+     * STANDING in, so one change put you in IAI — where no limit applies —
+     * and you walked straight back into GUARD on the same turn having paid
+     * nothing at all. Asserted by walking it, not by reading the field, because
+     * reading the field is exactly what missed it.
+     */
     const mastered = withMastery(makeFight({ stance: 'guard' }), IRON_TIDE);
-    expect(liveStance(mastered).blockRetained).toBeGreaterThan(100);
-    expect(stanceChangeLimit(mastered)).toBe(1);
+    expect(liveStance(mastered).blockRetainedPct, 'half, not all').toBe(0.5);
+
+    const out = setStance(mastered, 'iai', 'test');
+    expect(combatOf(out).stance, 'leaving GUARD was refused').toBe('iai');
+
+    const back = setStance(out, 'guard', 'test');
+    expect(combatOf(back).stance, 'walked straight back into GUARD').toBe('iai');
+    expect(canEnterStance(back, 'guard')).toBe(false);
+
+    // And it opens again next turn, or the mastery is a one-way trip per fight.
+    const nextTurn = startPlayerTurn(endTurnVia(back));
+    expect(canEnterStance(nextTurn, 'guard'), 'still shut a turn later').toBe(true);
+  });
+
+  it('halve the wall rather than keeping all of it', () => {
+    /* Retaining ALL Block does not scale, it multiplies: every point a Block
+       deck ever gains is permanent, and the mastery ends the run at a number
+       nothing in the game can get through. Half still compounds and still lets
+       a fight wear it down. Floored, so it cannot round its way upward. */
+    const mastered = withMastery(makeFight({ stance: 'guard', block: 25 }), IRON_TIDE);
+    // Straight into the turn start, which is where the retain is applied — a
+    // full round would have the enemy phase eat the Block first and the test
+    // would be measuring the enemies, not the mastery.
+    expect(combatOf(startPlayerTurn(mastered)).block).toBe(12);
+  });
+
+  it('shut IAI behind Banked Fire, and charge nothing in Focus', () => {
+    const mastered = withMastery(makeFight({ stance: 'iai' }), BANKED_FIRE);
+    const rules = liveStance(mastered);
+    expect(rules.heatAtTurnEnd, 'the upside is the free gauge').toBe(0);
+    expect(rules.focusPerStack, 'the Focus penalty was removed').toBe(
+      liveStance(makeFight({ stance: 'iai' })).focusPerStack,
+    );
+
+    const out = setStance(mastered, 'guard', 'test');
+    expect(combatOf(setStance(out, 'iai', 'test')).stance, 'walked back into IAI').toBe('guard');
   });
 
   it('never drop from a normal fight, and are capped', () => {

@@ -84,6 +84,7 @@ export function makeFight(options: FightOptions = {}): GameState {
     cardsPlayedThisTurn: 0,
     blockGainedThisTurn: 0,
     stanceChangesThisTurn: 0,
+    stancesLeftThisTurn: [],
     attacksThisTurn: 0,
     envMemory: {},
     skipNextTurn: false,

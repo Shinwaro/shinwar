@@ -310,6 +310,7 @@ a { color: var(--accent); }
       <a href="#encounters">Encounters</a>
       <a href="#masteries">Masteries</a>
       <a href="#statuses">Statuses</a>
+      <a href="#odds">Odds</a>
       <a href="#keywords">Keywords</a>
     </nav>
   </header>
@@ -373,6 +374,16 @@ a { color: var(--accent); }
     <h2 id="statuses">Statuses</h2>
     <p class="lede">Both multiplicative statuses are capped, and the cap is in the data beside the number it caps.</p>
     {{STATUSES}}
+
+    <h2 id="odds">What a screen actually offers</h2>
+    <p class="lede">
+      Every weight below is read straight out of <code>balance.ts</code> and normalised, so these
+      are the real chances rather than a transcription of them. Cards and relics are rolled
+      differently and the numbers account for it: a card screen weights every candidate
+      <em>card</em>, so a tier's share also depends on how many cards are written at it, while a
+      relic or implant screen rolls the <em>tier</em> first and then samples inside it.
+    </p>
+    {{ODDS}}
 
     <h2 id="keywords">Keywords</h2>
     <p class="lede">
